@@ -16,7 +16,12 @@ dependencies = [
 # Lifecycle separation: training and demo deps are isolated from serving.
 [dependency-groups]
 demo = [
+    "opencv-python-headless>=4.10",
     "streamlit>=1.38",
+    "ultralytics>=8.3",
+]
+test = [
+    "pytest>=8.3",
 ]
 training = [
     # Deferred (PoC): ultralytics (YOLO11-pose), torch, albumentations,
@@ -32,3 +37,6 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
