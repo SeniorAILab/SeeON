@@ -1,0 +1,16 @@
+{
+  "name": "fall-detector",
+  "version": "0.1.0",
+  "status": "placeholder",
+  "task": "fall-detection",
+  "created": "2026-06-07",
+  "framework": "none (PoC placeholder)",
+  "inputs": {
+    "type": "window",
+    "description": "list of per-frame feature vectors (e.g. pose keypoints)"
+  },
+  "outputs": {
+    "fall_probability": "float in [0, 1]"
+  },
+  "notes": "Replace with real weights (model.pt) + framework when trained. Weights are gitignored."
+}

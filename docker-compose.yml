@@ -1,0 +1,24 @@
+# PostgreSQL for dev/prod parity.
+# Prisma's provider is locked to postgresql; dev and prod differ only by DATABASE_URL.
+# Dev:  docker compose up -d db   (then backend reads .env.development)
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: eldercare-fall-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fall}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fall}
+      POSTGRES_DB: ${POSTGRES_DB:-fall_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fall} -d ${POSTGRES_DB:-fall_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
