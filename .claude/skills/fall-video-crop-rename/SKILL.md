@@ -1,13 +1,13 @@
 ---
 name: fall-video-crop-rename
-description: Batch-crop eldercare fall-CCTV recordings in assets/raw to the footage region and rename them by the on-screen capture date + location (시설명/호실), writing lossless copies to assets/processed/ while preserving raw. Use whenever the user wants to process, crop, clean up, trim chrome from, or rename CCTV/낙상 videos in assets/raw — including phone screen-recordings of monitoring apps (KakaoTalk-style) and raw DVR exports — even if they only say things like "영상 처리해줘", "영상 crop해줘", or "crop these videos".
+description: Batch-crop eldercare fall-CCTV recordings in ml/data/raw to the footage region and rename them by the on-screen capture date + location (시설명/호실), writing lossless copies to ml/data/processed/ while preserving raw. Use whenever the user wants to process, crop, clean up, trim chrome from, or rename CCTV/낙상 videos in ml/data/raw — including phone screen-recordings of monitoring apps (KakaoTalk-style) and raw DVR exports — even if they only say things like "영상 처리해줘", "영상 crop해줘", or "crop these videos".
 ---
 
 # fall-video-crop-rename
 
-Batch-process eldercare fall-CCTV videos in `assets/raw/`: spatially crop each recording
+Batch-process eldercare fall-CCTV videos in `ml/data/raw/`: spatially crop each recording
 down to **only the CCTV footage** (removing app/UI chrome), read the **on-screen capture
-date + location**, and write a renamed **lossless** copy to `assets/processed/`. Each
+date + location**, and write a renamed **lossless** copy to `ml/data/processed/`. Each
 video is converted by its own **subagent**. Raw files are never modified and never
 committed to git.
 
@@ -16,8 +16,8 @@ committed to git.
 2. **Crop only** — spatial crop, no scaling / no fps change / **no frame drops**. A crop
    forces a re-encode; VFR sources drop frames unless you pass `-fps_mode passthrough`.
 3. **Conversion via subagents** — one per video.
-4. **Raw is sacred** — never modify `assets/raw/`; raw/processed video must stay
-   git-ignored (verify `.gitignore` blocks `assets/` and `*.mp4`).
+4. **Raw is sacred** — never modify `ml/data/raw/`; raw/processed video must stay
+   git-ignored (verify `.gitignore` blocks `ml/data/` and `*.mp4`).
 
 → Full rationale, recipes, and md5 verification: **`references/ffmpeg-lossless.md`**.
 → Mistakes already made (read before starting): **`references/lessons-learned.md`**.
@@ -77,13 +77,13 @@ Observed example boxes (illustrative, re-confirm by vision — NOT hardcodes):
 → Exact boxes + montage technique: **`references/field-reading.md`**.
 
 ## Output contract
-- Folder `assets/processed/` (create if missing); `assets/raw/` untouched.
+- Folder `ml/data/processed/` (create if missing); `ml/data/raw/` untouched.
 - Filename `YYYY-MM-DD 시설명 호실.mp4` (e.g. `2026-05-15 베스트요양원1 206호.mp4`).
 - Missing field → `미상` (e.g. `2026-05-29 4층휴게실 미상.mp4`).
 - Collision → append ` (2)`, ` (3)`, … (orchestrator owns naming).
 
 ## Workflow
-1. `ffprobe` every file in `assets/raw/` → record `width×height`; group by resolution
+1. `ffprobe` every file in `ml/data/raw/` → record `width×height`; group by resolution
    signature so each layout's box is decided once and reused.
 2. (Optional but recommended for faint rooms) run `read_fields_montage.py` once to read
    date/시설명/호실 across all clips at once.
@@ -99,11 +99,11 @@ Observed example boxes (illustrative, re-confirm by vision — NOT hardcodes):
       footage remains (no chrome) and nothing was clipped. On mismatch, re-pick the box.
    e. Returns one-line JSON: `{in, out, box, date, 시설명, 호실, verify}`.
 4. The **orchestrator** assigns canonical names deterministically from the JSON
-   (applies `미상`, resolves collisions), then moves staging → `assets/processed/`.
+   (applies `미상`, resolves collisions), then moves staging → `ml/data/processed/`.
 5. Print a summary table: per video → output filename, box, 미상 count, collisions, verify.
 
 ## Success criteria
-- [ ] Every raw video → one file in `assets/processed/`; raw unchanged.
+- [ ] Every raw video → one file in `ml/data/processed/`; raw unchanged.
 - [ ] Cropped outputs contain **only** footage (no chrome); no-crop outputs are exact copies.
 - [ ] Every output passes `verify_lossless.sh` (md5 + frame parity).
 - [ ] Filenames follow `YYYY-MM-DD 시설명 호실.mp4`; unreadable → `미상`; collisions suffixed.
