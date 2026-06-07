@@ -1,0 +1,22 @@
+# Local Python/runtime environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# macOS/local editor noise
+.DS_Store
+
+# Downloaded local model weights and generated runtime artifacts
+yolo11n-pose.pt
+outputs/runs/
+
+# Agent/tooling state
+.omc/
+.omo/
+.omx/
+
+# Private/large video assets (kept local, not pushed)
+assets/
