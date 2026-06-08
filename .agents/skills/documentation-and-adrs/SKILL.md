@@ -89,6 +89,53 @@ PROPOSED → ACCEPTED → (SUPERSEDED or DEPRECATED)
 - **Don't delete old ADRs.** They capture historical context.
 - When a decision changes, write a new ADR that references and supersedes the old one.
 
+## Boundary: plan vs ADR
+
+Plans and ADRs answer different questions with different lifespans. Never conflate them.
+
+| | plan (`docs/exec-plan/`) | ADR (`docs/decisions/`) |
+|---|---|---|
+| Question | *How* to implement this specific work | *Why* this cross-cutting choice — and what alternatives were rejected |
+| Scope | One feature / task (work-scoped) | Cross-cutting — constrains all future work |
+| Lifespan | Archivable when work ends | Permanent — superseded only, never deleted |
+| Body | Immutable after finalize; scope change → new slug | Superseded by a new ADR that references the old one |
+| Author | omc-plan / omo / omx agents | documentation-and-adrs skill |
+| Location | `docs/exec-plan/active/{slug}/plan.md` → `archive/{slug}/` | `docs/decisions/ADR-NNN-*.md` |
+
+### Distill rule
+
+When a plan contains an expensive-to-reverse, cross-cutting choice (framework selection, data model,
+auth strategy, API shape, infrastructure), **distill that choice into a new ADR** before or at the
+time the plan is archived. The plan entry itself is not replaced — the ADR lives alongside it in
+`docs/decisions/`.
+
+Ask: "Would a future agent/engineer working on an unrelated feature need to know this decision?"
+If yes → write an ADR. If it only affects this feature's implementation details → leave it in the plan.
+
+### Do NOT write an ADR for
+
+- Implementation steps or file-level details (those belong in the plan)
+- Choices that will be revisited within this same work item
+- Trivial configuration values with no architectural consequence
+
+### exec-plan store layout (for reference)
+
+```
+docs/exec-plan/
+├── active/{slug}/    ← spec.md + plan.md while in progress
+└── archive/{slug}/   ← same folder after done / discarded / superseded
+```
+
+Lifecycle = folder position. Move the entire folder to archive when work ends.
+Add frontmatter line(s) before moving:
+- `status: done` or `status: discarded` — one line.
+- `status: superseded-by` plus `superseded-by: {new-slug}` — two lines when superseding.
+
+**Supersede timing:** When creating a superseding plan (plan-B), archive the superseded plan
+(plan-A) in the same action before beginning execution of plan-B.
+
+Plans stay in `docs/exec-plan/`; ADRs stay in `docs/decisions/`. Do not merge, move, or delete ADRs.
+
 ## Inline Documentation
 
 ### When to Comment
