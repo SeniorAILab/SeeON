@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+import numpy as np
+
+from demo.seam import BoundingBox, DetectionLabel, DetectionResult
+from demo.yolo_overlay import render_yolo_overlay
+
+# ---------------------------------------------------------------------------
+# Pose skeleton rendering
+# ---------------------------------------------------------------------------
+
+
+def test_draws_lower_body_pose_segments_when_keypoints_are_visible() -> None:
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    pose = _empty_pose()
+    pose[11] = (32, 44, 0.95)
+    pose[13] = (32, 62, 0.95)
+    pose[15] = (32, 80, 0.95)
+
+    result = DetectionResult(keypoints=(tuple(pose),))
+    overlay = render_yolo_overlay(frame=frame, result=result)
+
+    assert np.count_nonzero(overlay[62:80, 32]) > 0
+
+
+def test_draws_each_detected_person_pose() -> None:
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    first_pose = _empty_pose()
+    first_pose[5] = (20, 20, 0.95)
+    first_pose[7] = (20, 38, 0.95)
+    second_pose = _empty_pose()
+    second_pose[6] = (96, 20, 0.95)
+    second_pose[8] = (96, 38, 0.95)
+
+    result = DetectionResult(keypoints=(tuple(first_pose), tuple(second_pose)))
+    overlay = render_yolo_overlay(frame=frame, result=result)
+
+    assert np.count_nonzero(overlay[20:38, 20]) > 0
+    assert np.count_nonzero(overlay[20:38, 96]) > 0
+
+
+def test_draws_low_confidence_pose_segments_for_low_resolution_fall_frames() -> None:
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    pose = _empty_pose()
+    pose[11] = (32, 44, 0.22)
+    pose[13] = (32, 62, 0.22)
+
+    result = DetectionResult(keypoints=(tuple(pose),))
+    overlay = render_yolo_overlay(frame=frame, result=result)
+
+    assert np.count_nonzero(overlay[44:62, 32]) > 0
+
+
+# ---------------------------------------------------------------------------
+# Bounding-box rendering
+# ---------------------------------------------------------------------------
+
+
+def test_draws_detection_boxes_from_result() -> None:
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    result = _result_with_box(label="standing", is_fall=False)
+
+    overlay = render_yolo_overlay(frame=frame, result=result)
+
+    # The box border must paint pixels along its top edge (y == y1, x in [x1, x2]).
+    assert np.count_nonzero(overlay[12, 12:64]) > 0
+    assert not np.array_equal(overlay, frame)
+
+
+def test_fall_box_uses_distinct_color_from_normal_box() -> None:
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    fall = render_yolo_overlay(frame=frame, result=_result_with_box(label="fall", is_fall=True))
+    normal = render_yolo_overlay(
+        frame=frame, result=_result_with_box(label="standing", is_fall=False)
+    )
+
+    assert not np.array_equal(fall[12, 12:64], normal[12, 12:64])
+
+
+# ---------------------------------------------------------------------------
+# Live-path seam assertion
+# ---------------------------------------------------------------------------
+
+
+def test_app_imports_model_modules_and_seam() -> None:
+    """app.py must import from model_modules and seam so the seam is live."""
+    app_source = (Path(__file__).parent.parent / "demo" / "app.py").read_text()
+    tree = ast.parse(app_source)
+    imported_modules = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert any("model_modules" in m for m in imported_modules), (
+        "app.py must import from model_modules to route the live path through the seam"
+    )
+    assert any("seam" in m for m in imported_modules), (
+        "app.py must import from seam (DetectionResult/Frame)"
+    )
+
+
+def test_render_yolo_overlay_accepts_detection_result() -> None:
+    """render_yolo_overlay signature must accept DetectionResult (seam type)."""
+    import inspect
+
+    from demo.yolo_overlay import render_yolo_overlay as fn
+
+    sig = inspect.signature(fn)
+    assert "result" in sig.parameters, (
+        "render_yolo_overlay must have a 'result: DetectionResult' parameter"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _result_with_box(label: str, is_fall: bool) -> DetectionResult:
+    return DetectionResult(
+        boxes=(BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
+        labels=(DetectionLabel(text=label, confidence=0.9, is_fall=is_fall),),
+    )
+
+
+def _empty_pose() -> list[tuple[int, int, float]]:
+    return [(0, 0, 0.0)] * 17
