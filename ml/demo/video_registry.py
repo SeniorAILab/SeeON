@@ -10,6 +10,12 @@ DATA_DIR: Final = Path(__file__).resolve().parent.parent / "data"
 SUPPORTED_VIDEO_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {".mp4", ".mov", ".avi", ".mkv"}
 )
+# Some upstream models ship only a still sample image as their demo asset.
+# OpenCV reads these as single-frame clips, so we register them alongside videos.
+SUPPORTED_IMAGE_EXTENSIONS: Final[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png"})
+SUPPORTED_MEDIA_EXTENSIONS: Final[frozenset[str]] = (
+    SUPPORTED_VIDEO_EXTENSIONS | SUPPORTED_IMAGE_EXTENSIONS
+)
 
 
 class VideoSource(StrEnum):
@@ -30,15 +36,6 @@ class UploadedVideoFile(Protocol):
     name: str
 
     def getvalue(self) -> bytes: ...
-
-
-class UnsupportedVideoError(Exception):
-    def __init__(self, filename: str) -> None:
-        self.filename = filename
-        super().__init__(str(self))
-
-    def __str__(self) -> str:
-        return f"Unsupported video extension: {self.filename}"
 
 
 def list_registered_videos(
@@ -79,7 +76,7 @@ def _list_videos(directory: Path, source: VideoSource) -> list[RegisteredVideo]:
     paths = [
         path
         for path in sorted(directory.iterdir(), key=_video_sort_key)
-        if path.is_file() and path.suffix.casefold() in SUPPORTED_VIDEO_EXTENSIONS
+        if path.is_file() and path.suffix.casefold() in SUPPORTED_MEDIA_EXTENSIONS
     ]
     return [_registered_video(path=path, source=source) for path in paths]
 
@@ -102,7 +99,7 @@ def _safe_video_filename(filename: str) -> str:
     original = Path(filename).name
     suffix = Path(original).suffix.casefold()
     if suffix not in SUPPORTED_VIDEO_EXTENSIONS:
-        raise UnsupportedVideoError(filename=filename)
+        raise ValueError(f"Unsupported video extension: {filename}")
     stem = Path(original).stem.casefold()
     safe_stem = re.sub(r"[^a-z0-9가-힣._-]+", "-", stem).strip(".-_")
     if not safe_stem:

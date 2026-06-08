@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 try:
-    from demo.realtime import FallStatus
-    from demo.yolo_runtime import YoloFrameAnalysis
+    from demo.seam import DetectionResult
 except ModuleNotFoundError:
-    from realtime import FallStatus
-    from yolo_runtime import YoloFrameAnalysis
+    from seam import DetectionResult  # type: ignore[no-redef]
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,15 +17,13 @@ class CurrentPlaybackStatus:
 
 
 def current_playback_status(
-    analyses: Sequence[YoloFrameAnalysis],
+    result: DetectionResult,
     pose_count: int,
     time_sec: float,
 ) -> CurrentPlaybackStatus:
     pose_label = f"포즈 감지: {pose_count}명" if pose_count else "포즈 대기"
-    fall_analyses = [
-        analysis for analysis in analyses if analysis.status is FallStatus.FALL_DETECTED
-    ]
-    if not fall_analyses:
+    is_fall = any(label.is_fall for label in result.labels)
+    if not is_fall:
         return CurrentPlaybackStatus(
             label="정상",
             detail=f"{time_sec:.2f}s / 낙상 없음",
