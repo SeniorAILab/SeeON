@@ -12,18 +12,20 @@ from numpy.typing import NDArray
 
 try:
     import demo.pretrained as weights
+    from demo.model_modules import YoloDetectionModule, YoloPoseModule
     from demo.model_registry import ModelSpec
     from demo.playback_status import current_playback_status
+    from demo.seam import DetectionResult, Frame
     from demo.video_registry import DATA_DIR
     from demo.yolo_overlay import render_yolo_overlay
-    from demo.yolo_runtime import YoloFallRunner, YoloPoseRunner
 except ModuleNotFoundError:
-    import pretrained as weights
-    from model_registry import ModelSpec
-    from playback_status import current_playback_status
-    from video_registry import DATA_DIR
-    from yolo_overlay import render_yolo_overlay
-    from yolo_runtime import YoloFallRunner, YoloPoseRunner
+    import pretrained as weights  # type: ignore[no-redef]
+    from model_modules import YoloDetectionModule, YoloPoseModule  # type: ignore[no-redef]
+    from model_registry import ModelSpec  # type: ignore[no-redef]
+    from playback_status import current_playback_status  # type: ignore[no-redef]
+    from seam import DetectionResult, Frame  # type: ignore[no-redef]
+    from video_registry import DATA_DIR  # type: ignore[no-redef]
+    from yolo_overlay import render_yolo_overlay  # type: ignore[no-redef]
 
 ANNOTATED_VIDEO_DIR: Final = DATA_DIR / "annotated"
 OUTPUT_CODEC: Final = "avc1"
@@ -39,15 +41,6 @@ ProgressCallback = Callable[[float], None]
 class AnnotatedVideoResult:
     path: Path
     frames_written: int
-
-
-class VideoAnnotationError(Exception):
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        super().__init__(str(self))
-
-    def __str__(self) -> str:
-        return f"Could not create annotated video: {self.path}"
 
 
 def annotated_video_path(
@@ -93,13 +86,13 @@ def build_annotated_video(
         return AnnotatedVideoResult(path=target, frames_written=0)
 
     weights.materialize_pretrained_artifact(spec)
-    fall_runner = YoloFallRunner(spec=spec, threshold=threshold)
-    pose_runner = YoloPoseRunner()
+    detection_module = YoloDetectionModule(spec=spec, threshold=threshold)
+    pose_module = YoloPoseModule()
     return _write_annotated_video(
         source_path=source_path,
         target=target,
-        fall_runner=fall_runner,
-        pose_runner=pose_runner,
+        detection_module=detection_module,
+        pose_module=pose_module,
         frame_stride=max(frame_stride, 1),
         progress_callback=progress_callback,
     )
@@ -108,8 +101,8 @@ def build_annotated_video(
 def _write_annotated_video(
     source_path: Path,
     target: Path,
-    fall_runner: YoloFallRunner,
-    pose_runner: YoloPoseRunner,
+    detection_module: YoloDetectionModule,
+    pose_module: YoloPoseModule,
     frame_stride: int,
     progress_callback: ProgressCallback | None,
 ) -> AnnotatedVideoResult:
@@ -120,7 +113,7 @@ def _write_annotated_video(
         width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
         height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
         if width <= 0 or height <= 0:
-            raise VideoAnnotationError(path=source_path)
+            raise OSError(f"Could not create annotated video: {source_path}")
 
         temp_target = target.with_name(f"{target.stem}.part.mp4")
         writer = cv2.VideoWriter(
@@ -130,14 +123,14 @@ def _write_annotated_video(
             (width, height),
         )
         if not writer.isOpened():
-            raise VideoAnnotationError(path=target)
+            raise OSError(f"Could not create annotated video: {target}")
 
         try:
             frames_written = _write_sampled_frames(
                 capture=capture,
                 writer=writer,
-                fall_runner=fall_runner,
-                pose_runner=pose_runner,
+                detection_module=detection_module,
+                pose_module=pose_module,
                 frame_stride=frame_stride,
                 total_frames=frame_count,
                 progress_callback=progress_callback,
@@ -153,8 +146,8 @@ def _write_annotated_video(
 def _write_sampled_frames(
     capture,
     writer,
-    fall_runner: YoloFallRunner,
-    pose_runner: YoloPoseRunner,
+    detection_module: YoloDetectionModule,
+    pose_module: YoloPoseModule,
     frame_stride: int,
     total_frames: int,
     progress_callback: ProgressCallback | None,
@@ -169,16 +162,18 @@ def _write_sampled_frames(
         if raw_index % frame_stride == 0:
             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             time_sec = raw_index / max(float(capture.get(cv2.CAP_PROP_FPS) or 12.0), 1.0)
-            analysis = fall_runner.predict_frame(
-                frame=frame_rgb,
-                frame_index=frame_index,
-                time_sec=time_sec,
+            frame_obj = Frame(index=frame_index, time_sec=time_sec, image=frame_rgb)
+            det_result = detection_module.predict(frame_obj)
+            pose_result = pose_module.predict(frame_obj)
+            combined = DetectionResult(
+                boxes=det_result.boxes,
+                labels=det_result.labels,
+                keypoints=pose_result.keypoints,
             )
-            poses = pose_runner.predict_poses(frame_rgb)
-            overlay = render_yolo_overlay(frame=frame_rgb, analyses=(analysis,), poses=poses)
+            overlay = render_yolo_overlay(frame=frame_rgb, result=combined)
             status = current_playback_status(
-                analyses=(analysis,),
-                pose_count=_visible_pose_count(poses),
+                result=det_result,
+                pose_count=_visible_pose_count(pose_result.keypoints),
                 time_sec=time_sec,
             )
             _draw_status_text(frame=overlay, label="FALL" if status.is_fall else "NORMAL")
@@ -190,8 +185,8 @@ def _write_sampled_frames(
     return frame_index
 
 
-def _visible_pose_count(poses: tuple[tuple[tuple[int, int, float], ...], ...]) -> int:
-    return sum(1 for pose in poses if any(confidence >= 0.2 for _x, _y, confidence in pose))
+def _visible_pose_count(keypoints: tuple[tuple[tuple[int, int, float], ...], ...]) -> int:
+    return sum(1 for pose in keypoints if any(confidence >= 0.2 for _x, _y, confidence in pose))
 
 
 def _draw_status_text(frame: NDArray[np.uint8], label: str) -> None:

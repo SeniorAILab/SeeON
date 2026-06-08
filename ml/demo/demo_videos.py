@@ -35,6 +35,15 @@ FetchVideoBytes = Callable[[str], bytes]
 PROCESSED_DIR: Final = DATA_DIR / "processed"
 DEMO_VIDEOS: Final[tuple[ModelDemoVideo, ...]] = (
     ModelDemoVideo(
+        # Upstream HF repo ships only a still sample image (no demo video).
+        # OpenCV VideoCapture reads it as a single-frame clip, so it flows
+        # through the same playback pipeline as the video demos.
+        model_id="melihuzunoglu-human-fall-detection",
+        display_name="melihuzunoglu sample image",
+        filename="demo-melihuzunoglu-sample.jpg",
+        url="https://huggingface.co/melihuzunoglu/human-fall-detection/resolve/main/sample_image.jpg",
+    ),
+    ModelDemoVideo(
         model_id="tomotsugu-human-fall-detection",
         display_name="Tomotsugu output.mp4",
         filename="demo-tomotsugu-output.mp4",

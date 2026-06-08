@@ -4,12 +4,15 @@ import time
 from typing import Final
 
 import app_assets
+import demo_videos
 import pretrained as weights
 import streamlit as st
 import video_registry as videos
 from annotated_video import annotated_video_path, build_annotated_video
+from model_modules import YoloDetectionModule, YoloPoseModule
 from model_registry import ModelSpec, available_pretrained_specs
 from playback_status import CurrentPlaybackStatus, current_playback_status
+from seam import DetectionResult, Frame
 from video_playback import (
     clamp_seek_time,
     iter_playback_frames,
@@ -18,11 +21,9 @@ from video_playback import (
     read_video_playback_info,
 )
 from yolo_overlay import render_yolo_overlay
-from yolo_runtime import YoloFallRunner, YoloPoseRunner
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
 
-DEFAULT_FALL_THRESHOLD: Final = 0.15
 VISIBLE_POSE_CONFIDENCE: Final = 0.2
 PLAYBACK_FRAME_STRIDE: Final = 4
 PLAYBACK_DELAY_SEC: Final = 0.01
@@ -42,11 +43,7 @@ def main() -> None:
         st.warning("No processed videos found under ml/data/processed.")
         return
 
-    selected_video = st.selectbox(
-        "Video",
-        options=registered_videos,
-        format_func=lambda video: video.display_name,
-    )
+    # Model first: in-domain control means each model is reviewed on its own demo clip.
     model_specs = available_pretrained_specs()
     model_specs_by_id = {spec.model_id: spec for spec in model_specs}
     selected_spec_id = st.selectbox(
@@ -56,15 +53,58 @@ def main() -> None:
     )
     selected_spec = model_specs_by_id[selected_spec_id]
 
+    own_demo_names = _own_demo_filenames(selected_spec_id)
+    ordered_videos = sorted(
+        registered_videos,
+        key=lambda video: (video.path.name not in own_demo_names, video.display_name),
+    )
+    selected_video = st.selectbox(
+        "Video",
+        options=ordered_videos,
+        format_func=lambda video: (
+            f"⭐ {video.display_name}" if video.path.name in own_demo_names else video.display_name
+        ),
+        help="⭐ marks the upstream repo's own demo clip for the selected model (in-domain).",
+    )
+
+    conf_threshold = st.slider(
+        "Confidence threshold",
+        min_value=0.05,
+        max_value=0.9,
+        value=selected_spec.default_threshold,
+        step=0.05,
+        help="Boxes at or above this confidence are drawn. Lower it to inspect weak detections.",
+    )
+    show_pose = st.checkbox(
+        "Show pose skeleton overlay",
+        value=False,
+        help=(
+            "Pose uses a separate generic model and does NOT drive the fall decision. "
+            "Off by default so you see only the selected model's own detections."
+        ),
+    )
+
     _render_video_review(
         selected_video=selected_video,
         spec=selected_spec,
+        conf_threshold=conf_threshold,
+        show_pose=show_pose,
     )
+
+
+def _own_demo_filenames(model_id: str) -> set[str]:
+    return {
+        video.filename
+        for video in demo_videos.available_demo_videos()
+        if video.model_id == model_id
+    }
 
 
 def _render_video_review(
     selected_video: videos.RegisteredVideo,
     spec: ModelSpec,
+    conf_threshold: float,
+    show_pose: bool,
 ) -> None:
     st.subheader("Playback")
     st.caption(str(selected_video.path))
@@ -72,7 +112,7 @@ def _render_video_review(
     native_video_path = annotated_video_path(
         source_path=selected_video.path,
         spec=spec,
-        threshold=DEFAULT_FALL_THRESHOLD,
+        threshold=conf_threshold,
         frame_stride=PLAYBACK_FRAME_STRIDE,
     )
     if not native_video_path.exists():
@@ -82,7 +122,7 @@ def _render_video_review(
             result = build_annotated_video(
                 source_path=selected_video.path,
                 spec=spec,
-                threshold=DEFAULT_FALL_THRESHOLD,
+                threshold=conf_threshold,
                 frame_stride=PLAYBACK_FRAME_STRIDE,
                 progress_callback=progress_bar.progress,
             )
@@ -127,12 +167,15 @@ def _render_video_review(
             frame_slot.image(preview_frame, channels="RGB", width="stretch")
         _render_current_status(
             status_slot=status_slot,
-            status=current_playback_status(analyses=(), pose_count=0, time_sec=seek_sec),
+            status=current_playback_status(
+                result=DetectionResult(), pose_count=0, time_sec=seek_sec
+            ),
+            result=DetectionResult(),
         )
         return
 
-    runner = _load_fall_runner(spec=spec)
-    pose_runner = _load_pose_runner()
+    detection_module = _load_detection_module(spec=spec, threshold=conf_threshold)
+    pose_module = _load_pose_module() if show_pose else None
     alerted = False
     decoded_frame = False
     for frame_index, time_sec, frame in iter_playback_frames(
@@ -141,17 +184,25 @@ def _render_video_review(
         frame_stride=PLAYBACK_FRAME_STRIDE,
     ):
         decoded_frame = True
-        analyses = (runner.predict_frame(frame=frame, frame_index=frame_index, time_sec=time_sec),)
-        poses = () if pose_runner is None else pose_runner.predict_poses(frame)
-        pose_count = _visible_pose_count(poses)
+        frame_obj = Frame(index=frame_index, time_sec=time_sec, image=frame)
+        det_result = detection_module.predict(frame_obj)
+        pose_result = (
+            pose_module.predict(frame_obj) if pose_module is not None else DetectionResult()
+        )
+        combined = DetectionResult(
+            boxes=det_result.boxes,
+            labels=det_result.labels,
+            keypoints=pose_result.keypoints,
+        )
+        pose_count = _visible_pose_count(pose_result.keypoints)
         current_status = current_playback_status(
-            analyses=analyses,
+            result=det_result,
             pose_count=pose_count,
             time_sec=time_sec,
         )
-        overlay = render_yolo_overlay(frame=frame, analyses=analyses, poses=poses)
+        overlay = render_yolo_overlay(frame=frame, result=combined)
         frame_slot.image(overlay, channels="RGB", width="stretch")
-        _render_current_status(status_slot=status_slot, status=current_status)
+        _render_current_status(status_slot=status_slot, status=current_status, result=det_result)
         if current_status.is_fall:
             if not alerted:
                 st.toast(current_status.detail)
@@ -210,28 +261,30 @@ def _seek_state_key(selected_video: videos.RegisteredVideo) -> str:
     return f"seek_sec:{selected_video.video_id}"
 
 
-def _load_fall_runner(spec: ModelSpec) -> YoloFallRunner:
+def _load_detection_module(spec: ModelSpec, threshold: float) -> YoloDetectionModule:
     weights.materialize_pretrained_artifact(spec)
-    return YoloFallRunner(spec=spec, threshold=DEFAULT_FALL_THRESHOLD)
+    return YoloDetectionModule(spec=spec, threshold=threshold)
 
 
-def _load_pose_runner() -> YoloPoseRunner | None:
+def _load_pose_module() -> YoloPoseModule | None:
     try:
-        return YoloPoseRunner()
+        return YoloPoseModule()
     except (ImportError, OSError, RuntimeError) as error:
         st.warning(f"Pose model unavailable: {error}")
         return None
 
 
-def _visible_pose_count(poses: tuple[tuple[tuple[int, int, float], ...], ...]) -> int:
+def _visible_pose_count(keypoints: tuple[tuple[tuple[int, int, float], ...], ...]) -> int:
     return sum(
         1
-        for pose in poses
+        for pose in keypoints
         if any(confidence >= VISIBLE_POSE_CONFIDENCE for _x, _y, confidence in pose)
     )
 
 
-def _render_current_status(status_slot, status: CurrentPlaybackStatus) -> None:
+def _render_current_status(
+    status_slot, status: CurrentPlaybackStatus, result: DetectionResult
+) -> None:
     with status_slot.container():
         st.metric("현재 상태", status.label)
         st.caption(status.pose_label)
@@ -239,6 +292,17 @@ def _render_current_status(status_slot, status: CurrentPlaybackStatus) -> None:
             st.error(status.detail)
         else:
             st.success(status.detail)
+        _render_native_detections(result)
+
+
+def _render_native_detections(result: DetectionResult) -> None:
+    if not result.labels:
+        st.caption("탐지 클래스 없음")
+        return
+    st.caption("모델 native 출력:")
+    for lbl in sorted(result.labels, key=lambda lbl: lbl.confidence, reverse=True):
+        marker = "🔴" if lbl.is_fall else "🟢"
+        st.write(f"{marker} {lbl.text} — {lbl.confidence:.0%}")
 
 
 if __name__ == "__main__":

@@ -10,14 +10,18 @@ from demo.demo_videos import (
 )
 
 
-def test_exposes_model_demo_videos_for_repos_with_video_assets() -> None:
+def test_exposes_model_demo_videos_for_repos_with_demo_assets() -> None:
     videos = available_demo_videos()
 
     assert {video.model_id for video in videos} == {
+        "melihuzunoglu-human-fall-detection",
         "tomotsugu-human-fall-detection",
         "syed-yolo-fall-detection",
     }
-    assert all(video.url.startswith("https://raw.githubusercontent.com/") for video in videos)
+    assert all(
+        video.url.startswith(("https://raw.githubusercontent.com/", "https://huggingface.co/"))
+        for video in videos
+    )
 
 
 def test_materializes_model_demo_video_into_processed_folder(tmp_path: Path) -> None:

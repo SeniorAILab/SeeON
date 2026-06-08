@@ -10,14 +10,12 @@ from numpy.typing import NDArray
 try:
     from demo.model_registry import ModelSpec
     from demo.pretrained import artifact_for_spec
-    from demo.realtime import FallStatus
 except ModuleNotFoundError:
     from model_registry import ModelSpec
     from pretrained import artifact_for_spec
-    from realtime import FallStatus
 
-PoseKeypoints: TypeAlias = tuple[tuple[int, int, float], ...]
-PoseDetections: TypeAlias = tuple[PoseKeypoints, ...]
+
+PoseDetections: TypeAlias = tuple[tuple[tuple[int, int, float], ...], ...]
 POSE_MODEL_CONFIDENCE: Final = 0.05
 
 
@@ -39,7 +37,6 @@ class YoloFrameAnalysis:
     frame_index: int
     time_sec: float
     detections: tuple[DetectionBox, ...]
-    status: FallStatus
     peak_confidence: float
     fall_label: str | None
 
@@ -66,13 +63,11 @@ class YoloFallRunner:
         fall_boxes = [box for box in boxes if box.is_fall]
         peak_confidence = max((box.confidence for box in fall_boxes), default=0.0)
         fall_label = max(fall_boxes, key=lambda box: box.confidence).label if fall_boxes else None
-        status = FallStatus.FALL_DETECTED if fall_boxes else FallStatus.WATCHING
         return YoloFrameAnalysis(
             model_id=self.spec.model_id,
             frame_index=frame_index,
             time_sec=round(time_sec, 3),
             detections=tuple(boxes),
-            status=status,
             peak_confidence=round(peak_confidence, 4),
             fall_label=fall_label,
         )
@@ -81,35 +76,58 @@ class YoloFallRunner:
 class YoloPoseRunner:
     def __init__(
         self,
-        model_path: str = "yolo11n-pose.pt",
+        model_path: str = "yolo26n-pose.pt",
         confidence: float = POSE_MODEL_CONFIDENCE,
     ) -> None:
         self._model = _load_yolo_model(Path(model_path))
         self._confidence = confidence
 
-    def predict_poses(self, frame: NDArray) -> PoseDetections:
-        results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
-        keypoints = getattr(results[0], "keypoints", None)
-        if keypoints is None or keypoints.xy is None:
-            return ()
-        xy_values = keypoints.xy.cpu().numpy()
-        conf_values = None if keypoints.conf is None else keypoints.conf.cpu().numpy()
-        if len(xy_values) == 0:
-            return ()
-        poses: list[PoseKeypoints] = []
-        for person_index, person_points in enumerate(xy_values):
-            points: list[tuple[int, int, float]] = []
-            for point_index, point in enumerate(person_points):
-                confidence = (
-                    1.0 if conf_values is None else float(conf_values[person_index][point_index])
-                )
-                points.append((int(point[0]), int(point[1]), confidence))
-            poses.append(tuple(points))
-        return tuple(poses)
+    def predict_full(
+        self, frame: NDArray
+    ) -> tuple[PoseDetections, tuple[tuple[int, int, int, int, float], ...]]:
+        """Return (pose_detections, person_boxes) where each box is (x1,y1,x2,y2,conf).
 
-    def predict_keypoints(self, frame: NDArray) -> PoseKeypoints:
-        poses = self.predict_poses(frame)
-        return poses[0] if poses else ()
+        Runs the model once and extracts both keypoints and bounding boxes so
+        callers can populate a full DetectionResult without a second inference.
+        """
+        results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
+        r = results[0]
+
+        # --- keypoints ---
+        kp_obj = getattr(r, "keypoints", None)
+        if kp_obj is None or kp_obj.xy is None:
+            poses: PoseDetections = ()
+        else:
+            xy_values = kp_obj.xy.cpu().numpy()
+            conf_values = None if kp_obj.conf is None else kp_obj.conf.cpu().numpy()
+            if len(xy_values) == 0:
+                poses = ()
+            else:
+                pose_list: list[tuple[tuple[int, int, float], ...]] = []
+                for person_index, person_points in enumerate(xy_values):
+                    points: list[tuple[int, int, float]] = []
+                    for point_index, point in enumerate(person_points):
+                        confidence = (
+                            1.0
+                            if conf_values is None
+                            else float(conf_values[person_index][point_index])
+                        )
+                        points.append((int(point[0]), int(point[1]), confidence))
+                    pose_list.append(tuple(points))
+                poses = tuple(pose_list)
+
+        # --- person bounding boxes ---
+        if r.boxes is None or len(r.boxes) == 0:
+            raw_boxes: tuple[tuple[int, int, int, int, float], ...] = ()
+        else:
+            xyxy = r.boxes.xyxy.cpu().numpy()
+            confs = r.boxes.conf.cpu().numpy()
+            raw_boxes = tuple(
+                (int(c[0]), int(c[1]), int(c[2]), int(c[3]), float(conf))
+                for c, conf in zip(xyxy, confs)
+            )
+
+        return poses, raw_boxes
 
 
 def _load_yolo_model(weight_path: Path | str):

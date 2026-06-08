@@ -24,7 +24,6 @@ class ArtifactMetadata(TypedDict):
     weight_url: str
     weight_path: str
     fall_labels: list[str]
-    license_note: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,16 +41,6 @@ class NonPretrainedModelError(Exception):
 
     def __str__(self) -> str:
         return f"Model has no pretrained artifact definition: {self.model_id}"
-
-
-class ArtifactDownloadError(Exception):
-    def __init__(self, model_id: str, url: str) -> None:
-        self.model_id = model_id
-        self.url = url
-        super().__init__(str(self))
-
-    def __str__(self) -> str:
-        return f"Could not download pretrained artifact for {self.model_id}: {self.url}"
 
 
 ArtifactFetcher = Callable[[str], bytes]
@@ -91,7 +80,9 @@ def materialize_pretrained_artifact(
         try:
             artifact.weight_path.write_bytes(fetch(spec.weight_url))
         except (HTTPError, URLError) as error:
-            raise ArtifactDownloadError(model_id=spec.model_id, url=spec.weight_url) from error
+            raise OSError(
+                f"Could not download pretrained artifact for {spec.model_id}: {spec.weight_url}"
+            ) from error
     metadata = _metadata_for_spec(spec=spec, artifact=artifact)
     artifact.metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2),
@@ -116,5 +107,4 @@ def _metadata_for_spec(spec: ModelSpec, artifact: PretrainedArtifact) -> Artifac
         "weight_url": spec.weight_url,
         "weight_path": str(artifact.weight_path),
         "fall_labels": list(spec.fall_labels),
-        "license_note": "Review upstream model license before product use.",
     }
