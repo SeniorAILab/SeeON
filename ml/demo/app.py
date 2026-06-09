@@ -9,24 +9,38 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import time  # noqa: E402
 from typing import Final  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
-from demo.annotated_video import annotated_video_path, build_annotated_video  # noqa: E402
-from demo.classifiers import CLASSIFIER_REGISTRY, ClassifierParams, ClassifierSpec  # noqa: E402
-from demo.model_modules import POSE_MODEL_SIZES  # noqa: E402
+from demo.classifier_module import FallClassifierModule  # noqa: E402
+from demo.classifiers import (  # noqa: E402
+    CLASSIFIER_REGISTRY,
+    ClassifierParams,
+    ClassifierSpec,
+    build_classifier,
+)
+from demo.live_view import iter_live_frames  # noqa: E402
+from demo.model_modules import POSE_MODEL_SIZES, YoloPoseModule  # noqa: E402
+from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
+from demo.seam import ModelModule, VideoFileSource  # noqa: E402
+from demo.video_playback import read_video_playback_info  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
 
 PLAYBACK_FRAME_STRIDE: Final = 4
+PLAYING_KEY: Final = "live_playing"
 
 
 def main() -> None:
     st.title("Fall Detector Demo")
-    st.caption("Local ML demo only. This is not a clinical prediction or backend alert flow.")
+    st.caption(
+        "Local ML demo only — real-time per-frame live inference (ADR-010). "
+        "This is not a clinical prediction or backend alert flow."
+    )
 
     app_assets.handle_upload()
     registered_videos = videos.list_registered_videos(
@@ -68,19 +82,48 @@ def main() -> None:
         sustained_down_sec=float(sustained),
     )
 
-    _render_native_player(
+    _render_live_viewer(
         selected_video=selected_video,
         classifier_key=classifier_key,
         classifier_params=classifier_params,
     )
 
 
-def _render_native_player(
-    selected_video: videos.RegisteredVideo,
-    classifier_key: str | None = None,
-    classifier_params: ClassifierParams | None = None,
+def _build_model(
+    size: str,
+    classifier_key: str | None,
+    classifier_params: ClassifierParams,
+) -> ModelModule:
+    """Compose the per-playback model: pose alone, or pose + fall classifier.
+
+    A fresh model (hence a fresh classifier with cleared state) is built on every
+    재생 so replays never inherit a prior run's fall timer.
+    """
+    pose = YoloPoseModule(size=size, confidence=classifier_params.confidence)
+    if classifier_key is None:
+        return pose
+    classifier = build_classifier(classifier_key, classifier_params)
+    return FallClassifierModule(pose_module=pose, classifier=classifier)
+
+
+def _render_status(
+    placeholder: st.delta_generator.DeltaGenerator,
+    status: CurrentPlaybackStatus,
+    confidence: float,
 ) -> None:
-    st.subheader("Playback")
+    body = f"**{status.label}** · {status.detail} · conf {confidence:.0%} · {status.pose_label}"
+    if status.is_fall:
+        placeholder.error(f"🔴 {body}")
+    else:
+        placeholder.success(f"🟢 {body}")
+
+
+def _render_live_viewer(
+    selected_video: videos.RegisteredVideo,
+    classifier_key: str | None,
+    classifier_params: ClassifierParams,
+) -> None:
+    st.subheader("Live Playback")
     st.caption(str(selected_video.path))
 
     size_col, boxes_col, pose_col = st.columns([2, 1, 1])
@@ -88,34 +131,45 @@ def _render_native_player(
     show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
     show_pose = pose_col.checkbox("Pose skeleton", value=True)
 
-    native_video_path = annotated_video_path(
-        source_path=selected_video.path,
-        size=size,
-        show_boxes=show_boxes,
-        show_pose=show_pose,
-        frame_stride=PLAYBACK_FRAME_STRIDE,
-        classifier_key=classifier_key,
-        classifier_params=classifier_params,
-    )
-    if not native_video_path.exists():
-        if st.button("네이티브 플레이어 생성", use_container_width=True):
-            progress_bar = st.progress(0.0)
-            result = build_annotated_video(
-                source_path=selected_video.path,
-                size=size,
-                show_boxes=show_boxes,
-                show_pose=show_pose,
-                frame_stride=PLAYBACK_FRAME_STRIDE,
-                progress_callback=progress_bar.progress,
-                classifier_key=classifier_key,
-                classifier_params=classifier_params,
-            )
-            progress_bar.progress(1.0)
-            native_video_path = result.path
-            st.success(f"Native player ready: {result.path.name}")
+    play_col, stop_col = st.columns(2)
+    if play_col.button("재생", use_container_width=True, type="primary"):
+        st.session_state[PLAYING_KEY] = True
+    if stop_col.button("정지", use_container_width=True):
+        st.session_state[PLAYING_KEY] = False
 
-    if native_video_path.exists():
-        st.video(str(native_video_path))
+    status_ph = st.empty()
+    frame_ph = st.empty()
+
+    if not st.session_state.get(PLAYING_KEY):
+        status_ph.info("▶︎ 재생을 눌러 실시간 추론을 시작하세요.")
+        return
+
+    # Streamlit is single-threaded: the render loop below blocks the script run,
+    # so 정지 takes effect at the start of the next rerun rather than mid-clip.
+    # The loop still paints each frame into the placeholders the instant it is
+    # processed — that incremental render IS the live view (ADR-010). Throughput
+    # is throttled by PLAYBACK_FRAME_STRIDE and paced toward the clip's real-time
+    # fps below.
+    model = _build_model(size, classifier_key, classifier_params)
+    source = VideoFileSource(selected_video.path, frame_stride=PLAYBACK_FRAME_STRIDE)
+    info = read_video_playback_info(selected_video.path)
+    frame_interval = PLAYBACK_FRAME_STRIDE / max(info.fps, 1.0)
+
+    target = time.perf_counter()
+    rendered = 0
+    for overlay, status, confidence in iter_live_frames(
+        source, model, show_boxes=show_boxes, show_pose=show_pose
+    ):
+        frame_ph.image(overlay, channels="RGB", use_container_width=True)
+        _render_status(status_ph, status, confidence)
+        rendered += 1
+        target += frame_interval
+        delay = target - time.perf_counter()
+        if delay > 0:
+            time.sleep(delay)
+
+    st.session_state[PLAYING_KEY] = False
+    status_ph.info(f"재생 완료 — {rendered} 프레임 처리됨. 다시 재생하려면 ▶︎ 재생.")
 
 
 if __name__ == "__main__":
