@@ -6,3 +6,15 @@ plan_mode_reasoning_effort = "xhigh"
 command = "notebooklm-mcp"
 
 # Project conventions: follow ./AGENTS.md (single source of truth).
+
+[hooks]
+# pre_tool_use fires before each shell command tool execution.
+#
+# LIMITATION: Codex hooks are shell-scoped only — they intercept shell/exec tool calls
+# but cannot see file-edit tool calls (write/patch operations).  File-edit protection
+# on protected branches is covered by .githooks/pre-commit (set up via
+# scripts/git-guard/setup-hooks.sh), which fires unconditionally at `git commit` time
+# regardless of which agent authored the change.
+#
+# Both layers call the SAME scripts/git-guard/ scripts (single source of truth — D6).
+pre_tool_use = "sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/assert-not-main.sh\""
