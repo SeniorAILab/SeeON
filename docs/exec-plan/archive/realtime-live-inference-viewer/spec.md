@@ -1,7 +1,7 @@
 ---
 slug: realtime-live-inference-viewer
 issue: 39
-status: in-progress
+status: done
 author: gobeumsu
 ---
 
