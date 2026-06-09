@@ -7,13 +7,8 @@ from typing import Final, TypeAlias
 
 from numpy.typing import NDArray
 
-try:
-    from demo.model_registry import ModelSpec
-    from demo.pretrained import artifact_for_spec
-except ModuleNotFoundError:
-    from model_registry import ModelSpec
-    from pretrained import artifact_for_spec
-
+from demo.model_registry import ModelSpec
+from demo.pretrained import artifact_for_spec
 
 PoseDetections: TypeAlias = tuple[tuple[tuple[int, int, float], ...], ...]
 POSE_MODEL_CONFIDENCE: Final = 0.05

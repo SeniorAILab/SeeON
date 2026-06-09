@@ -1,26 +1,38 @@
 from __future__ import annotations
 
-import time
-from typing import Final
+# Bootstrap: put the ml/ project root on sys.path so `streamlit run demo/app.py`
+# (which only adds ml/demo/ to the path) resolves the same package-qualified
+# imports — `demo.*` / `util.*` — that pytest uses via pythonpath=["."]. This is
+# the single import contract; demo modules no longer carry try/except shims.
+import sys
+from pathlib import Path
 
-import app_assets
-import demo_videos
-import pretrained as weights
-import streamlit as st
-import video_registry as videos
-from annotated_video import annotated_video_path, build_annotated_video
-from model_modules import YoloDetectionModule, YoloPoseModule
-from model_registry import ModelSpec, available_pretrained_specs
-from playback_status import CurrentPlaybackStatus, current_playback_status
-from seam import DetectionResult, Frame
-from video_playback import (
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import time  # noqa: E402
+from typing import Final  # noqa: E402
+
+import streamlit as st  # noqa: E402
+
+from demo import (
+    app_assets,  # noqa: E402
+    demo_videos,  # noqa: E402
+)
+from demo import pretrained as weights  # noqa: E402
+from demo import video_registry as videos  # noqa: E402
+from demo.annotated_video import annotated_video_path, build_annotated_video  # noqa: E402
+from demo.model_modules import YoloDetectionModule, YoloPoseModule  # noqa: E402
+from demo.model_registry import ModelSpec, available_pretrained_specs  # noqa: E402
+from demo.playback_status import CurrentPlaybackStatus, current_playback_status  # noqa: E402
+from demo.seam import DetectionResult, Frame  # noqa: E402
+from demo.video_playback import (  # noqa: E402
     clamp_seek_time,
     iter_playback_frames,
     jump_seek_time,
     read_frame_at_time,
     read_video_playback_info,
 )
-from yolo_overlay import render_yolo_overlay
+from demo.yolo_overlay import render_yolo_overlay  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
 

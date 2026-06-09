@@ -8,11 +8,7 @@ from typing import Final, TypedDict
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-try:
-    from demo.model_registry import ModelSpec
-except ModuleNotFoundError:
-    from model_registry import ModelSpec
-
+from demo.model_registry import ModelSpec
 
 ARTIFACTS_ROOT: Final = Path(__file__).resolve().parents[1] / "artifacts" / "pretrained"
 

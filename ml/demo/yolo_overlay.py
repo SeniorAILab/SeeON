@@ -6,10 +6,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-try:
-    from demo.seam import BoundingBox, DetectionLabel, DetectionResult
-except ModuleNotFoundError:
-    from seam import BoundingBox, DetectionLabel, DetectionResult  # type: ignore[no-redef]
+from demo.seam import BoundingBox, DetectionLabel, DetectionResult
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)

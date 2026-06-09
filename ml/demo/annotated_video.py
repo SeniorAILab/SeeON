@@ -10,22 +10,13 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-try:
-    import demo.pretrained as weights
-    from demo.model_modules import YoloDetectionModule, YoloPoseModule
-    from demo.model_registry import ModelSpec
-    from demo.playback_status import current_playback_status
-    from demo.seam import DetectionResult, Frame
-    from demo.video_registry import DATA_DIR
-    from demo.yolo_overlay import render_yolo_overlay
-except ModuleNotFoundError:
-    import pretrained as weights  # type: ignore[no-redef]
-    from model_modules import YoloDetectionModule, YoloPoseModule  # type: ignore[no-redef]
-    from model_registry import ModelSpec  # type: ignore[no-redef]
-    from playback_status import current_playback_status  # type: ignore[no-redef]
-    from seam import DetectionResult, Frame  # type: ignore[no-redef]
-    from video_registry import DATA_DIR  # type: ignore[no-redef]
-    from yolo_overlay import render_yolo_overlay  # type: ignore[no-redef]
+import demo.pretrained as weights
+from demo.model_modules import YoloDetectionModule, YoloPoseModule
+from demo.model_registry import ModelSpec
+from demo.playback_status import current_playback_status
+from demo.seam import DetectionResult, Frame
+from demo.video_registry import DATA_DIR
+from demo.yolo_overlay import render_yolo_overlay
 
 ANNOTATED_VIDEO_DIR: Final = DATA_DIR / "annotated"
 OUTPUT_CODEC: Final = "avc1"

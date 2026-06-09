@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-try:
-    from demo.model_registry import ModelSpec
-    from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
-    from demo.yolo_runtime import YoloFallRunner, YoloPoseRunner
-except ModuleNotFoundError:
-    from model_registry import ModelSpec
-    from seam import BoundingBox, DetectionLabel, DetectionResult, Frame
-    from yolo_runtime import YoloFallRunner, YoloPoseRunner
+from demo.model_registry import ModelSpec
+from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
+from demo.yolo_runtime import YoloFallRunner, YoloPoseRunner
 
 
 class YoloDetectionModule:

@@ -7,10 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-try:
-    from demo.video_registry import DATA_DIR
-except ModuleNotFoundError:
-    from video_registry import DATA_DIR
+from demo.video_registry import DATA_DIR
 
 
 @dataclass(frozen=True, slots=True)

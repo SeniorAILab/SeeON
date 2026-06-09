@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import demo_videos
 import streamlit as st
-import video_registry as videos
+
+from demo import demo_videos
+from demo import video_registry as videos
 
 
 def handle_upload() -> None:
