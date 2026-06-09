@@ -146,29 +146,33 @@ refactor/<short-description>  → refactor/auth-module
 
 ## Working with Worktrees
 
-For parallel AI agent work, use git worktrees to run multiple branches simultaneously:
+This project uses issue-driven worktrees via `git wt`. Do **not** hand-roll
+`git worktree add` or branch directly from `main`.
+
+Full convention and teardown rules: `docs/rules/worktree-workflow.md`.
 
 ```bash
-# Create a worktree for a feature branch
-git worktree add ../project-feature-a feature/task-creation
-git worktree add ../project-feature-b feature/user-settings
+# Start work on a GitHub issue — creates branch + worktree automatically
+git wt <issue#>          # e.g. git wt 17  →  feat/17-fall-webhook
 
-# Each worktree is a separate directory with its own branch
-# Agents can work in parallel without interfering
-ls ../
-  project/              ← main branch
-  project-feature-a/    ← task-creation branch
-  project-feature-b/    ← user-settings branch
+# List active worktrees
+git wt ls
 
-# When done, merge and clean up
-git worktree remove ../project-feature-a
+# Remove a worktree after merging (never use rm -rf)
+git wt rm <issue#>       # calls git worktree remove + git worktree prune
 ```
 
+Branch naming is automatic: `<type>/<issue#>-<slug>` where `<type>` comes from
+the issue's `type:` label (feat/fix/chore/docs/refactor/test; falls back to feat).
+Worktrees land outside the repo root to keep `git status` clean.
+
+**Teardown discipline:** always use `git wt rm`, never `rm -rf`. Manual deletion
+leaves phantom `.git/worktrees/` entries that block `git branch -d` until pruned.
+
 Benefits:
-- Multiple agents can work on different features simultaneously
-- No branch switching needed (each directory has its own branch)
-- If one experiment fails, delete the worktree — nothing is lost
-- Changes are isolated until explicitly merged
+- One issue → one branch → one worktree: no accidental cross-contamination
+- Consistent naming: every actor (human, Claude, Codex) follows the same convention
+- Safe teardown enforced by the script (`git worktree prune` called automatically)
 
 ## The Save Point Pattern
 
