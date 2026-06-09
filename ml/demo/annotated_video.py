@@ -8,14 +8,16 @@ from typing import Final
 
 import cv2
 
+from demo.classifier_module import FallClassifierModule
+from demo.classifiers import ClassifierParams, available_classifier_keys, build_classifier
 from demo.model_modules import YoloPoseModule
-from demo.seam import Frame
+from demo.seam import Frame, ModelModule
 from demo.video_registry import DATA_DIR
 from demo.yolo_overlay import render_yolo_overlay
 
 ANNOTATED_VIDEO_DIR: Final = DATA_DIR / "annotated"
 OUTPUT_CODEC: Final = "avc1"
-OUTPUT_ENCODING_VERSION: Final = "avc1-v1"
+OUTPUT_ENCODING_VERSION: Final = "avc1-v2"
 
 ProgressCallback = Callable[[float], None]
 
@@ -33,8 +35,17 @@ def annotated_video_path(
     show_pose: bool,
     frame_stride: int,
     output_dir: Path = ANNOTATED_VIDEO_DIR,
+    classifier_key: str | None = None,
+    classifier_params: ClassifierParams | None = None,
 ) -> Path:
     stat = source_path.stat()
+    p = classifier_params or ClassifierParams()
+    params_repr = (
+        f"{classifier_key}|{p.confidence}|{p.window}|{p.stride}"
+        f"|{p.sustained_down_sec}|{p.aspect_ratio_min}|{p.vertical_center_min}"
+        if classifier_key is not None
+        else ""
+    )
     cache_basis = "|".join(
         (
             str(source_path.resolve()),
@@ -45,6 +56,7 @@ def annotated_video_path(
             str(show_pose),
             str(frame_stride),
             OUTPUT_ENCODING_VERSION,
+            params_repr,
         )
     )
     digest = hashlib.sha256(cache_basis.encode("utf-8")).hexdigest()[:16]
@@ -59,6 +71,8 @@ def build_annotated_video(
     frame_stride: int,
     progress_callback: ProgressCallback | None = None,
     output_dir: Path = ANNOTATED_VIDEO_DIR,
+    classifier_key: str | None = None,
+    classifier_params: ClassifierParams | None = None,
 ) -> AnnotatedVideoResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     target = annotated_video_path(
@@ -68,15 +82,25 @@ def build_annotated_video(
         show_pose=show_pose,
         frame_stride=frame_stride,
         output_dir=output_dir,
+        classifier_key=classifier_key,
+        classifier_params=classifier_params,
     )
     if target.exists():
         return AnnotatedVideoResult(path=target, frames_written=0)
 
     pose_module = YoloPoseModule(size=size)
+    if classifier_key is not None and classifier_key in available_classifier_keys():
+        params = classifier_params or ClassifierParams()
+        module: ModelModule = FallClassifierModule(
+            pose_module=pose_module,
+            classifier=build_classifier(classifier_key, params),
+        )
+    else:
+        module = pose_module
     return _write_annotated_video(
         source_path=source_path,
         target=target,
-        pose_module=pose_module,
+        pose_module=module,
         show_boxes=show_boxes,
         show_pose=show_pose,
         frame_stride=max(frame_stride, 1),
@@ -87,7 +111,7 @@ def build_annotated_video(
 def _write_annotated_video(
     source_path: Path,
     target: Path,
-    pose_module: YoloPoseModule,
+    pose_module: ModelModule,
     show_boxes: bool,
     show_pose: bool,
     frame_stride: int,
@@ -134,7 +158,7 @@ def _write_annotated_video(
 def _write_sampled_frames(
     capture,
     writer,
-    pose_module: YoloPoseModule,
+    pose_module: ModelModule,
     show_boxes: bool,
     show_pose: bool,
     frame_stride: int,
