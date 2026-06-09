@@ -16,6 +16,7 @@ import streamlit as st  # noqa: E402
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
 from demo.annotated_video import annotated_video_path, build_annotated_video  # noqa: E402
+from demo.model_modules import POSE_MODEL_SIZES  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
 
@@ -45,8 +46,17 @@ def main() -> None:
 def _render_native_player(selected_video: videos.RegisteredVideo) -> None:
     st.subheader("Playback")
     st.caption(str(selected_video.path))
+
+    size_col, boxes_col, pose_col = st.columns([2, 1, 1])
+    size = size_col.selectbox("YOLO26-pose size", options=POSE_MODEL_SIZES)
+    show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
+    show_pose = pose_col.checkbox("Pose skeleton", value=True)
+
     native_video_path = annotated_video_path(
         source_path=selected_video.path,
+        size=size,
+        show_boxes=show_boxes,
+        show_pose=show_pose,
         frame_stride=PLAYBACK_FRAME_STRIDE,
     )
     if not native_video_path.exists():
@@ -54,6 +64,9 @@ def _render_native_player(selected_video: videos.RegisteredVideo) -> None:
             progress_bar = st.progress(0.0)
             result = build_annotated_video(
                 source_path=selected_video.path,
+                size=size,
+                show_boxes=show_boxes,
+                show_pose=show_pose,
                 frame_stride=PLAYBACK_FRAME_STRIDE,
                 progress_callback=progress_bar.progress,
             )

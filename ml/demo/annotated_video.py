@@ -28,6 +28,9 @@ class AnnotatedVideoResult:
 
 def annotated_video_path(
     source_path: Path,
+    size: str,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     output_dir: Path = ANNOTATED_VIDEO_DIR,
 ) -> Path:
@@ -37,16 +40,22 @@ def annotated_video_path(
             str(source_path.resolve()),
             str(stat.st_size),
             str(stat.st_mtime_ns),
+            size,
+            str(show_boxes),
+            str(show_pose),
             str(frame_stride),
             OUTPUT_ENCODING_VERSION,
         )
     )
     digest = hashlib.sha256(cache_basis.encode("utf-8")).hexdigest()[:16]
-    return output_dir / f"{source_path.stem}-pose-{digest}.mp4"
+    return output_dir / f"{source_path.stem}-pose{size}-{digest}.mp4"
 
 
 def build_annotated_video(
     source_path: Path,
+    size: str,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     progress_callback: ProgressCallback | None = None,
     output_dir: Path = ANNOTATED_VIDEO_DIR,
@@ -54,17 +63,22 @@ def build_annotated_video(
     output_dir.mkdir(parents=True, exist_ok=True)
     target = annotated_video_path(
         source_path=source_path,
+        size=size,
+        show_boxes=show_boxes,
+        show_pose=show_pose,
         frame_stride=frame_stride,
         output_dir=output_dir,
     )
     if target.exists():
         return AnnotatedVideoResult(path=target, frames_written=0)
 
-    pose_module = YoloPoseModule()
+    pose_module = YoloPoseModule(size=size)
     return _write_annotated_video(
         source_path=source_path,
         target=target,
         pose_module=pose_module,
+        show_boxes=show_boxes,
+        show_pose=show_pose,
         frame_stride=max(frame_stride, 1),
         progress_callback=progress_callback,
     )
@@ -74,6 +88,8 @@ def _write_annotated_video(
     source_path: Path,
     target: Path,
     pose_module: YoloPoseModule,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     progress_callback: ProgressCallback | None,
 ) -> AnnotatedVideoResult:
@@ -101,6 +117,8 @@ def _write_annotated_video(
                 capture=capture,
                 writer=writer,
                 pose_module=pose_module,
+                show_boxes=show_boxes,
+                show_pose=show_pose,
                 frame_stride=frame_stride,
                 total_frames=frame_count,
                 progress_callback=progress_callback,
@@ -117,6 +135,8 @@ def _write_sampled_frames(
     capture,
     writer,
     pose_module: YoloPoseModule,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     total_frames: int,
     progress_callback: ProgressCallback | None,
@@ -133,7 +153,12 @@ def _write_sampled_frames(
             time_sec = raw_index / max(float(capture.get(cv2.CAP_PROP_FPS) or 12.0), 1.0)
             frame_obj = Frame(index=frame_index, time_sec=time_sec, image=frame_rgb)
             result = pose_module.predict(frame_obj)
-            overlay = render_yolo_overlay(frame=frame_rgb, result=result)
+            overlay = render_yolo_overlay(
+                frame=frame_rgb,
+                result=result,
+                show_boxes=show_boxes,
+                show_pose=show_pose,
+            )
             writer.write(cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
             frame_index += 1
             if progress_callback is not None:

@@ -1,7 +1,21 @@
 from __future__ import annotations
 
+from typing import Final
+
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 from demo.yolo_runtime import YoloPoseRunner
+
+POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
+
+
+def pose_weight_filename(size: str) -> str:
+    """Map a YOLO26-pose size letter to its weight filename (model-seam swap).
+
+    The single one-line weight swap that makes the model size selectable.
+    """
+    if size not in POSE_MODEL_SIZES:
+        raise ValueError(f"Unknown YOLO26-pose size {size!r}; expected one of {POSE_MODEL_SIZES}")
+    return f"yolo26{size}-pose.pt"
 
 
 class YoloPoseModule:
@@ -12,8 +26,10 @@ class YoloPoseModule:
     from the pose model's own person detections (label text="person").
     """
 
-    def __init__(self, model_path: str = "yolo26n-pose.pt", confidence: float = 0.05) -> None:
-        self._runner = YoloPoseRunner(model_path=model_path, confidence=confidence)
+    def __init__(self, size: str = "n", confidence: float = 0.05) -> None:
+        self._runner = YoloPoseRunner(
+            model_path=pose_weight_filename(size), confidence=confidence
+        )
 
     def predict(self, frame: Frame) -> DetectionResult:
         poses, raw_boxes = self._runner.predict_full(frame.image)

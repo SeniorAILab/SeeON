@@ -116,6 +116,36 @@ def _imported_modules(source_path: Path) -> set[str]:
     }
 
 
+def test_show_boxes_and_show_pose_toggle_independently() -> None:
+    """Each of the four (show_boxes, show_pose) combinations renders distinctly."""
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    pose = _empty_pose()
+    pose[5] = (20, 20, 0.95)
+    pose[7] = (20, 38, 0.95)
+    result = DetectionResult(
+        boxes=(BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
+        labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+        keypoints=(tuple(pose),),
+    )
+
+    both_off = render_yolo_overlay(frame=frame, result=result, show_boxes=False, show_pose=False)
+    boxes_only = render_yolo_overlay(frame=frame, result=result, show_boxes=True, show_pose=False)
+    pose_only = render_yolo_overlay(frame=frame, result=result, show_boxes=False, show_pose=True)
+    both_on = render_yolo_overlay(frame=frame, result=result, show_boxes=True, show_pose=True)
+
+    # Both off → untouched copy of the input frame.
+    assert np.array_equal(both_off, frame)
+    # The box top edge paints only when show_boxes is on.
+    assert np.count_nonzero(boxes_only[12, 12:64]) > 0
+    assert np.count_nonzero(pose_only[12, 12:64]) == 0
+    # The pose segment paints only when show_pose is on.
+    assert np.count_nonzero(pose_only[20:38, 20]) > 0
+    assert np.count_nonzero(boxes_only[20:38, 20]) == 0
+    # Both on differs from either single overlay.
+    assert not np.array_equal(both_on, boxes_only)
+    assert not np.array_equal(both_on, pose_only)
+
+
 def test_render_yolo_overlay_accepts_detection_result() -> None:
     """render_yolo_overlay signature must accept DetectionResult (seam type)."""
     import inspect
