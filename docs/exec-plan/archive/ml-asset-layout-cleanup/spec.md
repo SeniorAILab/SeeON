@@ -1,6 +1,6 @@
 ---
 slug: ml-asset-layout-cleanup
-status: pending-approval
+status: done
 date: 2026-06-09
 author: gobeumsu (via Claude Opus 4.8, omc-plan)
 ---
