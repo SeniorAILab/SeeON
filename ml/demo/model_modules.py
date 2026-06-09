@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Final
 
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 from demo.yolo_runtime import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
+
+# Upstream pose weights are an ephemeral, re-downloadable cache (no metadata,
+# gitignored) — distinct from curated comparison checkpoints under
+# ml/artifacts/pretrained/. They live here so Ultralytics neither pollutes the
+# project root nor the artifacts tree. See ADR-007.
+WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "weights"
 
 
 def pose_weight_filename(size: str) -> str:
@@ -18,6 +25,16 @@ def pose_weight_filename(size: str) -> str:
     return f"yolo26{size}-pose.pt"
 
 
+def pose_weight_path(size: str) -> Path:
+    """Resolve a pose-size letter to its weight path under the ml/weights/ cache.
+
+    Keeps ``pose_weight_filename`` a pure identity (its own contract) and layers
+    the cache location on top, so the download/load target is ml/weights/ rather
+    than the current working directory.
+    """
+    return WEIGHTS_DIR / pose_weight_filename(size)
+
+
 class YoloPoseModule:
     """Pose ModelModule wrapping YoloPoseRunner. Emits {boxes, keypoints}.
 
@@ -27,8 +44,9 @@ class YoloPoseModule:
     """
 
     def __init__(self, size: str = "n", confidence: float = 0.05) -> None:
+        WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
         self._runner = YoloPoseRunner(
-            model_path=pose_weight_filename(size), confidence=confidence
+            model_path=str(pose_weight_path(size)), confidence=confidence
         )
 
     def predict(self, frame: Frame) -> DetectionResult:
