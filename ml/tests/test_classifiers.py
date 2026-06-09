@@ -133,12 +133,12 @@ class TestRegistry:
         with pytest.raises(ValueError, match="Unknown classifier key"):
             build_classifier("nonexistent", ClassifierParams())
 
-    def test_build_classifier_lstm_not_available_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="준비중"):
+    def test_build_classifier_lstm_routes_to_temporal_builder(self) -> None:
+        with pytest.raises(ValueError, match="temporal ModelModule"):
             build_classifier("lstm", ClassifierParams())
 
-    def test_build_classifier_random_forest_not_available_raises(self) -> None:
-        with pytest.raises(ValueError, match="준비중"):
+    def test_build_classifier_random_forest_routes_to_temporal_builder(self) -> None:
+        with pytest.raises(ValueError, match="temporal ModelModule"):
             build_classifier("random_forest", ClassifierParams())
 
     def test_available_classifier_keys_returns_only_rule_based(self) -> None:
