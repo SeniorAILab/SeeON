@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from demo.features import FrameFeatures
+from demo.temporal_module import TEMPORAL_MODEL_KEYS, temporal_artifact_available
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,13 @@ class ClassifierSpec:
     factory: Callable[[ClassifierParams], Classifier] | None
 
 
+# Availability for temporal models is computed from artifact presence on disk.
+# These booleans are evaluated once at import time; a fresh Streamlit run (app
+# restart) will re-evaluate them, so models auto-light-up after training.
+_rf_avail = temporal_artifact_available("random_forest")
+_lstm_avail = temporal_artifact_available("lstm")
+_transformer_avail = temporal_artifact_available("transformer")
+
 CLASSIFIER_REGISTRY: tuple[ClassifierSpec, ...] = (
     ClassifierSpec(
         key="rule_based",
@@ -101,20 +109,20 @@ CLASSIFIER_REGISTRY: tuple[ClassifierSpec, ...] = (
     ),
     ClassifierSpec(
         key="random_forest",
-        display_name="Random Forest (준비중)",
-        available=False,
+        display_name="Random Forest" if _rf_avail else "Random Forest (준비중)",
+        available=_rf_avail,
         factory=None,
     ),
     ClassifierSpec(
         key="lstm",
-        display_name="LSTM (준비중)",
-        available=False,
+        display_name="LSTM" if _lstm_avail else "LSTM (준비중)",
+        available=_lstm_avail,
         factory=None,
     ),
     ClassifierSpec(
         key="transformer",
-        display_name="Transformer (준비중)",
-        available=False,
+        display_name="Transformer" if _transformer_avail else "Transformer (준비중)",
+        available=_transformer_avail,
         factory=None,
     ),
 )
@@ -129,11 +137,20 @@ def build_classifier(key: str, params: ClassifierParams) -> Classifier:
     """Build a Classifier by registry key.
 
     Raises ValueError for unknown keys or keys whose ``available`` is False
-    (준비중 / not yet implemented).
+    (준비중 / not yet implemented).  Temporal model keys (random_forest, lstm,
+    transformer) are not built here — use
+    ``demo.temporal_module.build_temporal_model`` instead; app._build_model
+    routes to that path automatically.
     """
     for spec in CLASSIFIER_REGISTRY:
         if spec.key == key:
             if not spec.available or spec.factory is None:
+                if key in TEMPORAL_MODEL_KEYS:
+                    raise ValueError(
+                        f"Classifier {key!r} is a temporal ModelModule and cannot be built via "
+                        "build_classifier(). Use demo.temporal_module.build_temporal_model() "
+                        "instead (app._build_model does this automatically)."
+                    )
                 raise ValueError(
                     f"Classifier {key!r} is not available (준비중). "
                     f"Available classifiers: {available_classifier_keys()}"
