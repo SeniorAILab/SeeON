@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from util.frame_source import VideoFileSource
+
 
 @dataclass(frozen=True, slots=True)
 class VideoPlaybackInfo:
@@ -57,20 +59,10 @@ def iter_playback_frames(
     start_sec: float,
     frame_stride: int,
 ) -> Iterator[tuple[int, float, NDArray[np.uint8]]]:
-    capture = cv2.VideoCapture(str(path))
-    try:
-        fps = float(capture.get(cv2.CAP_PROP_FPS) or 12.0)
-        raw_index = raw_frame_index_for_time(time_sec=start_sec, fps=fps)
-        capture.set(cv2.CAP_PROP_POS_FRAMES, raw_index)
-        frame_index = 0
-        while True:
-            read_ok, frame = capture.read()
-            if not read_ok:
-                break
-            if raw_index % frame_stride == 0:
-                time_sec = raw_index / max(fps, 1.0)
-                yield frame_index, round(time_sec, 3), cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame_index += 1
-            raw_index += 1
-    finally:
-        capture.release()
+    """Thin tuple adapter over the canonical VideoFileSource read loop (ml/util).
+
+    Keeps exactly one frame-reading implementation in the codebase; callers that
+    want (index, time, rgb) tuples instead of Frame objects stay unchanged.
+    """
+    for frame in VideoFileSource(path, start_sec=start_sec, frame_stride=frame_stride):
+        yield frame.index, frame.time_sec, frame.image

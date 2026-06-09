@@ -7,32 +7,15 @@ from pathlib import Path
 from typing import Final
 
 import cv2
-import numpy as np
-from numpy.typing import NDArray
 
-try:
-    import demo.pretrained as weights
-    from demo.model_modules import YoloDetectionModule, YoloPoseModule
-    from demo.model_registry import ModelSpec
-    from demo.playback_status import current_playback_status
-    from demo.seam import DetectionResult, Frame
-    from demo.video_registry import DATA_DIR
-    from demo.yolo_overlay import render_yolo_overlay
-except ModuleNotFoundError:
-    import pretrained as weights  # type: ignore[no-redef]
-    from model_modules import YoloDetectionModule, YoloPoseModule  # type: ignore[no-redef]
-    from model_registry import ModelSpec  # type: ignore[no-redef]
-    from playback_status import current_playback_status  # type: ignore[no-redef]
-    from seam import DetectionResult, Frame  # type: ignore[no-redef]
-    from video_registry import DATA_DIR  # type: ignore[no-redef]
-    from yolo_overlay import render_yolo_overlay  # type: ignore[no-redef]
+from demo.model_modules import YoloPoseModule
+from demo.seam import Frame
+from demo.video_registry import DATA_DIR
+from demo.yolo_overlay import render_yolo_overlay
 
 ANNOTATED_VIDEO_DIR: Final = DATA_DIR / "annotated"
 OUTPUT_CODEC: Final = "avc1"
 OUTPUT_ENCODING_VERSION: Final = "avc1-v1"
-TEXT_ORIGIN: Final = (24, 42)
-TEXT_SCALE: Final = 1.2
-TEXT_THICKNESS: Final = 3
 
 ProgressCallback = Callable[[float], None]
 
@@ -45,8 +28,9 @@ class AnnotatedVideoResult:
 
 def annotated_video_path(
     source_path: Path,
-    spec: ModelSpec,
-    threshold: float,
+    size: str,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     output_dir: Path = ANNOTATED_VIDEO_DIR,
 ) -> Path:
@@ -56,20 +40,22 @@ def annotated_video_path(
             str(source_path.resolve()),
             str(stat.st_size),
             str(stat.st_mtime_ns),
-            spec.model_id,
-            f"{threshold:.4f}",
+            size,
+            str(show_boxes),
+            str(show_pose),
             str(frame_stride),
             OUTPUT_ENCODING_VERSION,
         )
     )
     digest = hashlib.sha256(cache_basis.encode("utf-8")).hexdigest()[:16]
-    return output_dir / f"{source_path.stem}-{spec.model_id}-{digest}.mp4"
+    return output_dir / f"{source_path.stem}-pose{size}-{digest}.mp4"
 
 
 def build_annotated_video(
     source_path: Path,
-    spec: ModelSpec,
-    threshold: float,
+    size: str,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     progress_callback: ProgressCallback | None = None,
     output_dir: Path = ANNOTATED_VIDEO_DIR,
@@ -77,22 +63,22 @@ def build_annotated_video(
     output_dir.mkdir(parents=True, exist_ok=True)
     target = annotated_video_path(
         source_path=source_path,
-        spec=spec,
-        threshold=threshold,
+        size=size,
+        show_boxes=show_boxes,
+        show_pose=show_pose,
         frame_stride=frame_stride,
         output_dir=output_dir,
     )
     if target.exists():
         return AnnotatedVideoResult(path=target, frames_written=0)
 
-    weights.materialize_pretrained_artifact(spec)
-    detection_module = YoloDetectionModule(spec=spec, threshold=threshold)
-    pose_module = YoloPoseModule()
+    pose_module = YoloPoseModule(size=size)
     return _write_annotated_video(
         source_path=source_path,
         target=target,
-        detection_module=detection_module,
         pose_module=pose_module,
+        show_boxes=show_boxes,
+        show_pose=show_pose,
         frame_stride=max(frame_stride, 1),
         progress_callback=progress_callback,
     )
@@ -101,8 +87,9 @@ def build_annotated_video(
 def _write_annotated_video(
     source_path: Path,
     target: Path,
-    detection_module: YoloDetectionModule,
     pose_module: YoloPoseModule,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     progress_callback: ProgressCallback | None,
 ) -> AnnotatedVideoResult:
@@ -129,8 +116,9 @@ def _write_annotated_video(
             frames_written = _write_sampled_frames(
                 capture=capture,
                 writer=writer,
-                detection_module=detection_module,
                 pose_module=pose_module,
+                show_boxes=show_boxes,
+                show_pose=show_pose,
                 frame_stride=frame_stride,
                 total_frames=frame_count,
                 progress_callback=progress_callback,
@@ -146,8 +134,9 @@ def _write_annotated_video(
 def _write_sampled_frames(
     capture,
     writer,
-    detection_module: YoloDetectionModule,
     pose_module: YoloPoseModule,
+    show_boxes: bool,
+    show_pose: bool,
     frame_stride: int,
     total_frames: int,
     progress_callback: ProgressCallback | None,
@@ -163,41 +152,16 @@ def _write_sampled_frames(
             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             time_sec = raw_index / max(float(capture.get(cv2.CAP_PROP_FPS) or 12.0), 1.0)
             frame_obj = Frame(index=frame_index, time_sec=time_sec, image=frame_rgb)
-            det_result = detection_module.predict(frame_obj)
-            pose_result = pose_module.predict(frame_obj)
-            combined = DetectionResult(
-                boxes=det_result.boxes,
-                labels=det_result.labels,
-                keypoints=pose_result.keypoints,
+            result = pose_module.predict(frame_obj)
+            overlay = render_yolo_overlay(
+                frame=frame_rgb,
+                result=result,
+                show_boxes=show_boxes,
+                show_pose=show_pose,
             )
-            overlay = render_yolo_overlay(frame=frame_rgb, result=combined)
-            status = current_playback_status(
-                result=det_result,
-                pose_count=_visible_pose_count(pose_result.keypoints),
-                time_sec=time_sec,
-            )
-            _draw_status_text(frame=overlay, label="FALL" if status.is_fall else "NORMAL")
             writer.write(cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
             frame_index += 1
             if progress_callback is not None:
                 progress_callback(min(frame_index / sampled_total, 1.0))
         raw_index += 1
     return frame_index
-
-
-def _visible_pose_count(keypoints: tuple[tuple[tuple[int, int, float], ...], ...]) -> int:
-    return sum(1 for pose in keypoints if any(confidence >= 0.2 for _x, _y, confidence in pose))
-
-
-def _draw_status_text(frame: NDArray[np.uint8], label: str) -> None:
-    color = (255, 80, 80) if label == "FALL" else (80, 220, 120)
-    cv2.putText(
-        frame,
-        label,
-        TEXT_ORIGIN,
-        cv2.FONT_HERSHEY_SIMPLEX,
-        TEXT_SCALE,
-        color,
-        TEXT_THICKNESS,
-        cv2.LINE_AA,
-    )
