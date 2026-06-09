@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from demo.model_modules import POSE_MODEL_SIZES, pose_weight_filename
+from demo.model_modules import (
+    POSE_MODEL_SIZES,
+    WEIGHTS_DIR,
+    pose_weight_filename,
+    pose_weight_path,
+)
 
 
 @pytest.mark.parametrize("size", POSE_MODEL_SIZES)
@@ -13,3 +18,17 @@ def test_pose_weight_filename_maps_each_size_to_its_weight(size: str) -> None:
 def test_pose_weight_filename_rejects_unknown_size() -> None:
     with pytest.raises(ValueError, match="Unknown YOLO26-pose size"):
         pose_weight_filename("xl")
+
+
+@pytest.mark.parametrize("size", POSE_MODEL_SIZES)
+def test_pose_weight_path_resolves_into_the_weights_cache(size: str) -> None:
+    path = pose_weight_path(size)
+    assert path.is_absolute()
+    assert path.parent == WEIGHTS_DIR
+    assert path.name == pose_weight_filename(size)
+
+
+def test_weights_dir_is_ml_weights_not_project_root() -> None:
+    # The cache must sit at ml/weights/, never the ml/ root (the old download spot).
+    assert WEIGHTS_DIR.name == "weights"
+    assert WEIGHTS_DIR.parent.name == "ml"
