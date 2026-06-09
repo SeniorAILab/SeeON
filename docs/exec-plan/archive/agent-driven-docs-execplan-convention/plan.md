@@ -5,9 +5,7 @@ type: plan
 date: 2026-06-08
 owner: gobeumsu
 created-from-spec: agent-driven-docs-execplan-convention/spec.md
-# --- archive-only: omit these lines while active ---
-# status: done | discarded | superseded-by
-# superseded-by: {new-slug}     # required when status is superseded-by
+status: done
 ---
 <!-- NOTE: plan body is immutable after finalize.
      Finalize = the first git commit that includes this plan.md in docs/exec-plan/active/.
