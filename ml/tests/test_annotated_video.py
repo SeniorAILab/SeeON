@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from demo.annotated_video import annotated_video_path
+from demo.classifiers import ClassifierParams
 
 
 def _path(video: Path, output_dir: Path, **overrides: object) -> Path:
@@ -71,3 +72,28 @@ def test_annotated_video_path_encodes_size_in_filename(tmp_path: Path) -> None:
     video.write_bytes(b"video")
 
     assert "-posem-" in _path(video, output_dir, size="m").name
+
+
+def test_annotated_video_path_changes_when_classifier_key_changes(tmp_path: Path) -> None:
+    video = tmp_path / "sample.mp4"
+    output_dir = tmp_path / "annotated"
+    video.write_bytes(b"video")
+
+    no_classifier = _path(video, output_dir, classifier_key=None)
+    with_classifier = _path(video, output_dir, classifier_key="rule_based")
+
+    assert no_classifier != with_classifier
+
+
+def test_annotated_video_path_changes_when_classifier_params_change(tmp_path: Path) -> None:
+    video = tmp_path / "sample.mp4"
+    output_dir = tmp_path / "annotated"
+    video.write_bytes(b"video")
+
+    params_a = ClassifierParams(sustained_down_sec=2.0)
+    params_b = ClassifierParams(sustained_down_sec=4.0)
+
+    path_a = _path(video, output_dir, classifier_key="rule_based", classifier_params=params_a)
+    path_b = _path(video, output_dir, classifier_key="rule_based", classifier_params=params_b)
+
+    assert path_a != path_b
