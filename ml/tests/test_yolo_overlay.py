@@ -85,21 +85,35 @@ def test_fall_box_uses_distinct_color_from_normal_box() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_app_imports_model_modules_and_seam() -> None:
-    """app.py must import from model_modules and seam so the seam is live."""
-    app_source = (Path(__file__).parent.parent / "demo" / "app.py").read_text()
-    tree = ast.parse(app_source)
-    imported_modules = {
+def test_live_path_is_wired_through_the_seam() -> None:
+    """app.py routes playback through annotated_video, which drives the model seam.
+
+    The native-scrubbing rework moved per-frame inference into annotated_video.py,
+    so app.py imports annotated_video and annotated_video imports the pose
+    model-module + seam types. Asserting the chain keeps the seam live.
+    """
+    demo_dir = Path(__file__).parent.parent / "demo"
+    app_modules = _imported_modules(demo_dir / "app.py")
+    annotated_modules = _imported_modules(demo_dir / "annotated_video.py")
+
+    assert any("annotated_video" in m for m in app_modules), (
+        "app.py must import annotated_video to route playback through the seam"
+    )
+    assert any("model_modules" in m for m in annotated_modules), (
+        "annotated_video.py must import the pose model-module (live seam)"
+    )
+    assert any("seam" in m for m in annotated_modules), (
+        "annotated_video.py must import seam types (Frame/DetectionResult)"
+    )
+
+
+def _imported_modules(source_path: Path) -> set[str]:
+    tree = ast.parse(source_path.read_text())
+    return {
         node.module
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom) and node.module
     }
-    assert any("model_modules" in m for m in imported_modules), (
-        "app.py must import from model_modules to route the live path through the seam"
-    )
-    assert any("seam" in m for m in imported_modules), (
-        "app.py must import from seam (DetectionResult/Frame)"
-    )
 
 
 def test_render_yolo_overlay_accepts_detection_result() -> None:

@@ -1,42 +1,15 @@
 from __future__ import annotations
 
-from demo.model_registry import ModelSpec
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
-from demo.yolo_runtime import YoloFallRunner, YoloPoseRunner
-
-
-class YoloDetectionModule:
-    """Detection ModelModule wrapping YoloFallRunner. Emits {boxes, labels}."""
-
-    def __init__(self, spec: ModelSpec, threshold: float | None = None) -> None:
-        self._runner = YoloFallRunner(
-            spec=spec,
-            threshold=threshold if threshold is not None else spec.default_threshold,
-        )
-
-    def predict(self, frame: Frame) -> DetectionResult:
-        analysis = self._runner.predict_frame(
-            frame=frame.image,
-            frame_index=frame.index,
-            time_sec=frame.time_sec,
-        )
-        boxes = tuple(
-            BoundingBox(x1=d.x1, y1=d.y1, x2=d.x2, y2=d.y2, confidence=d.confidence)
-            for d in analysis.detections
-        )
-        labels = tuple(
-            DetectionLabel(text=d.label, confidence=d.confidence, is_fall=d.is_fall)
-            for d in analysis.detections
-        )
-        return DetectionResult(boxes=boxes, labels=labels)
+from demo.yolo_runtime import YoloPoseRunner
 
 
 class YoloPoseModule:
     """Pose ModelModule wrapping YoloPoseRunner. Emits {boxes, keypoints}.
 
-    boxes is populated from the pose model's own person detections so that
-    person-detection-rate is computable from the normalised DetectionResult
-    (AC-10).
+    A single YOLO26-pose inference yields both person bounding boxes and COCO-17
+    keypoints, so this one module drives both overlays. ``boxes`` is populated
+    from the pose model's own person detections (label text="person").
     """
 
     def __init__(self, model_path: str = "yolo26n-pose.pt", confidence: float = 0.05) -> None:
