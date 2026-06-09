@@ -44,8 +44,8 @@ showed this is **structural, not a tunable-threshold problem**:
   accumulate the required N seconds (a detection-layer failure compounding the
   feature failure).
 
-This confirms the research hypothesis (`docs/research/fall-detection-approach.md`
-§1): single-frame / side-view geometric assumptions do not transfer to
+This confirms the research hypothesis (`docs/research/fall-detection-methods.md`,
+§1 methodology): single-frame / side-view geometric assumptions do not transfer to
 nursing-home top-down CCTV. The decision of *what fills the classifier seam* can
 no longer be deferred, and it is **cross-cutting** — it constrains every future
 classifier, the data pipeline, and the eval baseline. Hence this ADR.
