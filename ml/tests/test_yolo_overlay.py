@@ -86,24 +86,25 @@ def test_fall_box_uses_distinct_color_from_normal_box() -> None:
 
 
 def test_live_path_is_wired_through_the_seam() -> None:
-    """app.py routes playback through annotated_video, which drives the model seam.
+    """app.py routes playback through the live viewer, which drives the model seam.
 
-    The native-scrubbing rework moved per-frame inference into annotated_video.py,
-    so app.py imports annotated_video and annotated_video imports the pose
-    model-module + seam types. Asserting the chain keeps the seam live.
+    The real-time live-inference rework (ADR-010) replaced the pre-rendered
+    player with ``live_view.iter_live_frames``: app.py imports ``live_view`` and
+    the pose model-module, while ``live_view`` imports the seam types + overlay.
+    Asserting the chain keeps the per-frame inference seam live.
     """
     demo_dir = Path(__file__).parent.parent / "demo"
     app_modules = _imported_modules(demo_dir / "app.py")
-    annotated_modules = _imported_modules(demo_dir / "annotated_video.py")
+    live_view_modules = _imported_modules(demo_dir / "live_view.py")
 
-    assert any("annotated_video" in m for m in app_modules), (
-        "app.py must import annotated_video to route playback through the seam"
+    assert any("live_view" in m for m in app_modules), (
+        "app.py must import live_view to route playback through the live seam"
     )
-    assert any("model_modules" in m for m in annotated_modules), (
-        "annotated_video.py must import the pose model-module (live seam)"
+    assert any("model_modules" in m for m in app_modules), (
+        "app.py must import the pose model-module to compose the live model"
     )
-    assert any("seam" in m for m in annotated_modules), (
-        "annotated_video.py must import seam types (Frame/DetectionResult)"
+    assert any("seam" in m for m in live_view_modules), (
+        "live_view.py must import seam types (Frame/FrameSource/ModelModule)"
     )
 
 
