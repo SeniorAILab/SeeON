@@ -111,7 +111,7 @@ def _render_status(
     status: CurrentPlaybackStatus,
     confidence: float,
 ) -> None:
-    body = f"**{status.label}** · {status.detail} · conf {confidence:.0%} · {status.pose_label}"
+    body = f"**{status.label}** · {status.detail} · 낙상도 {confidence:.0%} · {status.pose_label}"
     if status.is_fall:
         placeholder.error(f"🔴 {body}")
     else:
