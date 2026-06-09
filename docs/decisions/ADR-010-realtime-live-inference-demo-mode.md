@@ -1,4 +1,4 @@
-# ADR-009: Real-Time Per-Frame Live Inference as the Standard Demo Observation Mode (Replacing Pre-Rendered Annotated Video)
+# ADR-010: Real-Time Per-Frame Live Inference as the Standard Demo Observation Mode (Replacing Pre-Rendered Annotated Video)
 
 ## Status
 
@@ -17,7 +17,7 @@ then plays back. Observation is therefore *batch*: you wait for a full render,
 then watch a fixed file.
 
 This collides with how the project now needs to work. The classifier strategy
-(ADR-008) is an iterative, data-driven effort, and the standing requirement is to
+(ADR-009) is an iterative, data-driven effort, and the standing requirement is to
 **watch top-down fall detection happen live** — "앞으로 계속 실시간 낙상 탐지를
 보기 위해서". Batch pre-rendering blocks that: every parameter or model change
 costs a full re-render before anything is visible.
@@ -52,7 +52,7 @@ evaluation in the demo), so it is recorded here rather than buried in a plan.
 |---|---|
 | Frame-intake **code location** (`VideoFileSource` lives in `ml/util/`) | ADR-006 |
 | Model-seam **contract** + pose backbone | ADR-005 |
-| Demo **observation/playback MODE** — live per-frame vs pre-rendered batch | **ADR-009 (this)** |
+| Demo **observation/playback MODE** — live per-frame vs pre-rendered batch | **ADR-010 (this)** |
 
 This ADR decides only *how the demo presents inference to the observer*. It
 reuses ADR-006's intake unchanged and does not touch the ADR-005 seam contract.

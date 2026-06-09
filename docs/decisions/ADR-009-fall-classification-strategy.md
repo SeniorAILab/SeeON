@@ -1,4 +1,4 @@
-# ADR-008: Fall-Classification Strategy — Keypoint-Sequence Temporal Models over Bbox Geometry; Public Datasets First, VLM-Labeling Deferred
+# ADR-009: Fall-Classification Strategy — Keypoint-Sequence Temporal Models over Bbox Geometry; Public Datasets First, VLM-Labeling Deferred
 
 ## Status
 
@@ -83,7 +83,7 @@ classifier, the data pipeline, and the eval baseline. Hence this ADR.
 |---|---|
 | Pose backbone + the pluggable model-seam **contract** | ADR-005 |
 | Frame-intake **code location** (`VideoFileSource`) | ADR-006 |
-| **What fills the classifier seam** — feature representation, classifier family, training-data strategy, eval baseline | **ADR-008 (this)** |
+| **What fills the classifier seam** — feature representation, classifier family, training-data strategy, eval baseline | **ADR-009 (this)** |
 
 This ADR does **not** reopen the seam contract or the pose backbone (ADR-005),
 nor frame-intake placement (ADR-006). It decides only the *content* flowing
