@@ -85,21 +85,65 @@ def test_fall_box_uses_distinct_color_from_normal_box() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_app_imports_model_modules_and_seam() -> None:
-    """app.py must import from model_modules and seam so the seam is live."""
-    app_source = (Path(__file__).parent.parent / "demo" / "app.py").read_text()
-    tree = ast.parse(app_source)
-    imported_modules = {
+def test_live_path_is_wired_through_the_seam() -> None:
+    """app.py routes playback through annotated_video, which drives the model seam.
+
+    The native-scrubbing rework moved per-frame inference into annotated_video.py,
+    so app.py imports annotated_video and annotated_video imports the pose
+    model-module + seam types. Asserting the chain keeps the seam live.
+    """
+    demo_dir = Path(__file__).parent.parent / "demo"
+    app_modules = _imported_modules(demo_dir / "app.py")
+    annotated_modules = _imported_modules(demo_dir / "annotated_video.py")
+
+    assert any("annotated_video" in m for m in app_modules), (
+        "app.py must import annotated_video to route playback through the seam"
+    )
+    assert any("model_modules" in m for m in annotated_modules), (
+        "annotated_video.py must import the pose model-module (live seam)"
+    )
+    assert any("seam" in m for m in annotated_modules), (
+        "annotated_video.py must import seam types (Frame/DetectionResult)"
+    )
+
+
+def _imported_modules(source_path: Path) -> set[str]:
+    tree = ast.parse(source_path.read_text())
+    return {
         node.module
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom) and node.module
     }
-    assert any("model_modules" in m for m in imported_modules), (
-        "app.py must import from model_modules to route the live path through the seam"
+
+
+def test_show_boxes_and_show_pose_toggle_independently() -> None:
+    """Each of the four (show_boxes, show_pose) combinations renders distinctly."""
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    pose = _empty_pose()
+    pose[5] = (20, 20, 0.95)
+    pose[7] = (20, 38, 0.95)
+    result = DetectionResult(
+        boxes=(BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
+        labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+        keypoints=(tuple(pose),),
     )
-    assert any("seam" in m for m in imported_modules), (
-        "app.py must import from seam (DetectionResult/Frame)"
-    )
+
+    both_off = render_yolo_overlay(frame=frame, result=result, show_boxes=False, show_pose=False)
+    boxes_only = render_yolo_overlay(frame=frame, result=result, show_boxes=True, show_pose=False)
+    pose_only = render_yolo_overlay(frame=frame, result=result, show_boxes=False, show_pose=True)
+    both_on = render_yolo_overlay(frame=frame, result=result, show_boxes=True, show_pose=True)
+
+    # Both off → untouched copy of the input frame.
+    assert np.array_equal(both_off, frame)
+    # The box top edge paints only when show_boxes is on.
+    assert np.count_nonzero(boxes_only[12, 12:64]) > 0
+    assert np.count_nonzero(pose_only[12, 12:64]) == 0
+    # The pose segment paints only when show_pose is on.
+    assert np.count_nonzero(pose_only[20:38, 20]) > 0
+    assert np.count_nonzero(boxes_only[20:38, 20]) == 0
+    # Both on differs from either single overlay.
+    assert not np.array_equal(both_on, boxes_only)
+    assert not np.array_equal(both_on, pose_only)
 
 
 def test_render_yolo_overlay_accepts_detection_result() -> None:

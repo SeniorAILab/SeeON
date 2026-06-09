@@ -6,10 +6,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-try:
-    from demo.seam import BoundingBox, DetectionLabel, DetectionResult
-except ModuleNotFoundError:
-    from seam import BoundingBox, DetectionLabel, DetectionResult  # type: ignore[no-redef]
+from demo.seam import BoundingBox, DetectionLabel, DetectionResult
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)
@@ -41,13 +38,22 @@ MIN_KEYPOINT_CONFIDENCE: Final = 0.2
 def render_yolo_overlay(
     frame: NDArray[np.uint8],
     result: DetectionResult,
+    show_boxes: bool = True,
+    show_pose: bool = True,
 ) -> NDArray[np.uint8]:
-    """Render bounding boxes and pose skeleton from a normalised DetectionResult."""
+    """Render bounding boxes and/or pose skeleton from a normalised DetectionResult.
+
+    ``show_boxes`` and ``show_pose`` are independent: any of the four
+    combinations renders correctly. With both off, a clean copy of the input
+    frame is returned.
+    """
     overlay = frame.copy()
-    for box, label in zip(result.boxes, result.labels):
-        _draw_detection_box(overlay=overlay, box=box, label=label)
-    for pose in result.keypoints:
-        _draw_pose(overlay=overlay, keypoints=pose)
+    if show_boxes:
+        for box, label in zip(result.boxes, result.labels):
+            _draw_detection_box(overlay=overlay, box=box, label=label)
+    if show_pose:
+        for pose in result.keypoints:
+            _draw_pose(overlay=overlay, keypoints=pose)
     return overlay
 
 
