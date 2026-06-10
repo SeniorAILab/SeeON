@@ -9,7 +9,7 @@ from demo.classifiers import (
     ClassifierSpec,
     build_classifier,
 )
-from demo.model_modules import POSE_MODEL_SIZES, YoloPoseModule
+from demo.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPoseModule
 from demo.playback_status import CurrentPlaybackStatus
 from demo.seam import ModelModule
 from demo.temporal_module import TEMPORAL_MODEL_KEYS
@@ -48,7 +48,12 @@ def render_live_controls(
     ``st.session_state[playing_key]``. Returns (size, show_boxes, show_pose).
     """
     size_col, boxes_col, pose_col = st.columns([2, 1, 1])
-    size = size_col.selectbox("YOLO26-pose size", options=POSE_MODEL_SIZES)
+    size = size_col.selectbox(
+        "YOLO26-pose size",
+        options=POSE_MODEL_SIZES,
+        format_func=lambda s: POSE_MODEL_SIZE_LABELS[s],
+        help="사이즈가 클수록 정확도는 높아지고 속도는 느려집니다.",
+    )
     show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
     show_pose = pose_col.checkbox("Pose skeleton", value=True)
 

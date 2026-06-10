@@ -8,6 +8,16 @@ from demo.yolo_runtime import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
 
+# Display labels for the size selector — user-approved wording (issue #58).
+# Keys mirror POSE_MODEL_SIZES; values show [size] / [hardware context].
+POSE_MODEL_SIZE_LABELS: Final[dict[str, str]] = {
+    "n": "nano / 일반 PC·노트북 (실시간)",
+    "s": "small / 일반 노트북 (준실시간)",
+    "m": "medium / GPU·Apple Silicon 권장",
+    "l": "large / 전용 GPU 권장",
+    "x": "xlarge / 고성능 GPU (정밀 분석용)",
+}
+
 # Upstream pose weights are an ephemeral, re-downloadable cache (no metadata,
 # gitignored) — distinct from curated comparison checkpoints under
 # ml/artifacts/pretrained/. They live here so Ultralytics neither pollutes the
