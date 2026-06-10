@@ -118,6 +118,7 @@ cmd_create() {
   mkdir -p "$(dirname "$path")"
   git worktree add -b "$branch" "$path" "origin/$base" >&2
   link_ml_data "$path"
+  link_ml_models "$path"
 
   printf '%s\n' "$path"
 }
@@ -142,6 +143,28 @@ link_ml_data() {
   fi
   ln -s "$main_data" "$wt_path/ml/data"
   gg_warn "linked ml/data -> $main_data"
+}
+
+# ml/models is gitignored (whole tree — weights, trained artifacts, third-party
+# checkpoints).  The canonical physical store is the MAIN checkout's ml/models
+# (ADR-015); link the new worktree to it so training/serving scripts see real
+# models.  A missing link degrades silently in the demo (models report unavailable)
+# but hard-crashes any serving path that tries to load a model.
+link_ml_models() {
+  wt_path="$1"
+  main_root=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  main_models="$main_root/ml/models"
+  if [ ! -d "$main_models" ]; then
+    gg_warn "main checkout has no ml/models ($main_models) — skipped ml/models symlink; serving/training will see no models"
+    return 0
+  fi
+  [ -d "$wt_path/ml" ] || return 0
+  if [ -e "$wt_path/ml/models" ]; then
+    gg_warn "$wt_path/ml/models already exists — skipped ml/models symlink"
+    return 0
+  fi
+  ln -s "$main_models" "$wt_path/ml/models"
+  gg_warn "linked ml/models -> $main_models"
 }
 
 resolve_worktree_path() {
