@@ -7,6 +7,7 @@ author: omc-plan (consensus: Planner → Architect → Critic — APPROVE)
 spec: ./spec.md
 approved: 2026-06-10 (user) — 수정 1건 반영: le2i 데이터는 main 체크아웃으로 mv가 아닌 cp(복사), 원본 보존
 issue: "#45"
+status: done
 ```
 
 ---
