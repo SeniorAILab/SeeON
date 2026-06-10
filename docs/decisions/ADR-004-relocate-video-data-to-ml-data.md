@@ -59,7 +59,7 @@ copies:
 ```
 # Private/large video assets (kept local, NEVER pushed)
 # Relocated assets/ -> ml/data/ (raw inputs + processed clips). Both stay local.
-ml/data/
+ml/data
 assets/
 # extra safety net: block raw media anywhere in the tree
 *.mp4
@@ -119,7 +119,7 @@ training pipeline matures and the team grows beyond one person.
   structure a new contributor sees on disk.
 - Future training code that reads `ml/data/processed/` needs no cross-boundary path
   hacks.
-- `.gitignore` is unambiguous: `ml/data/` is the canonical location for local video
+- `.gitignore` is unambiguous: `ml/data` is the canonical location for local video
   data; `assets/` is kept as a fallback block to catch any stale copies; the
   tree-wide `*.mp4 / *.mov / *.avi / *.mkv` patterns act as a final safety net
   regardless of where media files land.

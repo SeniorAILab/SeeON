@@ -98,9 +98,9 @@ camera is ever needed, that is a new decision, not an amendment to this one.
 
 ### D. Replace file playback with the camera as the primary mode
 
-**Rejected.** File playback over `ml/data/processed` clips remains the
-reproducible path for regression checking and demos without hardware; the two
-modes serve different needs and now coexist as sibling pages.
+**Rejected.** File playback over `ml/data/{domain}/processed/` clips remains
+the reproducible path for regression checking and demos without hardware; the
+two modes serve different needs and now coexist as sibling pages.
 
 ## Consequences
 

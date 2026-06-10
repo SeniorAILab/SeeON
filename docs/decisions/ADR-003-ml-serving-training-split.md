@@ -18,9 +18,9 @@ expensive pose-estimation and temporal classification, and produces a versioned
 model artifact. This lifecycle requires heavyweight dependencies — ultralytics
 (YOLO11-pose), PyTorch, albumentations, and experiment-tracking frameworks such
 as MLflow or Weights & Biases — and runs infrequently, triggered manually or by
-a CI job when a new dataset is ready. At the PoC stage no training code or
-real weights exist yet; `ml/training/` contains only a `README.md` and an
-empty `__init__.py`.
+a CI job when a new dataset is ready. `ml/training/` is scaffolded and the
+pipeline is operational (`config.py`, `extract_poses.py`, `train.py`,
+`evaluate.py`, `metadata.py`, `data/`, `models/`).
 
 **Serving lifecycle (online).** Loads a pre-built artifact and answers inference
 requests in real time. It must be always-on, boot quickly, and carry a minimal
@@ -50,7 +50,7 @@ model-repository convention.
 `pyproject.toml` description:
 
 - `serving/` — online lifecycle; FastAPI application; always-on.
-- `training/` — batch lifecycle; deferred for the PoC; placeholder files only.
+- `training/` — batch lifecycle; scaffolded; pipeline operational.
 
 Both coexist inside a single uv project rather than two separate projects,
 keeping dependency resolution, tooling configuration (ruff), and artifact path
@@ -62,7 +62,7 @@ resolution unified under one `pyproject.toml` and `uv.lock`.
 lifecycle:
 
 ```toml
-# Serving (online) — always installed via plain `uv sync`
+# Serving (online) — always installed
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -72,19 +72,29 @@ dependencies = [
 
 [dependency-groups]
 demo = [
+    "opencv-python-headless>=4.10",
     "streamlit>=1.38",
+    "ultralytics>=8.3",
 ]
 training = [
-    # Deferred (PoC): ultralytics (YOLO11-pose), torch, albumentations,
-    # experiment-tracking (mlflow/wandb). Add when training work starts.
+    "torch>=2.3",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+    "tqdm>=4.66",
+    "ultralytics>=8.3",
+    "opencv-python-headless>=4.10",
 ]
+
+[tool.uv]
+# demo, test, and training are default-groups so bare `uv sync` installs
+# everything. Slim serving images use --no-default-groups.
+default-groups = ["demo", "test", "training"]
 ```
 
-`uv sync` installs only serving dependencies. `uv sync --group demo` adds
-Streamlit. The `training` group is intentionally empty at scaffold time; its
-comment documents what will be added. A developer or CI job running `uv sync`
-on a production serving host never accidentally pulls gigabytes of training
-tooling.
+Bare `uv sync` installs all `default-groups` (demo, test, training). A slim
+production serving host that should not carry training tooling uses
+`uv sync --no-default-groups`. The dependency-group structure still enforces
+the lifecycle split — slim is opt-in via an explicit flag, not the default.
 
 ### 3. Version-addressed artifact directory (Triton-inspired layout, not Triton itself)
 
@@ -141,11 +151,10 @@ explicit: *"This is an ML demo surface, NOT the product frontend. The product
 frontend is `front/` (Next.js); product-level alerts/webhooks live in
 `backend/` (NestJS)."*
 
-It is installed only when `--group demo` is passed and launched via
-`pnpm dev:demo` from the repo root (which resolves to
-`uv run --directory ml --group demo streamlit run demo/app.py`). It imports
-`get_model()` directly from `serving.model`, bypassing the HTTP layer — an
-acceptable shortcut for demo purposes only.
+It is launched via `pnpm dev:demo` from the repo root (which resolves to
+`uv run --directory ml --group demo streamlit run demo/app.py`). It uses an
+in-process model pipeline via `demo.classifiers` and `demo.model_modules`,
+bypassing the HTTP layer — an acceptable shortcut for demo purposes only.
 
 ## Alternatives Considered
 
@@ -191,9 +200,9 @@ deployment-configuration change, not a code change.
 
 **Positive:**
 
-- `uv sync` on a serving host installs only the four serving dependencies;
-  training tooling (torch, ultralytics, mlflow/wandb) is never pulled unless
-  `--group training` is explicitly requested.
+- `uv sync --no-default-groups` on a serving host installs only the four
+  serving dependencies; training tooling (torch, ultralytics, etc.) is
+  excluded. Bare `uv sync` installs all default-groups for full dev use.
 - The end-to-end PoC path — `video sample → windowing → FallDetector.predict()
   → FastAPI /predict → backend webhook` — is exercisable today using placeholder
   weights and the deterministic dummy inference in `model.py`.
@@ -209,12 +218,14 @@ deployment-configuration change, not a code change.
 
 **Negative / Trade-offs:**
 
-- Two separate invocation paths (HTTP for production, direct `get_model()` import
-  for the demo) mean the demo bypasses request validation and HTTP middleware;
-  it must not be used for performance or correctness benchmarking.
-- The `training` dependency-group is empty today; developers must remember to
-  populate it before starting training work — `uv sync --group training` is a
-  no-op until then.
+- Two separate invocation paths (HTTP for production, in-process
+  `demo.classifiers` pipeline for the demo) mean the demo bypasses request
+  validation and HTTP middleware; it must not be used for performance or
+  correctness benchmarking.
+- The `training` dependency-group is a `default-group`; slim serving images
+  that must not carry training tooling require an explicit
+  `--no-default-groups` flag — the default is developer-friendly, not
+  production-lean.
 - The FastAPI microservice introduces a network hop between backend and ML that
   would not exist with in-process inference. For fall detection, where latency
   tolerance is on the order of seconds rather than milliseconds, this is
