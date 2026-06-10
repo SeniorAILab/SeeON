@@ -115,3 +115,29 @@ class TestNormalizePersonKeypoints:
         )
         np.testing.assert_allclose(result[:, 0], 10 / _W, rtol=1e-5)
         np.testing.assert_allclose(result[:, 1], 20 / _H, rtol=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# discover_clips — directory walk (no video decoding)
+# ---------------------------------------------------------------------------
+
+
+def test_discover_clips_finds_avi_and_mp4_in_scenario_dirs(tmp_path):
+    from pathlib import Path
+
+    from training.extract_poses import discover_clips
+
+    home = tmp_path / "Home"
+    home.mkdir()
+    (home / "video (2).avi").write_bytes(b"")
+    (home / "video (1).mp4").write_bytes(b"")
+    (home / "notes.txt").write_text("not a clip")
+    (tmp_path / "NotAScenario").mkdir()
+    (tmp_path / "NotAScenario" / "skip.avi").write_bytes(b"")
+
+    clips = discover_clips(Path(tmp_path))
+
+    assert [(c.scenario, c.video_path.name) for c in clips] == [
+        ("Home", "video (2).avi"),
+        ("Home", "video (1).mp4"),
+    ]

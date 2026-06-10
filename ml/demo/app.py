@@ -23,6 +23,11 @@ from demo.classifiers import (  # noqa: E402
     ClassifierSpec,
     build_classifier,
 )
+from demo.demo_mode import (  # noqa: E402
+    OPERATOR_MODE,
+    demo_mode,
+    filter_videos_for_public_mode,
+)
 from demo.live_view import iter_live_frames  # noqa: E402
 from demo.model_modules import POSE_MODEL_SIZES, YoloPoseModule  # noqa: E402
 from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
@@ -44,11 +49,9 @@ def main() -> None:
     )
 
     app_assets.handle_upload()
-    registered_videos = videos.list_registered_videos(
-        include_sources=(videos.VideoSource.PROCESSED, videos.VideoSource.UPLOAD),
-    )
+    registered_videos = _list_videos_for_mode(demo_mode())
     if not registered_videos:
-        st.warning("No processed videos found under ml/data/processed.")
+        st.info("재생할 영상이 없습니다 — 위에서 영상을 업로드하세요.")
         return
 
     selected_video = st.selectbox(
@@ -88,6 +91,31 @@ def main() -> None:
         classifier_key=classifier_key,
         classifier_params=classifier_params,
     )
+
+
+def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
+    """Resolve the video dropdown options for the active FALL_DEMO_MODE.
+
+    operator — domain selector over ml/data/{domain}/{processed,raw} plus
+    uploads. public (fail-safe default) — only clips uploaded in the current
+    browser session; internal domain sources are never listed (ADR-011 Access
+    Boundary; session filter lives here in the app layer, not the registry).
+    """
+    if mode == OPERATOR_MODE:
+        domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
+        selected_domain = st.selectbox("도메인", options=domain_options)
+        if selected_domain == videos.UPLOADS_DOMAIN:
+            return videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
+        return videos.list_registered_videos(
+            include_sources=(videos.VideoSource.PROCESSED, videos.VideoSource.RAW),
+            domains=(selected_domain,),
+        )
+    st.caption("Public mode — 이 세션에서 업로드한 영상만 표시됩니다.")
+    session_upload_ids: set[str] = st.session_state.setdefault(
+        app_assets.SESSION_UPLOAD_IDS_KEY, set()
+    )
+    uploads = videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
+    return filter_videos_for_public_mode(uploads, session_upload_ids)
 
 
 def _build_model(
