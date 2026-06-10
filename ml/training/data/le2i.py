@@ -190,23 +190,36 @@ def load_clip_metas(
             log.debug("npz %s missing fps — using LE2I_FPS=%.1f", npz_path.name, fps)
 
         # Parse fall interval from annotation file.
+        # Attempt two path forms in priority order:
+        #   (1) annotation_dir/{clip_id}.txt   — flat / legacy layout
+        #   (2) annotation_dir/{scenario}/Annotation_files/{stem}.txt — real Le2i layout
         fall_interval: tuple[int, int] | None = None
         if annotation_dir is not None:
-            ann_path = annotation_dir / f"{stored_clip_id}.txt"
-            if ann_path.exists():
+            _stem = stored_clip_id.split("/")[-1]
+            ann_path_flat = annotation_dir / f"{stored_clip_id}.txt"
+            ann_path_nested = annotation_dir / scenario / "Annotation_files" / f"{_stem}.txt"
+            if ann_path_flat.exists():
+                resolved_ann_path: Path | None = ann_path_flat
+            elif ann_path_nested.exists():
+                resolved_ann_path = ann_path_nested
+            else:
+                resolved_ann_path = None
+
+            if resolved_ann_path is not None:
                 try:
-                    fall_interval = parse_fall_interval(ann_path)
+                    fall_interval = parse_fall_interval(resolved_ann_path)
                 except (ValueError, IndexError) as exc:
                     log.warning(
                         "Could not parse annotation %s: %s — treating as ADL.",
-                        ann_path,
+                        resolved_ann_path,
                         exc,
                     )
             else:
                 log.warning(
-                    "No annotation file for clip %s (expected %s) — treating as ADL.",
+                    "No annotation file for clip %s (tried flat=%s, nested=%s) — treating as ADL.",
                     stored_clip_id,
-                    ann_path,
+                    ann_path_flat,
+                    ann_path_nested,
                 )
         else:
             log.debug("No annotation_dir provided for %s — treating as ADL.", stored_clip_id)

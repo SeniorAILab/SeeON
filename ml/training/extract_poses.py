@@ -88,6 +88,7 @@ def discover_clips(input_dir: Path) -> list[ClipRef]:
     To adapt to a different layout (e.g. flat structure, different extension)
     edit only this function.
     """
+    # === 단계 1: 영상 클립 탐색 — 시나리오 디렉터리 순회 및 .avi 클립 수집 ===
     clips: list[ClipRef] = []
     scenario_set = set(config.LE2I_SCENARIOS)
 
@@ -133,6 +134,7 @@ def normalize_person_keypoints(
         All zeros when no person is detected or when a keypoint fails the
         confidence gate.
     """
+    # === 단계 3: COCO-17 키포인트 정규화 — 픽셀 좌표→[0,1], 저신뢰 키포인트 제로화 ===
     out = np.zeros((config.N_KEYPOINTS, config.KPT_DIMS), dtype=np.float32)
 
     person = pose_detections[0] if len(pose_detections) > 0 else None
@@ -182,6 +184,7 @@ def _extract_clip(clip: ClipRef, output_dir: Path, runner: YoloPoseRunner) -> No
     raw_fps = cap.get(cv2.CAP_PROP_FPS)
     fps: float = raw_fps if raw_fps and raw_fps > 0 else config.LE2I_FPS
 
+    # === 단계 2: 프레임별 YOLO 포즈 추론 및 키포인트 정규화 ===
     all_keypoints: list[NDArray[np.float32]] = []
     while True:
         ret, frame = cap.read()
@@ -203,6 +206,7 @@ def _extract_clip(clip: ClipRef, output_dir: Path, runner: YoloPoseRunner) -> No
         log.warning("No frames extracted from %s — skipping save", clip.video_path)
         return
 
+    # === 단계 4: 키포인트 배열 스택 및 npz 캐시 저장 ===
     keypoints_arr = np.stack(all_keypoints, axis=0).astype(np.float32)
     out_path = output_dir / f"{_npz_stem(clip)}.npz"
     np.savez(

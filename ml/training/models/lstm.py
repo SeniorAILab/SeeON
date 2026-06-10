@@ -54,6 +54,7 @@ class LstmFallClassifier:
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train on *X* [N, T, 51] with binary labels *y* [N]."""
+        # 파이프라인 역할: 키포인트 시퀀스 [N, T, 51] 기반 2-layer LSTM 이진 분류
         _set_seeds(SEED)
         self._device = _autodetect_device()
         train_torch_module(self._net, X, y, device=self._device)

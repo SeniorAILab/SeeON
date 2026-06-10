@@ -71,6 +71,7 @@ def _compute_label(start: int, fall_interval: tuple[int, int] | None) -> int:
     Internally converted to half-open [f_start, f_end+1) for clean arithmetic.
     Window frames are 0-based [start, start+T_WINDOW).
     """
+    # === 윈도우-낙상 겹침 비율 산출: |window ∩ fall_interval| / T >= OVERLAP_THRESHOLD ===
     if fall_interval is None:
         return 0
     f_start, f_end = fall_interval
@@ -143,10 +144,12 @@ class WindowDataset:
 
         n_pos = 0
         n_neg = 0
+        # === 단계 1: 클립 프레임 시퀀스를 슬라이딩 윈도우(T=30, stride=5)로 분할 ===
         for ci, meta in enumerate(clip_metas):
             with np.load(meta.npz_path, allow_pickle=False) as data:
                 n_frames = int(data[_KEYPOINTS_KEY].shape[0])
 
+            # === 단계 2: 윈도우별 낙상 겹침 라벨 계산 및 샘플 인덱스 구성 ===
             for start in _window_starts(n_frames):
                 label = _compute_label(start, meta.fall_interval)
                 self._samples.append((ci, start, label))
@@ -200,6 +203,7 @@ class WindowDataset:
         y : np.ndarray
             int64[N], values in {0, 1}.
         """
+        # === 단계: sequence[N,T,51] 또는 features[N,D] 모드로 전체 샘플 배열화 ===
         xs = []
         ys = []
         for i in range(len(self)):
@@ -240,6 +244,7 @@ class WindowDataset:
         AssertionError
             If any clip_id appears in both splits (clip-level leakage guard).
         """
+        # === 단계: clip_id 기준 정렬 후 마지막 n_test 클립을 테스트 셋으로 분리 ===
         sorted_metas = sorted(self._clip_metas, key=lambda m: m.clip_id)
         n_total = len(sorted_metas)
         n_test = round(n_total * test_fraction)
