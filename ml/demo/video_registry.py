@@ -54,7 +54,9 @@ def list_domains(data_root: Path = DATA_DIR) -> list[str]:
     return sorted(
         entry.name
         for entry in data_root.iterdir()
-        if entry.is_dir() and entry.name not in NON_DOMAIN_DIRS
+        if entry.is_dir()
+        and entry.name not in NON_DOMAIN_DIRS
+        and not entry.name.startswith(".")  # tool scratch (.omc/...), never a domain
     )
 
 
@@ -108,30 +110,41 @@ def persist_uploaded_video(
 
 
 def _list_videos(directory: Path, source: VideoSource, domain: str) -> list[RegisteredVideo]:
+    # Recursive: some domains nest clips below the role folder (e.g. Le2i's
+    # raw/{scenario}/*.avi). ids/display names keep the sub-path.
     if not directory.exists():
         return []
     paths = [
         path
-        for path in sorted(directory.iterdir(), key=_video_sort_key)
+        for path in sorted(directory.rglob("*"), key=_video_sort_key)
         if path.is_file() and path.suffix.casefold() in SUPPORTED_MEDIA_EXTENSIONS
     ]
-    return [_registered_video(path=path, source=source, domain=domain) for path in paths]
+    return [
+        _registered_video(path=path, source=source, domain=domain, role_dir=directory)
+        for path in paths
+    ]
 
 
 def _video_sort_key(path: Path) -> tuple[int, str]:
-    normalized_name = path.name.casefold()
-    return (1 if normalized_name.startswith("demo-") else 0, normalized_name)
+    normalized = str(path).casefold()
+    return (1 if path.name.casefold().startswith("demo-") else 0, normalized)
 
 
-def _registered_video(path: Path, source: VideoSource, domain: str) -> RegisteredVideo:
+def _registered_video(
+    path: Path,
+    source: VideoSource,
+    domain: str,
+    role_dir: Path | None = None,
+) -> RegisteredVideo:
     # video_id mirrors the on-disk layout relative to ml/data/ so it is unique
-    # within one data root: "{domain}/{role}/{name}", or "uploads/{name}" for
-    # the role-less top-level uploads folder. Never role-only — that collides
-    # across domains (ADR-011).
+    # within one data root: "{domain}/{role}/{subpath…/name}", or
+    # "uploads/{name}" for the role-less top-level uploads folder. Never
+    # role-only — that collides across domains (ADR-011).
+    rel_parts = path.relative_to(role_dir).parts if role_dir is not None else (path.name,)
     if source is VideoSource.UPLOAD:
-        id_parts = (UPLOADS_DOMAIN, path.name)
+        id_parts = (UPLOADS_DOMAIN, *rel_parts)
     else:
-        id_parts = (domain, source.value, path.name)
+        id_parts = (domain, source.value, *rel_parts)
     return RegisteredVideo(
         video_id="/".join(id_parts),
         display_name=" / ".join(id_parts),
