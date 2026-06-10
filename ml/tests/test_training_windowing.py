@@ -186,6 +186,40 @@ class TestWindowDatasetIntegration:
         # The first n_frames rows are the actual (zero) keypoints
         np.testing.assert_array_equal(x[:n_frames], 0.0)
 
+    def test_nested_annotation_layout_resolves(self, tmp_path: Path) -> None:
+        """Form (2): annotation_dir/{scenario}/Annotation_files/{stem}.txt is found.
+
+        Real Le2i stores annotations at this nested path; form (1) flat lookup
+        must not shadow it when the flat file does not exist.
+        """
+        pose_dir = tmp_path / "poses"
+        ann_dir = tmp_path / "le2i_raw"
+        pose_dir.mkdir()
+
+        scenario = "Coffee_room"
+        stem = "video_fall"
+        clip_id = f"{scenario}/{stem}"
+
+        # NPZ filename uses '__' separator (as _npz_stem does); internal clip_id has '/'.
+        _write_npz(
+            pose_dir / f"{scenario}__{stem}.npz",
+            n_frames=T_WINDOW,
+            clip_id=clip_id,
+            scenario=scenario,
+        )
+
+        # Write annotation in the nested Le2i location — NOT in the flat location.
+        ann_subdir = ann_dir / scenario / "Annotation_files"
+        ann_subdir.mkdir(parents=True)
+        _write_annotation(ann_subdir / f"{stem}.txt", start=15, end=50)
+
+        metas = load_clip_metas(pose_dir, annotation_dir=ann_dir)
+        assert len(metas) == 1
+        assert metas[0].fall_interval == (15, 50), (
+            f"Nested annotation layout (form 2) not resolved; "
+            f"got fall_interval={metas[0].fall_interval!r}"
+        )
+
     def test_split_produces_disjoint_clip_id_sets(self, tmp_path: Path) -> None:
         """split() must produce clip-id–disjoint train/test sets (leakage guard)."""
         pose_dir = tmp_path / "poses"

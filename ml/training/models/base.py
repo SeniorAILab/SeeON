@@ -93,11 +93,13 @@ def train_torch_module(
     module.to(device)
     module.train()
 
+    # === 단계 1: 클래스 가중치 계산 (소수 클래스 과소평가 방지) ===
     counts = np.bincount(y.astype(np.int64), minlength=2)
     class_weights = torch.tensor(
         len(y) / (2.0 * counts.clip(min=1)), dtype=torch.float32, device=device
     )
 
+    # === 단계 2: 텐서 변환 및 DataLoader 구성 ===
     X_t = torch.from_numpy(X).to(device)
     y_t = torch.from_numpy(y.astype(np.int64)).to(device)
     loader = DataLoader(TensorDataset(X_t, y_t), batch_size=batch_size, shuffle=True)
@@ -108,6 +110,7 @@ def train_torch_module(
     best_loss = float("inf")
     no_improve = 0
 
+    # === 단계 3: 에폭 루프 — 순전파 → CrossEntropy 손실 → 역전파 → Adam 옵티마이저 ===
     for _ in range(max_epochs):
         total, n = 0.0, 0
         for xb, yb in loader:
@@ -119,6 +122,7 @@ def train_torch_module(
             n += len(xb)
         epoch_loss = total / n
 
+        # === 단계 4: 학습 손실 기준 조기 종료 (patience 에폭 연속 개선 없으면 중단) ===
         if epoch_loss < best_loss - 1e-6:
             best_loss = epoch_loss
             no_improve = 0

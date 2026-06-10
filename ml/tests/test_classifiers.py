@@ -141,5 +141,19 @@ class TestRegistry:
         with pytest.raises(ValueError, match="temporal ModelModule"):
             build_classifier("random_forest", ClassifierParams())
 
-    def test_available_classifier_keys_returns_only_rule_based(self) -> None:
-        assert available_classifier_keys() == ("rule_based",)
+    def test_available_keys_contract(self) -> None:
+        """rule_based is always available; any extra keys are valid temporal keys.
+
+        Availability for temporal models is artifact-driven (computed at import
+        from disk), so the exact tuple depends on whether training has run.  This
+        asserts the invariant contract instead of a fixed membership, which keeps
+        the test stable both before and after artifacts exist on disk.
+        """
+        from demo.temporal_module import TEMPORAL_MODEL_KEYS
+
+        keys = available_classifier_keys()
+        assert "rule_based" in keys
+        extra = set(keys) - {"rule_based"}
+        assert extra <= set(TEMPORAL_MODEL_KEYS), (
+            f"Unexpected available keys outside temporal set: {extra}"
+        )

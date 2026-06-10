@@ -38,6 +38,7 @@ class RandomForestFallClassifier:
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train on feature matrix *X* [N, D] with binary labels *y* [N]."""
+        # 파이프라인 역할: 윈도우 핸드크래프트 특징(FEATURE_DIM) 기반 RandomForest 이진 분류
         self._clf.fit(X, y)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
