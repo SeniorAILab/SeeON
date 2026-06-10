@@ -25,7 +25,14 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
-from demo.seam import DetectionLabel, DetectionResult, Frame, ModelModule
+from demo.seam import (
+    FALL_LABEL_TEXT,
+    NORMAL_LABEL_TEXT,
+    DetectionLabel,
+    DetectionResult,
+    Frame,
+    ModelModule,
+)
 from demo.tracking import GreedyIouTracker
 from training import config
 from training.data.features import extract_window_features
@@ -146,8 +153,8 @@ class TemporalFallClassifierModule:
     ``normalize_person_keypoints((keypoints[i],), ...)`` ensures person[0] of
     a 1-element tuple is exactly person i — no per-person index skew.
 
-    Warm-up: a track's label stays "정상" (confidence 0.0) until its first
-    inference fires (buffer full + stride trigger).
+    Warm-up: a track's label stays NORMAL_LABEL_TEXT (confidence 0.0) until its
+    first inference fires (buffer full + stride trigger).
     """
 
     def __init__(
@@ -173,7 +180,7 @@ class TemporalFallClassifierModule:
         # Per-track ring buffers: track_id → deque[float32[17, 3]], maxlen=window.
         self._buffers: dict[int, deque[NDArray[np.float32]]] = {}
         # Last inferred fall probability per track id.
-        # Absent key ↔ warm-up: label is "정상", confidence 0.0.
+        # Absent key ↔ warm-up: label is NORMAL_LABEL_TEXT, confidence 0.0.
         self._last_probs: dict[int, float] = {}
         self._tracker: GreedyIouTracker = GreedyIouTracker()
         self._frame_counter: int = 0
@@ -272,7 +279,7 @@ class TemporalFallClassifierModule:
         for tid in track_ids:
             prob = self._last_probs.get(tid, 0.0)
             is_fall = prob >= self._operating_threshold
-            label_text = "낙상" if is_fall else "정상"
+            label_text = FALL_LABEL_TEXT if is_fall else NORMAL_LABEL_TEXT
             labels.append(DetectionLabel(text=label_text, confidence=prob, is_fall=is_fall))
 
         return DetectionResult(
