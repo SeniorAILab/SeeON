@@ -3,9 +3,10 @@
 ## Status
 
 Accepted. Partially superseded by
-[ADR-012](./ADR-012-ml-data-domain-first-layout.md) (MECE table row 6:
-domain-bound derived outputs — `annotated/`, `poses/` — move inside
-`ml/data/{domain}/`; `ml/weights/` and all other rows remain in force).
+[ADR-012](./ADR-012-ml-data-domain-first-layout.md) — MECE table rows 3 and 6
+are stale: row 6 (domain-bound derived outputs `annotated/`, `poses/`) and row 3
+(top-level source inputs `raw/`, `processed/`) now live inside
+`ml/data/{domain}/`; `ml/weights/` and rows 1, 2, 4, 5 remain in force.
 
 ## Date
 
@@ -54,11 +55,12 @@ Two homes, one for each gap:
 
 2. **Derived / generated outputs → `ml/data/` output-role subdirs.** Generated
    artifacts live *inside* `ml/data/`, in subdirectories whose role is *output*:
-   `ml/data/annotated/` (rendered overlay videos, already there) and a **reserved**
-   `ml/data/eval/` for future eval writers. This ratifies the existing
-   `annotated/` location and gives `runs/`-style outputs a home under `data/`
-   going forward. The orphaned `ml/runs/` itself is deleted (its findings live in
-   ADR-005).
+   `ml/data/annotated/` *(note: ADR-012 moved annotated videos into
+   `ml/data/{domain}/annotated/`; top-level `annotated/` no longer exists)* and
+   `ml/data/eval/` for cross-domain eval writers. This ratifies the
+   output-role subdir convention and gives `runs/`-style outputs a home under
+   `data/` going forward. The orphaned `ml/runs/` itself is deleted (its
+   findings live in ADR-005).
 
 ### MECE boundary (mandatory — ADRs must be MECE)
 
@@ -69,7 +71,7 @@ Every file category under `ml/` maps to **exactly one** ADR. This ADR owns rows
 |---|---------------|----------|-----------|
 | 1 | Versioned first-party serving/training artifacts (+ `metadata.json`) | `ml/artifacts/<name>/<version>/` | ADR-003 |
 | 2 | Curated third-party comparison checkpoints | `ml/artifacts/pretrained/*/` | ADR-005 |
-| 3 | Source footage **inputs** | `ml/data/{raw,processed,uploads}` | ADR-004 |
+| 3 | Source footage **inputs** | `ml/data/{raw,processed,uploads}` *(stale: ADR-012 moved raw/processed into `ml/data/{domain}/`; `uploads/` remains top-level)* | ADR-004 |
 | 4 | Frame-intake seam **code** | `ml/util/` | ADR-006 |
 | 5 | **Upstream ephemeral weight cache** | **`ml/weights/`** | **ADR-007** |
 | 6 | **Derived / generated outputs** | **`ml/data/{annotated,eval,…}`** | **ADR-007** |
@@ -138,5 +140,6 @@ findings are already in ADR-005, so retaining it preserves only stale scratch.
 - `ml/data/` now holds **both** inputs and outputs. Readers must rely on the
   subdir-role convention (input vs derived) rather than a top-level split; this
   ADR is the record of that convention.
-- `ml/data/eval/` is reserved but unbuilt — a name promised ahead of its writer.
-  Documented as reserved to prevent a future ad-hoc `runs/` reappearing.
+- `ml/data/eval/` is live; it holds cross-domain comparison outputs (e.g.
+  `gold8-poc-results.csv`, `le2i-poc-results.csv`). ADR-012 took formal
+  ownership of the cross-domain eval location.

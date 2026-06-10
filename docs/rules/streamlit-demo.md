@@ -2,29 +2,53 @@
 
 > Scope: `ml/demo/` (the developer Streamlit tool, not the product UI).
 > These are conventions every change to the demo must follow.
+>
+> **Decision references (not repeated here):**
+> live per-frame inference as the standard observation mode →
+> [ADR-010](../decisions/ADR-010-realtime-live-inference-demo-mode.md);
+> live-camera page and `CameraSource` →
+> [ADR-011](../decisions/ADR-011-live-camera-intake-and-multipage-demo.md).
 
-## 1. Compact, minimal UI
+## 1. Allowed operator controls
 
-The demo is a research/dev instrument, not a product surface. Keep controls
-minimal and dense: a video selector, a model-size selector, and overlay toggles
-are enough. Do **not** add model pickers, threshold sliders, or other knobs that
-duplicate what the model-seam already decides. Lay related controls out side by
-side (`st.columns`) rather than stacking full-width widgets.
+The following controls are legitimate in the demo. Do not remove them; do not
+add knobs that duplicate model-seam internals.
 
-## 2. Native-scrubbable playback = pre-rendered annotated mp4 + `st.video()`
+- **Classifier selectbox** — `select_classifier_spec()` from `demo.demo_ui`;
+  renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`.
+- **Detection-parameter expander** — `select_classifier_params()` from
+  `demo.demo_ui`; "탐지 파라미터" expander (collapsed by default) exposing
+  `conf`, `window`, `stride`, `sustained_down_sec`.
+- **YOLO26-pose size selectbox** — inside `render_live_controls()`; uses
+  `POSE_MODEL_SIZE_LABELS` for human-readable hardware-cost labels (e.g.
+  `nano · fastest`, `large · accurate`).
+- **Overlay toggles** — bounding boxes and pose skeleton as independent
+  `st.checkbox` controls inside `render_live_controls()`; see Rule 3.
+- **Domain / role segmented-control row** (operator mode only) — domain
+  selector + role selector rendered side by side via `st.columns` inside
+  `_list_videos_for_mode()`; absent in public mode.
 
-Playback must be **natively scrubbable** (YouTube-like free seek), never a
-re-encode-on-every-seek loop. The pattern:
+Lay related controls side by side (`st.columns`) rather than stacking
+full-width widgets.
 
-1. Pre-render the full annotated video once to an mp4
-   (`build_annotated_video` → `cv2.VideoWriter`, `avc1` codec).
-2. Hand the file to `st.video()`, which gives the browser native seeking.
+## 2. Live frame rendering — `st.empty().image` pattern
 
-Never render per-seek in Python. A first render shows a progress bar; every
-subsequent view of the same (video × size × toggles) combination is served from
-the cached mp4.
+Processed frames are rendered immediately into a single Streamlit placeholder:
 
-## 3. Independent overlay toggles via checkbox
+```python
+frame_ph = st.empty()
+...
+frame_ph.image(overlay, channels="RGB", use_container_width=True)
+```
+
+- Reuse **one** `st.empty()` placeholder per frame display area; never append
+  new image elements in a loop (causes infinite DOM growth).
+- Do **not** write mp4 files or call `st.video()` for the live-loop playback
+  path.
+- Pacing: compute `frame_interval = frame_stride / max(fps, 1.0)` and sleep
+  toward it with `time.sleep(delay)` when `delay > 0`.
+
+## 3. Independent overlay toggles
 
 Bounding boxes and the pose skeleton are **independent render options** on a
 single `DetectionResult` (per ADR-005 §3), not separate models. Expose each as
@@ -32,47 +56,28 @@ its own `st.checkbox`; all four on/off combinations must render correctly, and
 "both off" returns a clean frame. `render_yolo_overlay(frame, result,
 show_boxes=..., show_pose=...)` honors the flags.
 
-## 4. The cache key must include every render-affecting input
+## 4. Public mode — nursing-home data never exposed
 
-`annotated_video_path` derives a content hash that gates whether a new mp4 is
-rendered. It **must** fold in every input that changes the rendered pixels:
-source-file identity (path + size + mtime), model `size`, `show_boxes`,
-`show_pose`, `frame_stride`, and the encoding version. Omitting any one of these
-serves a stale overlay. When you add a new render-affecting control, add it to
-the cache key in the same change.
+The demo defaults to `FALL_DEMO_MODE=public` (fail-safe):
 
-## 5. Model / size / classifier selection goes through the model-seam
-
-Selecting the pose model size is a **one-line weight swap through the model-seam**
-(`pose_weight_filename(size)` → `yolo26{size}-pose.pt`), not bespoke UI logic.
-Any future "choose pose model" or "choose downstream classifier" control must be
-wired the same way — by selecting a `ModelModule`, leaving the renderer and
-downstream consumers untouched (ADR-005 §3). Do not branch the UI on framework
-internals.
-
-## 6. Demo modes — `FALL_DEMO_MODE` (fail-safe default: `public`)
-
-The demo runs in one of two modes, selected by the `FALL_DEMO_MODE`
-environment variable:
-
-| Mode | Who | Dropdown sources | Default? |
-|------|-----|------------------|----------|
+| Mode | Who | Video sources | Default? |
+|------|-----|---------------|----------|
 | `public` | external testers (deployed) | **only clips uploaded in the current browser session** | **yes — fail-safe** |
 | `operator` | local development | `ml/data/{domain}/{raw,processed}` internal clips + uploads | explicit opt-in |
 
-- **The default is `public` on purpose.** A deployment that forgets to set the
-  variable must never expose nursing-home footage (ADR-012 Access Boundary).
-  Never flip the default to `operator`.
+- **The default is `public` on purpose.** A deployment that forgets to set
+  `FALL_DEMO_MODE` must **never** expose nursing-home footage
+  (ADR-012 Access Boundary). Never flip the default to `operator`.
 - **Public-mode invariants:** internal domain sources are not listed, not
   reachable by any widget, and uploads outside the current session's
   `st.session_state["session_upload_ids"]` set are not shown. Session
-  filtering happens in the `app.py` layer; `video_registry` stays
-  mode-agnostic.
-- **Local runs set the mode in the standard command:**
+  filtering lives in `app.py`; `video_registry` stays mode-agnostic.
+- **Local operator run:**
 
   ```bash
-  cd ml && FALL_DEMO_MODE=operator uv run --group demo --group training \
-      streamlit run demo/app.py
+  FALL_DEMO_MODE=operator pnpm dev:demo
+  # or directly:
+  cd ml && FALL_DEMO_MODE=operator uv run streamlit run demo/app.py
   ```
 
 - The upload widget works in both modes and accepts the
@@ -81,13 +86,28 @@ environment variable:
   `ml/data/` root; never reintroduce the role-only format (it collides across
   domains).
 
+## 5. Upload session scope
+
+Uploads are **session-scoped**. `video_registry` is mode-agnostic; the session
+filter (`app_assets.SESSION_UPLOAD_IDS_KEY`) lives exclusively in `app.py`.
+Do not push session filtering into the registry.
+
+## 6. Model / size / classifier selection goes through the model-seam
+
+Selecting the pose model size is a **one-line weight swap through the model-seam**
+(`pose_weight_filename(size)` → `yolo26{size}-pose.pt`), not bespoke UI logic.
+Any future "choose pose model" or "choose downstream classifier" control must be
+wired through `demo.classifiers` / `demo.model_modules`, leaving the renderer
+and downstream consumers untouched (ADR-005 §3). Do not branch the UI on
+framework internals.
+
 ## 7. Operational notes
 
 - **First-select latency.** `yolo26{s,m,l,x}-pose.pt` weights download on first
   selection and are large. They cache to `ml/weights/` (not the `ml/` root) via
   `pose_weight_path(size)` — see [ml-filesystem-layout.md](./ml-filesystem-layout.md)
   and ADR-007. `*.pt` is gitignored — never commit weights. Expect a one-time
-  download/render delay when a size is picked for the first time.
+  download delay when a size is picked for the first time.
 - **Import contract.** `streamlit run demo/app.py` only puts `ml/demo/` on the
   path; pytest uses `pythonpath=["."]` = `ml/`. `app.py` bootstraps `sys.path`
   with the `ml/` root so both resolve the same package-qualified imports

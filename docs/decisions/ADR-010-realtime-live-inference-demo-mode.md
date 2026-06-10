@@ -91,3 +91,12 @@ once recorded-clip live playback is solid.
   presentation changes.
 - **Implementation** is tracked in GitHub issue **#39**. This ADR records the
   *decision*; the issue records the *how*.
+
+## Errata
+
+**Decision bullet 2 path correction (ADR-012, accepted 2026-06-10).**
+"Stream recorded clips from `ml/data/processed`" refers to the input-role
+processed clips. ADR-012 introduced domain-first layout: those clips now live
+at `ml/data/{domain}/processed/` (e.g. `ml/data/nursing-home/processed/`).
+The decision itself — recorded-clip live playback first, camera/RTSP later —
+is unchanged.
