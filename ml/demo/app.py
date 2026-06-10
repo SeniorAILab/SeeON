@@ -24,12 +24,12 @@ from demo.demo_mode import (  # noqa: E402
 )
 from demo.demo_ui import (  # noqa: E402
     build_model,
+    render_live_controls,
     render_status,
     select_classifier_params,
     select_classifier_spec,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
-from demo.model_modules import POSE_MODEL_SIZES  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
@@ -102,16 +102,9 @@ def _render_live_viewer(
     st.subheader("Live Playback")
     st.caption(str(selected_video.path))
 
-    size_col, boxes_col, pose_col = st.columns([2, 1, 1])
-    size = size_col.selectbox("YOLO26-pose size", options=POSE_MODEL_SIZES)
-    show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
-    show_pose = pose_col.checkbox("Pose skeleton", value=True)
-
-    play_col, stop_col = st.columns(2)
-    if play_col.button("재생", use_container_width=True, type="primary"):
-        st.session_state[PLAYING_KEY] = True
-    if stop_col.button("정지", use_container_width=True):
-        st.session_state[PLAYING_KEY] = False
+    size, show_boxes, show_pose = render_live_controls(
+        PLAYING_KEY, start_label="재생", stop_label="정지"
+    )
 
     status_ph = st.empty()
     frame_ph = st.empty()

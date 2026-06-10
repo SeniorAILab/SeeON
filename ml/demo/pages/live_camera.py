@@ -13,11 +13,11 @@ import streamlit as st  # noqa: E402
 
 from demo.demo_ui import (  # noqa: E402
     build_model,
+    render_live_controls,
     select_classifier_params,
     select_classifier_spec,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
-from demo.model_modules import POSE_MODEL_SIZES  # noqa: E402
 from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
 from util.camera_probe import probe_cameras  # noqa: E402
 from util.frame_source import CameraSource  # noqa: E402
@@ -79,16 +79,9 @@ def main() -> None:
     classifier_key: str | None = selected_spec.key if selected_spec.available else None
     classifier_params = select_classifier_params()
 
-    size_col, boxes_col, pose_col = st.columns([2, 1, 1])
-    size = size_col.selectbox("YOLO26-pose size", options=POSE_MODEL_SIZES)
-    show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
-    show_pose = pose_col.checkbox("Pose skeleton", value=True)
-
-    play_col, stop_col = st.columns(2)
-    if play_col.button("시작", use_container_width=True, type="primary"):
-        st.session_state[CAMERA_PLAYING_KEY] = True
-    if stop_col.button("중지", use_container_width=True):
-        st.session_state[CAMERA_PLAYING_KEY] = False
+    size, show_boxes, show_pose = render_live_controls(
+        CAMERA_PLAYING_KEY, start_label="시작", stop_label="중지"
+    )
 
     status_ph = st.empty()
     frame_ph = st.empty()
