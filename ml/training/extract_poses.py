@@ -78,7 +78,7 @@ def discover_clips(input_dir: Path) -> list[ClipRef]:
 
         <input_dir>/
             {scenario}/          # one of config.LE2I_SCENARIOS
-                *.avi            # one file per clip
+                *.avi | *.mp4    # one file per clip
                 Annotation_files/
                     *.txt        # annotation per video (parsed by the data loader, not here)
 
@@ -88,7 +88,7 @@ def discover_clips(input_dir: Path) -> list[ClipRef]:
     To adapt to a different layout (e.g. flat structure, different extension)
     edit only this function.
     """
-    # === 단계 1: 영상 클립 탐색 — 시나리오 디렉터리 순회 및 .avi 클립 수집 ===
+    # === 단계 1: 영상 클립 탐색 — 시나리오 디렉터리 순회 및 .avi/.mp4 클립 수집 ===
     clips: list[ClipRef] = []
     scenario_set = set(config.LE2I_SCENARIOS)
 
@@ -96,7 +96,8 @@ def discover_clips(input_dir: Path) -> list[ClipRef]:
         if not scenario_dir.is_dir() or scenario_dir.name not in scenario_set:
             continue
         scenario = scenario_dir.name
-        for video_path in sorted(scenario_dir.glob("*.avi")):
+        video_paths = sorted(scenario_dir.glob("*.avi")) + sorted(scenario_dir.glob("*.mp4"))
+        for video_path in video_paths:
             clips.append(ClipRef(scenario=scenario, video_path=video_path))
 
     return clips
@@ -233,14 +234,17 @@ def main(argv: list[str] | None = None) -> None:
     """Parse arguments and run the extraction loop."""
     parser = argparse.ArgumentParser(
         description=(
-            "Extract COCO-17 pose keypoints from Le2i .avi clips into .npz caches."
+            "Extract COCO-17 pose keypoints from Le2i .avi/.mp4 clips into .npz caches."
         )
     )
     parser.add_argument(
         "--input-dir",
-        required=True,
         type=Path,
-        help="Le2i dataset root directory (contains Coffee_room/, Home/, etc.).",
+        default=config.RAW_DATA_DIR,
+        help=(
+            "Le2i dataset root directory (contains Coffee_room/, Home/, etc.; "
+            f"default: {config.RAW_DATA_DIR})."
+        ),
     )
     parser.add_argument(
         "--output-dir",

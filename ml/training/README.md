@@ -26,14 +26,14 @@ COCO-17 keypoints as `.npz` files.
 
 ```bash
 uv run python -m training.extract_poses \
-    --input-dir  data/le2i_raw \
-    --output-dir data/le2i_poses
+    --input-dir  data/le2i/raw \
+    --output-dir data/le2i/poses
 ```
 
-Expected Le2i layout under `data/le2i_raw/`:
+Expected Le2i layout under `data/le2i/raw/`:
 
 ```
-data/le2i_raw/
+data/le2i/raw/
     Coffee_room/
         video (1).avi
         video (2).avi
@@ -57,8 +57,8 @@ Smoke run — first N clips only, useful for CI / sanity checks:
 
 ```bash
 uv run python -m training.extract_poses \
-    --input-dir  data/le2i_raw \
-    --output-dir data/le2i_poses \
+    --input-dir  data/le2i/raw \
+    --output-dir data/le2i/poses \
     --smoke-n 5
 ```
 
@@ -146,8 +146,8 @@ Key parameters governing the metric (all in `training/config.py`):
 
 | Path | Contents |
 |------|----------|
-| `data/le2i_raw/` | Raw Le2i `.avi` clips + annotation `.txt` files |
-| `data/le2i_poses/` | Extracted `.npz` pose caches (Step 1 output) |
+| `data/le2i/raw/` | Raw Le2i `.avi` clips + annotation `.txt` files |
+| `data/le2i/poses/` | Extracted `.npz` pose caches (Step 1 output) |
 | `artifacts/fall-detector/lstm/` | Trained LSTM model + metadata |
 | `artifacts/fall-detector/transformer/` | Trained Transformer model + metadata |
 | `artifacts/fall-detector/rf/` | Trained Random Forest model + metadata |
