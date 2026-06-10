@@ -3,6 +3,7 @@ slug: ml-models-consolidation
 issue: "#56"
 date: 2026-06-10
 author: claude-fable-5
+status: done
 ```
 
 # ml/models/ 단일 루트 — weights + artifacts 통합
