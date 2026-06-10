@@ -46,10 +46,11 @@ from training.config import (
 from training.data.le2i import ClipMeta, load_clip_metas
 from training.data.windowing import WindowDataset
 from training.metadata import ModelMetadata, artifact_dir, save_metadata
+from training.models import REGISTRY
 
 log = logging.getLogger(__name__)
 
-_ALL_MODEL_KEYS: tuple[str, ...] = ("random-forest", "lstm", "transformer")
+_ALL_MODEL_KEYS: tuple[str, ...] = tuple(REGISTRY.keys())
 
 
 # ---------------------------------------------------------------------------
@@ -215,21 +216,23 @@ def run(
         return _feat_arrays
 
     is_smoke = smoke_n is not None
-    requested = [k for k in _ALL_MODEL_KEYS if k in models]
+    requested = [k for k in REGISTRY if k in models]
 
-    # === 단계 5: 요청된 모델별 학습 (rf=RandomForest, lstm/transformer=PyTorch net) ===
+    # === 단계 5: 요청된 모델별 학습 — REGISTRY 구동 (mode=="features"=sklearn, mode=="sequence"=PyTorch) ===
     for key in requested:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
         print(f"[train] training {key!r} → {out_dir}")
 
-        if key == "random-forest":
-            X_tr, y_tr = _get_feat()
-            from training.models.rf import RandomForestFallClassifier
+        entry = REGISTRY[key]
+        mode = entry["mode"]
+        factory = entry["factory"]
 
-            clf_rf = RandomForestFallClassifier()
-            clf_rf.fit(X_tr, y_tr)
-            clf_rf.save(out_dir)
-            y_pred = (clf_rf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD).astype(int)
+        if mode == "features":
+            X_tr, y_tr = _get_feat()
+            clf = factory()
+            clf.fit(X_tr, y_tr)
+            clf.save(out_dir)
+            y_pred = (clf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD).astype(int)
             train_f1 = float(f1_score(y_tr, y_pred, zero_division=0))
             meta = ModelMetadata(
                 model_type=key,
@@ -242,19 +245,13 @@ def run(
                 operating_threshold=DEFAULT_OPERATING_THRESHOLD,
             )
 
-        else:
+        else:  # mode == "sequence" — applies to ALL sequence-mode REGISTRY entries (lstm, transformer, gcn, …)
             X_tr, y_tr = _get_seq()
-            if key == "lstm":
-                from training.models.lstm import LstmFallClassifier
-
-                clf_net: object = LstmFallClassifier()
-            else:
-                from training.models.transformer import TransformerFallClassifier
-
-                clf_net = TransformerFallClassifier()
+            clf = factory()
 
             if is_smoke:
                 # Cap net training at 2 epochs so smoke runs finish in < 5 min CPU.
+                # Monkey-patch applies to every mode=="sequence" entry, not just lstm/transformer.
                 import training.models.base as _base
 
                 _orig_train = _base.train_torch_module
@@ -266,15 +263,15 @@ def run(
 
                 _base.train_torch_module = _capped
                 try:
-                    clf_net.fit(X_tr, y_tr)  # type: ignore[union-attr]
+                    clf.fit(X_tr, y_tr)
                 finally:
                     _base.train_torch_module = _orig_train
             else:
-                clf_net.fit(X_tr, y_tr)  # type: ignore[union-attr]
+                clf.fit(X_tr, y_tr)
 
-            clf_net.save(out_dir)  # type: ignore[union-attr]
+            clf.save(out_dir)
             y_pred = (
-                clf_net.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD  # type: ignore[union-attr]
+                clf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD
             ).astype(int)
             train_f1 = float(f1_score(y_tr, y_pred, zero_division=0))
             meta = ModelMetadata(
@@ -325,7 +322,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--models",
         type=str,
-        default="random-forest,lstm,transformer",
+        default=",".join(REGISTRY.keys()),
         help="Comma-separated model keys to train.",
     )
     args = parser.parse_args(argv)
