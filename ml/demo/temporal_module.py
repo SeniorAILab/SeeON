@@ -26,6 +26,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from demo.seam import DetectionLabel, DetectionResult, Frame, ModelModule
+from demo.tracking import GreedyIouTracker
 from training import config
 from training.data.features import extract_window_features
 from training.metadata import artifact_dir, load_metadata
@@ -133,14 +134,20 @@ def build_temporal_model(key: str, pose_module: ModelModule) -> TemporalFallClas
 class TemporalFallClassifierModule:
     """ModelModule wrapping a temporal fall classifier (RF / LSTM / Transformer).
 
-    Maintains a rolling ring buffer of *window* normalised float32[17, 3]
-    keypoint frames.  Inference is triggered every *stride* frames once the
-    buffer is full.  The overlay label is "낙상" on a fall, "정상" otherwise.
+    Maintains per-track rolling ring buffers of *window* normalised float32[17, 3]
+    keypoint frames.  Each person detected on screen has an independent buffer
+    indexed by the track id assigned by ``GreedyIouTracker``.  Inference is
+    triggered every *stride* frames for every track whose buffer is full.
 
     Anti-skew: live keypoints are normalised with ``normalize_person_keypoints``
     from ``training.extract_poses`` — the *same* function used by the training
     pipeline — so pixel → [0, 1] conversion and confidence-gating are identical
-    between training and serving.
+    between training and serving.  The 1-tuple call convention
+    ``normalize_person_keypoints((keypoints[i],), ...)`` ensures person[0] of
+    a 1-element tuple is exactly person i — no per-person index skew.
+
+    Warm-up: a track's label stays "정상" (confidence 0.0) until its first
+    inference fires (buffer full + stride trigger).
     """
 
     def __init__(
@@ -163,17 +170,20 @@ class TemporalFallClassifierModule:
         self._window = window
         self._stride = stride
         self._operating_threshold = operating_threshold
-        # Ring buffer of float32[17, 3] frames; maxlen enforces the window size.
-        self._buf: deque[NDArray[np.float32]] = deque(maxlen=window)
+        # Per-track ring buffers: track_id → deque[float32[17, 3]], maxlen=window.
+        self._buffers: dict[int, deque[NDArray[np.float32]]] = {}
+        # Last inferred fall probability per track id.
+        # Absent key ↔ warm-up: label is "정상", confidence 0.0.
+        self._last_probs: dict[int, float] = {}
+        self._tracker: GreedyIouTracker = GreedyIouTracker()
         self._frame_counter: int = 0
-        self._last_prob: float = 0.0  # held between inference calls
 
     def predict(self, frame: Frame) -> DetectionResult:
-        """Run pose, buffer normalised keypoints, infer when due, emit label.
+        """Run pose, update per-track buffers, infer when due, emit per-person labels.
 
-        Returns an empty DetectionResult when no person is detected (the buffer
-        still receives zeros from the normalisation helper so the window stays
-        temporally consistent).
+        Returns an empty DetectionResult when no person is detected this frame.
+        Missed (occluded) tracks still receive an all-zeros keypoint frame so
+        their window stays temporally contiguous with the training convention.
         """
         # Lazy import: avoids pulling cv2 (via training.extract_poses) at module
         # import time — safe to do here because Python caches the module after
@@ -184,44 +194,89 @@ class TemporalFallClassifierModule:
         pose = self._pose.predict(frame)
         frame_h, frame_w = frame.image.shape[:2]
 
-        # === 단계 2: 학습과 동일한 normalize_person_keypoints로 정규화 (train↔serve 스큐 방지) ===
-        # CRITICAL anti-skew: same normalisation as the training pipeline.
-        # normalize_person_keypoints picks person[0] from pose.keypoints (the
-        # same PoseDetections tuple that YoloPoseRunner.predict_full returns),
-        # divides x/y by frame_w/frame_h, and zeros out keypoints below
-        # CONF_THRESHOLD — exactly as extract_poses._extract_clip does in batch.
-        kpt: NDArray[np.float32] = normalize_person_keypoints(
-            pose.keypoints, frame_w, frame_h, config.CONF_THRESHOLD
-        )
-        # === 단계 3: 정규화된 프레임을 링버퍼(maxlen=window)에 누적 ===
-        self._buf.append(kpt)
+        # === 단계 2: 그리디 IoU 트래커로 이번 프레임 박스 → 트랙 ID 매핑 ===
+        track_ids = self._tracker.update(pose.boxes)
+        live_ids = self._tracker.live_ids
+
+        # === 단계 3: 검출된 각 사람에 대해 키포인트 정규화 후 해당 트랙 버퍼에 추가 ===
+        # Pass a 1-tuple so normalize_person_keypoints picks person[0] of that
+        # 1-tuple — same function as training pipeline, anti-skew preserved.
+        active_ids: set[int] = set()
+        for i, tid in enumerate(track_ids):
+            active_ids.add(tid)
+            if tid not in self._buffers:
+                self._buffers[tid] = deque(maxlen=self._window)
+            kpt: NDArray[np.float32] = normalize_person_keypoints(
+                (pose.keypoints[i],), frame_w, frame_h, config.CONF_THRESHOLD
+            )
+            self._buffers[tid].append(kpt)
+
+        # === 단계 4: 이번 프레임에 검출되지 않은 살아있는 트랙에 제로 프레임 추가 ===
+        # Mirrors training's zero convention for missing detections so the window
+        # stays temporally contiguous.
+        missed_ids = live_ids - active_ids
+        if missed_ids:
+            zeros: NDArray[np.float32] = np.zeros(
+                (config.N_KEYPOINTS, config.KPT_DIMS), dtype=np.float32
+            )
+            for tid in missed_ids:
+                if tid not in self._buffers:
+                    self._buffers[tid] = deque(maxlen=self._window)
+                self._buffers[tid].append(zeros)
+
+        # === 단계 5: 퇴출된 트랙의 버퍼 및 확률 삭제 ===
+        evicted_ids = set(self._buffers.keys()) - live_ids
+        for tid in evicted_ids:
+            del self._buffers[tid]
+            self._last_probs.pop(tid, None)
+
         self._frame_counter += 1
 
-        # === 단계 4: stride 프레임마다 & 버퍼가 가득 찼을 때만 추론 트리거 ===
-        # Trigger inference once buffer is full and the stride counter fires.
-        if len(self._buf) == self._window and self._frame_counter % self._stride == 0:
-            win: NDArray[np.float32] = np.stack(list(self._buf), axis=0)  # [W, 17, 3]
-            # === 단계 5: 모드별 윈도우 구성 (features=특징벡터 / sequence=키포인트 시퀀스) ===
-            if self._mode == "features":
-                X = extract_window_features(win)[np.newaxis, :]  # [1, 45]
-            else:  # "sequence"
-                X = win.reshape(1, self._window, 51)  # [1, W, 17*3]
-            # === 단계 6: model.predict_proba로 낙상 확률 계산 ===
-            self._last_prob = float(self._model.predict_proba(X)[0, 1])  # type: ignore[union-attr]
+        # === 단계 6: stride 트리거 — 가득 찬 버퍼를 배치로 한 번만 추론 ===
+        # Only tracks whose buffer is full (== window) participate in this batch.
+        if self._frame_counter % self._stride == 0:
+            due_ids = [
+                tid for tid in self._buffers if len(self._buffers[tid]) == self._window
+            ]
+            if due_ids:
+                if self._mode == "features":
+                    # [N, 45]
+                    X: NDArray[np.float32] = np.stack(
+                        [
+                            extract_window_features(np.stack(list(self._buffers[tid]), axis=0))
+                            for tid in due_ids
+                        ],
+                        axis=0,
+                    )
+                else:  # "sequence"
+                    # [N, W, 51]
+                    X = np.stack(
+                        [
+                            np.stack(list(self._buffers[tid]), axis=0).reshape(
+                                self._window, config.KPT_VECTOR_DIM
+                            )
+                            for tid in due_ids
+                        ],
+                        axis=0,
+                    )
+                probs = self._model.predict_proba(X)[:, 1]  # type: ignore[union-attr]
+                for j, tid in enumerate(due_ids):
+                    self._last_probs[tid] = float(probs[j])
 
-        # === 단계 7: operating_threshold와 비교 → 낙상이면 "낙상" 빨간 박스, 아니면 "정상" ===
-        prob = self._last_prob
-        is_fall = prob >= self._operating_threshold
-        label_text = "낙상" if is_fall else "정상"
-
+        # === 단계 7: 박스 없으면 빈 DetectionResult 반환 (버퍼는 이미 갱신됨) ===
         if not pose.boxes:
-            # No person detected — return nothing to paint; buffer already updated.
             return DetectionResult()
 
-        out_box = pose.boxes[0]
-        out_kpts = (pose.keypoints[0],) if pose.keypoints else ()
+        # === 단계 8: 사람별 레이블 생성 → 전원 박스·키포인트와 함께 방출 ===
+        labels: list[DetectionLabel] = []
+        for tid in track_ids:
+            prob = self._last_probs.get(tid, 0.0)
+            is_fall = prob >= self._operating_threshold
+            label_text = "낙상" if is_fall else "정상"
+            labels.append(DetectionLabel(text=label_text, confidence=prob, is_fall=is_fall))
+
         return DetectionResult(
-            boxes=(out_box,),
-            labels=(DetectionLabel(text=label_text, confidence=prob, is_fall=is_fall),),
-            keypoints=out_kpts,
+            boxes=pose.boxes,
+            labels=tuple(labels),
+            keypoints=pose.keypoints,
         )
