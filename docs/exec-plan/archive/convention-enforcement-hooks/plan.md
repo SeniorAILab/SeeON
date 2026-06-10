@@ -3,6 +3,7 @@ slug: convention-enforcement-hooks
 issue: "#71"
 date: 2026-06-10
 author: claude-fable-5
+status: done
 ```
 
 # 비가역 asset 유출 deny 훅 — git + Claude + Codex
