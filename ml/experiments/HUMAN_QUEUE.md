@@ -21,3 +21,11 @@ the loop records them here and continues with other work instead of blocking.
   (explicitly excluded by user — not needed by the loop).
 - 2026-06-10: Phase 4 agent killed by process exit mid-run; partial REGISTRY refactor
   (train/evaluate/__init__) verified by pytest before completion agent resumed on top.
+- 2026-06-10: worktree had a REAL ml/models dir (git wt only links ml/data) — failed
+  smoke runs left a half-written random-forest folder there, tripping
+  test_models_layout. Canonical store untouched (verified by mtime/size). Fixed by
+  applying the m1-pro-lab skill procedure: worktree ml/models + ml/artifacts are now
+  symlinks to the main clone.
+- 2026-06-10: zero-positive-window fail-fast guard added to train.py (smoke mode
+  previously skipped the fall-fraction gate → obscure IndexError on single-class
+  predict_proba).
