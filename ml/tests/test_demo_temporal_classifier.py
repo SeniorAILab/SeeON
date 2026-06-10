@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from demo.classifiers import CLASSIFIER_REGISTRY
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
@@ -244,3 +245,182 @@ class TestTemporalArtifactAvailable:
         for spec in CLASSIFIER_REGISTRY:
             if spec.key in TEMPORAL_MODEL_KEYS:
                 assert spec.factory is None, f"Expected factory=None for temporal key {spec.key!r}"
+
+
+# ---------------------------------------------------------------------------
+# Helpers — multi-person fake pose modules
+# ---------------------------------------------------------------------------
+
+
+def _make_kpts(x_pixel: int, y_pixel: int, conf: float = 0.9) -> tuple[tuple[int, int, float], ...]:
+    """Return 17 identical keypoints at (x_pixel, y_pixel, conf)."""
+    return tuple((x_pixel, y_pixel, conf) for _ in range(17))
+
+
+class _TwoPersonFakePose:
+    """Scripted fake pose module returning two spatially-separated people.
+
+    Person A (index 0): alternating fall-pattern keypoints (same as _FakePoseForFall).
+    Person B (index 1): static normal-pattern keypoints at the centre of the frame.
+
+    The two boxes do not overlap so the tracker assigns stable, distinct ids.
+    """
+
+    BOX_A = BoundingBox(x1=0, y1=0, x2=100, y2=200, confidence=0.9)
+    BOX_B = BoundingBox(x1=400, y1=0, x2=640, y2=480, confidence=0.9)
+
+    def predict(self, frame: Frame) -> DetectionResult:
+        kpts_a = _fall_kpts(frame.index)
+        kpts_b = _make_kpts(320, 240, conf=0.9)
+        return DetectionResult(
+            boxes=(self.BOX_A, self.BOX_B),
+            labels=(
+                DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                DetectionLabel(text="person", confidence=0.9, is_fall=False),
+            ),
+            keypoints=(kpts_a, kpts_b),
+        )
+
+
+class _DisappearingBPose:
+    """Person A always present; person B disappears after *b_disappears_after* frames."""
+
+    BOX_A = BoundingBox(x1=0, y1=0, x2=100, y2=200, confidence=0.9)
+    BOX_B = BoundingBox(x1=400, y1=0, x2=640, y2=480, confidence=0.9)
+
+    def __init__(self, b_disappears_after: int) -> None:
+        self._threshold = b_disappears_after
+
+    def predict(self, frame: Frame) -> DetectionResult:
+        kpts_a = _fall_kpts(frame.index)
+        if frame.index < self._threshold:
+            kpts_b = _make_kpts(320, 240, conf=0.9)
+            return DetectionResult(
+                boxes=(self.BOX_A, self.BOX_B),
+                labels=(
+                    DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                    DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                ),
+                keypoints=(kpts_a, kpts_b),
+            )
+        return DetectionResult(
+            boxes=(self.BOX_A,),
+            labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+            keypoints=(kpts_a,),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Tests — multi-person temporal module
+# ---------------------------------------------------------------------------
+
+
+class TestMultiPersonTemporalModule:
+    def test_two_person_all_boxes_in_result(self, tmp_path: Path) -> None:
+        """All detected boxes, labels, and keypoints are present in the DetectionResult."""
+        _build_rf_artifact(tmp_path)
+        meta = load_metadata(tmp_path)
+        rf = RandomForestFallClassifier.load(tmp_path)
+        module = TemporalFallClassifierModule(
+            pose_module=_TwoPersonFakePose(),
+            model=rf,
+            mode="features",
+            window=meta.window,
+            stride=meta.stride,
+            operating_threshold=meta.operating_threshold,
+        )
+        result = module.predict(_frame(0))
+        assert len(result.boxes) == 2
+        assert len(result.labels) == 2
+        assert len(result.keypoints) == 2
+
+    def test_per_person_labels_index_aligned_fall_vs_normal(self, tmp_path: Path) -> None:
+        """Person A (fall-pattern) fires '낙상'; person B (static normal) stays '정상'."""
+        _build_rf_artifact(tmp_path, window=30, stride=5)
+        meta = load_metadata(tmp_path)
+        rf = RandomForestFallClassifier.load(tmp_path)
+        module = TemporalFallClassifierModule(
+            pose_module=_TwoPersonFakePose(),
+            model=rf,
+            mode="features",
+            window=meta.window,
+            stride=meta.stride,
+            operating_threshold=meta.operating_threshold,
+        )
+        result = None
+        for i in range(meta.window):
+            result = module.predict(_frame(i))
+
+        assert result is not None
+        assert len(result.labels) == 2
+        # Person A — fall pattern → "낙상"
+        assert result.labels[0].is_fall is True, "Person A expected fall label"
+        assert result.labels[0].text == "낙상"
+        # Person B — static normal pattern → "정상"
+        assert result.labels[1].is_fall is False, "Person B expected normal label"
+        assert result.labels[1].text == "정상"
+
+    def test_warmup_all_labels_normal_confidence_zero(self, tmp_path: Path) -> None:
+        """Before any buffer fills, every per-person label is '정상' with confidence 0.0."""
+        _build_rf_artifact(tmp_path, window=30, stride=5)
+        meta = load_metadata(tmp_path)
+        rf = RandomForestFallClassifier.load(tmp_path)
+        module = TemporalFallClassifierModule(
+            pose_module=_TwoPersonFakePose(),
+            model=rf,
+            mode="features",
+            window=meta.window,
+            stride=meta.stride,
+            operating_threshold=meta.operating_threshold,
+        )
+        for i in range(meta.window - 1):
+            result = module.predict(_frame(i))
+            for j, label in enumerate(result.labels):
+                assert label.is_fall is False, (
+                    f"Warm-up: person {j} must not fall at frame {i}"
+                )
+                assert label.confidence == pytest.approx(0.0), (
+                    f"Warm-up: person {j} confidence must be 0.0 at frame {i}"
+                )
+
+    def test_zero_fill_on_missed_frames_no_crash(self, tmp_path: Path) -> None:
+        """Person B disappears mid-stream; missed frames get zero-filled without error."""
+        _build_rf_artifact(tmp_path, window=30, stride=5)
+        meta = load_metadata(tmp_path)
+        rf = RandomForestFallClassifier.load(tmp_path)
+        module = TemporalFallClassifierModule(
+            pose_module=_DisappearingBPose(b_disappears_after=15),
+            model=rf,
+            mode="features",
+            window=meta.window,
+            stride=meta.stride,
+            operating_threshold=meta.operating_threshold,
+        )
+        # Must not raise even when person B goes missing mid-stream.
+        result = None
+        for i in range(meta.window):
+            result = module.predict(_frame(i))
+
+        # After B disappears, only A's box is emitted.
+        assert result is not None
+        assert len(result.boxes) == 1
+
+    def test_boxes_and_keypoints_passed_through_unchanged(self, tmp_path: Path) -> None:
+        """Boxes and keypoints in the result equal the raw pose output."""
+        _build_rf_artifact(tmp_path)
+        meta = load_metadata(tmp_path)
+        rf = RandomForestFallClassifier.load(tmp_path)
+        fake_pose = _TwoPersonFakePose()
+        module = TemporalFallClassifierModule(
+            pose_module=fake_pose,
+            model=rf,
+            mode="features",
+            window=meta.window,
+            stride=meta.stride,
+            operating_threshold=meta.operating_threshold,
+        )
+        frame = _frame(0)
+        result = module.predict(frame)
+        # Boxes and keypoints come directly from the pose module, unmodified.
+        assert result.boxes == (fake_pose.BOX_A, fake_pose.BOX_B)
+        assert len(result.keypoints) == 2
