@@ -153,13 +153,21 @@ def run(
 
     # === 단계 3: 클립 단위 결정적 분할 (두 모드 분할 결과 일치 보장) ===
     train_seq, test_seq = ds_seq.split(test_fraction=TEST_SPLIT_FRACTION)
-    train_feat, _ = ds_feat.split(test_fraction=TEST_SPLIT_FRACTION)
+    train_feat, test_feat = ds_feat.split(test_fraction=TEST_SPLIT_FRACTION)
 
-    # Assert that both modes produce identical clip-id splits.
+    # Assert that both modes produce identical clip-id splits — on BOTH sides.
+    # Train-side equality alone would let a refactor that changes only the
+    # test-clip selection slip through unnoticed.
     train_ids_seq = {m.clip_id for m in train_seq._clip_metas}  # noqa: SLF001
     train_ids_feat = {m.clip_id for m in train_feat._clip_metas}  # noqa: SLF001
     assert train_ids_seq == train_ids_feat, (
         "Train clip-id sets differ between sequence and features modes"
+        " — split is non-deterministic"
+    )
+    test_ids_seq = {m.clip_id for m in test_seq._clip_metas}  # noqa: SLF001
+    test_ids_feat = {m.clip_id for m in test_feat._clip_metas}  # noqa: SLF001
+    assert test_ids_seq == test_ids_feat, (
+        "Test clip-id sets differ between sequence and features modes"
         " — split is non-deterministic"
     )
 

@@ -14,9 +14,9 @@ Feature breakdown  (D = 45)
 42-43  Torso-vertical |shoulder_mid_y − hip_mid_y|: mean, std             (2)
 44     Overall motion energy: Σ squared centroid-step distances            (1)
 
-Keypoint coordinates are assumed to be in the same pixel-space as stored in
-the npz cache (not normalised by frame dims).  All features are NaN-free;
-any feature whose computation yields no valid frames emits 0.0.
+Keypoint coordinates are assumed to be normalised [0, 1] values (x/w, y/h)
+exactly as stored in the npz cache by ``extract_poses``.  All features are
+NaN-free; any feature whose computation yields no valid frames emits 0.0.
 """
 
 from __future__ import annotations

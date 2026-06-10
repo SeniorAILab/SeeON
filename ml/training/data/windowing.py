@@ -68,15 +68,17 @@ def _compute_label(start: int, fall_interval: tuple[int, int] | None) -> int:
     """Return 1 if the window overlaps the fall_interval by >= OVERLAP_THRESHOLD.
 
     ``fall_interval`` uses 1-based inclusive frame numbers from Le2i annotations.
-    Internally converted to half-open [f_start, f_end+1) for clean arithmetic.
-    Window frames are 0-based [start, start+T_WINDOW).
+    Window frames are 0-based [start, start+T_WINDOW).  The 1-based inclusive
+    interval [f_start, f_end] maps to 0-based half-open [f_start-1, f_end) —
+    both bounds must shift together, or the overlap undercounts by one frame
+    at the fall-onset edge.
     """
     # === 윈도우-낙상 겹침 비율 산출: |window ∩ fall_interval| / T >= OVERLAP_THRESHOLD ===
     if fall_interval is None:
         return 0
     f_start, f_end = fall_interval
-    # Convert Le2i inclusive end to half-open; window is already 0-based half-open.
-    overlap = max(0, min(start + T_WINDOW, f_end + 1) - max(start, f_start))
+    # 1-based inclusive → 0-based half-open: [f_start-1, f_end).
+    overlap = max(0, min(start + T_WINDOW, f_end) - max(start, f_start - 1))
     return 1 if overlap / T_WINDOW >= OVERLAP_THRESHOLD else 0
 
 

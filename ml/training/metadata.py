@@ -11,7 +11,7 @@ exactly what training wrote.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from training.config import ARTIFACT_BASE, DEFAULT_OPERATING_THRESHOLD
@@ -42,6 +42,12 @@ class ModelMetadata:
     seed: int
     classes: tuple[int, ...] = (0, 1)
     operating_threshold: float = DEFAULT_OPERATING_THRESHOLD
+    # AC-6 contract keys (constant for this PoC; defaults keep older
+    # metadata.json files loadable without migration).
+    name: str = "fall-detector"
+    version: str = "poc"
+    dataset: str = "le2i"
+    outputs: tuple[str, ...] = ("fall_prob",)
 
 
 def artifact_dir(model_type: str, base: Path = ARTIFACT_BASE) -> Path:
@@ -58,7 +64,14 @@ def save_metadata(directory: Path, meta: ModelMetadata) -> Path:
 
 
 def load_metadata(directory: Path) -> ModelMetadata:
-    """Read ``metadata.json`` from ``directory`` into a ``ModelMetadata``."""
+    """Read ``metadata.json`` from ``directory`` into a ``ModelMetadata``.
+
+    Unknown keys are dropped instead of raising, so a reader running an older
+    schema can still load a newer metadata.json (and vice versa via the
+    dataclass defaults) — schema skew must never crash the live demo.
+    """
     raw = json.loads((directory / METADATA_FILENAME).read_text(encoding="utf-8"))
     raw["classes"] = tuple(raw.get("classes", (0, 1)))
-    return ModelMetadata(**raw)
+    raw["outputs"] = tuple(raw.get("outputs", ("fall_prob",)))
+    known = {f.name for f in fields(ModelMetadata)}
+    return ModelMetadata(**{k: v for k, v in raw.items() if k in known})

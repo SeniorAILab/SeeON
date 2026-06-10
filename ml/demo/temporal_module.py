@@ -152,6 +152,11 @@ class TemporalFallClassifierModule:
         stride: int,
         operating_threshold: float,
     ) -> None:
+        if stride <= 0 or window % stride != 0:
+            raise ValueError(
+                f"window ({window}) must be a positive multiple of stride ({stride}); "
+                "otherwise the frame-counter trigger drifts out of phase with the buffer."
+            )
         self._pose = pose_module
         self._model = model
         self._mode = mode  # "features" | "sequence"
