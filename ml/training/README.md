@@ -72,21 +72,21 @@ uv run python -m training.train
 
 # Or train a subset (--models is plural, comma-separated):
 uv run python -m training.train --models lstm,transformer
-uv run python -m training.train --models rf
+uv run python -m training.train --models random-forest
 ```
 
-Trained artifacts are written to `ml/artifacts/fall-detector/{model_type}/`:
+Trained artifacts are written to `ml/models/fall/{model_type}/`:
 
 ```
-artifacts/fall-detector/lstm/
+models/fall/lstm/
     model.pt          # PyTorch state dict
     metadata.json     # threshold, window geometry, feature_dim, ...
 
-artifacts/fall-detector/transformer/
+models/fall/transformer/
     model.pt
     metadata.json
 
-artifacts/fall-detector/rf/
+models/fall/random-forest/
     model.pkl         # joblib-serialised sklearn RandomForestClassifier
     metadata.json
 ```
@@ -96,7 +96,7 @@ artifacts/fall-detector/rf/
 ### Step 3 — Evaluate
 
 ```bash
-# Evaluates every artifact found under artifacts/fall-detector/ (no per-model flag):
+# Evaluates every artifact found under models/fall/ (no per-model flag):
 uv run python -m training.evaluate
 
 # Optional gold-8 secondary evaluation against real nursing-home clips:
@@ -116,7 +116,7 @@ into each model's `metadata.json` (used by the live demo).
 uv run --group demo streamlit run demo/app.py
 ```
 
-The Streamlit app loads the trained model from `artifacts/fall-detector/` and
+The Streamlit app loads the trained model from `models/fall/` and
 runs the temporal adapter on a live webcam or uploaded video.
 
 ---
@@ -148,7 +148,7 @@ Key parameters governing the metric (all in `training/config.py`):
 |------|----------|
 | `data/le2i/raw/` | Raw Le2i `.avi` clips + annotation `.txt` files |
 | `data/le2i/poses/` | Extracted `.npz` pose caches (Step 1 output) |
-| `artifacts/fall-detector/lstm/` | Trained LSTM model + metadata |
-| `artifacts/fall-detector/transformer/` | Trained Transformer model + metadata |
-| `artifacts/fall-detector/rf/` | Trained Random Forest model + metadata |
+| `models/fall/lstm/` | Trained LSTM model + metadata |
+| `models/fall/transformer/` | Trained Transformer model + metadata |
+| `models/fall/random-forest/` | Trained Random Forest model + metadata |
 | `data/eval/` | Evaluation reports (Step 3 output) |

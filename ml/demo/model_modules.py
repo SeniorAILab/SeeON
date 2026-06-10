@@ -18,11 +18,12 @@ POSE_MODEL_SIZE_LABELS: Final[dict[str, str]] = {
     "x": "xlarge / 고성능 GPU (정밀 분석용)",
 }
 
-# Upstream pose weights are an ephemeral, re-downloadable cache (no metadata,
-# gitignored) — distinct from curated comparison checkpoints under
-# ml/artifacts/pretrained/. They live here so Ultralytics neither pollutes the
-# project root nor the artifacts tree. See ADR-007.
-WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "weights"
+# Upstream pose weights are an ephemeral, re-downloadable cache — distinct from
+# curated comparison checkpoints under ml/models/fall/pretrained/. They live
+# under ml/models/pose/ so Ultralytics neither pollutes the project root nor the
+# fall model tree. Metadata for the pose cache lives at ml/models/pose/metadata.json.
+# See ADR-007 and ADR-015.
+WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "pose"
 
 
 def pose_weight_filename(size: str) -> str:
@@ -36,10 +37,10 @@ def pose_weight_filename(size: str) -> str:
 
 
 def pose_weight_path(size: str) -> Path:
-    """Resolve a pose-size letter to its weight path under the ml/weights/ cache.
+    """Resolve a pose-size letter to its weight path under the ml/models/pose/ cache.
 
     Keeps ``pose_weight_filename`` a pure identity (its own contract) and layers
-    the cache location on top, so the download/load target is ml/weights/ rather
+    the cache location on top, so the download/load target is ml/models/pose/ rather
     than the current working directory.
     """
     return WEIGHTS_DIR / pose_weight_filename(size)

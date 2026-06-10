@@ -67,7 +67,7 @@ from training.metadata import ModelMetadata, artifact_dir, load_metadata, save_m
 
 log = logging.getLogger(__name__)
 
-_ALL_MODEL_KEYS: tuple[str, ...] = ("rf", "lstm", "transformer")
+_ALL_MODEL_KEYS: tuple[str, ...] = ("random-forest", "lstm", "transformer")
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +141,7 @@ def _metrics_at(
 
 def _load_model(key: str, out_dir: Path) -> object:
     """Load a saved fall-classifier artifact from *out_dir*."""
-    if key == "rf":
+    if key == "random-forest":
         from training.models.rf import RandomForestFallClassifier
 
         return RandomForestFallClassifier.load(out_dir)
@@ -229,7 +229,7 @@ def run(
 
     for key in _ALL_MODEL_KEYS:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
-        model_file = out_dir / ("model.pkl" if key == "rf" else "model.pt")
+        model_file = out_dir / ("model.pkl" if key == "random-forest" else "model.pt")
         if not out_dir.exists() or not model_file.exists():
             log.info("No artifact for %r (expected %s) — skipping", key, out_dir)
             continue
@@ -399,7 +399,7 @@ def _run_gold8_eval(
 
     for key in _ALL_MODEL_KEYS:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
-        model_file = out_dir / ("model.pkl" if key == "rf" else "model.pt")
+        model_file = out_dir / ("model.pkl" if key == "random-forest" else "model.pt")
         if not model_file.exists():
             continue
 

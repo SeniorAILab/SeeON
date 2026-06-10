@@ -49,7 +49,7 @@ from training.metadata import ModelMetadata, artifact_dir, save_metadata
 
 log = logging.getLogger(__name__)
 
-_ALL_MODEL_KEYS: tuple[str, ...] = ("rf", "lstm", "transformer")
+_ALL_MODEL_KEYS: tuple[str, ...] = ("random-forest", "lstm", "transformer")
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ def run(
         When set, subsample to *N* clips (``ceil(N/2)`` fall + ``floor(N/2)``
         ADL) and cap net training at 2 epochs so the run finishes quickly.
     models:
-        Model keys to train — any subset of ``("rf", "lstm", "transformer")``.
+        Model keys to train — any subset of ``("random-forest", "lstm", "transformer")``.
     """
     _set_all_seeds(SEED)
 
@@ -222,7 +222,7 @@ def run(
         out_dir = artifact_dir(key, ARTIFACT_BASE)
         print(f"[train] training {key!r} → {out_dir}")
 
-        if key == "rf":
+        if key == "random-forest":
             X_tr, y_tr = _get_feat()
             from training.models.rf import RandomForestFallClassifier
 
@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--models",
         type=str,
-        default="rf,lstm,transformer",
+        default="random-forest,lstm,transformer",
         help="Comma-separated model keys to train.",
     )
     args = parser.parse_args(argv)
