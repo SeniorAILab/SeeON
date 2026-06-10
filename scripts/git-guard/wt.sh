@@ -117,8 +117,31 @@ cmd_create() {
   path="$(worktree_root)/$branch"
   mkdir -p "$(dirname "$path")"
   git worktree add -b "$branch" "$path" "origin/$base" >&2
+  link_ml_data "$path"
 
   printf '%s\n' "$path"
+}
+
+# ml/data is gitignored, so a fresh worktree sees an empty data tree. The
+# canonical physical store is the MAIN checkout's ml/data (ADR-011 /
+# docs/rules/ml-filesystem-layout.md); link the new worktree to it so the
+# demo and training scripts see real data. A missing link degrades silently
+# in the demo (empty dropdown) but hard-crashes training.
+link_ml_data() {
+  wt_path="$1"
+  main_root=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  main_data="$main_root/ml/data"
+  if [ ! -d "$main_data" ]; then
+    gg_warn "main checkout has no ml/data ($main_data) — skipped ml/data symlink; demo/training will see no data"
+    return 0
+  fi
+  [ -d "$wt_path/ml" ] || return 0
+  if [ -e "$wt_path/ml/data" ]; then
+    gg_warn "$wt_path/ml/data already exists — skipped ml/data symlink"
+    return 0
+  fi
+  ln -s "$main_data" "$wt_path/ml/data"
+  gg_warn "linked ml/data -> $main_data"
 }
 
 resolve_worktree_path() {
