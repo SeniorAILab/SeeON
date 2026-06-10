@@ -27,6 +27,7 @@ from demo.live_view import iter_live_frames  # noqa: E402
 from demo.model_modules import POSE_MODEL_SIZES, YoloPoseModule  # noqa: E402
 from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
 from demo.seam import ModelModule, VideoFileSource  # noqa: E402
+from demo.temporal_module import TEMPORAL_MODEL_KEYS  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
@@ -102,6 +103,10 @@ def _build_model(
     pose = YoloPoseModule(size=size, confidence=classifier_params.confidence)
     if classifier_key is None:
         return pose
+    if classifier_key in TEMPORAL_MODEL_KEYS:
+        from demo.temporal_module import build_temporal_model
+
+        return build_temporal_model(classifier_key, pose)
     classifier = build_classifier(classifier_key, classifier_params)
     return FallClassifierModule(pose_module=pose, classifier=classifier)
 
