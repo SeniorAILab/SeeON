@@ -5,7 +5,7 @@ the loop records them here and continues with other work instead of blocking.
 
 | # | Checkpoint | State | What the human must do |
 |---|-----------|-------|------------------------|
-| 1 | NH gold label confirmation (plan Step 9) | waiting — strips not yet generated (NH rsync in progress) | Review contact strips in `ml/data/eval/gold-review/{slug}/`, edit `ml/data/eval/nursing-home-gold.csv` rows to `status=confirmed` (fix frames as needed) |
+| 1 | NH gold label confirmation (plan Step 9) | **READY FOR REVIEW (2026-06-11)** — all 23 videos labeled: **16 falls** (CSV rows, `status=proposed`) + **7 no-fall** (04-02, 04-26, 05-22, 05-32, 05-53, 06-00, 06-05 — not in CSV by design). Strips: 2 per fall video in `ml/data/eval/gold-review/{stem}/` (worktree feat/74). Noteworthy: 05-39 was disputed (one reviewer said no-fall, strip re-review confirmed fall); 05-49 had two candidate events (f64-86 discarded); 05-16 start corrected f1079→f976 | Review each fall's start/end strips, fix frames if needed, set `status=confirmed`; also sanity-check the 7 no-fall clips if time permits |
 | 2 | NH reference mask freeze approval (plan Step 13b) | waiting — needs 5-family baseline + confirmed gold | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
 | 3 | ~~LE2I annotation txts missing on m1-pro~~ | **RESOLVED 2026-06-11** — fetched directly from the UBFC official dataset (see decision log); 130/130 installed, smoke passed | No action needed. The pending sender-side txt push is now harmless (`--ignore-existing` will skip identical files) |
 
