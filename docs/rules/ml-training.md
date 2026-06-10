@@ -2,7 +2,7 @@
 
 > Scope: `ml/training/` and the artifacts it produces. Operational parameters,
 > procedures, and contracts. The *decisions* behind them live in
-> [ADR-012](../decisions/ADR-012-le2i-training-pipeline-decisions.md)
+> [ADR-013](../decisions/ADR-013-le2i-training-pipeline-decisions.md)
 > (dataset, labelling, threshold policy, gold-clip eval) on top of
 > ADR-009 (strategy) and ADR-005 (pose backbone).
 
@@ -20,7 +20,7 @@
 | `FEATURE_DIM` | 45 | defined by `training/data/features.py` — never derived elsewhere |
 
 Changing `T_WINDOW`/`STRIDE`/`OVERLAP_THRESHOLD` invalidates every trained
-artifact and the metadata contract — that is an ADR-012 supersede, not a tweak.
+artifact and the metadata contract — that is an ADR-013 supersede, not a tweak.
 
 ## Pipeline procedure
 

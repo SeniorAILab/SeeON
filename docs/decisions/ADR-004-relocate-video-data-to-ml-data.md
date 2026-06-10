@@ -3,9 +3,9 @@
 ## Status
 
 Accepted. Partially superseded by
-[ADR-011](./ADR-011-ml-data-domain-first-layout.md) (input location rule →
+[ADR-012](./ADR-012-ml-data-domain-first-layout.md) (input location rule →
 domain-scoped `ml/data/{domain}/{raw,processed}`; the gitignore boundary and
-"raw is sacred" invariants remain binding, inherited by ADR-011).
+"raw is sacred" invariants remain binding, inherited by ADR-012).
 
 ## Date
 

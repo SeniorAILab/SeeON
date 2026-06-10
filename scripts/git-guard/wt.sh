@@ -123,7 +123,7 @@ cmd_create() {
 }
 
 # ml/data is gitignored, so a fresh worktree sees an empty data tree. The
-# canonical physical store is the MAIN checkout's ml/data (ADR-011 /
+# canonical physical store is the MAIN checkout's ml/data (ADR-012 /
 # docs/rules/ml-filesystem-layout.md); link the new worktree to it so the
 # demo and training scripts see real data. A missing link degrades silently
 # in the demo (empty dropdown) but hard-crashes training.
