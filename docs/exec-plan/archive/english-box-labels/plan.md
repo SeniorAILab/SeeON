@@ -3,6 +3,7 @@ slug: english-box-labels
 issue: "#65"
 date: 2026-06-10
 author: claude-fable-5
+status: done
 ```
 
 # 박스 라벨 영어 통일(FALL/NORMAL) + PIL 한글 렌더러 제거
