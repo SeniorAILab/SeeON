@@ -6,7 +6,13 @@ Accepted. Partially superseded by
 [ADR-012](./ADR-012-ml-data-domain-first-layout.md) — MECE table rows 3 and 6
 are stale: row 6 (domain-bound derived outputs `annotated/`, `poses/`) and row 3
 (top-level source inputs `raw/`, `processed/`) now live inside
-`ml/data/{domain}/`; `ml/weights/` and rows 1, 2, 4, 5 remain in force.
+`ml/data/{domain}/`; `ml/weights/` and rows 1, 2, 4, 5 remain in force per ADR-012.
+Further partially superseded by
+[ADR-015](./ADR-015-ml-models-single-root.md) — `ml/weights/` (row 5) moves to
+`ml/models/pose/`; `ml/artifacts/pretrained/` (row 2) moves to
+`ml/models/fall/pretrained/`; first-party trained artifacts (row 1, governed by
+ADR-003) move to `ml/models/fall/<model_type>/`. ADR-015 is the current map for
+all model-related paths.
 
 ## Date
 
