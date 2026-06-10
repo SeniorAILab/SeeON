@@ -1,0 +1,4 @@
+# Streamlit server config for the fall-detection demo (launched via `cd ml && streamlit run demo/app.py`).
+[server]
+# Default 200MB blocks longer clips; effectively unlimited for video uploads (#72).
+maxUploadSize = 10240
