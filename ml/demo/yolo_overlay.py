@@ -61,9 +61,9 @@ def _load_pil_font(candidates: tuple[str, ...]) -> object | None:
         for path in candidates:
             if Path(path).exists():
                 return ImageFont.truetype(path, size=CAPTION_FONT_SIZE)
-        return None
     except Exception:  # noqa: BLE001
         return None
+    return None
 
 
 def _ascii_fallback_text(text: str) -> str:
