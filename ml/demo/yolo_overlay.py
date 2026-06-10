@@ -88,7 +88,7 @@ def render_yolo_overlay(
     """
     overlay = frame.copy()
     if show_boxes:
-        for box, label in zip(result.boxes, result.labels):
+        for box, label in zip(result.boxes, result.labels, strict=True):
             _draw_detection_box(overlay=overlay, box=box, label=label)
     if show_pose:
         for pose in result.keypoints:

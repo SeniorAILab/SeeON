@@ -60,7 +60,7 @@ class YoloPoseRunner:
             confs = r.boxes.conf.cpu().numpy()
             raw_boxes = tuple(
                 (int(c[0]), int(c[1]), int(c[2]), int(c[3]), float(conf))
-                for c, conf in zip(xyxy, confs)
+                for c, conf in zip(xyxy, confs, strict=True)
             )
 
         return poses, raw_boxes

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
@@ -138,5 +140,5 @@ def test_probe_cameras_camera_info_is_frozen(monkeypatch: pytest.MonkeyPatch) ->
 
     cameras = probe_cameras(max_index=1)
 
-    with pytest.raises(Exception):  # frozen dataclass raises FrozenInstanceError
+    with pytest.raises(FrozenInstanceError):
         cameras[0].index = 99  # type: ignore[misc]
