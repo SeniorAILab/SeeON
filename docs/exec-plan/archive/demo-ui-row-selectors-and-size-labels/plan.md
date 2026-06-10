@@ -3,6 +3,7 @@ slug: demo-ui-row-selectors-and-size-labels
 issue: "#57, #58"
 date: 2026-06-10
 author: claude-fable-5
+status: done
 ```
 
 # 데모 UI — 도메인/종류 row 선택 + 사이즈 [size]/[hardware] 표기
