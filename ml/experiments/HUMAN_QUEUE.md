@@ -37,3 +37,12 @@ the loop records them here and continues with other work instead of blocking.
   remote at protocol adoption; no NH step had consumed the buggy early marker.
 - 2026-06-10: unattended-mode directory removal: use `mv` into /tmp instead of
   `rm -rf` (project ask-rule stalls rm -rf in unattended runs).
+- 2026-06-10 ~21:45: **NH transfer stall observed** — nursing-home reached
+  3.97G/59 files by ~21:05, then zero growth. Two inbound rsync server
+  processes are hung: the 18:08 data transfer (partial temp
+  `.KakaoTalk_Video_2026-06-07-17-06-00.mp4.kUqehv9rbe`, last write 18:19) and
+  a 21:24 verification dry-run (`rsync --server -n`, no activity in 20+ min).
+  Looks like orphaned sessions from sender-side network glitches. Per marker
+  protocol nothing was killed or touched from this side; no signed
+  `.RSYNC_DONE` yet, so NH steps remain paused. **If the local chain did not
+  auto-retry, re-kick the NH rsync + verification from the local mac.**
