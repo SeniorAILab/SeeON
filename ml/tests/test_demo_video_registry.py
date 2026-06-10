@@ -7,6 +7,7 @@ from demo.video_registry import (
     VideoSource,
     list_domains,
     list_registered_videos,
+    list_roles_for_domain,
     persist_uploaded_video,
 )
 
@@ -105,6 +106,29 @@ def test_lists_regular_processed_videos_before_reference_demo_videos(tmp_path: P
         "2026-04-08 room.mp4",
         "demo-syed-home-fall-1.avi",
     ]
+
+
+def test_list_roles_for_domain_returns_only_roles_with_clips(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    # "le2i" has only raw clips; "nursing-home" has both processed and raw.
+    _make_clip(data_root, "le2i", "raw", "video.avi")
+    _make_clip(data_root, "nursing-home", "processed", "ready.mp4")
+    _make_clip(data_root, "nursing-home", "raw", "raw.mp4")
+    # Empty processed dir for le2i — should not appear in results.
+    (data_root / "le2i" / "processed").mkdir(parents=True, exist_ok=True)
+
+    assert list_roles_for_domain("le2i", data_root=data_root) == [VideoSource.RAW]
+    assert list_roles_for_domain("nursing-home", data_root=data_root) == [
+        VideoSource.PROCESSED,
+        VideoSource.RAW,
+    ]
+
+
+def test_list_roles_for_domain_returns_empty_when_domain_missing(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+
+    assert list_roles_for_domain("nonexistent", data_root=data_root) == []
 
 
 def test_persists_uploaded_video_with_sanitized_unique_name(tmp_path: Path) -> None:
