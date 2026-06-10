@@ -17,4 +17,5 @@ command = "notebooklm-mcp"
 # regardless of which agent authored the change.
 #
 # Both layers call the SAME scripts/git-guard/ scripts (single source of truth — D6).
-pre_tool_use = "sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/assert-not-main.sh\""
+# deny-assets.sh staged is chained after assert-not-main for early asset-upload guidance.
+pre_tool_use = "sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/assert-not-main.sh\" && sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/deny-assets.sh\" staged"
