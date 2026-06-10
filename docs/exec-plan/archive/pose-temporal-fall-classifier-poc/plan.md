@@ -1,6 +1,6 @@
 ---
 slug: pose-temporal-fall-classifier-poc
-status: approved
+status: done
 type: brownfield-poc
 created: 2026-06-10
 author: planner+architect+critic consensus (oh-my-claudecode)

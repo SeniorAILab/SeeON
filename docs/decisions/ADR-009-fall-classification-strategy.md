@@ -22,7 +22,7 @@ left as disabled placeholders pending trained artifacts.
 
 That rule-based classifier was then **tested empirically against real
 nursing-home top-down footage** — the 8 human-labeled gold-anchor clips
-(`docs/exec-plan/active/pose-classifier-fall-demo/gold-labels.md`), headless,
+(`docs/exec-plan/archive/pose-classifier-fall-demo/gold-labels.md`), headless,
 YOLO26n-pose at conf 0.05, default parameters. **Result: 0/8 PASS — every clip
 MISS** (the classifier never fired inside the labeled fall interval).
 
