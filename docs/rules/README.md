@@ -6,9 +6,12 @@ constraint on *how* we work in a given area.
 
 | Rule | Scope | Summary |
 |------|-------|---------|
-| [streamlit-demo.md](./streamlit-demo.md) | `ml/demo/` | Compact UI; native-scrubbable playback via pre-rendered mp4 + `st.video()`; independent overlay toggles; cache key includes every render-affecting input; model/size/classifier selection through the model-seam. |
-| [ml-filesystem-layout.md](./ml-filesystem-layout.md) | `ml/` | Where each file category lives: weights → `ml/weights/` (cache), outputs → `ml/data/{annotated,eval}`, inputs → `ml/data/{raw,processed,uploads}`, artifacts → `ml/artifacts/`. Weights/footage/outputs gitignored, never committed. Records ADR-007. |
+| [streamlit-demo.md](./streamlit-demo.md) | `ml/demo/` | Live per-frame inference UI (ADR-010); allowed operator controls; `st.empty().image` render pattern; public mode never exposes nursing-home data; uploads are session-scoped; model/size/classifier selection through the model-seam. |
+| [ml-filesystem-layout.md](./ml-filesystem-layout.md) | `ml/` | Where each file category lives: weights → `ml/weights/` (cache), domain inputs → `ml/data/{domain}/{raw,processed,poses,annotated}`, cross-domain outputs → `ml/data/eval/`, uploads → `ml/data/uploads/`, artifacts → `ml/artifacts/`. Weights/footage/outputs gitignored, never committed. Records ADR-012 (domain-first layout) and ADR-007. |
 | [code-stability.md](./code-stability.md) | repo-wide | Deny-list against silent failure: no error swallowing (`except: pass`, empty `catch`, floating promises), typed refusal at boundaries, broad catch only at process boundaries with `logging.exception` + justification, no duplicate logic (jscpd + search-before-write). Every rule maps to a lint rule ID or grep-able pattern. Records ADR-014. |
+| [github-labels.md](./github-labels.md) | repo-wide | Label taxonomy: one required `type:` label per issue/PR drives the `<type>` component of branch names; `type: feat/fix/chore/docs/refactor/test`. |
+| [ml-training.md](./ml-training.md) | `ml/training/` | Locked training parameters (`T_WINDOW`, `STRIDE`, `OVERLAP_THRESHOLD`, etc. — `config.py` is the single source of truth); contracts for window labelling, train/eval split, threshold policy, and gold-clip evaluation. Records ADR-013. |
+| [worktree-workflow.md](./worktree-workflow.md) | repo-wide | Never work directly on a protected branch; every issue maps to a branch `<type>/<issue#>-<slug>` and one worktree; use `git wt <issue#>` to create. Records ADR-008. |
 
 ---
 
