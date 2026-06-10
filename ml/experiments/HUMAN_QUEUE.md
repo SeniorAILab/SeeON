@@ -7,7 +7,7 @@ the loop records them here and continues with other work instead of blocking.
 |---|-----------|-------|------------------------|
 | 1 | NH gold label confirmation (plan Step 9) | waiting — strips not yet generated (NH rsync in progress) | Review contact strips in `ml/data/eval/gold-review/{slug}/`, edit `ml/data/eval/nursing-home-gold.csv` rows to `status=confirmed` (fix frames as needed) |
 | 2 | NH reference mask freeze approval (plan Step 13b) | waiting — needs 5-family baseline + confirmed gold | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
-| 3 | **LE2I annotation txts missing on m1-pro** | **BLOCKING LE2I training** — `ml/data/le2i/raw/{Home,Coffee_room}/Annotation_files/` exist but are EMPTY (0 txt files); poses npz carry no labels → loader treats all 130 clips as ADL (fall=0) | From the local mac, push the tiny label files: `rsync -a -e 'ssh -o RemoteCommand=none' --include='*/' --include='*.txt' --exclude='*' ml/data/le2i/raw/ m1-pro:~/Documents/01_Project/eldercare-fall-ai/ml/data/le2i/raw/` (KBs only). Reverse pull impossible — port 22 to the mac times out |
+| 3 | ~~LE2I annotation txts missing on m1-pro~~ | **RESOLVED 2026-06-11** — fetched directly from the UBFC official dataset (see decision log); 130/130 installed, smoke passed | No action needed. The pending sender-side txt push is now harmless (`--ignore-existing` will skip identical files) |
 
 ## Decision log (autonomous decisions taken within plan/spec constraints)
 
@@ -59,3 +59,24 @@ the loop records them here and continues with other work instead of blocking.
   (b) verification passed but the marker-write ssh step failed on the flaky
   network and the chain did not retry it. Remote side continues polling per
   protocol and will start NH steps within 1 min of a signed marker.
+  → RESOLVED 23:41: signed marker `verified-by-local-chain 2026-06-10 23:41:10`
+  arrived; NH-dependent steps started immediately.
+- 2026-06-11: **LE2I annotation txts acquired directly** (user-authorized:
+  "직접 받을 수 있을텐데"). Reverse ssh to the mac refused (sshd off), so used
+  the provenance documented in `docs/research/le2i-poc-verification.md`
+  Option B — UBFC official `FallDataset.zip` (presigned S3). Avoided the
+  8.95 GB download via HTTP-Range zip parsing (outer zip STORED → windowed
+  inner-zip central directories): 130 txts in 6 HTTP requests. Verification
+  before install: ① 1:1 clip-name match vs all 130 poses npz (70 Coffee_room
+  + 60 Home, no dups) ② frame ranges valid — 96 falls, 31 ADL(0,0), 3 known
+  header-defect files (Coffee_room video 26/50/52, research-doc caveat C1;
+  loader logs warning and treats as ADL — same behavior as the original PoC)
+  ③ 5-clip spot-check: hip-y descent confirmed within every fall interval
+  ④ provenance = official UBFC source. Installed to
+  `ml/data/le2i/raw/{scenario}/Annotation_files/`; smoke `--smoke-n 4` exit 0
+  (all 5 families). Full 5-family baseline training launched.
+- 2026-06-11: `ModelMetadata` lacked ADR-015 contract fields — train.py-written
+  metadata.json failed `test_models_layout` (`source`/`reacquire` missing).
+  Added `source="trained"` default + per-model `reacquire` command. Also note:
+  smoke overwrote the canonical PoC artifacts under `ml/models/fall/` with toy
+  models; full baseline training rewrites them properly right after.

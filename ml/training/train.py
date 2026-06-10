@@ -252,6 +252,7 @@ def run(
                 feature_dim=FEATURE_DIM,
                 seed=SEED,
                 operating_threshold=DEFAULT_OPERATING_THRESHOLD,
+                reacquire=f"cd ml && uv run python -m training.train --models {key}",
             )
 
         else:  # mode == "sequence" — applies to ALL sequence-mode REGISTRY entries (lstm, transformer, gcn, …)
@@ -292,6 +293,7 @@ def run(
                 feature_dim=None,
                 seed=SEED,
                 operating_threshold=DEFAULT_OPERATING_THRESHOLD,
+                reacquire=f"cd ml && uv run python -m training.train --models {key}",
             )
 
         # === 단계 6: 아티팩트 및 메타데이터 저장 ===

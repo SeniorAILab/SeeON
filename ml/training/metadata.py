@@ -48,6 +48,10 @@ class ModelMetadata:
     version: str = "poc"
     dataset: str = "le2i"
     outputs: tuple[str, ...] = ("fall_prob",)
+    # ADR-015 layout contract: every artifact must declare provenance and a
+    # non-empty reacquisition command (enforced by test_models_layout).
+    source: str = "trained"
+    reacquire: str = "cd ml && uv run python -m training.train"
 
 
 def artifact_dir(model_type: str, base: Path = ARTIFACT_BASE) -> Path:
