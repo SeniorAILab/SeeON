@@ -1,6 +1,7 @@
 ```yaml
 slug: multi-person-temporal-adapter
 issue: "#46"
+status: done
 date: 2026-06-10
 author: claude-fable-5
 ```
