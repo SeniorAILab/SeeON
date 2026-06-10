@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted.
+Accepted. **Complemented by ADR-016** (enforcement *timing*: what is denied at the
+earliest local point vs. what is audit-tier — this ADR owns *where* enforcement
+lives and stays authoritative for that).
 
 ## Date
 
