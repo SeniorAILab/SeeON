@@ -854,7 +854,6 @@ dependencies = [
 [package.dev-dependencies]
 demo = [
     { name = "opencv-python-headless" },
-    { name = "pillow" },
     { name = "streamlit" },
     { name = "ultralytics" },
 ]
@@ -881,7 +880,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 demo = [
     { name = "opencv-python-headless", specifier = ">=4.10" },
-    { name = "pillow", specifier = ">=10.0" },
     { name = "streamlit", specifier = ">=1.38" },
     { name = "ultralytics", specifier = ">=8.3" },
 ]

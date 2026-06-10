@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Final, Protocol, runtime_checkable
 
 from util.frame_source import Frame, FrameSource, VideoFileSource
 
@@ -16,7 +16,14 @@ __all__ = [
     "DetectionLabel",
     "DetectionResult",
     "ModelModule",
+    "FALL_LABEL_TEXT",
+    "NORMAL_LABEL_TEXT",
 ]
+
+# Single vocabulary source for box-label text so classifier and temporal modules
+# cannot diverge again (divergence caused issue #59).
+FALL_LABEL_TEXT: Final = "FALL"
+NORMAL_LABEL_TEXT: Final = "NORMAL"
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from demo.classifiers import Classifier
 from demo.features import extract_frame_features
-from demo.seam import DetectionLabel, DetectionResult, Frame, ModelModule
+from demo.seam import (
+    FALL_LABEL_TEXT,
+    NORMAL_LABEL_TEXT,
+    DetectionLabel,
+    DetectionResult,
+    Frame,
+    ModelModule,
+)
 
 
 class FallClassifierModule:
@@ -43,7 +50,7 @@ class FallClassifierModule:
 
         labels = tuple(
             DetectionLabel(
-                text="낙상" if classification.is_fall else "정상",
+                text=FALL_LABEL_TEXT if classification.is_fall else NORMAL_LABEL_TEXT,
                 confidence=classification.confidence,
                 is_fall=classification.is_fall,
             )
