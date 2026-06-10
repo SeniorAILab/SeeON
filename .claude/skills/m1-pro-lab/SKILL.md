@@ -99,6 +99,19 @@ rsync -a --ignore-existing -e 'ssh -o RemoteCommand=none' ml/models/ m1-pro:~/Do
 
 Run both commands before the first smoke test or unattended run.
 
+### Transfer-completion marker (`ml/data/.RSYNC_DONE`)
+
+The local transfer chain — and only the local chain — writes `ml/data/.RSYNC_DONE`
+on the remote after its file-count verification passes. The remote side (Claude
+included) must treat it as a strictly one-way, read-only signal:
+
+- **Never create, modify, or delete** the marker from the remote side.
+- Trust the marker **only if its content contains `verified-by-local-chain`**.
+  An empty or unsigned marker is a known network-glitch artifact — ignore it.
+- Tests of marker-polling logic must use tmp-directory fixture paths, never the
+  real `ml/data/.RSYNC_DONE` path (a test marker there sends false signals to
+  local monitoring).
+
 ## Smoke test
 
 Run inside the worktree on m1-pro. Validates the data pipeline end-to-end and arm64 torch correctness.
