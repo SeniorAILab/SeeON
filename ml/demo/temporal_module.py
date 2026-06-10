@@ -50,12 +50,13 @@ _KEY_TO_MODE: Final[dict[str, str]] = {
     "transformer": "sequence",
 }
 
-# The demo exposes the public key ``random_forest`` for UI clarity, but the
-# training pipeline (train.py / evaluate.py / artifact_dir) saves the Random
-# Forest artifact under the short key ``rf``.  Resolve the demo key to the
-# on-disk artifact key here so availability probes and the factory both find it.
+# The demo exposes the public key ``random_forest`` (underscore, UI-friendly) but
+# the training pipeline (train.py / evaluate.py / artifact_dir) saves the Random
+# Forest artifact under the kebab key ``random-forest`` (ADR-015).  Resolve the
+# demo key to the on-disk artifact key here so availability probes and the factory
+# both find it.
 _KEY_TO_ARTIFACT: Final[dict[str, str]] = {
-    "random_forest": "rf",
+    "random_forest": "random-forest",
     "lstm": "lstm",
     "transformer": "transformer",
 }

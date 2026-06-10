@@ -33,7 +33,7 @@ class ModelMetadata:
     evaluate.py with the validated Recall>=0.90 point.
     """
 
-    model_type: str  # "random_forest" | "lstm" | "transformer"
+    model_type: str  # "random-forest" | "lstm" | "transformer"
     framework: str  # "sklearn" | "pytorch"
     window: int  # T
     stride: int
