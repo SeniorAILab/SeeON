@@ -60,6 +60,23 @@ def list_domains(data_root: Path = DATA_DIR) -> list[str]:
     )
 
 
+def list_roles_for_domain(domain: str, data_root: Path = DATA_DIR) -> list[VideoSource]:
+    """Return the DOMAIN_ROLES that have at least one playable clip under *domain*.
+
+    Only inspects VideoSource.PROCESSED and VideoSource.RAW (DOMAIN_ROLES).
+    The uploads domain has no role axis and is not handled here.
+    """
+    result = []
+    for role in DOMAIN_ROLES:
+        directory = data_root / domain / role.value
+        if directory.exists() and any(
+            path.is_file() and path.suffix.casefold() in SUPPORTED_MEDIA_EXTENSIONS
+            for path in directory.rglob("*")
+        ):
+            result.append(role)
+    return result
+
+
 def list_registered_videos(
     data_root: Path = DATA_DIR,
     include_sources: tuple[VideoSource, ...] = (
