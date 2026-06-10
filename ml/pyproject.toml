@@ -45,8 +45,18 @@ line-length = 100
 target-version = "py311"
 exclude = [".scratch"]
 
+# Stability deny-list (docs/rules/code-stability.md, ADR-014):
+#   B    bugbear — B904 raise-from, B006 mutable defaults
+#   BLE  blind except Exception (boundary catches need `# noqa: BLE001` + reason)
+#   S110/S112  try-except-pass / try-except-continue
+#   TRY  tryceratops — TRY002 vanilla raise, TRY400 logging.exception in handlers
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "B", "BLE", "S110", "S112", "TRY"]
+# TRY003 (no long messages outside exception class) is ignored deliberately:
+# informative inline `raise ValueError(f"...")` messages ARE the explicit-refusal
+# style this codebase wants; demanding a custom exception class per message
+# discourages raising. All other TRY rules stay on.
+ignore = ["TRY003"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
