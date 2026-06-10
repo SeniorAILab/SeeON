@@ -8,6 +8,7 @@ constraint on *how* we work in a given area.
 |------|-------|---------|
 | [streamlit-demo.md](./streamlit-demo.md) | `ml/demo/` | Compact UI; native-scrubbable playback via pre-rendered mp4 + `st.video()`; independent overlay toggles; cache key includes every render-affecting input; model/size/classifier selection through the model-seam. |
 | [ml-filesystem-layout.md](./ml-filesystem-layout.md) | `ml/` | Where each file category lives: weights → `ml/weights/` (cache), outputs → `ml/data/{annotated,eval}`, inputs → `ml/data/{raw,processed,uploads}`, artifacts → `ml/artifacts/`. Weights/footage/outputs gitignored, never committed. Records ADR-007. |
+| [code-stability.md](./code-stability.md) | repo-wide | Deny-list against silent failure: no error swallowing (`except: pass`, empty `catch`, floating promises), typed refusal at boundaries, broad catch only at process boundaries with `logging.exception` + justification, no duplicate logic (jscpd + search-before-write). Every rule maps to a lint rule ID or grep-able pattern. Records ADR-014. |
 
 ---
 
