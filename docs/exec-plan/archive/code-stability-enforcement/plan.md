@@ -5,7 +5,7 @@ type: plan
 date: 2026-06-10
 author: gobeumsu (via Claude Fable 5)
 issue: 51
-status: active
+status: done
 ---
 <!-- NOTE: plan body is immutable after finalize.
      Finalize = the first git commit that includes this plan.md in docs/exec-plan/active/.

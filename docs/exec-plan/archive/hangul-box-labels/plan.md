@@ -1,6 +1,7 @@
 ```yaml
 slug: hangul-box-labels
 issue: "#59"
+status: done
 date: 2026-06-10
 author: claude-fable-5
 ```
