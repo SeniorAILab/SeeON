@@ -54,8 +54,8 @@ packages:
 `ml/` is a standalone uv project (`ml/pyproject.toml`, `ml/uv.lock`). It is **not** listed in `pnpm-workspace.yaml` and is **not** referenced by any pnpm mechanism. It is installed independently:
 
 ```
-cd ml && uv sync          # install serving deps (always-on)
-cd ml && uv sync --group demo    # additionally install Streamlit for demo
+cd ml && uv sync                     # installs all default-groups (demo, test, training)
+cd ml && uv sync --no-default-groups # slim serving-only install (CI / prod image)
 ```
 
 `ml/pyproject.toml` sets `[tool.uv] package = false`, meaning `ml` is treated as a project rather than a distributable library — appropriate for an application that is run, not imported.
@@ -74,20 +74,21 @@ The root `package.json` carries **zero runtime or shared library dependencies**.
 | `build:backend` | `pnpm --filter backend build` |
 | `typecheck` | `pnpm --filter front exec tsc --noEmit && pnpm --filter backend exec tsc --noEmit` |
 | `lint` | `pnpm -r lint && uv run --directory ml ruff check .` |
+| `dupcheck` | `jscpd ml backend/src front/src` |
 | `format` | `pnpm --filter backend format && uv run --directory ml ruff format .` |
 | `db:up` | `docker compose up -d db` |
 | `db:down` | `docker compose down` |
 | `prisma:generate` | `pnpm --filter backend exec prisma generate` |
 | `prisma:migrate` | `pnpm --filter backend exec prisma migrate dev` |
 
-`dev:ml` and `dev:demo` invoke `uv run --directory ml` directly from the root, so operators never need to `cd ml` for day-to-day development. `dev:demo` passes `--group demo` to activate the `[dependency-groups] demo` entry in `pyproject.toml` (which pins `streamlit>=1.38`) without polluting the always-on serving environment.
+`dev:ml` and `dev:demo` invoke `uv run --directory ml` directly from the root, so operators never need to `cd ml` for day-to-day development. `dev:demo` passes `--group demo`; since `demo` is a `default-group`, it is already present after a bare `uv sync` and the flag is redundant in normal dev setups but harmless.
 
 ### Dependency lock separation
 
 | Lock file | Covers | Install command |
 |---|---|---|
 | `pnpm-lock.yaml` (repo root) | `front/` + `backend/` | `pnpm install` (at repo root) |
-| `ml/uv.lock` | `ml/` serving + optional groups | `uv sync [--group demo]` (inside `ml/`) |
+| `ml/uv.lock` | `ml/` project (default-groups: demo, test, training) | `uv sync` (inside `ml/`) — add `--no-default-groups` for slim serving image |
 
 There is no single unified lock file. Two install commands are the deliberate contract; the root scripts bridge the operational gap so daily workflows remain single-command at the root level.
 
@@ -143,7 +144,7 @@ Rejected. Per-ecosystem tools at their native versions are more correct and fast
 - **Lock-file fidelity.** `pnpm-lock.yaml` is a pure Node/TS lock file. `ml/uv.lock` is a pure Python lock file. Both are reproducible and meaningful to their respective package managers.
 - **Single-command developer experience** for common tasks. `pnpm dev:front`, `pnpm dev:backend`, `pnpm dev:ml`, and `pnpm dev:demo` all work from the repo root; contributors do not need to know which sub-directory owns which process.
 - **Exact toolchain enforcement.** `packageManager: "pnpm@10.32.1"` and `engines: { "node": ">=24" }` cause Corepack and pnpm to reject mismatched environments at install time, preventing silent version drift.
-- **Lifecycle separation in `ml/`.** Serving dependencies (fastapi, uvicorn, pydantic, numpy) are always installed. Training dependencies (ultralytics, torch — currently an empty group placeholder) and demo dependencies (streamlit) are optional groups, keeping the production serving image lean.
+- **Lifecycle separation in `ml/`.** Serving dependencies (fastapi, uvicorn, pydantic, numpy) are always installed. Training dependencies (`torch>=2.3`, `scikit-learn>=1.5`, `joblib>=1.4`, `tqdm>=4.66`, `ultralytics>=8.3`, `opencv-python-headless>=4.10`) and demo dependencies (streamlit, ultralytics, opencv) are included in `default-groups`; a slim production serving image can omit them with `--no-default-groups`.
 
 ### Negative / Trade-offs
 

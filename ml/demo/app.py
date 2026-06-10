@@ -1,3 +1,10 @@
+"""Streamlit ML demo — real-time per-frame fall-detection inference viewer.
+
+This is an ML demo surface, NOT the product frontend.  The product frontend is
+``front/`` (Next.js); product-level alerts and webhooks live in ``backend/``
+(NestJS).  See ADR-003 for the lifecycle boundary and ADR-010 for the live
+per-frame inference mode decision.
+"""
 from __future__ import annotations
 
 # Bootstrap: put the ml/ project root on sys.path so `streamlit run demo/app.py`

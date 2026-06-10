@@ -55,7 +55,7 @@ source of truth.**
    push-time gate, not a per-commit nuisance.
 
 4. **Agent hooks are early guidance, not the gate.** Claude (`.claude/settings.json`
-   `PreToolUse` Edit/Write + `SessionStart` freshness) and Codex
+   `PreToolUse` Edit/Write/NotebookEdit + `SessionStart` freshness) and Codex
    (`.codex/config.toml [hooks]`) call the *same* scripts to fail fast with a
    helpful message. Codex hooks see only shell commands, not file edits — that gap
    is acceptable because the git-native `pre-commit` catches the edit at commit
