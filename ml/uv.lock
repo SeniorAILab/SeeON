@@ -861,6 +861,7 @@ test = [
     { name = "pytest" },
 ]
 training = [
+    { name = "joblib" },
     { name = "opencv-python-headless" },
     { name = "scikit-learn" },
     { name = "torch" },
@@ -884,6 +885,7 @@ demo = [
 ]
 test = [{ name = "pytest", specifier = ">=8.3" }]
 training = [
+    { name = "joblib", specifier = ">=1.4" },
     { name = "opencv-python-headless", specifier = ">=4.10" },
     { name = "scikit-learn", specifier = ">=1.5" },
     { name = "torch", specifier = ">=2.3" },
