@@ -66,12 +66,29 @@ def test_can_limit_listing_by_source_and_domain(tmp_path: Path) -> None:
     ]
 
 
-def test_list_domains_excludes_eval_and_uploads(tmp_path: Path) -> None:
+def test_list_domains_excludes_eval_uploads_and_hidden_dirs(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
-    for name in ("nursing-home", "le2i", "eval", "uploads"):
+    for name in ("nursing-home", "le2i", "eval", "uploads", ".omc", ".cache"):
         (data_root / name).mkdir(parents=True)
 
     assert list_domains(data_root) == ["le2i", "nursing-home"]
+
+
+def test_lists_clips_nested_below_the_role_folder(tmp_path: Path) -> None:
+    # Le2i nests raw clips one level down: raw/{scenario}/*.avi.
+    data_root = tmp_path / "data"
+    _make_clip(data_root, "le2i", "raw", "Home", "video (1).avi")
+    _make_clip(data_root, "le2i", "raw", "Coffee_room", "video (2).avi")
+    (data_root / "le2i" / "raw" / "Home" / "Annotation_files").mkdir()
+    (data_root / "le2i" / "raw" / "Home" / "Annotation_files" / "video (1).txt").write_text("1 2")
+
+    videos = list_registered_videos(data_root=data_root)
+
+    assert [video.video_id for video in videos] == [
+        "le2i/raw/Coffee_room/video (2).avi",
+        "le2i/raw/Home/video (1).avi",
+    ]
+    assert videos[1].display_name == "le2i / raw / Home / video (1).avi"
 
 
 def test_lists_regular_processed_videos_before_reference_demo_videos(tmp_path: Path) -> None:
