@@ -27,7 +27,8 @@ what the live demo temporal adapter reads when it classifies a window.
 
 Gold-8 secondary evaluation (optional)
 ---------------------------------------
-Only runs when ``--gold-clips-dir`` is provided **and** the path exists.
+Only runs when the gold-clips directory exists (default:
+``config.GOLD_CLIPS_DIR`` — the nursing-home processed folder).
 Drives ``YoloPoseRunner.predict_full`` with the same
 ``normalize_person_keypoints`` + confidence gating as ``extract_poses`` to
 avoid preprocessing skew.  If the directory is absent or YOLO weights are
@@ -55,6 +56,7 @@ from training.config import (
     CONF_THRESHOLD,
     EVAL_DIR,
     GOLD8_POS_WINDOW_FRACTION,
+    GOLD_CLIPS_DIR,
     POSE_CACHE_DIR,
     RAW_DATA_DIR,
     TEST_SPLIT_FRACTION,
@@ -483,8 +485,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--gold-clips-dir",
         type=Path,
-        default=None,
-        help="Optional directory of gold-8 video clips for secondary evaluation.",
+        default=GOLD_CLIPS_DIR,
+        help=(
+            "Directory of gold video clips for secondary evaluation "
+            "(skipped when the path does not exist)."
+        ),
     )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")

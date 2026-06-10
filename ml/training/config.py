@@ -16,11 +16,15 @@ from __future__ import annotations
 from pathlib import Path
 
 # --- Paths (anchored at the ml/ project root) ---
+# ml/data/ is partitioned domain-first: {domain}/{raw,processed,poses,annotated}
+# with cross-domain eval/ and transient uploads/ at the top level (ADR-011).
 _ML_ROOT = Path(__file__).resolve().parent.parent  # -> ml/
-POSE_CACHE_DIR = _ML_ROOT / "data" / "le2i_poses"
-RAW_DATA_DIR = _ML_ROOT / "data" / "le2i_raw"
+DATA_ROOT = _ML_ROOT / "data"
+POSE_CACHE_DIR = DATA_ROOT / "le2i" / "poses"
+RAW_DATA_DIR = DATA_ROOT / "le2i" / "raw"
+GOLD_CLIPS_DIR = DATA_ROOT / "nursing-home" / "processed"
 ARTIFACT_BASE = _ML_ROOT / "artifacts" / "fall-detector"
-EVAL_DIR = _ML_ROOT / "data" / "eval"
+EVAL_DIR = DATA_ROOT / "eval"
 
 # --- Reproducibility ---
 SEED = 42
