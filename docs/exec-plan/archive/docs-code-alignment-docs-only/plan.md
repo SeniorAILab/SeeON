@@ -4,6 +4,7 @@ issue: "#66"
 date: 2026-06-10
 author: claude-fable-5
 supersedes: docs-code-alignment
+status: done
 ```
 
 # docs↔code 정합성 align (docs-only) — 감사 불일치 중 문서 스냅샷 수정
