@@ -1,4 +1,4 @@
-# ADR-016: Fall-Model Adoption Criteria — Evaluator Contract, NH Zero-Tolerance Gate, and Hard Disqualifiers
+# ADR-017: Fall-Model Adoption Criteria — Evaluator Contract, NH Zero-Tolerance Gate, and Hard Disqualifiers
 
 ## Status
 
