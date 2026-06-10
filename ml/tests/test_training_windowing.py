@@ -63,20 +63,22 @@ class TestComputeLabel:
         assert _compute_label(0, (31, 60)) == 0
 
     def test_49_percent_overlap_label_0(self) -> None:
-        # window [0, 30),  fall [16, 50]
-        # overlap = min(30, 51) - max(0, 16) = 30 - 16 = 14
+        # window [0, 30),  fall frames 17..50 (1-based) → 0-based [16, 50)
+        # overlap = min(30, 50) - max(0, 16) = 30 - 16 = 14
         # 14 / 30 ≈ 0.467 < 0.5  → label 0
-        assert _compute_label(0, (16, 50)) == 0
+        assert _compute_label(0, (17, 50)) == 0
 
     def test_50_percent_overlap_label_1(self) -> None:
-        # window [0, 30),  fall [15, 50]
-        # overlap = min(30, 51) - max(0, 15) = 30 - 15 = 15
+        # window [0, 30),  fall frames 16..50 (1-based) → 0-based [15, 50)
+        # overlap = min(30, 50) - max(0, 15) = 30 - 15 = 15
         # 15 / 30 = 0.5 ≥ 0.5  → label 1
-        assert _compute_label(0, (15, 50)) == 1
+        # Regression guard: the old mixed-base arithmetic (0-based window vs
+        # 1-based interval) undercounted this exact case as 14 frames → 0.
+        assert _compute_label(0, (16, 50)) == 1
 
     def test_100_percent_overlap_label_1(self) -> None:
-        # window [10, 40),  fall [1, 50]
-        # overlap = min(40, 51) - max(10, 1) = 40 - 10 = 30
+        # window [10, 40),  fall frames 1..50 (1-based) → 0-based [0, 50)
+        # overlap = min(40, 50) - max(10, 0) = 40 - 10 = 30
         # 30 / 30 = 1.0 ≥ 0.5  → label 1
         assert _compute_label(10, (1, 50)) == 1
 
@@ -126,7 +128,8 @@ class TestWindowDatasetIntegration:
         clip_id = "clip_fall"
         # 30 frames → exactly one window at start=0
         _write_npz(pose_dir / f"{clip_id}.npz", n_frames=T_WINDOW, clip_id=clip_id)
-        # fall [15, 50]: overlap with window [0, 30) = 15 frames (50%) → label 1
+        # fall frames 15..50 (1-based) → 0-based [14, 50): overlap with
+        # window [0, 30) = 16 frames (53.3%) ≥ 50% → label 1
         _write_annotation(ann_dir / f"{clip_id}.txt", start=15, end=50)
 
         metas = load_clip_metas(pose_dir, annotation_dir=ann_dir)

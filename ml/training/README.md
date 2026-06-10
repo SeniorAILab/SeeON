@@ -67,9 +67,12 @@ uv run python -m training.extract_poses \
 ### Step 2 — Train
 
 ```bash
-uv run python -m training.train --model lstm
-uv run python -m training.train --model transformer
-uv run python -m training.train --model rf
+# Train all three models (default):
+uv run python -m training.train
+
+# Or train a subset (--models is plural, comma-separated):
+uv run python -m training.train --models lstm,transformer
+uv run python -m training.train --models rf
 ```
 
 Trained artifacts are written to `ml/artifacts/fall-detector/{model_type}/`:
@@ -93,12 +96,17 @@ artifacts/fall-detector/rf/
 ### Step 3 — Evaluate
 
 ```bash
-uv run python -m training.evaluate --model lstm
-uv run python -m training.evaluate --model transformer
-uv run python -m training.evaluate --model rf
+# Evaluates every artifact found under artifacts/fall-detector/ (no per-model flag):
+uv run python -m training.evaluate
+
+# Optional gold-8 secondary evaluation against real nursing-home clips:
+uv run python -m training.evaluate --gold-clips-dir <path-to-gold-clips>
 ```
 
-Results (clip-wise AUC, F1, confusion matrix) are written to `data/eval/`.
+Prints a 3-model comparison table (fall-F1 / Recall / Precision / AUC-PR at three
+operating points: fixed 0.5, optimal-F1, Recall≥0.90), writes
+`data/eval/le2i-poc-results.csv`, and persists the Recall≥0.90 threshold back
+into each model's `metadata.json` (used by the live demo).
 
 ---
 

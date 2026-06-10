@@ -321,9 +321,8 @@ def _run_gold8_eval(
     ``training.extract_poses`` to avoid preprocessing skew between training
     and inference.
     """
-    from training.config import KPT_VECTOR_DIM, N_KEYPOINTS, T_WINDOW
+    from training.config import KPT_VECTOR_DIM, N_KEYPOINTS
     from training.data.features import extract_window_features
-    from training.data.windowing import _window_starts
     from training.extract_poses import normalize_person_keypoints
 
     try:
@@ -349,6 +348,53 @@ def _run_gold8_eval(
 
     print(f"[evaluate/gold8] {len(video_files)} clip(s) in {gold_clips_dir}")
 
+    # === 단계 1: 클립별 포즈 캐시 — YOLO 추론을 모델 루프 밖에서 1회만 실행 ===
+    # All gold-8 clips are human-verified FALL clips (gold_label = 1 for every clip).
+    # Source: docs/exec-plan/active/pose-classifier-fall-demo/gold-labels.md
+    #         — all 8 entries have a fall onset.
+    GOLD_LABEL = 1
+
+    clip_cache: dict[str, dict] = {}  # clip_id → {kpts_arr, no_person_frac}
+    for vid_path in video_files:
+        cap = cv2.VideoCapture(str(vid_path))
+        if not cap.isOpened():
+            log.warning("gold-8 eval: cannot open %s", vid_path)
+            continue
+        frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        frames: list[np.ndarray] = []
+        n_no_person = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            kpts = normalize_person_keypoints(
+                runner.predict_full(frame)[0], frame_w, frame_h, CONF_THRESHOLD
+            )
+            if not kpts.any():
+                n_no_person += 1
+            frames.append(kpts)
+        cap.release()
+
+        if not frames:
+            continue
+
+        n_frames = len(frames)
+        kpts_arr = np.stack(frames, axis=0).astype(np.float32)
+        no_person_frac = round(n_no_person / n_frames, 4)
+        clip_cache[vid_path.stem] = {
+            "kpts_arr": kpts_arr,
+            "no_person_frac": no_person_frac,
+        }
+
+    if not clip_cache:
+        log.warning("gold-8 eval: no clips could be decoded — skipping")
+        return
+
+    # === 단계 2: 모델별 윈도우 추론 — 캐시된 포즈 배열 재사용, 모델별 window/stride 적용 ===
+    csv_rows: list[dict[str, object]] = []
+
     for key in _ALL_MODEL_KEYS:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
         model_file = out_dir / ("model.pkl" if key == "rf" else "model.pt")
@@ -360,59 +406,66 @@ def _run_gold8_eval(
         thr = chosen_thresholds.get(key, meta.operating_threshold)
 
         n_pred_fall = 0
-        n_total = 0
+        n_total = len(clip_cache)
 
-        for vid_path in video_files:
-            cap = cv2.VideoCapture(str(vid_path))
-            if not cap.isOpened():
-                log.warning("gold-8 eval: cannot open %s", vid_path)
-                continue
-            frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        for clip_id, cached in clip_cache.items():
+            kpts_arr = cached["kpts_arr"]
+            no_person_frac = cached["no_person_frac"]
+            n = len(kpts_arr)
 
-            frames: list[np.ndarray] = []
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                kpts = normalize_person_keypoints(
-                    runner.predict_full(frame)[0], frame_w, frame_h, CONF_THRESHOLD
-                )
-                frames.append(kpts)
-            cap.release()
+            # Per-model window geometry (MINOR-6): use meta.window / meta.stride
+            win = meta.window
+            stride = meta.stride
+            starts = list(range(0, n - win + 1, stride)) if n >= win else [0]
 
-            if not frames:
-                continue
-
-            kpts_arr = np.stack(frames, axis=0).astype(np.float32)
             n_pos_windows = 0
             n_total_windows = 0
 
-            for start in _window_starts(len(kpts_arr)):
-                window = np.zeros((T_WINDOW, N_KEYPOINTS, 3), dtype=np.float32)
-                end = min(start + T_WINDOW, len(kpts_arr))
+            for start in starts:
+                window = np.zeros((win, N_KEYPOINTS, 3), dtype=np.float32)
+                end = min(start + win, n)
                 window[: end - start] = kpts_arr[start:end]
 
                 if meta.framework == "sklearn":
                     x = extract_window_features(window)[np.newaxis]
                 else:
-                    x = window.reshape(1, T_WINDOW, KPT_VECTOR_DIM)
+                    x = window.reshape(1, win, KPT_VECTOR_DIM)
 
                 prob_fall = float(clf.predict_proba(x)[0, 1])  # type: ignore[union-attr]
                 n_total_windows += 1
                 if prob_fall >= thr:
                     n_pos_windows += 1
 
-            if n_total_windows > 0:
-                pos_frac = n_pos_windows / n_total_windows
-                clip_pred = 1 if pos_frac >= GOLD8_POS_WINDOW_FRACTION else 0
-                n_pred_fall += clip_pred
-                n_total += 1
+            pos_window_frac = (
+                round(n_pos_windows / n_total_windows, 4) if n_total_windows > 0 else 0.0
+            )
+            predicted_label = 1 if pos_window_frac >= GOLD8_POS_WINDOW_FRACTION else 0
+            correct = int(predicted_label == GOLD_LABEL)
+            n_pred_fall += predicted_label
+
+            csv_rows.append(
+                {
+                    "model": key,
+                    "clip_id": clip_id,
+                    "gold_label": GOLD_LABEL,
+                    "predicted_label": predicted_label,
+                    "pos_window_frac": pos_window_frac,
+                    "no_person_frac": no_person_frac,
+                    "correct": correct,
+                }
+            )
 
         print(
             f"[evaluate/gold8] {key!r}: {n_pred_fall}/{n_total}"
-            f" clips predicted fall (threshold={thr:.4f})"
+            f" clips predicted fall (threshold={thr:.4f}) — ADR-009 rule-based floor: 0/8"
         )
+
+    # === 단계 3: CSV 기록 — gold8-poc-results.csv에 클립별 결과 저장 ===
+    if csv_rows:
+        EVAL_DIR.mkdir(parents=True, exist_ok=True)
+        gold_csv_path = EVAL_DIR / "gold8-poc-results.csv"
+        _write_csv(gold_csv_path, csv_rows)
+        print(f"[evaluate/gold8] results written to {gold_csv_path}")
 
 
 # ---------------------------------------------------------------------------
