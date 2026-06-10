@@ -7,6 +7,7 @@ the loop records them here and continues with other work instead of blocking.
 |---|-----------|-------|------------------------|
 | 1 | NH gold label confirmation (plan Step 9) | waiting — strips not yet generated (NH rsync in progress) | Review contact strips in `ml/data/eval/gold-review/{slug}/`, edit `ml/data/eval/nursing-home-gold.csv` rows to `status=confirmed` (fix frames as needed) |
 | 2 | NH reference mask freeze approval (plan Step 13b) | waiting — needs 5-family baseline + confirmed gold | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
+| 3 | **LE2I annotation txts missing on m1-pro** | **BLOCKING LE2I training** — `ml/data/le2i/raw/{Home,Coffee_room}/Annotation_files/` exist but are EMPTY (0 txt files); poses npz carry no labels → loader treats all 130 clips as ADL (fall=0) | From the local mac, push the tiny label files: `rsync -a -e 'ssh -o RemoteCommand=none' --include='*/' --include='*.txt' --exclude='*' ml/data/le2i/raw/ m1-pro:~/Documents/01_Project/eldercare-fall-ai/ml/data/le2i/raw/` (KBs only). Reverse pull impossible — port 22 to the mac times out |
 
 ## Decision log (autonomous decisions taken within plan/spec constraints)
 

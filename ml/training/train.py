@@ -126,7 +126,7 @@ def run(
         When set, subsample to *N* clips (``ceil(N/2)`` fall + ``floor(N/2)``
         ADL) and cap net training at 2 epochs so the run finishes quickly.
     models:
-        Model keys to train — any subset of ``("random-forest", "lstm", "transformer")``.
+        Model keys to train — any subset of the keys in ``models.REGISTRY``.
     """
     _set_all_seeds(SEED)
 
@@ -193,6 +193,15 @@ def run(
     total_windows = train_pos + train_neg + test_pos + test_neg
     total_pos_windows = train_pos + test_pos
     fall_fraction = total_pos_windows / total_windows if total_windows > 0 else 0.0
+    if total_pos_windows == 0:
+        # Applies in smoke mode too: single-class data breaks predict_proba
+        # ([:, 1] on an (N, 1) result) and is always a data-availability bug —
+        # the smoke subsampler guarantees >=1 fall clip whenever the source has
+        # any, so zero positives means the annotations never resolved.
+        raise ValueError(
+            f"No positive (fall) windows in training data (total={total_windows}). "
+            "Check that annotation .txt files exist and annotation_dir resolves."
+        )
     if smoke_n is None and fall_fraction < 0.02:
         raise ValueError(
             f"Fall-window fraction {fall_fraction:.3f} < 0.02. "
