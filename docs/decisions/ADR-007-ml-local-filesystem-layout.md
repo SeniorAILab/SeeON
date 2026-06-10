@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Accepted. Partially superseded by
+[ADR-011](./ADR-011-ml-data-domain-first-layout.md) (MECE table row 6:
+domain-bound derived outputs — `annotated/`, `poses/` — move inside
+`ml/data/{domain}/`; `ml/weights/` and all other rows remain in force).
 
 ## Date
 
