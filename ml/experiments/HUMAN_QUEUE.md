@@ -80,3 +80,14 @@ the loop records them here and continues with other work instead of blocking.
   Added `source="trained"` default + per-model `reacquire` command. Also note:
   smoke overwrote the canonical PoC artifacts under `ml/models/fall/` with toy
   models; full baseline training rewrites them properly right after.
+- 2026-06-11: **Pipeline fully validated, loop ready.** Full 5-family baselines
+  trained + evaluated (leaderboard initialized: gcn P@R90 0.132 > svm 0.114 >
+  rf 0.103 > transformer 0.061 > lstm 0.046; all recall_90 ✓). NH pose cache
+  warmed 23/23 (0 fails). Gold proposals for all 23 videos committed (16 falls
+  + 7 no-fall). Rehearsal runs rehearsal-rf-001 / rehearsal-gcn-002 exercised
+  the harness end-to-end: both exit 0, latency gate ✓ (87.8 ms / 0.7 ms),
+  run-JSONs with eval_split_hash + params, loop_status heartbeat OK, NH gate
+  correctly un-armed pre-confirmation. Operational fix: harness must run as
+  `python -m experiments.harness` from `ml/` (skill doc corrected).
+  **The 8h unattended run now waits ONLY on the two human gates above**
+  (gold confirm → 13b mask freeze approval).
