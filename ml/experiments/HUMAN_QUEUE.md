@@ -46,3 +46,16 @@ the loop records them here and continues with other work instead of blocking.
   protocol nothing was killed or touched from this side; no signed
   `.RSYNC_DONE` yet, so NH steps remain paused. **If the local chain did not
   auto-retry, re-kick the NH rsync + verification from the local mac.**
+- 2026-06-10 23:38 — **refined NH stall diagnosis for sender-side debugging**:
+  data has been static at 3.95G / 57 files since ~21:05. The chain ran
+  verification dry-runs (`rsync --server -n` over `nursing-home/`) at 21:24
+  (hung, never wrote) and 22:24 (completed in seconds), but **no signed marker
+  was ever written**, and no further retry appeared in the 23:24 window —
+  chain activity seems to have ceased. Two interpretations to check on the
+  local mac: (a) the verification file-count check is failing (sender manifest
+  vs receiver 57 files — note the full
+  `KakaoTalk_Video_2026-06-07-17-06-00.mp4` IS present; only a stale 24.8MB
+  rsync temp dotfile from the dead 18:08 session lingers next to it), or
+  (b) verification passed but the marker-write ssh step failed on the flaky
+  network and the chain did not retry it. Remote side continues polling per
+  protocol and will start NH steps within 1 min of a signed marker.
