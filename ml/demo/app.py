@@ -16,18 +16,16 @@ import streamlit as st  # noqa: E402
 
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
-from demo.classifier_module import FallClassifierModule  # noqa: E402
-from demo.classifiers import (  # noqa: E402
-    CLASSIFIER_REGISTRY,
-    ClassifierParams,
-    ClassifierSpec,
-    build_classifier,
+from demo.classifiers import ClassifierParams  # noqa: E402
+from demo.demo_ui import (  # noqa: E402
+    build_model,
+    render_status,
+    select_classifier_params,
+    select_classifier_spec,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
-from demo.model_modules import POSE_MODEL_SIZES, YoloPoseModule  # noqa: E402
-from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
-from demo.seam import ModelModule, VideoFileSource  # noqa: E402
-from demo.temporal_module import TEMPORAL_MODEL_KEYS  # noqa: E402
+from demo.model_modules import POSE_MODEL_SIZES  # noqa: E402
+from demo.seam import VideoFileSource  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
@@ -57,70 +55,15 @@ def main() -> None:
         format_func=lambda video: video.display_name,
     )
 
-    selected_spec: ClassifierSpec = st.selectbox(
-        "분류 모델",
-        options=CLASSIFIER_REGISTRY,
-        format_func=lambda spec: spec.display_name,
-    )
-    if not selected_spec.available:
-        st.info("규칙기반 분류만 현재 지원됩니다. 선택한 모델은 준비중입니다.")
+    selected_spec = select_classifier_spec()
     classifier_key: str | None = selected_spec.key if selected_spec.available else None
-
-    with st.expander("탐지 파라미터", expanded=False):
-        col1, col2 = st.columns(2)
-        conf = col1.number_input(
-            "신뢰도 임계값 (conf)", min_value=0.01, max_value=1.0, value=0.05, step=0.01
-        )
-        window = col1.number_input("윈도우 (frames)", min_value=1, value=60, step=1)
-        stride_param = col2.number_input("스트라이드 (frames)", min_value=1, value=15, step=1)
-        sustained = col2.number_input(
-            "낙상 판단 지속시간 (초)", min_value=0.1, max_value=30.0, value=2.0, step=0.1
-        )
-    classifier_params = ClassifierParams(
-        confidence=float(conf),
-        window=int(window),
-        stride=int(stride_param),
-        sustained_down_sec=float(sustained),
-    )
+    classifier_params = select_classifier_params()
 
     _render_live_viewer(
         selected_video=selected_video,
         classifier_key=classifier_key,
         classifier_params=classifier_params,
     )
-
-
-def _build_model(
-    size: str,
-    classifier_key: str | None,
-    classifier_params: ClassifierParams,
-) -> ModelModule:
-    """Compose the per-playback model: pose alone, or pose + fall classifier.
-
-    A fresh model (hence a fresh classifier with cleared state) is built on every
-    재생 so replays never inherit a prior run's fall timer.
-    """
-    pose = YoloPoseModule(size=size, confidence=classifier_params.confidence)
-    if classifier_key is None:
-        return pose
-    if classifier_key in TEMPORAL_MODEL_KEYS:
-        from demo.temporal_module import build_temporal_model
-
-        return build_temporal_model(classifier_key, pose)
-    classifier = build_classifier(classifier_key, classifier_params)
-    return FallClassifierModule(pose_module=pose, classifier=classifier)
-
-
-def _render_status(
-    placeholder: st.delta_generator.DeltaGenerator,
-    status: CurrentPlaybackStatus,
-    confidence: float,
-) -> None:
-    body = f"**{status.label}** · {status.detail} · 낙상도 {confidence:.0%} · {status.pose_label}"
-    if status.is_fall:
-        placeholder.error(f"🔴 {body}")
-    else:
-        placeholder.success(f"🟢 {body}")
 
 
 def _render_live_viewer(
@@ -155,7 +98,7 @@ def _render_live_viewer(
     # processed — that incremental render IS the live view (ADR-010). Throughput
     # is throttled by PLAYBACK_FRAME_STRIDE and paced toward the clip's real-time
     # fps below.
-    model = _build_model(size, classifier_key, classifier_params)
+    model = build_model(size, classifier_key, classifier_params)
     source = VideoFileSource(selected_video.path, frame_stride=PLAYBACK_FRAME_STRIDE)
     info = read_video_playback_info(selected_video.path)
     frame_interval = PLAYBACK_FRAME_STRIDE / max(info.fps, 1.0)
@@ -166,7 +109,7 @@ def _render_live_viewer(
         source, model, show_boxes=show_boxes, show_pose=show_pose
     ):
         frame_ph.image(overlay, channels="RGB", use_container_width=True)
-        _render_status(status_ph, status, confidence)
+        render_status(status_ph, status, confidence)
         rendered += 1
         target += frame_interval
         delay = target - time.perf_counter()
