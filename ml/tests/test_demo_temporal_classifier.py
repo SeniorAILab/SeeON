@@ -2,8 +2,8 @@
 
 RF path only — avoids torch.  Covers:
 - TemporalFallClassifierModule predict() returns DetectionResult
-- Before the buffer fills the label stays "정상" (no-fall)
-- Once the buffer fills on a fall-pattern window the label fires "낙상"
+- Before the buffer fills the label stays NORMAL_LABEL_TEXT (no-fall)
+- Once the buffer fills on a fall-pattern window the label fires FALL_LABEL_TEXT
 - No-person pose → empty DetectionResult
 - temporal_artifact_available() is False for non-existent artifact
 - CLASSIFIER_REGISTRY availability is linked to artifact presence
@@ -17,7 +17,14 @@ import numpy as np
 import pytest
 
 from demo.classifiers import CLASSIFIER_REGISTRY
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
+from demo.seam import (
+    FALL_LABEL_TEXT,
+    NORMAL_LABEL_TEXT,
+    BoundingBox,
+    DetectionLabel,
+    DetectionResult,
+    Frame,
+)
 from demo.temporal_module import (
     TEMPORAL_MODEL_KEYS,
     TemporalFallClassifierModule,
@@ -149,7 +156,7 @@ class TestTemporalFallClassifierModule:
         assert isinstance(result, DetectionResult)
 
     def test_before_buffer_fills_label_is_normal(self, tmp_path: Path) -> None:
-        """Feed window-1 frames: buffer not full → _last_prob==0 → label stays '정상'."""
+        """Feed window-1 frames: buffer not full → _last_prob==0 → label stays NORMAL_LABEL_TEXT."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         module = _load_module(tmp_path)
         meta = load_metadata(tmp_path)
@@ -158,11 +165,11 @@ class TestTemporalFallClassifierModule:
             result = module.predict(_frame(i))
             # pose always returns a box, so labels is populated
             assert len(result.labels) == 1, f"Expected 1 label at frame {i}"
-            assert result.labels[0].text == "정상", f"Expected '정상' at frame {i}"
+            assert result.labels[0].text == NORMAL_LABEL_TEXT
             assert result.labels[0].is_fall is False, f"Expected no fall at frame {i}"
 
     def test_fall_fires_when_buffer_fills_on_fall_pattern(self, tmp_path: Path) -> None:
-        """After exactly *window* fall-pattern frames inference fires → label '낙상'."""
+        """After exactly *window* fall-pattern frames inference fires → FALL_LABEL_TEXT."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         module = _load_module(tmp_path)
         meta = load_metadata(tmp_path)
@@ -173,7 +180,7 @@ class TestTemporalFallClassifierModule:
 
         assert result is not None
         assert len(result.labels) == 1
-        assert result.labels[0].text == "낙상", "Expected fall label '낙상' after buffer fills"
+        assert result.labels[0].text == FALL_LABEL_TEXT
         assert result.labels[0].is_fall is True
 
     def test_fall_label_confidence_is_probability(self, tmp_path: Path) -> None:
@@ -335,7 +342,8 @@ class TestMultiPersonTemporalModule:
         assert len(result.keypoints) == 2
 
     def test_per_person_labels_index_aligned_fall_vs_normal(self, tmp_path: Path) -> None:
-        """Person A (fall-pattern) fires '낙상'; person B (static normal) stays '정상'."""
+        """Person A (fall-pattern) fires FALL_LABEL_TEXT; person B (static normal) stays
+        NORMAL_LABEL_TEXT."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         meta = load_metadata(tmp_path)
         rf = RandomForestFallClassifier.load(tmp_path)
@@ -353,15 +361,16 @@ class TestMultiPersonTemporalModule:
 
         assert result is not None
         assert len(result.labels) == 2
-        # Person A — fall pattern → "낙상"
+        # Person A — fall pattern → FALL_LABEL_TEXT
         assert result.labels[0].is_fall is True, "Person A expected fall label"
-        assert result.labels[0].text == "낙상"
-        # Person B — static normal pattern → "정상"
+        assert result.labels[0].text == FALL_LABEL_TEXT
+        # Person B — static normal pattern → NORMAL_LABEL_TEXT
         assert result.labels[1].is_fall is False, "Person B expected normal label"
-        assert result.labels[1].text == "정상"
+        assert result.labels[1].text == NORMAL_LABEL_TEXT
 
     def test_warmup_all_labels_normal_confidence_zero(self, tmp_path: Path) -> None:
-        """Before any buffer fills, every per-person label is '정상' with confidence 0.0."""
+        """Before any buffer fills, every per-person label is NORMAL_LABEL_TEXT with
+        confidence 0.0."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         meta = load_metadata(tmp_path)
         rf = RandomForestFallClassifier.load(tmp_path)

@@ -4,7 +4,14 @@ import numpy as np
 
 from demo.classifier_module import FallClassifierModule
 from demo.classifiers import ClassifierParams, RuleBasedClassifier
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame, ModelModule
+from demo.seam import (
+    FALL_LABEL_TEXT,
+    BoundingBox,
+    DetectionLabel,
+    DetectionResult,
+    Frame,
+    ModelModule,
+)
 
 
 def _frame(index: int, time_sec: float, h: int = 480, w: int = 640) -> Frame:
@@ -63,7 +70,7 @@ class TestFallClassifierModule:
         assert r0.labels[0].is_fall is False
         assert r1.labels[0].is_fall is False
         assert r2.labels[0].is_fall is True
-        assert r2.labels[0].text == "낙상"
+        assert r2.labels[0].text == FALL_LABEL_TEXT
 
     def test_tall_high_box_never_emits_fall(self) -> None:
         params = ClassifierParams(sustained_down_sec=2.0)

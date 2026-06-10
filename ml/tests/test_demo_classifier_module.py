@@ -1,4 +1,4 @@
-"""Tests for FallClassifierModule — verifies Hangul label text output."""
+"""Tests for FallClassifierModule — verifies English label text output."""
 
 from __future__ import annotations
 
@@ -8,7 +8,13 @@ import numpy as np
 
 from demo.classifier_module import FallClassifierModule
 from demo.classifiers import Classification
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult
+from demo.seam import (
+    FALL_LABEL_TEXT,
+    NORMAL_LABEL_TEXT,
+    BoundingBox,
+    DetectionLabel,
+    DetectionResult,
+)
 from util.frame_source import Frame
 
 
@@ -35,16 +41,16 @@ def _make_module(is_fall: bool, confidence: float = 1.0) -> FallClassifierModule
     return FallClassifierModule(pose_module, classifier)
 
 
-def test_fall_label_is_hangul_naksan() -> None:
+def test_fall_label_is_fall() -> None:
     module = _make_module(is_fall=True)
     result = module.predict(_fake_frame())
-    assert result.labels[0].text == "낙상"
+    assert result.labels[0].text == FALL_LABEL_TEXT
 
 
-def test_nonfal_label_is_hangul_jeongsang() -> None:
+def test_nonfall_label_is_normal() -> None:
     module = _make_module(is_fall=False)
     result = module.predict(_fake_frame())
-    assert result.labels[0].text == "정상"
+    assert result.labels[0].text == NORMAL_LABEL_TEXT
 
 
 def test_fall_label_carries_is_fall_true() -> None:
@@ -82,6 +88,6 @@ def test_nonprimary_persons_keep_person_text() -> None:
     module = FallClassifierModule(pose_module, classifier)
     result = module.predict(_fake_frame())
 
-    # Primary (box_a) → 낙상; secondary (box_b) → 'person'
-    assert result.labels[0].text == "낙상"
+    # Primary (box_a) → FALL_LABEL_TEXT; secondary (box_b) → 'person'
+    assert result.labels[0].text == FALL_LABEL_TEXT
     assert result.labels[1].text == "person"
