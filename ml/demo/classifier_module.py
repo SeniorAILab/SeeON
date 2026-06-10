@@ -43,7 +43,7 @@ class FallClassifierModule:
 
         labels = tuple(
             DetectionLabel(
-                text="fall" if classification.is_fall else "person",
+                text="낙상" if classification.is_fall else "정상",
                 confidence=classification.confidence,
                 is_fall=classification.is_fall,
             )
