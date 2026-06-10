@@ -148,10 +148,12 @@ Without this allowlist Claude will be blocked by permission prompts mid-run and 
 
 2. **Propose next experiment** — Formulate one architecture- or feature-level hypothesis (examples: "add temporal attention to ST-GCN", "apply isotonic calibration to RF probabilities", "reduce LSTM layers to 1 to lower latency"). **Do not propose hyperparameter values** — HP search is Optuna's job inside `harness.py` (`n_trials ≈ 5` per run).
 
-3. **Run harness** — Execute the hypothesis via the single-experiment CLI:
+3. **Run harness** — Execute the hypothesis via the single-experiment CLI.
+   Must run as a module from `ml/` (script-path execution breaks `training`
+   imports), and `--config` takes a JSON **file path**, not inline JSON:
 
    ```bash
-   uv run python ml/experiments/harness.py --config '<hypothesis-json>'
+   cd ml && uv run python -m experiments.harness --config /tmp/<id>.json
    ```
 
    `harness.py` performs internally: Optuna HP search → best-trial train → LE2I evaluate → NH gate check → writes `ml/experiments/runs/{id}.json`.
