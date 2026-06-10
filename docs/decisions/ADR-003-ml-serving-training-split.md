@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted
+Accepted. Partially superseded by
+[ADR-015](./ADR-015-ml-models-single-root.md) — §3 artifact path formula
+(`ml/artifacts/<name>/<version>/`) is replaced by `ml/models/fall/<model_type>/`.
+Serving/training lifecycle split and responsibility boundary remain in force.
 
 ## Date
 
