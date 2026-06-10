@@ -3,6 +3,8 @@ slug: docs-code-alignment
 issue: "#66"
 date: 2026-06-10
 author: claude-fable-5
+status: superseded-by
+superseded-by: docs-code-alignment-docs-only
 ```
 
 # docs↔code 정합성 align — 감사 확정 불일치 38건 수정
