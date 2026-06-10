@@ -4,6 +4,8 @@
 
 Accepted. **Partially supersedes ADR-004 and ADR-007** (scope detailed below —
 neither is fully replaced; their inherited invariants are listed explicitly).
+The deliberately deferred hook/script validation is resolved by **ADR-016**:
+layout conventions are audit-tier, not hook-blocked.
 
 ## Date
 
