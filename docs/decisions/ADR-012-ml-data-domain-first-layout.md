@@ -95,13 +95,18 @@ ml/data/
 
 | # | File category | Location | Owning ADR |
 |---|---------------|----------|-----------|
-| 1 | Versioned first-party artifacts (+ `metadata.json`) | `ml/artifacts/<name>/<version>/` | ADR-003 |
-| 2 | Curated third-party comparison checkpoints | `ml/artifacts/pretrained/*/` | ADR-005 |
+| 1 | Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` [^1] | ADR-015 |
+| 2 | Third-party comparison checkpoints | `ml/models/fall/pretrained/*/` [^1] | ADR-015 |
 | 3 | Domain-bound data, any role (inputs **and** derived) | `ml/data/{domain}/{raw,processed,poses,annotated}` | **ADR-012** |
 | 4 | Cross-domain derived outputs | `ml/data/eval/` | **ADR-012** |
 | 5 | Transient demo uploads | `ml/data/uploads/` | **ADR-012** |
 | 6 | Frame-intake seam **code** | `ml/util/` | ADR-006 |
-| 7 | Upstream ephemeral weight cache | `ml/weights/` | ADR-007 |
+| 7 | Upstream ephemeral pose weight cache | `ml/models/pose/` [^1] | ADR-015 |
+
+[^1]: Rows 1, 2, and 7 updated by [ADR-015](./ADR-015-ml-models-single-root.md), which
+consolidated `ml/weights/`, `ml/artifacts/pretrained/`, and `ml/artifacts/fall-detector/`
+into a single `ml/models/` root. Prior locations recorded in ADR-003 §3 and ADR-007 rows
+1/2/5 are superseded.
 
 ## Access Boundary
 

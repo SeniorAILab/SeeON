@@ -5,7 +5,7 @@ end-to-end on a tiny synthetic clip set, without any real Le2i data or
 YOLO weights.  All I/O is confined to pytest's tmp_path.
 
 Checks:
-- model.pkl and metadata.json are written under artifact_dir("rf").
+- model.pkl and metadata.json are written under artifact_dir("random-forest").
 - metadata.json contains a parseable operating_threshold float.
 - The test completes in a few seconds (RF on synthetic data, no nets).
 """
@@ -53,7 +53,7 @@ class TestTrainRunRfSynthetic:
     """Dataset-assembly + single-RF-artifact-write on a synthetic clip set."""
 
     def test_rf_artifact_written_with_metadata(self, tmp_path: Path) -> None:
-        """run() with models=['rf'] writes model.pkl + metadata.json to artifact_dir."""
+        """run() with models=['random-forest'] writes model.pkl + metadata.json to artifact_dir."""
         pose_dir = tmp_path / "poses"
         ann_dir = tmp_path / "annotations"
         artifact_base = tmp_path / "artifacts"
@@ -85,13 +85,13 @@ class TestTrainRunRfSynthetic:
                 pose_dir=pose_dir,
                 annotation_dir=ann_dir,
                 smoke_n=None,
-                models=["rf"],
+                models=["random-forest"],
             )
         finally:
             _meta_module.ARTIFACT_BASE = orig_base
             _train_module.ARTIFACT_BASE = orig_cfg_base
 
-        rf_dir = artifact_base / "rf"
+        rf_dir = artifact_base / "random-forest"
         assert (rf_dir / "model.pkl").exists(), "model.pkl not written"
         assert (rf_dir / "metadata.json").exists(), "metadata.json not written"
 

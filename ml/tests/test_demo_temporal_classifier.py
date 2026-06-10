@@ -116,7 +116,7 @@ def _build_rf_artifact(tmp_path: Path, window: int = 30, stride: int = 5) -> Pat
     rf.save(tmp_path)
 
     meta = ModelMetadata(
-        model_type="random_forest",
+        model_type="random-forest",
         framework="sklearn",
         window=window,
         stride=stride,

@@ -132,7 +132,7 @@ right tool once we know how far public-data transfer gets us.
 
 - **Complements ADR-005; does not supersede it.** ADR-005's seam contract and
   YOLO26-pose backbone stand unchanged. This ADR fills the seam ADR-005 left open.
-- **References ADR-003** (serving/training split + version-addressed artifacts) —
-  trained temporal models become `ml/artifacts/<name>/<version>/` artifacts.
+- **References ADR-003** (serving/training split) and **ADR-015** (model layout) —
+  trained temporal models live under `ml/models/fall/<model_type>/`.
 - **Implementation** is tracked in GitHub issue **#40** (track 2b). This ADR
   records the *decision*; the issue records the *how*.
