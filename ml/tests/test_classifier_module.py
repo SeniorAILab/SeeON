@@ -63,7 +63,7 @@ class TestFallClassifierModule:
         assert r0.labels[0].is_fall is False
         assert r1.labels[0].is_fall is False
         assert r2.labels[0].is_fall is True
-        assert r2.labels[0].text == "fall"
+        assert r2.labels[0].text == "낙상"
 
     def test_tall_high_box_never_emits_fall(self) -> None:
         params = ClassifierParams(sustained_down_sec=2.0)
