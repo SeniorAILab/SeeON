@@ -1,11 +1,11 @@
 """Placeholder model loader for the serving lifecycle.
 
-PoC stub: loads artifact metadata from the versioned artifact directory and
+PoC stub: loads artifact metadata from the model directory and
 returns a deterministic dummy probability. Replace `FallDetector.predict` with
 real inference (e.g. YOLO11-pose keypoints -> temporal classifier) later.
 
-Artifacts are version-addressed (Triton-inspired):
-    ml/artifacts/<model-name>/<version>/{model.pt, metadata.json}
+Models live under a single root (ADR-015):
+    ml/models/fall/<model_type>/{model.pt, metadata.json}
 """
 
 from __future__ import annotations
@@ -13,21 +13,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-ARTIFACTS_DIR = Path(__file__).resolve().parent.parent / "artifacts"
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 
 class FallDetector:
-    def __init__(self, name: str = "fall-detector", version: str = "0.1.0") -> None:
+    def __init__(self, name: str = "fall-detector", model_type: str = "random-forest") -> None:
         self.name = name
-        self.version = version
-        self.artifact_dir = ARTIFACTS_DIR / name / version
+        self.model_type = model_type
+        self.artifact_dir = MODELS_DIR / "fall" / model_type
         self.metadata = self._load_metadata()
 
     def _load_metadata(self) -> dict:
         meta_path = self.artifact_dir / "metadata.json"
         if meta_path.exists():
             return json.loads(meta_path.read_text())
-        return {"name": self.name, "version": self.version, "status": "placeholder"}
+        return {"name": self.name, "model_type": self.model_type, "status": "placeholder"}
 
     def predict(self, window: list[list[float]] | None = None) -> float:
         """Return fall probability in [0, 1].

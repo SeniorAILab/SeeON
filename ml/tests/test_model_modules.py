@@ -29,10 +29,11 @@ def test_pose_weight_path_resolves_into_the_weights_cache(size: str) -> None:
     assert path.name == pose_weight_filename(size)
 
 
-def test_weights_dir_is_ml_weights_not_project_root() -> None:
-    # The cache must sit at ml/weights/, never the ml/ root (the old download spot).
-    assert WEIGHTS_DIR.name == "weights"
-    assert WEIGHTS_DIR.parent.name == "ml"
+def test_weights_dir_is_ml_models_pose_not_project_root() -> None:
+    # The pose cache must sit at ml/models/pose/ (ADR-015), never ml/weights/ or the ml/ root.
+    assert WEIGHTS_DIR.name == "pose"
+    assert WEIGHTS_DIR.parent.name == "models"
+    assert WEIGHTS_DIR.parent.parent.name == "ml"
 
 
 def test_pose_model_size_labels_covers_every_size_key() -> None:

@@ -23,7 +23,7 @@ DATA_ROOT = _ML_ROOT / "data"
 POSE_CACHE_DIR = DATA_ROOT / "le2i" / "poses"
 RAW_DATA_DIR = DATA_ROOT / "le2i" / "raw"
 GOLD_CLIPS_DIR = DATA_ROOT / "nursing-home" / "processed"
-ARTIFACT_BASE = _ML_ROOT / "artifacts" / "fall-detector"
+ARTIFACT_BASE = _ML_ROOT / "models" / "fall"
 EVAL_DIR = DATA_ROOT / "eval"
 
 # --- Reproducibility ---
