@@ -1,4 +1,4 @@
-# ADR-012: Le2i Training-Pipeline Decisions — Dataset Detail, Window Labelling, Recall-First Threshold, Gold-Clip Evaluation
+# ADR-013: Le2i Training-Pipeline Decisions — Dataset Detail, Window Labelling, Recall-First Threshold, Gold-Clip Evaluation
 
 ## Status
 
@@ -21,7 +21,7 @@ labelled, *how* the operating threshold is chosen and shipped, and *how* models
 are compared against the gold clips.
 
 MECE boundary: ADR-003 owns artifact layout, ADR-005 owns the pose backbone,
-ADR-009 owns the strategy and the gold baseline, ADR-011 owns data location.
+ADR-009 owns the strategy and the gold baseline, ADR-012 owns data location.
 This ADR owns only the four contract decisions below.
 
 ## Decision

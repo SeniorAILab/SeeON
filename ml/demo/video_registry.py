@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Final, Protocol
 
 DATA_DIR: Final = Path(__file__).resolve().parent.parent / "data"
-# ml/data/ is domain-first (ADR-011): top-level folders are domains except these.
+# ml/data/ is domain-first (ADR-012): top-level folders are domains except these.
 NON_DOMAIN_DIRS: Final[frozenset[str]] = frozenset({"eval", "uploads"})
 SUPPORTED_VIDEO_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {".mp4", ".mov", ".avi", ".mkv"}
@@ -139,7 +139,7 @@ def _registered_video(
     # video_id mirrors the on-disk layout relative to ml/data/ so it is unique
     # within one data root: "{domain}/{role}/{subpath…/name}", or
     # "uploads/{name}" for the role-less top-level uploads folder. Never
-    # role-only — that collides across domains (ADR-011).
+    # role-only — that collides across domains (ADR-012).
     rel_parts = path.relative_to(role_dir).parts if role_dir is not None else (path.name,)
     if source is VideoSource.UPLOAD:
         id_parts = (UPLOADS_DOMAIN, *rel_parts)

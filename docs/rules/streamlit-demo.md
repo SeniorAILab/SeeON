@@ -61,7 +61,7 @@ environment variable:
 | `operator` | local development | `ml/data/{domain}/{raw,processed}` internal clips + uploads | explicit opt-in |
 
 - **The default is `public` on purpose.** A deployment that forgets to set the
-  variable must never expose nursing-home footage (ADR-011 Access Boundary).
+  variable must never expose nursing-home footage (ADR-012 Access Boundary).
   Never flip the default to `operator`.
 - **Public-mode invariants:** internal domain sources are not listed, not
   reachable by any widget, and uploads outside the current session's

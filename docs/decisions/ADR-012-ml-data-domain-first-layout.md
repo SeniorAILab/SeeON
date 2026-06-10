@@ -1,4 +1,4 @@
-# ADR-011: Domain-First Two-Tier Layout for `ml/data/`
+# ADR-012: Domain-First Two-Tier Layout for `ml/data/`
 
 ## Status
 
@@ -97,9 +97,9 @@ ml/data/
 |---|---------------|----------|-----------|
 | 1 | Versioned first-party artifacts (+ `metadata.json`) | `ml/artifacts/<name>/<version>/` | ADR-003 |
 | 2 | Curated third-party comparison checkpoints | `ml/artifacts/pretrained/*/` | ADR-005 |
-| 3 | Domain-bound data, any role (inputs **and** derived) | `ml/data/{domain}/{raw,processed,poses,annotated}` | **ADR-011** |
-| 4 | Cross-domain derived outputs | `ml/data/eval/` | **ADR-011** |
-| 5 | Transient demo uploads | `ml/data/uploads/` | **ADR-011** |
+| 3 | Domain-bound data, any role (inputs **and** derived) | `ml/data/{domain}/{raw,processed,poses,annotated}` | **ADR-012** |
+| 4 | Cross-domain derived outputs | `ml/data/eval/` | **ADR-012** |
+| 5 | Transient demo uploads | `ml/data/uploads/` | **ADR-012** |
 | 6 | Frame-intake seam **code** | `ml/util/` | ADR-006 |
 | 7 | Upstream ephemeral weight cache | `ml/weights/` | ADR-007 |
 
