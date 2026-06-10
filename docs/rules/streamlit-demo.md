@@ -50,7 +50,38 @@ wired the same way — by selecting a `ModelModule`, leaving the renderer and
 downstream consumers untouched (ADR-005 §3). Do not branch the UI on framework
 internals.
 
-## 6. Operational notes
+## 6. Demo modes — `FALL_DEMO_MODE` (fail-safe default: `public`)
+
+The demo runs in one of two modes, selected by the `FALL_DEMO_MODE`
+environment variable:
+
+| Mode | Who | Dropdown sources | Default? |
+|------|-----|------------------|----------|
+| `public` | external testers (deployed) | **only clips uploaded in the current browser session** | **yes — fail-safe** |
+| `operator` | local development | `ml/data/{domain}/{raw,processed}` internal clips + uploads | explicit opt-in |
+
+- **The default is `public` on purpose.** A deployment that forgets to set the
+  variable must never expose nursing-home footage (ADR-011 Access Boundary).
+  Never flip the default to `operator`.
+- **Public-mode invariants:** internal domain sources are not listed, not
+  reachable by any widget, and uploads outside the current session's
+  `st.session_state["session_upload_ids"]` set are not shown. Session
+  filtering happens in the `app.py` layer; `video_registry` stays
+  mode-agnostic.
+- **Local runs set the mode in the standard command:**
+
+  ```bash
+  cd ml && FALL_DEMO_MODE=operator uv run --group demo --group training \
+      streamlit run demo/app.py
+  ```
+
+- The upload widget works in both modes and accepts the
+  `SUPPORTED_VIDEO_EXTENSIONS` set (mp4, mov, avi, mkv).
+- `video_id` format is `"{domain}/{role}/{filename}"` — unique within one
+  `ml/data/` root; never reintroduce the role-only format (it collides across
+  domains).
+
+## 7. Operational notes
 
 - **First-select latency.** `yolo26{s,m,l,x}-pose.pt` weights download on first
   selection and are large. They cache to `ml/weights/` (not the `ml/` root) via
