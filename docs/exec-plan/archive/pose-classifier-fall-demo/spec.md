@@ -2,7 +2,7 @@
 title: Pose→Classifier 낙상 데모 + VLM-보조 라벨링/autoresearch
 slug: pose-classifier-fall-demo
 type: spec
-status: active
+status: done
 date: 2026-06-09
 author: gobeumsu (deep-interview)
 related: [fall-detection-methods, fall-detection-datasets, streaming-windowing, fall-state-taxonomy, vlm-assisted-dataset-construction]

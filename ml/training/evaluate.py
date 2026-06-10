@@ -352,7 +352,7 @@ def _run_gold8_eval(
 
     # === 단계 1: 클립별 포즈 캐시 — YOLO 추론을 모델 루프 밖에서 1회만 실행 ===
     # All gold-8 clips are human-verified FALL clips (gold_label = 1 for every clip).
-    # Source: docs/exec-plan/active/pose-classifier-fall-demo/gold-labels.md
+    # Source: docs/exec-plan/archive/pose-classifier-fall-demo/gold-labels.md
     #         — all 8 entries have a fall onset.
     GOLD_LABEL = 1
 
