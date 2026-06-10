@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol, Self, runtime_checkable
 
 import numpy as np
 import torch
@@ -61,6 +61,50 @@ def _set_seeds(seed: int = SEED) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+class TorchFallClassifier:
+    """Shared FallClassifier implementation for torch-net-backed models.
+
+    Subclasses construct their architecture and hand the ``nn.Module`` up;
+    fit / predict_proba / save / load are identical across nets. Subclass
+    ``__init__`` must take no arguments — :meth:`load` rebuilds via ``cls()``.
+    """
+
+    def __init__(self, net: nn.Module) -> None:
+        self._net = net
+        self._device: torch.device | None = None
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Train on *X* [N, T, 51] with binary labels *y* [N]."""
+        _set_seeds(SEED)
+        self._device = _autodetect_device()
+        train_torch_module(self._net, X, y, device=self._device)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Return softmax probabilities [N, 2] for *X* [N, T, 51]."""
+        device = self._device or _autodetect_device()
+        self._net.to(device)
+        self._net.eval()
+        with torch.no_grad():
+            logits = self._net(torch.from_numpy(X).to(device))
+        return torch.softmax(logits, dim=-1).cpu().numpy()
+
+    def save(self, directory: Path) -> None:
+        """Write ``model.pt`` (state dict) into *directory*."""
+        directory.mkdir(parents=True, exist_ok=True)
+        torch.save(self._net.state_dict(), directory / "model.pt")
+
+    @classmethod
+    def load(cls, directory: Path) -> Self:
+        """Rebuild a classifier from a *directory* written by :meth:`save`."""
+        obj = cls()
+        device = _autodetect_device()
+        obj._net.load_state_dict(
+            torch.load(directory / "model.pt", map_location=device, weights_only=True)
+        )
+        obj._device = device
+        return obj
 
 
 def train_torch_module(

@@ -90,18 +90,23 @@ def test_live_path_is_wired_through_the_seam() -> None:
 
     The real-time live-inference rework (ADR-010) replaced the pre-rendered
     player with ``live_view.iter_live_frames``: app.py imports ``live_view`` and
-    the pose model-module, while ``live_view`` imports the seam types + overlay.
+    composes the model via ``demo_ui.build_model`` (which imports the pose
+    model-module), while ``live_view`` imports the seam types + overlay.
     Asserting the chain keeps the per-frame inference seam live.
     """
     demo_dir = Path(__file__).parent.parent / "demo"
     app_modules = _imported_modules(demo_dir / "app.py")
+    demo_ui_modules = _imported_modules(demo_dir / "demo_ui.py")
     live_view_modules = _imported_modules(demo_dir / "live_view.py")
 
     assert any("live_view" in m for m in app_modules), (
         "app.py must import live_view to route playback through the live seam"
     )
-    assert any("model_modules" in m for m in app_modules), (
-        "app.py must import the pose model-module to compose the live model"
+    assert any("demo_ui" in m for m in app_modules), (
+        "app.py must compose the live model via demo_ui.build_model"
+    )
+    assert any("model_modules" in m for m in demo_ui_modules), (
+        "demo_ui.py must import the pose model-module to compose the live model"
     )
     assert any("seam" in m for m in live_view_modules), (
         "live_view.py must import seam types (Frame/FrameSource/ModelModule)"
