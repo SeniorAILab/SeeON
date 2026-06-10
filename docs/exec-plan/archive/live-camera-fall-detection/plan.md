@@ -1,7 +1,7 @@
 ---
 slug: live-camera-fall-detection
 issue: 47
-status: active
+status: done
 author: gobeumsu
 date: 2026-06-10
 spec: ./spec.md
