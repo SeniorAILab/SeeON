@@ -66,7 +66,7 @@ def main() -> None:
 
     # Show thumbnails in a row, one column per found camera.
     thumb_cols = st.columns(len(cameras))
-    for col, cam in zip(thumb_cols, cameras):
+    for col, cam in zip(thumb_cols, cameras, strict=True):
         col.image(cam.thumbnail, caption=f"카메라 {cam.index}", use_container_width=True)
 
     selected_index: int = st.selectbox(
