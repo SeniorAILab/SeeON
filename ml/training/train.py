@@ -259,8 +259,8 @@ def run(
 
                 _orig_train = _base.train_torch_module
 
-                def _capped(module, X, y, *, device, **kwargs):  # type: ignore[override]
-                    return _orig_train(
+                def _capped(module, X, y, *, device, _train=_orig_train, **kwargs):  # type: ignore[override]
+                    return _train(
                         module, X, y, device=device, max_epochs=2, patience=99, **kwargs
                     )
 
