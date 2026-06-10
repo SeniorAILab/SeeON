@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from demo.model_modules import (
+    POSE_MODEL_SIZE_LABELS,
     POSE_MODEL_SIZES,
     WEIGHTS_DIR,
     pose_weight_filename,
@@ -32,3 +33,8 @@ def test_weights_dir_is_ml_weights_not_project_root() -> None:
     # The cache must sit at ml/weights/, never the ml/ root (the old download spot).
     assert WEIGHTS_DIR.name == "weights"
     assert WEIGHTS_DIR.parent.name == "ml"
+
+
+def test_pose_model_size_labels_covers_every_size_key() -> None:
+    # Guard against a label entry being omitted when a new size is added.
+    assert set(POSE_MODEL_SIZES) == set(POSE_MODEL_SIZE_LABELS.keys())

@@ -79,11 +79,29 @@ def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
     """
     if mode == OPERATOR_MODE:
         domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
-        selected_domain = st.selectbox("도메인", options=domain_options)
+        col_domain, col_role = st.columns(2)
+        selected_domain = col_domain.segmented_control(
+            "도메인",
+            options=domain_options,
+            default=domain_options[0] if domain_options else None,
+        )
+        if selected_domain is None:
+            return []
         if selected_domain == videos.UPLOADS_DOMAIN:
             return videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
+        role_options = videos.list_roles_for_domain(selected_domain)
+        if not role_options:
+            return []
+        selected_role = col_role.segmented_control(
+            "종류",
+            options=role_options,
+            format_func=lambda r: r.value,
+            default=role_options[0],
+        )
+        if selected_role is None:
+            return []
         return videos.list_registered_videos(
-            include_sources=(videos.VideoSource.PROCESSED, videos.VideoSource.RAW),
+            include_sources=(selected_role,),
             domains=(selected_domain,),
         )
     st.caption("Public mode — 이 세션에서 업로드한 영상만 표시됩니다.")
