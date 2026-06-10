@@ -10,8 +10,10 @@ the loop records them here and continues with other work instead of blocking.
 
 ## Decision log (autonomous decisions taken within plan/spec constraints)
 
-- 2026-06-10: ADR number 015→016 — `ADR-015-ml-models-single-root.md` landed on main
-  via rebase; plan Step 17 mandated re-checking the number (`ls docs/decisions/`).
+- 2026-06-10: ADR number 015→016→**017** — `ADR-015-ml-models-single-root.md` then
+  `ADR-016-enforcement-timing-principle.md` landed on main via successive rebases;
+  plan Step 17 mandated re-checking the number (`ls docs/decisions/`). Final:
+  `ADR-017-fall-model-adoption-criteria.md`.
 - 2026-06-10: LE2I-dependent steps unblocked early — user confirmed `le2i/poses` npz
   + Annotation_files txt fully arrived; only NH-dependent steps (evaluate_nh run,
   gold strips) wait on `ml/data/.RSYNC_DONE`. `le2i/raw` videos are NOT awaited
