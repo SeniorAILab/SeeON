@@ -5,7 +5,7 @@
 > NH gate: regression veto only — does not change score, but blocks adoption.
 > Rows with score = 0.0 failed at least one hard gate (see gate columns).
 
-Last updated: 2026-06-11 (wave 3 — refinement returns diminishing; lstm retired; logistic-regression family added for wave 4. NH gate un-armed pending gold confirm, adoption provisional)
+Last updated: 2026-06-11 (wave 4 — logistic-regression debut: P@R90 0.3059, best AUC-PR overall 0.6279 with 46 params / 0.04 ms. NH gate un-armed pending gold confirm, adoption provisional)
 
 ---
 
@@ -17,12 +17,13 @@ Gate columns show outcome of the final artifact.
 | Rank | Family | Experiment ID | P@R90 | Recall | F1 | Latency (ms) | Params | R90 gate | Latency gate | NH gate | Weights |
 |------|--------|--------------|-------|--------|----|-------------|--------|----------|-------------|---------|---------|
 | 1 | svm | exp-008-svm-linear-refine | **0.4333** | 0.9286 | 0.5591 | 0.1 | — | ✓ | ✓ | un-armed | ml/models/fall/svm |
-| 2 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer |
-| 3 | gcn | exp-009-gcn-blocks3-refine | 0.1871 | 0.9286 | 0.3114 | 2.2 | — | ✓ | ✓ | un-armed | ml/models/fall/gcn |
-| 4 | random-forest | exp-011-rf-shallow-refine | 0.1307 | 0.9286 | 0.2291 | 92.9 | — | ✓ | ✓ | un-armed | ml/models/fall/random-forest |
-| 5 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1773 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm — **RETIRED** (wave 3: <0.15 with AUC-PR<0.3 across 10 configs) |
+| 2 | logistic-regression | exp-015-logreg-linear-hypothesis | 0.3059 | 0.9286 | 0.4602 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression |
+| 3 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer |
+| 4 | gcn | exp-009-gcn-blocks3-refine | 0.1871 | 0.9286 | 0.3114 | 2.2 | — | ✓ | ✓ | un-armed | ml/models/fall/gcn |
+| 5 | random-forest | exp-011-rf-shallow-refine | 0.1307 | 0.9286 | 0.2291 | 92.9 | — | ✓ | ✓ | un-armed | ml/models/fall/random-forest |
+| 6 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1773 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm — **RETIRED** (wave 3: <0.15 with AUC-PR<0.3 across 10 configs) |
 
-AUC-PR (best per family): svm 0.6195 (w1) · gcn 0.5673 (w1) · transformer 0.5535 (w2) · rf 0.4310 (w1) · lstm 0.1842 (w1)
+AUC-PR (best per family): **logreg 0.6279 (w4)** · svm 0.6195 (w1) · gcn 0.5673 (w1) · transformer 0.5535 (w2) · rf 0.4310 (w1) · lstm 0.1842 (w1)
 (Test split: 1400 windows, 28 positive — small positive count; P@R90 deltas under ~0.02 are noise.
 SVM's 0.114 → 0.43 jump is far outside the noise band, corroborated by AUC-PR and reproduced
 across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
@@ -48,6 +49,7 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-012-transformer-d64-lr-refine | transformer | 0.2524 | 0.9286 | 0.3976 | 0.3 | ✓ | ✓ | un-armed | Wave 3. lr-only search re-found lr=1.3e-4 (same point); 0.2524 vs 0.2574 = noise — lr region saturated |
 | 2026-06-11 | exp-013-gcn-lowdrop-refine | gcn | 0.1566 | 0.9286 | 0.2680 | 0.9 | ✓ | ✓ | un-armed | Wave 3. dropout=0.1 pinned underperformed wave 2 (hidden=33 sampled small); 0.1871 stands as family best |
 | 2026-06-11 | exp-014-lstm-3layer-lastshot | lstm | 0.0945 | 0.9286 | 0.1721 | 0.8 | ✓ | ✓ | un-armed | Wave 3. Last shot failed the stated bar (<0.15, AUC-PR 0.27) → **family retired from the loop** |
+| 2026-06-11 | exp-015-logreg-linear-hypothesis | logistic-regression | 0.3059 | 0.9286 | 0.4602 | 0.04 | ✓ | ✓ | un-armed | Wave 4 A-axis debut. C≈29 → 0.31 with **46 params** and best-overall AUC-PR 0.6279 — linear-separability hypothesis confirmed; trial trend rises toward the C=100 space boundary |
 
 ---
 
