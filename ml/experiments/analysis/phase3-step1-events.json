@@ -1,0 +1,20 @@
+{
+  "logreg-C1000": {
+    "op_threshold": 0.9827221035957336,
+    "n_fall_events": 8,
+    "events_caught": 8,
+    "fp_windows_at_op": 32
+  },
+  "svm-C16": {
+    "op_threshold": 0.2850256123225134,
+    "n_fall_events": 8,
+    "events_caught": 8,
+    "fp_windows_at_op": 34
+  },
+  "logreg-C29": {
+    "op_threshold": 0.8566632866859436,
+    "n_fall_events": 8,
+    "events_caught": 8,
+    "fp_windows_at_op": 59
+  }
+}
