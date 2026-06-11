@@ -20,30 +20,17 @@ Input JSON schema
 
 Output: ``ml/experiments/runs/{id}.json`` (atomic tmp+rename write).
 
-HP plumbing — current limitations
------------------------------------
+HP plumbing
+-----------
 All HP search-space parameters are sampled by Optuna and forwarded to training
-subprocesses as ``HARNESS_HP_<NAME>`` environment variables.  The current
-``training.train`` entry-point and model factories do **not** read these env
-vars — they instantiate each model with ``factory()`` (no arguments).
-
-TODO: Wire ``HARNESS_HP_*`` consumption into ``training.train`` and each model
-      factory (``training/models/rf.py``, ``svm.py``, ``lstm.py``,
-      ``transformer.py``, ``gcn.py``) once those files are unblocked.
-
-Because of this gap, **all HP parameters listed in SEARCH_SPACES are currently
-EXCLUDED from actual influence**.  Every Optuna trial trains the same default
-configuration; the "best trial" selection is nominally correct in structure but
-numerically arbitrary until the wiring is in place.  The search-space
-definitions, the Optuna study loop, and the env-var forwarding are all in place
-so that hooking up HP consumption requires only receiver-side changes.
-
-Excluded HPs (per family):
-  random-forest : n_estimators, max_depth, min_samples_leaf
-  svm           : C, gamma, kernel
-  lstm          : hidden, layers, lr, dropout
-  transformer   : d_model, heads, layers, lr
-  gcn           : hidden, blocks, lr, dropout
+subprocesses as ``HARNESS_HP_<NAME>`` environment variables.  Receiver side:
+each model factory resolves its constructor kwargs through ``training.hp``
+(env override → original fixed default), so every Optuna trial trains the
+sampled configuration.  Torch models persist their resolved architecture to
+``arch.json`` next to the weights; ``TorchFallClassifier.load`` reconstructs
+from that sidecar, which keeps evaluation / latency measurement / the live
+demo (processes WITHOUT the env vars) consistent with what was trained.
+Training-time HPs (``lr``) are consumed by ``fit`` and never needed at load.
 """
 
 from __future__ import annotations
@@ -199,9 +186,8 @@ def compute_eval_split_hash(test_clip_ids: list[str]) -> str:
 def _hp_to_env(hp: dict[str, Any]) -> dict[str, str]:
     """Convert an HP dict to ``HARNESS_HP_<NAME>`` environment variables.
 
-    These are forwarded to training subprocesses.
-    TODO: training.train and model factories must be updated to read these
-          env vars for HP variation to take effect.
+    These are forwarded to training subprocesses and consumed by the model
+    factories via ``training.hp`` (see module docstring, "HP plumbing").
     """
     return {f"HARNESS_HP_{k.upper()}": str(v) for k, v in hp.items()}
 
@@ -250,7 +236,7 @@ def _run_subprocess_train(
     """Run ``training.train --models {family}`` in a child process.
 
     Returns ``(success, elapsed_seconds)``.  HP dict is forwarded via env vars
-    (not yet consumed by train.py — see module docstring TODO).
+    and consumed by the model factories (see module docstring, "HP plumbing").
     """
     import subprocess
 

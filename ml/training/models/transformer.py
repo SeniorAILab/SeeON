@@ -13,12 +13,13 @@ import torch
 import torch.nn as nn
 
 from training.config import KPT_VECTOR_DIM
+from training.hp import hp_float, hp_int
 from training.models.base import TorchFallClassifier
 
 _D_MODEL = 256
 _NHEAD = 4
-_DIM_FF = 256
 _N_LAYERS = 3
+_LR = 1e-3
 
 
 class _PositionalEncoding(nn.Module):
@@ -42,22 +43,28 @@ class _PositionalEncoding(nn.Module):
 
 
 class _TransformerNet(nn.Module):
-    """Input projection + sinusoidal PE + TransformerEncoder + mean-pool head."""
+    """Input projection + sinusoidal PE + TransformerEncoder + mean-pool head.
 
-    def __init__(self) -> None:
+    ``dim_feedforward`` follows ``d_model`` (the original fixed config used
+    256/256), keeping the FF width proportional when HP search varies d_model.
+    """
+
+    def __init__(
+        self, d_model: int = _D_MODEL, nhead: int = _NHEAD, n_layers: int = _N_LAYERS
+    ) -> None:
         super().__init__()
-        assert _D_MODEL % _NHEAD == 0, f"d_model={_D_MODEL} must be divisible by nhead={_NHEAD}"
-        self.proj = nn.Linear(KPT_VECTOR_DIM, _D_MODEL)
-        self.pos_enc = _PositionalEncoding(_D_MODEL)
+        assert d_model % nhead == 0, f"d_model={d_model} must be divisible by nhead={nhead}"
+        self.proj = nn.Linear(KPT_VECTOR_DIM, d_model)
+        self.pos_enc = _PositionalEncoding(d_model)
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=_D_MODEL,
-            nhead=_NHEAD,
-            dim_feedforward=_DIM_FF,
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=d_model,
             dropout=0.1,
             batch_first=True,
         )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=_N_LAYERS)
-        self.head = nn.Linear(_D_MODEL, 2)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+        self.head = nn.Linear(d_model, 2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.proj(x)  # [N, T, 256]
@@ -67,12 +74,30 @@ class _TransformerNet(nn.Module):
 
 
 class TransformerFallClassifier(TorchFallClassifier):
-    """Fall classifier backed by a 3-layer Transformer encoder.
+    """Fall classifier backed by a Transformer encoder (default: 3 layers, d=256).
 
-    Conforms to the :class:`~training.models.base.FallClassifier` Protocol;
-    fit / predict_proba / save / load come from :class:`TorchFallClassifier`.
+    HP kwargs default to ``HARNESS_HP_*`` env overrides (harness trials), then
+    to the original fixed configuration; the resolved architecture is persisted
+    via ``arch.json`` so :meth:`~TorchFallClassifier.load` reconstructs it
+    without the env.  Conforms to the
+    :class:`~training.models.base.FallClassifier` Protocol; fit / predict_proba
+    / save / load come from :class:`TorchFallClassifier`.
     """
 
-    def __init__(self) -> None:
-        # 파이프라인 역할: 키포인트 시퀀스 [N, T, 51] 기반 3-layer Transformer 인코더 이진 분류
-        super().__init__(_TransformerNet())
+    def __init__(
+        self,
+        d_model: int | None = None,
+        heads: int | None = None,
+        layers: int | None = None,
+        lr: float | None = None,
+    ) -> None:
+        d_model = hp_int("d_model", _D_MODEL) if d_model is None else int(d_model)
+        heads = hp_int("heads", _NHEAD) if heads is None else int(heads)
+        layers = hp_int("layers", _N_LAYERS) if layers is None else int(layers)
+        lr = hp_float("lr", _LR) if lr is None else float(lr)
+        # 파이프라인 역할: 키포인트 시퀀스 [N, T, 51] 기반 Transformer 인코더 이진 분류
+        super().__init__(
+            _TransformerNet(d_model=d_model, nhead=heads, n_layers=layers),
+            arch={"d_model": d_model, "heads": heads, "layers": layers},
+            lr=lr,
+        )

@@ -16,20 +16,30 @@ import numpy as np
 from sklearn.svm import SVC
 
 from training.config import SEED
+from training.hp import hp_float, hp_opt_float, hp_str
 
 
 class SvmFallClassifier:
     """Fall classifier backed by a Support Vector Machine (RBF kernel).
 
     Uses Platt calibration (``probability=True``) to produce well-calibrated
-    probability estimates.  Conforms to the
-    :class:`~training.models.base.FallClassifier` Protocol.
+    probability estimates.  HP kwargs default to ``HARNESS_HP_*`` env
+    overrides (harness trials), then to the original fixed configuration
+    (``gamma`` stays sklearn's ``"scale"`` unless overridden).  Conforms to
+    the :class:`~training.models.base.FallClassifier` Protocol.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        C: float | None = None,
+        gamma: float | None = None,
+        kernel: str | None = None,
+    ) -> None:
+        g = hp_opt_float("gamma") if gamma is None else float(gamma)
         self._clf = SVC(
-            C=1.0,
-            kernel="rbf",
+            C=hp_float("C", 1.0) if C is None else float(C),
+            kernel=hp_str("kernel", "rbf") if kernel is None else kernel,
+            gamma="scale" if g is None else g,
             probability=True,
             class_weight="balanced",
             random_state=SEED,
