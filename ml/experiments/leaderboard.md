@@ -5,7 +5,7 @@
 > NH gate: regression veto only — does not change score, but blocks adoption.
 > Rows with score = 0.0 failed at least one hard gate (see gate columns).
 
-Last updated: 2026-06-11 (wave 5 — logreg C-boundary probes: C=1000 hits P@R90 0.4483, a statistical tie with svm at the top (Δ0.015 < noise band ~0.02). NH gate un-armed pending gold confirm, adoption provisional)
+Last updated: 2026-06-11 (wave 6 — C curves fully mapped, both linear families peaked: logreg C≈1000 (0.4483), svm C≈16 (0.4333). Search axes exhausted; wave 7 restores per-family-best canonical artifacts. NH gate un-armed pending gold confirm, adoption provisional)
 
 ---
 
@@ -52,6 +52,8 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-015-logreg-linear-hypothesis | logistic-regression | 0.3059 | 0.9286 | 0.4602 | 0.04 | ✓ | ✓ | un-armed | Wave 4 A-axis debut. C≈29 → 0.31 with **46 params** and best-overall AUC-PR 0.6279 — linear-separability hypothesis confirmed; trial trend rises toward the C=100 space boundary |
 | 2026-06-11 | exp-016-logreg-c300-probe | logistic-regression | 0.4000 | 0.9286 | 0.5591 | 0.04 | ✓ | ✓ | un-armed | Wave 5 boundary probe. C=300 → 0.400 but AUC-PR drops to 0.4446 — operating-point gain trades against curve quality |
 | 2026-06-11 | exp-017-logreg-c1000-probe | logistic-regression | 0.4483 | 0.9286 | 0.6047 | 0.04 | ✓ | ✓ | un-armed | Wave 5 boundary probe. C=1000 → **0.4483**, nominal overall lead (tie with svm within noise); AUC-PR 0.4182 keeps degrading — near-unregularized fit favors the R90 point specifically |
+| 2026-06-11 | exp-018-logreg-c10000-probe | logistic-regression | 0.2524 | 0.9286 | 0.3969 | 0.04 | ✓ | ✓ | un-armed | Wave 6. C=10000 collapses to 0.2524 — **C curve peaked at ≈1000**; logreg final at 0.4483 |
+| 2026-06-11 | exp-019-svm-linear-c300-probe | svm | 0.3662 | 0.9286 | 0.5253 | 0.06 | ✓ | ✓ | un-armed | Wave 6. C=300 degrades vs C=15.7 (0.4333) — svm prefers moderate regularization; **svm final at 0.4333** |
 
 ---
 
