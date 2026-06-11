@@ -5,51 +5,26 @@ REGISTRY maps each model key to:
   - ``mode``: "features" (flat [N, D]) or "sequence" ([N, T, 51])
   - ``artifact_filename``: file name written by factory.save()
 
-Adding a new model family = one REGISTRY entry.  All dispatch points in
-train.py and evaluate.py are REGISTRY-driven; no per-key ``if`` branches
-anywhere else in the codebase.
+REGISTRY is built from ``training.models.catalog.CATALOG`` — the import-light
+single source of truth that the demo also reads. Adding a new model family =
+one CATALOG entry. All dispatch points in train.py and evaluate.py are
+REGISTRY-driven; no per-key ``if`` branches anywhere else in the codebase.
+
+Importing this module imports every factory class (torch/sklearn). Callers
+that only need keys/modes without the heavy deps import the catalog instead.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from training.models.gcn import GcnFallClassifier
-from training.models.logreg import LogisticRegressionFallClassifier
-from training.models.lstm import LstmFallClassifier
-from training.models.rf import RandomForestFallClassifier
-from training.models.svm import SvmFallClassifier
-from training.models.transformer import TransformerFallClassifier
+from training.models.catalog import CATALOG, load_model_class
 
 REGISTRY: dict[str, dict[str, Any]] = {
-    "random-forest": {
-        "factory": RandomForestFallClassifier,
-        "mode": "features",
-        "artifact_filename": "model.pkl",
-    },
-    "svm": {
-        "factory": SvmFallClassifier,
-        "mode": "features",
-        "artifact_filename": "model.pkl",
-    },
-    "logistic-regression": {
-        "factory": LogisticRegressionFallClassifier,
-        "mode": "features",
-        "artifact_filename": "model.pkl",
-    },
-    "lstm": {
-        "factory": LstmFallClassifier,
-        "mode": "sequence",
-        "artifact_filename": "model.pt",
-    },
-    "transformer": {
-        "factory": TransformerFallClassifier,
-        "mode": "sequence",
-        "artifact_filename": "model.pt",
-    },
-    "gcn": {
-        "factory": GcnFallClassifier,
-        "mode": "sequence",
-        "artifact_filename": "model.pt",
-    },
+    key: {
+        "factory": load_model_class(key),
+        "mode": entry.mode,
+        "artifact_filename": entry.artifact_filename,
+    }
+    for key, entry in CATALOG.items()
 }

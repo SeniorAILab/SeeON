@@ -1,15 +1,18 @@
 """Temporal fall-classifier adapter for the Streamlit demo.
 
-Bridges the training-pipeline models (RF / LSTM / Transformer) into the
-ModelModule protocol so live_view.py can drive them identically to the
-rule-based path — no change to the frame-intake or overlay layer.
+Bridges every training-pipeline model family (``training.models.catalog``)
+into the ModelModule protocol so live_view.py can drive them identically to
+the rule-based path — no change to the frame-intake or overlay layer.
+
+The key set, feature mode, and artifact location all derive from CATALOG:
+a family whose artifact exists on disk is exposed automatically — training
+finishes, the next Streamlit run lists it. No demo edits per family.
 
 Lazy-import policy
 ------------------
-Model classes (RandomForestFallClassifier, LstmFallClassifier,
-TransformerFallClassifier) import sklearn/torch at *their* module level.
-They are imported ONLY inside ``build_temporal_model`` so that this module
-and all callers that only need ``TEMPORAL_MODEL_KEYS`` /
+Model classes import sklearn/torch at *their* module level. They are loaded
+ONLY inside ``build_temporal_model`` (via ``catalog.load_model_class``) so
+that this module and all callers that only need ``TEMPORAL_MODEL_KEYS`` /
 ``temporal_artifact_available`` remain importable without those heavy deps.
 
 ``normalize_person_keypoints`` is imported lazily inside ``predict`` because
@@ -37,28 +40,25 @@ from demo.tracking import GreedyIouTracker
 from training import config
 from training.data.features import extract_window_features
 from training.metadata import artifact_dir, load_metadata
+from training.models.catalog import CATALOG
 
 # ---------------------------------------------------------------------------
-# Public constants
+# Public constants — derived from the model catalog (import-light)
 # ---------------------------------------------------------------------------
 
-TEMPORAL_MODEL_KEYS: Final[tuple[str, ...]] = ("random_forest", "lstm", "transformer")
-
-_KEY_TO_MODE: Final[dict[str, str]] = {
-    "random_forest": "features",
-    "lstm": "sequence",
-    "transformer": "sequence",
+# The demo exposes underscore keys (UI-friendly, e.g. ``random_forest``) while
+# the training pipeline (train.py / evaluate.py / artifact_dir) saves artifacts
+# under the kebab catalog key (e.g. ``random-forest``, ADR-015). The mapping is
+# mechanical so every CATALOG family is exposed without a demo-side edit.
+_KEY_TO_ARTIFACT: Final[dict[str, str]] = {
+    key.replace("-", "_"): key for key in CATALOG
 }
 
-# The demo exposes the public key ``random_forest`` (underscore, UI-friendly) but
-# the training pipeline (train.py / evaluate.py / artifact_dir) saves the Random
-# Forest artifact under the kebab key ``random-forest`` (ADR-015).  Resolve the
-# demo key to the on-disk artifact key here so availability probes and the factory
-# both find it.
-_KEY_TO_ARTIFACT: Final[dict[str, str]] = {
-    "random_forest": "random-forest",
-    "lstm": "lstm",
-    "transformer": "transformer",
+TEMPORAL_MODEL_KEYS: Final[tuple[str, ...]] = tuple(_KEY_TO_ARTIFACT)
+
+_KEY_TO_MODE: Final[dict[str, str]] = {
+    demo_key: CATALOG[artifact_key].mode
+    for demo_key, artifact_key in _KEY_TO_ARTIFACT.items()
 }
 
 
@@ -81,11 +81,17 @@ def temporal_artifact_available(key: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def build_temporal_model(key: str, pose_module: ModelModule) -> TemporalFallClassifierModule:
+def build_temporal_model(
+    key: str,
+    pose_module: ModelModule,
+    threshold_override: float | None = None,
+) -> TemporalFallClassifierModule:
     """Load a trained temporal model and wrap it in a TemporalFallClassifierModule.
 
-    Model classes are imported lazily here so that importing this module at the
-    top of app.py / classifiers.py does not pull in torch or sklearn.
+    Model classes are imported lazily (``catalog.load_model_class``) so that
+    importing this module at the top of app.py / classifiers.py does not pull
+    in torch or sklearn. ``threshold_override``, when given, replaces the
+    artifact's LE2I ``operating_threshold`` (demo threshold slider).
 
     Raises
     ------
@@ -95,7 +101,12 @@ def build_temporal_model(key: str, pose_module: ModelModule) -> TemporalFallClas
         When *key* is not in TEMPORAL_MODEL_KEYS.
     """
     # === 단계 1: 데모 키 → 아티팩트 키 매핑 후 아티팩트 디렉터리 결정 ===
-    adir = artifact_dir(_KEY_TO_ARTIFACT.get(key, key))
+    if key not in _KEY_TO_ARTIFACT:
+        raise ValueError(
+            f"Unknown temporal model key {key!r}; expected one of {TEMPORAL_MODEL_KEYS}"
+        )
+    artifact_key = _KEY_TO_ARTIFACT[key]
+    adir = artifact_dir(artifact_key)
     if not (adir / "metadata.json").exists():
         raise FileNotFoundError(
             f"No trained artifact for {key!r} found at {adir}. "
@@ -105,23 +116,11 @@ def build_temporal_model(key: str, pose_module: ModelModule) -> TemporalFallClas
     meta = load_metadata(adir)
 
     # === 단계 3: 모델 클래스 지연 임포트 & 저장된 가중치 로드 ===
-    # Lazy import — avoids torch/sklearn at module level.
-    if key == "random_forest":
-        from training.models.rf import RandomForestFallClassifier
+    # Lazy import — avoids torch/sklearn at module level. ``load`` reconstructs
+    # HP-varied torch architectures from the arch.json sidecar when present.
+    from training.models.catalog import load_model_class
 
-        model = RandomForestFallClassifier.load(adir)
-    elif key == "lstm":
-        from training.models.lstm import LstmFallClassifier
-
-        model = LstmFallClassifier.load(adir)
-    elif key == "transformer":
-        from training.models.transformer import TransformerFallClassifier
-
-        model = TransformerFallClassifier.load(adir)
-    else:
-        raise ValueError(
-            f"Unknown temporal model key {key!r}; expected one of {TEMPORAL_MODEL_KEYS}"
-        )
+    model = load_model_class(artifact_key).load(adir)
 
     # === 단계 4: TemporalFallClassifierModule로 래핑 후 반환 ===
     return TemporalFallClassifierModule(
@@ -130,7 +129,9 @@ def build_temporal_model(key: str, pose_module: ModelModule) -> TemporalFallClas
         mode=_KEY_TO_MODE[key],
         window=meta.window,
         stride=meta.stride,
-        operating_threshold=meta.operating_threshold,
+        operating_threshold=(
+            meta.operating_threshold if threshold_override is None else threshold_override
+        ),
     )
 
 

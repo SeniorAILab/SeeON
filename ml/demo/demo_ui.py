@@ -13,17 +13,20 @@ from demo.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPos
 from demo.playback_status import CurrentPlaybackStatus
 from demo.seam import ModelModule
 from demo.temporal_module import TEMPORAL_MODEL_KEYS
+from demo.thresholds import default_threshold
 
 
 def build_model(
     size: str,
     classifier_key: str | None,
     classifier_params: ClassifierParams,
+    decision_threshold: float | None = None,
 ) -> ModelModule:
     """Compose the per-playback model: pose alone, or pose + fall classifier.
 
     A fresh model (hence a fresh classifier with cleared state) is built on every
-    재생 so replays never inherit a prior run's fall timer.
+    재생 so replays never inherit a prior run's fall timer. ``decision_threshold``
+    (the 판정 임계값 slider value) applies to temporal models only.
     """
     pose = YoloPoseModule(size=size, confidence=classifier_params.confidence)
     if classifier_key is None:
@@ -31,7 +34,7 @@ def build_model(
     if classifier_key in TEMPORAL_MODEL_KEYS:
         from demo.temporal_module import build_temporal_model
 
-        return build_temporal_model(classifier_key, pose)
+        return build_temporal_model(classifier_key, pose, threshold_override=decision_threshold)
     classifier = build_classifier(classifier_key, classifier_params)
     return FallClassifierModule(pose_module=pose, classifier=classifier)
 
@@ -87,6 +90,34 @@ def select_classifier_spec() -> ClassifierSpec:
     if not selected_spec.available:
         st.info("규칙기반 분류만 현재 지원됩니다. 선택한 모델은 준비중입니다.")
     return selected_spec
+
+
+def select_decision_threshold(spec: ClassifierSpec) -> float | None:
+    """Render the 판정 임계값 slider for an available temporal model.
+
+    The default is the model's recommended operating point — the NH-measured
+    value where one exists (demo.thresholds.NH_RECOMMENDED_THRESHOLDS), else
+    the artifact's LE2I operating_threshold. Returns None for non-temporal or
+    unavailable specs (no slider rendered).
+    """
+    if spec.key not in TEMPORAL_MODEL_KEYS or not spec.available:
+        return None
+    default = default_threshold(spec.key)
+    if default is None:
+        return None
+    return float(
+        st.slider(
+            "판정 임계값 (fall probability)",
+            min_value=0.0,
+            max_value=1.0,
+            value=round(default, 3),
+            step=0.005,
+            help=(
+                "이 확률 이상이면 낙상으로 판정합니다. 기본값은 모델별 권장 운영점 — "
+                "요양원 평가에서 측정된 값이 있으면 그 값, 없으면 LE2I 보정값입니다."
+            ),
+        )
+    )
 
 
 def select_classifier_params() -> ClassifierParams:
