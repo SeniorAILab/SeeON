@@ -5,7 +5,7 @@ the loop records them here and continues with other work instead of blocking.
 
 | # | Checkpoint | State | What the human must do |
 |---|-----------|-------|------------------------|
-| 1 | NH gold label confirmation (plan Step 9) | **READY FOR REVIEW (2026-06-11)** — all 23 videos labeled: **16 falls** (CSV rows, `status=proposed`) + **7 no-fall** (04-02, 04-26, 05-22, 05-32, 05-53, 06-00, 06-05 — not in CSV by design). Strips: 2 per fall video in `ml/data/eval/gold-review/{stem}/` (worktree feat/74). Noteworthy: 05-39 was disputed (one reviewer said no-fall, strip re-review confirmed fall); 05-49 had two candidate events (f64-86 discarded); 05-16 start corrected f1079→f976 | Review each fall's start/end strips, fix frames if needed, set `status=confirmed`; also sanity-check the 7 no-fall clips if time permits |
+| 1 | NH gold label confirmation (plan Step 9) | **SUPERSEDED — REDO ON m3 (2026-06-11)** — human review found the strips were generated from `raw/` videos, but canonical is `processed/` (23 cropped videos). All 16 raw-stem proposals are **retracted** (gold CSV truncated to header; raw-stem strips + poses quarantined to `/tmp/gold-raw-quarantine-1781136923`, not deleted). Per user decision the full redo (re-detection + strips on processed, no inheritance of raw-based judgments) runs locally on m3; regenerated gold artifacts arrive via a branch. Deliverable kept from this side: `ml/data/eval/raw-processed-mapping.csv` — 23/23 pixel-verified, frame_offset 0 for all pairs | m3: redo gold against `processed/` (mapping CSV is reusable). Then review strips and set `status=confirmed` |
 | 2 | NH reference mask freeze approval (plan Step 13b) | waiting — needs 5-family baseline + confirmed gold | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
 | 3 | ~~LE2I annotation txts missing on m1-pro~~ | **RESOLVED 2026-06-11** — fetched directly from the UBFC official dataset (see decision log); 130/130 installed, smoke passed | No action needed. The pending sender-side txt push is now harmless (`--ignore-existing` will skip identical files) |
 
@@ -91,3 +91,17 @@ the loop records them here and continues with other work instead of blocking.
   `python -m experiments.harness` from `ml/` (skill doc corrected).
   **The 8h unattended run now waits ONLY on the two human gates above**
   (gold confirm → 13b mask freeze approval).
+- 2026-06-11: **Gold proposals retracted — raw vs processed video mismatch**
+  (human-review finding, directive `.omc/GOLD_REDO_PROCESSED.md`). Strips and
+  gold rows had been produced from `raw/` stems while the canonical eval
+  videos are `ml/data/nursing-home/processed/`. Executed before stand-down:
+  ① raw↔processed mapping extracted and pixel-verified — **23/23 matched**,
+  processed = full-length spatial crop of raw (KakaoTalk 1080×2520→1080×668
+  crop at y=652/648, hospital_1 y=108, hospital_3 bit-identical), frame_offset
+  0 everywhere → `ml/data/eval/raw-processed-mapping.csv` (text-only, tracked);
+  ② raw-stem artifacts quarantined via `mv` to
+  `/tmp/gold-raw-quarantine-1781136923/` (20 strip dirs + 935 npz); gold CSV
+  truncated to header. ③ Re-detection/strip regeneration was then **stood
+  down by user decision — m3 performs the redo locally**; no raw-based label
+  may ever be marked confirmed. Processed-video pose npz re-extraction
+  continues here (eval-infra cache, not labeling).
