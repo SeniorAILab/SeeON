@@ -5,7 +5,7 @@
 > NH gate: regression veto only — does not change score, but blocks adoption.
 > Rows with score = 0.0 failed at least one hard gate (see gate columns).
 
-Last updated: 2026-06-11 (wave 7 — per-family-best canonical artifacts restored and verified by exact score reproduction (deterministic pipeline, seed 42). Loop idle: LE2I search axes exhausted; awaiting gold confirm → NH batch evaluation → mask freeze)
+Last updated: 2026-06-11 (phase 2 — budget-30 searches + boundary probes, exp-026…033. gcn jumps to 0.3291 (30-trial TPE found hidden=38/dropout=0.37), svm new best 0.4407 (C=10.5). NH side: see ml/experiments/analysis/phase3-step2-nh-threshold-policy.md — LE2I ranking inverts on nursing-home falls; svm removed from adoption candidates)
 
 ---
 
@@ -16,11 +16,11 @@ Gate columns show outcome of the final artifact.
 
 | Rank | Family | Experiment ID | P@R90 | Recall | F1 | Latency (ms) | Params | R90 gate | Latency gate | NH gate | Weights |
 |------|--------|--------------|-------|--------|----|-------------|--------|----------|-------------|---------|---------|
-| 1 | logistic-regression | exp-017-logreg-c1000-probe | **0.4483** | 0.9286 | 0.6047 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression — statistical tie with svm (Δ0.015 < noise); AUC-PR tradeoff noted. ⚠ C=1000 came from a manual hp_override probe OUTSIDE the then-current Optuna space (cap was 100); space since extended so the region is autonomously discoverable |
-| 2 | svm | exp-008-svm-linear-refine | 0.4333 | 0.9286 | 0.5909 | 0.1 | — | ✓ | ✓ | un-armed | ml/models/fall/svm |
-| 3 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer |
-| 4 | gcn | exp-009-gcn-blocks3-refine | 0.1871 | 0.9286 | 0.3114 | 2.2 | — | ✓ | ✓ | un-armed | ml/models/fall/gcn |
-| 5 | random-forest | exp-011-rf-shallow-refine | 0.1307 | 0.9286 | 0.2291 | 92.9 | — | ✓ | ✓ | un-armed | ml/models/fall/random-forest |
+| 1 | logistic-regression | exp-017-logreg-c1000-probe | **0.4483** | 0.9286 | 0.6047 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression — statistical tie with svm (Δ < noise); AUC-PR tradeoff noted. ⚠ C=1000 came from a manual hp_override probe OUTSIDE the then-current Optuna space (cap was 100); space since extended so the region is autonomously discoverable |
+| 2 | svm | exp-033-svm-budget30 | 0.4407 | 0.9286 | 0.5977 | 0.1 | 1,319 SV | ✓ | ✓ | un-armed | ml/models/fall/svm — ⚠ NH capability ceiling 11/19: removed from adoption candidates (see phase3-step2 policy doc) |
+| 3 | gcn | exp-027-gcn-budget30 | 0.3291 | 0.9286 | 0.4860 | 0.9 | 42,676 | ✓ | ✓ | un-armed | ml/models/fall/gcn — budget-30 discovery: hidden=38, blocks=3, dropout=0.37 |
+| 4 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer — budget-30 (exp-026) failed to re-find this narrow region (max 0.1844) |
+| 5 | random-forest | exp-032-rf-budget30 | 0.1383 | 0.9286 | 0.2407 | 49.4 | 13,280 nodes | ✓ | ✓ | un-armed | ml/models/fall/random-forest — Δ vs 0.1307 within noise; NH-side current frontier leader (9/19 @ 1.2% FP) |
 | 6 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1769 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm — **RETIRED** (wave 3: <0.15 with AUC-PR<0.3 across 10 configs) |
 
 AUC-PR (best per family): **logreg 0.6279 (w4)** · svm 0.6195 (w1) · gcn 0.5673 (w1) · transformer 0.5535 (w2) · rf 0.4310 (w1) · lstm 0.1842 (w1)
@@ -55,6 +55,14 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-018-logreg-c10000-probe | logistic-regression | 0.2524 | 0.9286 | 0.3969 | 0.04 | ✓ | ✓ | un-armed | Wave 6. C=10000 collapses to 0.2524 — **C curve peaked at ≈1000**; logreg final at 0.4483 |
 | 2026-06-11 | exp-019-svm-linear-c300-probe | svm | 0.3662 | 0.9286 | 0.5253 | 0.06 | ✓ | ✓ | un-armed | Wave 6. C=300 degrades vs C=15.7 (0.4333) — svm prefers moderate regularization; **svm final at 0.4333** |
 | 2026-06-11 | exp-020…025 (best-restore) | all 5 active | = family bests | 0.9286 | — | — | ✓ | ✓ | un-armed | Wave 7. Per-family-best configs retrained → canonical artifacts now match the leaderboard (exact score reproduction 5/5: 0.4483 / 0.4333 / 0.2574 / 0.1871 / 0.1307; exp-022 used a wrong lr and was corrected by exp-025). Store is NH-batch-eval ready |
+| 2026-06-11 | exp-026-transformer-budget30 | transformer | 0.1844 | 0.9286 | 0.3077 | 0.6 | ✓ | ✓ | un-armed | Phase 2. 30-trial TPE max 0.1844 — the exp-010 region (0.2574) is narrow and was NOT re-found; family best stands |
+| 2026-06-11 | exp-027-gcn-budget30 | gcn | **0.3291** | 0.9286 | 0.4860 | 0.9 | ✓ | ✓ | un-armed | Phase 2. Budget paid off: hidden=38, blocks=3, lr=1.0e-4, dropout=0.365 → +76% over phase-1 best; AUC-PR 0.6157 ≈ linear leaders |
+| 2026-06-11 | exp-028-gcn-blocks4-probe | gcn | 0.1368 | 0.9286 | 0.2385 | 2.7 | ✓ | ✓ | un-armed | Phase 2 boundary. blocks=4 degrades — space cap at 3 is correct |
+| 2026-06-11 | exp-029-svm-poly-probe | svm | 0.1566 | 0.9286 | 0.2680 | 0.1 | ✓ | ✓ | un-armed | Phase 2 boundary. poly kernel no — linear stands |
+| 2026-06-11 | exp-030-logreg-c-finemap | logistic-regression | 0.3881 | 0.9286 | 0.5474 | 0.04 | ✓ | ✓ | un-armed | Phase 2. C=2000 brackets the peak from above |
+| 2026-06-11 | exp-031-logreg-c600-probe | logistic-regression | 0.4407 | 0.9286 | 0.5977 | 0.04 | ✓ | ✓ | un-armed | Phase 2. C=600 — peak region is a broad 600–1000 plateau |
+| 2026-06-11 | exp-032-rf-budget30 | random-forest | 0.1383 | 0.9286 | 0.2407 | 49.4 | ✓ | ✓ | un-armed | Phase 2. 30-trial best (n=104, depth=17, leaf=6) nominally above 0.1307 — within noise |
+| 2026-06-11 | exp-033-svm-budget30 | svm | 0.4407 | 0.9286 | 0.5977 | 0.1 | ✓ | ✓ | un-armed | Phase 2. 30-trial TPE found C=10.5 linear → new family best (0.4333→0.4407) |
 
 ---
 

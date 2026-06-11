@@ -1,0 +1,70 @@
+{
+  "id": "exp-027-gcn-budget30",
+  "model_family": "gcn",
+  "hypothesis": "Phase2/budget: 30-trial TPE on the full gcn space (best nonlinear family pre-logreg). Target: beat 0.1871.",
+  "score": 0.3291,
+  "recall_90_achieved": true,
+  "params_count": 42676,
+  "inference_latency_ms": 0.897,
+  "latency_gate_failed": false,
+  "eval_split_hash": "532e47af3fd22763bdacc05c5e95b379775df9caf0058d4ec07ac3c34b4fbe7e",
+  "weights_path": "/Users/<user>/Documents/01_Project/eldercare-fall-ai-worktrees/feat/74-feat-fall-detector-autoresearch-loop-on-m1-pro/ml/models/fall/gcn/model.pt",
+  "train_seconds": 58.92,
+  "nh_gate": {
+    "gate_passed": true,
+    "missed_fall_ids": []
+  },
+  "optuna": {
+    "n_trials": 30,
+    "best_params": {
+      "hidden": 38,
+      "blocks": 3,
+      "lr": 0.0001012993983606608,
+      "dropout": 0.3653379080945175
+    },
+    "trial_scores": [
+      0.1333,
+      0.113,
+      0.1486,
+      0.1383,
+      0.0949,
+      0.1182,
+      0.1405,
+      0.1044,
+      0.1057,
+      0.0893,
+      0.1209,
+      0.2222,
+      0.2222,
+      0.1486,
+      0.1307,
+      0.1494,
+      0.1595,
+      0.1595,
+      0.1722,
+      0.1677,
+      0.1166,
+      0.1548,
+      0.2063,
+      0.1461,
+      0.2549,
+      0.1486,
+      0.1477,
+      0.1557,
+      0.1166,
+      0.3291
+    ]
+  },
+  "timestamps": {
+    "started_at": "2026-06-11T10:46:19.392884+00:00",
+    "finished_at": "2026-06-11T11:45:32.748336+00:00"
+  },
+  "arch_flags": {},
+  "eval_metrics": {
+    "precision": 0.3291,
+    "recall": 0.9286,
+    "threshold": 0.2221,
+    "f1": 0.486,
+    "auc_pr": 0.6157
+  }
+}
