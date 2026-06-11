@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from training.models.gcn import GcnFallClassifier
+from training.models.logreg import LogisticRegressionFallClassifier
 from training.models.lstm import LstmFallClassifier
 from training.models.rf import RandomForestFallClassifier
 from training.models.svm import SvmFallClassifier
@@ -28,6 +29,11 @@ REGISTRY: dict[str, dict[str, Any]] = {
     },
     "svm": {
         "factory": SvmFallClassifier,
+        "mode": "features",
+        "artifact_filename": "model.pkl",
+    },
+    "logistic-regression": {
+        "factory": LogisticRegressionFallClassifier,
         "mode": "features",
         "artifact_filename": "model.pkl",
     },
