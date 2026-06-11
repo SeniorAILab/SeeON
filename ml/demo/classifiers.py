@@ -93,13 +93,33 @@ class ClassifierSpec:
     factory: Callable[[ClassifierParams], Classifier] | None
 
 
-# Availability for temporal models is computed from artifact presence on disk.
-# These booleans are evaluated once at import time; a fresh Streamlit run (app
-# restart) will re-evaluate them, so models auto-light-up after training.
-_rf_avail = temporal_artifact_available("random_forest")
-_lstm_avail = temporal_artifact_available("lstm")
-_transformer_avail = temporal_artifact_available("transformer")
+# Human-readable names for known families; unseen catalog keys fall back to a
+# mechanical title-case so a brand-new family still renders without demo edits.
+_DISPLAY_NAMES: dict[str, str] = {
+    "random_forest": "Random Forest",
+    "svm": "SVM",
+    "logistic_regression": "Logistic Regression",
+    "lstm": "LSTM",
+    "transformer": "Transformer",
+    "gcn": "GCN (ST-GCN)",
+}
 
+
+def _temporal_spec(key: str) -> ClassifierSpec:
+    available = temporal_artifact_available(key)
+    name = _DISPLAY_NAMES.get(key, key.replace("_", " ").title())
+    return ClassifierSpec(
+        key=key,
+        display_name=name if available else f"{name} (준비중)",
+        available=available,
+        factory=None,
+    )
+
+
+# Temporal entries derive from the training model catalog (TEMPORAL_MODEL_KEYS):
+# every family with a trained artifact on disk is exposed automatically.
+# Availability is evaluated once at import time; a fresh Streamlit run (app
+# restart) re-evaluates it, so models auto-light-up after training.
 CLASSIFIER_REGISTRY: tuple[ClassifierSpec, ...] = (
     ClassifierSpec(
         key="rule_based",
@@ -107,24 +127,7 @@ CLASSIFIER_REGISTRY: tuple[ClassifierSpec, ...] = (
         available=True,
         factory=RuleBasedClassifier,
     ),
-    ClassifierSpec(
-        key="random_forest",
-        display_name="Random Forest" if _rf_avail else "Random Forest (준비중)",
-        available=_rf_avail,
-        factory=None,
-    ),
-    ClassifierSpec(
-        key="lstm",
-        display_name="LSTM" if _lstm_avail else "LSTM (준비중)",
-        available=_lstm_avail,
-        factory=None,
-    ),
-    ClassifierSpec(
-        key="transformer",
-        display_name="Transformer" if _transformer_avail else "Transformer (준비중)",
-        available=_transformer_avail,
-        factory=None,
-    ),
+    *(_temporal_spec(key) for key in TEMPORAL_MODEL_KEYS),
 )
 
 
