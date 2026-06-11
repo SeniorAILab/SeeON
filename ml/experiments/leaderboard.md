@@ -63,6 +63,12 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-031-logreg-c600-probe | logistic-regression | 0.4407 | 0.9286 | 0.5977 | 0.04 | ✓ | ✓ | un-armed | Phase 2. C=600 — peak region is a broad 600–1000 plateau |
 | 2026-06-11 | exp-032-rf-budget30 | random-forest | 0.1383 | 0.9286 | 0.2407 | 49.4 | ✓ | ✓ | un-armed | Phase 2. 30-trial best (n=104, depth=17, leaf=6) nominally above 0.1307 — within noise |
 | 2026-06-11 | exp-033-svm-budget30 | svm | 0.4407 | 0.9286 | 0.5977 | 0.1 | ✓ | ✓ | un-armed | Phase 2. 30-trial TPE found C=10.5 linear → new family best (0.4333→0.4407) |
+| 2026-06-11 | exp-034…036 (best-restore) | gcn/transformer/logreg | 0.3291 / 0.2574 / 0.4483 | 0.9286 | — | — | ✓ | ✓ | un-armed | Post-phase-2 restore — exact reproductions 3/3; canonical = family bests |
+| 2026-06-11 | exp-037-logreg-scaled-sweep | logistic-regression | 0.4062 | 0.9286 | — | 0.05 | ✓ | ✓ | un-armed | Phase-3 Step 3. **Scale-contamination hypothesis refuted**: scaled sweep still picks extreme C (1611), threshold 0.9883 knife edge, AUC-PR 0.380 |
+| 2026-06-11 | exp-038-svm-linear-scaled-sweep | svm | 0.3881 | 0.9286 | — | 0.1 | ✓ | ✓ | un-armed | Phase-3 Step 3 cross-arm. Scaling degrades svm outright (0.4407→0.3881, AUC-PR 0.352) |
+| 2026-06-11 | exp-039/040 (best-restore) | logreg/svm | 0.4483 / 0.4407 | 0.9286 | — | — | ✓ | ✓ | un-armed | Post-Step-3 restore — exact reproductions; canonical = unscaled family bests |
+
+**NH side (corrected gold a937797, full 5-family):** gcn 18/19 @ its own op (0.222) · transformer 18/19 @ 0.133 · rf 9/19 @ 0.392 · logreg 6/19 @ 0.983 · svm 4/19 @ 0.285. Both sequence-model misses = the human-doubted 202호 (18/18 on undisputed falls). Frontier & FP curves: `analysis/phase3-step2-nh-threshold-policy.md`. **Adoption candidates: gcn@0.30 (recall-first) / rf@0.20 (balanced); svm excluded.**
 
 ---
 

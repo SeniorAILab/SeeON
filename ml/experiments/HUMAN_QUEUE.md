@@ -6,7 +6,7 @@ the loop records them here and continues with other work instead of blocking.
 | # | Checkpoint | State | What the human must do |
 |---|-----------|-------|------------------------|
 | 1 | NH gold label confirmation (plan Step 9) | **m3 REDO DELIVERED + VALIDATED (2026-06-11, commit 0978349)** — fresh visual re-judgment on processed stems: **19 fall rows** (`status=proposed`, 3 marked BORDERLINE in notes: 2026-01-09 202호, 2026-02-25 502호, 2026-04-08 503호) + **4 no-fall** (2025-11-27 202호, 2026-02-19 404호, 2026-03-02 301호, 2026-04-19 203호 — no rows by design). m1-pro validation passed with 0 errors/0 warnings: all 19 stems ∈ processed 23, no dups, frame ranges within nb_frames, all `proposed`, fps within 5% of effective fps, pose npz present per stem; `parse_gold_csv` → confirmed=0/proposed=19 (NH gate correctly un-armed). Earlier raw-based judgments diverged heavily (6 of the old 7 "no-fall" videos are falls under processed-quality review) — no-inheritance mandate vindicated | Review the 19 proposals (esp. 3 BORDERLINE), set `status=confirmed`. **Auto-confirm is forbidden** — only after this human step can the mask freeze (item 2) proceed |
-| 2 | NH reference mask freeze approval (plan Step 13b) | analysis complete on corrected gold (`a937797`): catch/FP decision surface in `ml/experiments/analysis/phase3-step2-nh-threshold-policy.md`. Recommendation: do NOT freeze at LE2I ops (would enshrine logreg 6/19); freeze after Step-3/4 (scaler+calibration) at a human-chosen frontier point — recall-first (logreg@0.10-class: 17/19, 9.7% FP) vs balanced (rf@0.20-class: 15/19, 6.4% FP). svm removed from candidates (capability ceiling 11/19). transformer/gcn rows pending phase-2 close | When Step-3/4 winners are re-swept: pick the frontier point (miss-cost vs alarm-fatigue), then approve the freeze commit |
+| 2 | NH reference mask freeze approval (plan Step 13b) | **READY FOR DECISION** — full 5-family decision surface in `analysis/phase3-step2-nh-threshold-policy.md` (v2). Step 3 done (scale hypothesis refuted → curves are freeze-ready). Frontier: **(A) gcn@0.30 — 18/19 catch, 10.5% FP-window rate (recall-first)** vs **(B) rf@0.20 — 15/19, 6.4% (balanced)**. Both sequence models' only miss is the human-doubted 202호; gcn sees 19/19 at th 0.05. svm excluded | Pick (A) or (B) (or another point on the table); I then write `nh_reference_mask.json` + policy note as a separate commit for final approval |
 | 4 | Plan-scope governance: 6th family (logreg) vs 5-family plan body | **RESOLVED 2026-06-11** — user picked option (a); new slug `docs/exec-plan/active/fall-loop-phase3-linear-calibration/` retro-documents the logreg extension and carries all phase-3 work (scaler pipeline, calibration, NH threshold policy, mask proposal). Original plan stays active for loop ops | No action — slug finalized on commit |
 | 5 | Privacy sign-off: facility names in committed CSVs | **RESOLVED 2026-06-11** — user decision: repo stays private, CSVs keep real facility names as-is. Standing caveat recorded: pseudonymize (NH-A/NH-B) + strip run-JSON local paths before any future public release; KakaoTalk-channel consent check deferred to the human | No action now; re-open only if the repo is ever made public |
 | 3 | ~~LE2I annotation txts missing on m1-pro~~ | **RESOLVED 2026-06-11** — fetched directly from the UBFC official dataset (see decision log); 130/130 installed, smoke passed | No action needed. The pending sender-side txt push is now harmless (`--ignore-existing` will skip identical files) |
@@ -163,3 +163,17 @@ the loop records them here and continues with other work instead of blocking.
   knife edge), then a **StandardScaler pipeline experiment** — unscaled
   features are the leading structural explanation for the logreg C-inversion
   AND a plausible contributor to the NH threshold-transfer failure.
+- 2026-06-11 (late): **phase-2 close + sequence-model NH breakthrough +
+  Step-3 verdict.** ① phase 2: gcn budget-30 discovery 0.3291 (+76%), svm
+  0.4407; transformer's narrow 0.2574 region not re-found by 30-trial TPE
+  (hypothesis-driven refinement beat budget). ② NH full table: gcn and
+  transformer catch 18/19 AT THEIR LE2I OPS (no recalibration); both miss
+  only the human-doubted 202호; gcn ceiling 19/19 @ th 0.05; the all-family
+  never-catchable set is EMPTY. Feature-based linear models' LE2I lead was
+  domain-overfit to handcrafted features. ③ Step-3: scale-contamination
+  hypothesis REFUTED (scaled logreg still extreme-C/knife-edge/collapsed
+  AUC-PR; scaled svm strictly worse) → C-inversion is intrinsic; Step 4
+  (isotonic) deferred — its premise (logreg as deployment candidate) fell
+  with gcn dominating the NH axis. ④ All canonical artifacts restored to
+  family bests (exact reproductions); staging results-out finalized with
+  FILELIST + STAGING_DONE. Adoption decision now = gate-2 frontier choice.
