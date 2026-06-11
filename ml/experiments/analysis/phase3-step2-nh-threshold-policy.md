@@ -3,8 +3,42 @@
 Plan: `fall-loop-phase3-linear-calibration` Step 2. Gold: `a937797` (19 confirmed,
 human-reviewed). Raw data: sibling JSON. FP side measured on the 4 confirmed
 no-fall videos — 9,158 non-zero deployment-equivalent windows (multi-person
-tracks, tracker noise included). Transformer/gcn rows pending their best-restore
-after the phase-2 queue.
+tracks, tracker noise included).
+
+> **v2 update (same day, post phase-2 close):** transformer/gcn best artifacts
+> evaluated; Step-3 scaled-pipeline verdict appended. The frontier moved — see
+> "v2: sequence models" below. svm exclusion unchanged.
+
+## v2: sequence models redraw the frontier
+
+gcn (exp-027 best) and transformer (exp-010 best) at their **unmodified LE2I
+operating points** catch **18/19** NH falls each — and the single miss for both
+is `2026-01-09 202호`, the label the human already doubts. On undisputed falls
+they are 18/18. gcn's max-prob ceiling is **19/19 at th 0.05** (it even sees
+202호 and the hard-case 206호); the all-family never-catchable set is now empty.
+
+| Operating point | Falls caught /19 | FP windows (rate) | Character |
+|---|---|---|---|
+| **gcn @ 0.30** | **18** | 958 (10.5%) | new recall-first frontier (dominates logreg@0.10: +1 catch, +0.8 pp FP) |
+| gcn @ 0.222 (its LE2I op) | 18 | 1,283 (14.0%) | dominated by gcn@0.30 |
+| transformer @ 0.133 (its LE2I op) | 18 | 1,503 (16.4%) | dominated by gcn |
+| gcn @ 0.50 | 13 | 430 (4.7%) | mid-point |
+| rf @ 0.20 | 15 | 586 (6.4%) | balanced (unchanged) |
+| rf @ 0.392 | 9 | 110 (1.2%) | precision-first (unchanged) |
+
+Sequence models pay higher FP at equal thresholds than the feature models, but
+their catch curves transfer to NH without recalibration — the LE2I-vs-NH
+domain gap that breaks unscaled-linear probability geometry barely affects
+them. **Adoption candidate order is now gcn (recall-first) / rf (balanced).**
+
+## v2: Step-3 scaled-pipeline verdict — scale-contamination hypothesis REFUTED
+
+StandardScaler variants (exp-037/038): logreg scaled still selects extreme C
+(1611) with a knife-edge threshold (0.9883) and collapsed AUC-PR (0.380); svm
+scaled degrades outright (0.3881 vs 0.4407 unscaled). The C-inversion is
+intrinsic to the linear weight space on these features, not a scale artifact.
+Step 4 (isotonic on scaled logreg) is **deferred**: its premise — logreg as the
+deployment candidate — no longer holds with gcn dominating the NH axis.
 
 ## The decision surface (catch vs false-positive rate)
 
@@ -54,7 +88,9 @@ fires in all 4 no-fall videos at every threshold.
    for judging them.
 3. **The eventual freeze should encode a human-chosen point on the frontier
    above** (miss-cost vs alarm-fatigue is a clinical/operational judgment, not
-   a statistical one). Candidates: logreg@0.10-class (recall-first) or
-   rf@0.20-class (balanced), re-derived on the Step-3/4 winners.
+   a statistical one). ~~Candidates: logreg@0.10-class or rf@0.20-class~~
+   **v2: candidates are gcn@0.30 (18/19, 10.5% FP — recall-first) or
+   rf@0.20 (15/19, 6.4% FP — balanced).** Step-3 finished and did not change
+   probability geometry usefully, so these curves are freeze-ready.
 4. Mask schema stays `{model_key: [fall_id…]}`; the freeze commit must cite
    this document and state the chosen threshold policy explicitly.
