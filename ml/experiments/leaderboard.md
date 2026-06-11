@@ -16,12 +16,12 @@ Gate columns show outcome of the final artifact.
 
 | Rank | Family | Experiment ID | P@R90 | Recall | F1 | Latency (ms) | Params | R90 gate | Latency gate | NH gate | Weights |
 |------|--------|--------------|-------|--------|----|-------------|--------|----------|-------------|---------|---------|
-| 1 | logistic-regression | exp-017-logreg-c1000-probe | **0.4483** | 0.9286 | 0.6047 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression — statistical tie with svm (Δ0.015 < noise); AUC-PR tradeoff noted |
-| 2 | svm | exp-008-svm-linear-refine | 0.4333 | 0.9286 | 0.5591 | 0.1 | — | ✓ | ✓ | un-armed | ml/models/fall/svm |
+| 1 | logistic-regression | exp-017-logreg-c1000-probe | **0.4483** | 0.9286 | 0.6047 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression — statistical tie with svm (Δ0.015 < noise); AUC-PR tradeoff noted. ⚠ C=1000 came from a manual hp_override probe OUTSIDE the then-current Optuna space (cap was 100); space since extended so the region is autonomously discoverable |
+| 2 | svm | exp-008-svm-linear-refine | 0.4333 | 0.9286 | 0.5909 | 0.1 | — | ✓ | ✓ | un-armed | ml/models/fall/svm |
 | 3 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer |
 | 4 | gcn | exp-009-gcn-blocks3-refine | 0.1871 | 0.9286 | 0.3114 | 2.2 | — | ✓ | ✓ | un-armed | ml/models/fall/gcn |
 | 5 | random-forest | exp-011-rf-shallow-refine | 0.1307 | 0.9286 | 0.2291 | 92.9 | — | ✓ | ✓ | un-armed | ml/models/fall/random-forest |
-| 6 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1773 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm — **RETIRED** (wave 3: <0.15 with AUC-PR<0.3 across 10 configs) |
+| 6 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1769 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm — **RETIRED** (wave 3: <0.15 with AUC-PR<0.3 across 10 configs) |
 
 AUC-PR (best per family): **logreg 0.6279 (w4)** · svm 0.6195 (w1) · gcn 0.5673 (w1) · transformer 0.5535 (w2) · rf 0.4310 (w1) · lstm 0.1842 (w1)
 (Test split: 1400 windows, 28 positive — small positive count; P@R90 deltas under ~0.02 are noise.
@@ -42,7 +42,7 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-005-lstm-hpsearch | lstm | 0.0977 | 0.9286 | 0.1773 | 1.5 | ✓ | ✓ | un-armed | Wave 1. Best: hidden=116, layers=3, lr=2.9e-3. 2× baseline but stays floor family; AUC-PR 0.18 worst |
 | 2026-06-11 | exp-006-transformer-hpsearch | transformer | 0.1268 | 0.9286 | 0.2231 | 0.3 | ✓ | ✓ | un-armed | Wave 1. Smaller-is-better confirmed: d=64, heads=2, 1 layer, lr=1.3e-4 doubles baseline |
 | 2026-06-11 | exp-007-gcn-hpsearch | gcn | 0.1486 | 0.9286 | 0.2562 | 1.8 | ✓ | ✓ | un-armed | Wave 1. Best: hidden=83, blocks=3, lr=1.1e-4, dropout=0.48 — lost family lead to svm |
-| 2026-06-11 | exp-008-svm-linear-refine | svm | 0.4333 | 0.9286 | 0.5591 | 0.1 | ✓ | ✓ | un-armed | Wave 2. kernel=linear pinned, C refined → C≈15.7. Plateau confirmed: C≥5 trials 0.39–0.43, low-C trials degrade — wave-1 jump is real |
+| 2026-06-11 | exp-008-svm-linear-refine | svm | 0.4333 | 0.9286 | 0.5909 | 0.1 | ✓ | ✓ | un-armed | Wave 2. kernel=linear pinned, C refined → C≈15.7. Plateau confirmed: C≥5 trials 0.39–0.43, low-C trials degrade — wave-1 jump is real |
 | 2026-06-11 | exp-009-gcn-blocks3-refine | gcn | 0.1871 | 0.9286 | 0.3114 | 2.2 | ✓ | ✓ | un-armed | Wave 2. blocks=3 pinned → hidden=110, lr=2.7e-4, **dropout=0.09** (wave-1's 0.48 was not the driver) |
 | 2026-06-11 | exp-010-transformer-1layer-refine | transformer | 0.2574 | 0.9286 | 0.4031 | 0.3 | ✓ | ✓ | un-armed | Wave 2. layers=1 pinned → d=64, heads=4, lr=1.2e-4 — 2× wave-1, now family rank 2 |
 | 2026-06-11 | exp-011-rf-shallow-refine | random-forest | 0.1307 | 0.9286 | 0.2291 | 92.9 | ✓ | ✓ | un-armed | Wave 2. depth=5 pinned — Δ+0.003 vs wave 1 = noise; RF plateaued ~0.13, deprioritize |
