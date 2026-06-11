@@ -13,10 +13,12 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from training.config import SEED
-from training.hp import hp_float, hp_opt_float, hp_str
+from training.hp import hp_bool, hp_float, hp_opt_float, hp_str
 
 
 class SvmFallClassifier:
@@ -34,15 +36,22 @@ class SvmFallClassifier:
         C: float | None = None,
         gamma: float | None = None,
         kernel: str | None = None,
+        scaled: bool | None = None,
     ) -> None:
         g = hp_opt_float("gamma") if gamma is None else float(gamma)
-        self._clf = SVC(
+        est = SVC(
             C=hp_float("C", 1.0) if C is None else float(C),
             kernel=hp_str("kernel", "rbf") if kernel is None else kernel,
             gamma="scale" if g is None else g,
             probability=True,
             class_weight="balanced",
             random_state=SEED,
+        )
+        # scaled=True (env HARNESS_HP_SCALED): StandardScaler Pipeline —
+        # phase-3 Step 3 (fall-loop-phase3-linear-calibration).
+        scaled = hp_bool("scaled", False) if scaled is None else bool(scaled)
+        self._clf = (
+            Pipeline([("scaler", StandardScaler()), ("clf", est)]) if scaled else est
         )
 
     # ------------------------------------------------------------------

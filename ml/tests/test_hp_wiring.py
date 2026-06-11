@@ -26,7 +26,7 @@ from training.models.transformer import TransformerFallClassifier
 
 _ALL_HP_NAMES = [
     "N_ESTIMATORS", "MAX_DEPTH", "MIN_SAMPLES_LEAF",
-    "C", "GAMMA", "KERNEL",
+    "C", "GAMMA", "KERNEL", "SCALED",
     "HIDDEN", "LAYERS", "LR", "DROPOUT",
     "D_MODEL", "HEADS", "BLOCKS",
 ]
@@ -167,6 +167,30 @@ class TestArchRoundTrip:
         # weights must be identical after the round trip
         for p0, p1 in zip(clf._net.parameters(), loaded._net.parameters()):
             assert torch.equal(p0.cpu(), p1.cpu())
+
+    def test_scaled_variants(self, monkeypatch, tmp_path):
+        from sklearn.pipeline import Pipeline
+
+        # default off — raw estimator, byte-compatible with all prior artifacts
+        assert not isinstance(LogisticRegressionFallClassifier()._clf, Pipeline)
+        assert not isinstance(SvmFallClassifier()._clf, Pipeline)
+        # env on — StandardScaler pipeline
+        monkeypatch.setenv("HARNESS_HP_SCALED", "1")
+        lr = LogisticRegressionFallClassifier(C=2.0)
+        sv = SvmFallClassifier(kernel="linear")
+        for clf in (lr, sv):
+            assert isinstance(clf._clf, Pipeline)
+            assert "scaler" in clf._clf.named_steps
+        # scaled fit/save/load roundtrip
+        rng = np.random.default_rng(1)
+        X = (rng.random((60, 8)) * 100).astype(np.float64)  # large-scale features
+        y = (X[:, 0] > 50).astype(int)
+        lr.fit(X, y)
+        proba = lr.predict_proba(X)
+        lr.save(tmp_path)
+        monkeypatch.delenv("HARNESS_HP_SCALED")
+        loaded = LogisticRegressionFallClassifier.load(tmp_path)
+        np.testing.assert_allclose(loaded.predict_proba(X), proba)
 
     def test_logreg_fit_save_load_roundtrip(self, tmp_path):
         rng = np.random.default_rng(0)

@@ -60,6 +60,12 @@ def hp_opt_float(name: str) -> float | None:
     return None if v is None else float(v)
 
 
+def hp_bool(name: str, default: bool) -> bool:
+    """Return ``HARNESS_HP_<NAME>`` as bool (``1/true/yes`` → True), or *default*."""
+    v = _raw(name)
+    return default if v is None else v.strip().lower() in {"1", "true", "yes"}
+
+
 def active_hps() -> dict[str, str]:
     """Return all currently-set ``HARNESS_HP_*`` vars (for logging)."""
     return {

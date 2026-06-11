@@ -411,6 +411,9 @@ def _count_params(family: str) -> int:
     inner = getattr(clf, "_clf", None)
     if inner is None:
         return -1
+    if hasattr(inner, "named_steps"):
+        # StandardScaler Pipeline (phase-3 scaled variants) — count the estimator.
+        inner = inner.named_steps.get("clf", inner)
     if hasattr(inner, "estimators_"):
         # RandomForest — count tree nodes.
         return int(sum(e.tree_.node_count for e in inner.estimators_))
