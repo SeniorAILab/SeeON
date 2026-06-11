@@ -1,0 +1,47 @@
+{
+  "id": "exp-010-transformer-1layer-refine",
+  "model_family": "transformer",
+  "hypothesis": "Wave2/exploit: pin layers=1 (wave1: smaller-is-better) and refine d_model/heads/lr; low lr ~1e-4 region looked best.",
+  "score": 0.2574,
+  "recall_90_achieved": true,
+  "params_count": 28674,
+  "inference_latency_ms": 0.319,
+  "latency_gate_failed": false,
+  "eval_split_hash": "532e47af3fd22763bdacc05c5e95b379775df9caf0058d4ec07ac3c34b4fbe7e",
+  "weights_path": "/Users/beomsu/Documents/01_Project/eldercare-fall-ai-worktrees/feat/74-feat-fall-detector-autoresearch-loop-on-m1-pro/ml/models/fall/transformer/model.pt",
+  "train_seconds": 37.42,
+  "nh_gate": {
+    "gate_passed": null,
+    "missed_fall_ids": [],
+    "error": "No confirmed rows found in /Users/beomsu/Documents/01_Project/eldercare-fall-ai-worktrees/feat/74-feat-fall-detector-autoresearch-loop-on-m1-pro/ml/data/eval/nursing-home-gold.csv. Cannot evaluate."
+  },
+  "optuna": {
+    "n_trials": 6,
+    "best_params": {
+      "d_model": 64,
+      "heads": 4,
+      "lr": 0.0001238513729886094,
+      "layers": 1
+    },
+    "trial_scores": [
+      0.0985,
+      0.035,
+      0.079,
+      0.1092,
+      0.2574,
+      0.1135
+    ]
+  },
+  "timestamps": {
+    "started_at": "2026-06-11T02:44:54.101034+00:00",
+    "finished_at": "2026-06-11T02:49:21.824531+00:00"
+  },
+  "arch_flags": {},
+  "eval_metrics": {
+    "precision": 0.2574,
+    "recall": 0.9286,
+    "threshold": 0.1327,
+    "f1": 0.4031,
+    "auc_pr": 0.5535
+  }
+}
