@@ -16,6 +16,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from training.hp import hp_float, hp_int
 from training.models.base import TorchFallClassifier
 
 _N_JOINTS = 17  # COCO-17 keypoints
@@ -86,22 +87,27 @@ class _SpatialGraphConv(nn.Module):
 
 
 class _StGcnBlock(nn.Module):
-    """One ST-GCN block: spatial graph conv → temporal conv → BN → ReLU + residual."""
+    """One ST-GCN block: spatial graph conv → temporal conv → BN → ReLU
+    (→ dropout) + residual.  ``dropout=0.0`` is an exact no-op, preserving the
+    original block behavior."""
 
-    def __init__(self, in_ch: int, out_ch: int, A: torch.Tensor) -> None:
+    def __init__(
+        self, in_ch: int, out_ch: int, A: torch.Tensor, dropout: float = 0.0
+    ) -> None:
         super().__init__()
         self.sgc = _SpatialGraphConv(in_ch, out_ch, A)
         # kernel_size=(9,1) with padding=(4,0) preserves the time dimension
         self.tcn = nn.Conv2d(out_ch, out_ch, kernel_size=(9, 1), padding=(4, 0))
         self.bn = nn.BatchNorm2d(out_ch)
         self.relu = nn.ReLU(inplace=True)
+        self.drop = nn.Dropout(dropout)
         self.skip = (
             nn.Conv2d(in_ch, out_ch, kernel_size=1) if in_ch != out_ch else nn.Identity()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = self.skip(x)
-        out = self.relu(self.bn(self.tcn(self.sgc(x))))
+        out = self.drop(self.relu(self.bn(self.tcn(self.sgc(x)))))
         return out + residual
 
 
@@ -118,13 +124,13 @@ class _StGcnNet(nn.Module):
     use the standard FallClassifier input shape.
     """
 
-    def __init__(self, hidden: int = 64, n_blocks: int = 2) -> None:
+    def __init__(self, hidden: int = 64, n_blocks: int = 2, dropout: float = 0.0) -> None:
         super().__init__()
         A = _coco17_adjacency()
         in_channels = [_IN_CHANNELS] + [hidden] * n_blocks
         self.blocks = nn.ModuleList(
             [
-                _StGcnBlock(in_channels[i], in_channels[i + 1], A)
+                _StGcnBlock(in_channels[i], in_channels[i + 1], A, dropout=dropout)
                 for i in range(n_blocks)
             ]
         )
@@ -150,15 +156,31 @@ class _StGcnNet(nn.Module):
 class GcnFallClassifier(TorchFallClassifier):
     """Fall classifier backed by a lightweight ST-GCN.
 
-    Default architecture: 2 ST-GCN blocks with hidden=64 channels.
-    HP variants can be constructed by passing ``hidden`` / ``n_blocks`` kwargs;
-    the zero-arg form ``GcnFallClassifier()`` is required by
-    :meth:`~training.models.base.TorchFallClassifier.load`.
+    Default architecture: 2 ST-GCN blocks with hidden=64 channels, no dropout.
+    HP kwargs default to ``HARNESS_HP_*`` env overrides (harness trials;
+    ``HARNESS_HP_BLOCKS`` maps to ``n_blocks``), then to the original fixed
+    configuration; the resolved architecture is persisted via ``arch.json`` so
+    :meth:`~training.models.base.TorchFallClassifier.load` reconstructs it
+    without the env.
 
     Conforms to the :class:`~training.models.base.FallClassifier` Protocol;
     fit / predict_proba / save / load come from :class:`TorchFallClassifier`.
     """
 
-    def __init__(self, hidden: int = 64, n_blocks: int = 2) -> None:
+    def __init__(
+        self,
+        hidden: int | None = None,
+        n_blocks: int | None = None,
+        dropout: float | None = None,
+        lr: float | None = None,
+    ) -> None:
+        hidden = hp_int("hidden", 64) if hidden is None else int(hidden)
+        n_blocks = hp_int("blocks", 2) if n_blocks is None else int(n_blocks)
+        dropout = hp_float("dropout", 0.0) if dropout is None else float(dropout)
+        lr = hp_float("lr", 1e-3) if lr is None else float(lr)
         # 파이프라인 역할: 키포인트 시퀀스 [N, T, 51] 기반 경량 ST-GCN 이진 분류
-        super().__init__(_StGcnNet(hidden=hidden, n_blocks=n_blocks))
+        super().__init__(
+            _StGcnNet(hidden=hidden, n_blocks=n_blocks, dropout=dropout),
+            arch={"hidden": hidden, "n_blocks": n_blocks, "dropout": dropout},
+            lr=lr,
+        )

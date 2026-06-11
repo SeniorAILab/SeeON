@@ -16,17 +16,27 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
 from training.config import SEED
+from training.hp import hp_int, hp_opt_int
 
 
 class RandomForestFallClassifier:
     """Fall classifier backed by a Random Forest.
 
-    Conforms to the :class:`~training.models.base.FallClassifier` Protocol.
+    HP kwargs default to ``HARNESS_HP_*`` env overrides (harness trials),
+    then to the original fixed configuration.  Conforms to the
+    :class:`~training.models.base.FallClassifier` Protocol.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        n_estimators: int | None = None,
+        max_depth: int | None = None,
+        min_samples_leaf: int | None = None,
+    ) -> None:
         self._clf = RandomForestClassifier(
-            n_estimators=200,
+            n_estimators=hp_int("n_estimators", 200) if n_estimators is None else int(n_estimators),
+            max_depth=hp_opt_int("max_depth") if max_depth is None else int(max_depth),
+            min_samples_leaf=hp_int("min_samples_leaf", 1) if min_samples_leaf is None else int(min_samples_leaf),
             class_weight="balanced",
             random_state=SEED,
             n_jobs=-1,
