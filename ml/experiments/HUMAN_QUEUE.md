@@ -6,7 +6,9 @@ the loop records them here and continues with other work instead of blocking.
 | # | Checkpoint | State | What the human must do |
 |---|-----------|-------|------------------------|
 | 1 | NH gold label confirmation (plan Step 9) | **m3 REDO DELIVERED + VALIDATED (2026-06-11, commit 0978349)** — fresh visual re-judgment on processed stems: **19 fall rows** (`status=proposed`, 3 marked BORDERLINE in notes: 2026-01-09 202호, 2026-02-25 502호, 2026-04-08 503호) + **4 no-fall** (2025-11-27 202호, 2026-02-19 404호, 2026-03-02 301호, 2026-04-19 203호 — no rows by design). m1-pro validation passed with 0 errors/0 warnings: all 19 stems ∈ processed 23, no dups, frame ranges within nb_frames, all `proposed`, fps within 5% of effective fps, pose npz present per stem; `parse_gold_csv` → confirmed=0/proposed=19 (NH gate correctly un-armed). Earlier raw-based judgments diverged heavily (6 of the old 7 "no-fall" videos are falls under processed-quality review) — no-inheritance mandate vindicated | Review the 19 proposals (esp. 3 BORDERLINE), set `status=confirmed`. **Auto-confirm is forbidden** — only after this human step can the mask freeze (item 2) proceed |
-| 2 | NH reference mask freeze approval (plan Step 13b) | waiting — needs 5-family baseline + confirmed gold | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
+| 2 | NH reference mask freeze approval (plan Step 13b) | waiting — gold confirmed (dd5cfb8); batch-1 NH eval done (rf 8/19, logreg 6/19, svm 4/19 — inverse of LE2I rank); threshold sweep + transformer/gcn eval pending before a mask proposal is drafted | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
+| 4 | Plan-scope governance: 6th family (logreg) vs 5-family plan body | **NEEDS DECISION** — ultracode review confirmed `plan.md` bounds the loop to 5 families; logistic-regression was added mid-loop (8dbadaf) without a superseding slug, violating the AGENTS.md scope-change rule. Options: (a) new slug retro-documenting the extension + phase-3 work (recommended; I can draft), (b) accept as in-plan A-axis interpretation and note it, (c) supersede fall-autoresearch-loop entirely | Pick (a)/(b)/(c). Phase-3 training work also needs a plan entry either way |
+| 5 | Privacy sign-off: facility names in committed CSVs | **NEEDS DECISION** — gold/mapping CSVs expose real facility names + room numbers + incident dates (quasi-identifier for facility staff; no direct resident identifiers). Fine while repo is private; pseudonymize (NH-A/NH-B) before any public release? Also: KakaoTalk transfer metadata in mapping CSV raw stems — confirm the consent/data-use agreement covers that transfer channel | Decide: keep as-is (repo stays private) or pseudonymize before merge/public |
 | 3 | ~~LE2I annotation txts missing on m1-pro~~ | **RESOLVED 2026-06-11** — fetched directly from the UBFC official dataset (see decision log); 130/130 installed, smoke passed | No action needed. The pending sender-side txt push is now harmless (`--ignore-existing` will skip identical files) |
 
 ## Decision log (autonomous decisions taken within plan/spec constraints)
@@ -135,3 +137,29 @@ the loop records them here and continues with other work instead of blocking.
   logreg-C29 (best AUC-PR 0.628) should be decided WITH the NH gate, not on
   LE2I P@R90 alone. Loop idles pending gates; processed-video staging
   transfer stalled at 3/23 (531 MB) since ~11:00 — sender-side check needed.
+- 2026-06-11: **Gold gate 1 cleared by explicit human confirmation** — user
+  directive "19건 전부 컨펌한다" recorded; all rows proposed→confirmed
+  (dd5cfb8), including the 3 BORDERLINE videos.
+- 2026-06-11: **NH batch-1 results invert the LE2I ranking** (snapshot
+  artifacts, deployment-equivalent path, 19 confirmed falls):
+  rf 8/19 > logreg-C1000 6/19 > svm-C16 4/19. Misses cluster on slow
+  bed-slides / blanket occlusion / multi-person scenes; catches cluster on
+  rapid collapses. Threshold-transfer vs representation-gap separation in
+  progress (per-fall max-prob sweep). LE2I-only adoption would have picked
+  the wrong model — the NH gate design is vindicated.
+- 2026-06-11: **ultracode review (64 agents) — 4 confirmed findings, all
+  actioned or queued**: ① leaderboard F1 typos fixed (svm 0.5591→0.5909
+  copy-paste from exp-016; lstm 0.1773→0.1769); ② logreg Optuna C-cap 100
+  raised to 3000 (the 0.4483 winner at C=1000 was only reachable via manual
+  hp_override — not autonomously discoverable); ③ `propose_nh_gold.py`
+  aggregate detector truncates all tracks to the SHORTEST track length
+  (min_len stack) — late-video falls invisible to the slow-descent aggregate
+  path; impact contained because m3's gold redo was a fresh VISUAL judgment,
+  but the tool needs a NaN-pad fix before any future automated proposal run
+  (flagged to m3); ④ plan-scope governance gap → queue item 4. Plus: logreg
+  fit/save/load round-trip test added (was untested while being the P@R90
+  leader). Phase-3 priority from the hypothesis panel: bootstrap CI +
+  operating-point bandwidth audit (the 0.4483 may be a single-threshold-step
+  knife edge), then a **StandardScaler pipeline experiment** — unscaled
+  features are the leading structural explanation for the logreg C-inversion
+  AND a plausible contributor to the NH threshold-transfer failure.

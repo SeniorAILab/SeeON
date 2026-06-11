@@ -168,6 +168,19 @@ class TestArchRoundTrip:
         for p0, p1 in zip(clf._net.parameters(), loaded._net.parameters()):
             assert torch.equal(p0.cpu(), p1.cpu())
 
+    def test_logreg_fit_save_load_roundtrip(self, tmp_path):
+        rng = np.random.default_rng(0)
+        X = rng.random((60, 8)).astype(np.float64)
+        y = (X[:, 0] > 0.5).astype(int)
+        clf = LogisticRegressionFallClassifier(C=5.0)
+        clf.fit(X, y)
+        proba = clf.predict_proba(X)
+        assert proba.shape == (60, 2)
+        np.testing.assert_allclose(proba.sum(axis=1), 1.0, rtol=1e-9)
+        clf.save(tmp_path)
+        loaded = LogisticRegressionFallClassifier.load(tmp_path)
+        np.testing.assert_allclose(loaded.predict_proba(X), proba)
+
     def test_legacy_artifact_without_arch_json(self, tmp_path):
         clf = TransformerFallClassifier()  # default arch
         clf.save(tmp_path)

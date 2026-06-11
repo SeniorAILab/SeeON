@@ -91,7 +91,10 @@ SEARCH_SPACES: dict[str, dict[str, tuple]] = {
         "kernel": ("categorical", ["rbf", "linear"]),
     },
     "logistic-regression": {
-        "C": ("float_log", 0.01, 100.0),
+        # Upper bound raised 100 -> 3000 after manual boundary probes found the
+        # P@R90 peak at C~1000 (exp-016..018) — the optimum must be inside the
+        # autonomous search space, not only reachable via hp_override.
+        "C": ("float_log", 0.01, 3000.0),
     },
     "lstm": {
         "hidden": ("int", 32, 256),
