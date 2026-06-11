@@ -5,7 +5,7 @@ the loop records them here and continues with other work instead of blocking.
 
 | # | Checkpoint | State | What the human must do |
 |---|-----------|-------|------------------------|
-| 1 | NH gold label confirmation (plan Step 9) | **SUPERSEDED — REDO ON m3 (2026-06-11)** — human review found the strips were generated from `raw/` videos, but canonical is `processed/` (23 cropped videos). All 16 raw-stem proposals are **retracted** (gold CSV truncated to header; raw-stem strips + poses quarantined to `/tmp/gold-raw-quarantine-1781136923`, not deleted). Per user decision the full redo (re-detection + strips on processed, no inheritance of raw-based judgments) runs locally on m3; regenerated gold artifacts arrive via a branch. Deliverable kept from this side: `ml/data/eval/raw-processed-mapping.csv` — 23/23 pixel-verified, frame_offset 0 for all pairs | m3: redo gold against `processed/` (mapping CSV is reusable). Then review strips and set `status=confirmed` |
+| 1 | NH gold label confirmation (plan Step 9) | **m3 REDO DELIVERED + VALIDATED (2026-06-11, commit 0978349)** — fresh visual re-judgment on processed stems: **19 fall rows** (`status=proposed`, 3 marked BORDERLINE in notes: 2026-01-09 202호, 2026-02-25 502호, 2026-04-08 503호) + **4 no-fall** (2025-11-27 202호, 2026-02-19 404호, 2026-03-02 301호, 2026-04-19 203호 — no rows by design). m1-pro validation passed with 0 errors/0 warnings: all 19 stems ∈ processed 23, no dups, frame ranges within nb_frames, all `proposed`, fps within 5% of effective fps, pose npz present per stem; `parse_gold_csv` → confirmed=0/proposed=19 (NH gate correctly un-armed). Earlier raw-based judgments diverged heavily (6 of the old 7 "no-fall" videos are falls under processed-quality review) — no-inheritance mandate vindicated | Review the 19 proposals (esp. 3 BORDERLINE), set `status=confirmed`. **Auto-confirm is forbidden** — only after this human step can the mask freeze (item 2) proceed |
 | 2 | NH reference mask freeze approval (plan Step 13b) | waiting — needs 5-family baseline + confirmed gold | Approve freezing `ml/experiments/nh_reference_mask.json` (separate commit). Until then the NH gate cannot arm and no model adoption is final |
 | 3 | ~~LE2I annotation txts missing on m1-pro~~ | **RESOLVED 2026-06-11** — fetched directly from the UBFC official dataset (see decision log); 130/130 installed, smoke passed | No action needed. The pending sender-side txt push is now harmless (`--ignore-existing` will skip identical files) |
 
@@ -105,3 +105,17 @@ the loop records them here and continues with other work instead of blocking.
   down by user decision — m3 performs the redo locally**; no raw-based label
   may ever be marked confirmed. Processed-video pose npz re-extraction
   continues here (eval-infra cache, not labeling).
+- 2026-06-11: pose cache rebuilt from processed videos — 23/23 OK, 0 fails,
+  1,169 track npz, zero raw-stem files remaining in the canonical poses dir.
+- 2026-06-11: **m3 gold redo received (0978349) and validated on m1-pro.**
+  Checks run: stem membership vs `enumerate_processed_videos()` (19/19),
+  duplicate rows (0), frame ranges vs ffprobe nb_frames (all within bounds),
+  status uniformly `proposed`, CSV fps vs effective fps nb_frames/duration
+  (all within 5%), pose npz presence per fall stem (all present),
+  `parse_gold_csv` loader → confirmed=0 / proposed=19 → NH gate stays
+  un-armed until human confirm. Divergence note: under processed-quality
+  review, 6 of the 7 videos previously judged "no-fall" from raw strips are
+  now falls (incl. 2025-12-17 301호 "detector top5 missed") and 2 previously
+  "fall" videos are now no-fall (2026-02-19 404호, 2026-04-19 203호) —
+  the no-inheritance mandate was the right call. Confirm remains
+  human-only; mask freeze and the 8h run stay blocked behind it.
