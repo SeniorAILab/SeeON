@@ -1,0 +1,8 @@
+{
+  "id": "exp-016-logreg-c300-probe",
+  "model_family": "logistic-regression",
+  "hypothesis": "Wave5/probe: wave-4 trial trend rises toward the C=100 space boundary (best C=29 -> 0.31). Pin C=300 to test whether weaker regularization keeps helping beyond the search-space edge.",
+  "hp_override": {"C": 300.0},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

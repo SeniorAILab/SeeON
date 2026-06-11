@@ -1,0 +1,8 @@
+{
+  "id": "exp-018-logreg-c10000-probe",
+  "model_family": "logistic-regression",
+  "hypothesis": "Wave6/probe: C curve still rising at 1000 (0.31 -> 0.40 -> 0.45). C=10000 (effectively unregularized) maps the saturation point; if it degrades, C~1000 is the optimum.",
+  "hp_override": {"C": 10000.0},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

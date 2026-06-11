@@ -1,0 +1,8 @@
+{
+  "id": "exp-031-logreg-c600-probe",
+  "model_family": "logistic-regression",
+  "hypothesis": "Phase2/finemap: bracket the C peak from below — C=600 between 300 (0.400) and 1000 (0.448).",
+  "hp_override": {"C": 600.0},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

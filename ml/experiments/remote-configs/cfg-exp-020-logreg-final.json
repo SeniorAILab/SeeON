@@ -1,0 +1,8 @@
+{
+  "id": "exp-020-logreg-best-restore",
+  "model_family": "logistic-regression",
+  "hypothesis": "Wave7/restore: retrain the family-best config (C=1000, exp-017) so the canonical artifact matches the leaderboard-best state ahead of NH batch re-evaluation. Expect score to reproduce 0.4483 (seed 42, deterministic pipeline).",
+  "hp_override": {"C": 1000.0},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

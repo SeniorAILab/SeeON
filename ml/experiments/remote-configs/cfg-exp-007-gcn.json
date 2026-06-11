@@ -1,0 +1,7 @@
+{
+  "id": "exp-007-gcn-hpsearch",
+  "model_family": "gcn",
+  "hypothesis": "Wave1/A+B: leaderboard leader (0.1320, AUC-PR 0.5881) — tuned hidden/blocks/lr/dropout extends the lead; dropout dim newly exists in the block.",
+  "n_trials": 5,
+  "trial_timeout_s": 3600
+}
