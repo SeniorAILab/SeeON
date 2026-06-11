@@ -5,7 +5,7 @@
 > NH gate: regression veto only — does not change score, but blocks adoption.
 > Rows with score = 0.0 failed at least one hard gate (see gate columns).
 
-Last updated: 2026-06-11 (wave 4 — logistic-regression debut: P@R90 0.3059, best AUC-PR overall 0.6279 with 46 params / 0.04 ms. NH gate un-armed pending gold confirm, adoption provisional)
+Last updated: 2026-06-11 (wave 5 — logreg C-boundary probes: C=1000 hits P@R90 0.4483, a statistical tie with svm at the top (Δ0.015 < noise band ~0.02). NH gate un-armed pending gold confirm, adoption provisional)
 
 ---
 
@@ -16,8 +16,8 @@ Gate columns show outcome of the final artifact.
 
 | Rank | Family | Experiment ID | P@R90 | Recall | F1 | Latency (ms) | Params | R90 gate | Latency gate | NH gate | Weights |
 |------|--------|--------------|-------|--------|----|-------------|--------|----------|-------------|---------|---------|
-| 1 | svm | exp-008-svm-linear-refine | **0.4333** | 0.9286 | 0.5591 | 0.1 | — | ✓ | ✓ | un-armed | ml/models/fall/svm |
-| 2 | logistic-regression | exp-015-logreg-linear-hypothesis | 0.3059 | 0.9286 | 0.4602 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression |
+| 1 | logistic-regression | exp-017-logreg-c1000-probe | **0.4483** | 0.9286 | 0.6047 | 0.04 | 46 | ✓ | ✓ | un-armed | ml/models/fall/logistic-regression — statistical tie with svm (Δ0.015 < noise); AUC-PR tradeoff noted |
+| 2 | svm | exp-008-svm-linear-refine | 0.4333 | 0.9286 | 0.5591 | 0.1 | — | ✓ | ✓ | un-armed | ml/models/fall/svm |
 | 3 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer |
 | 4 | gcn | exp-009-gcn-blocks3-refine | 0.1871 | 0.9286 | 0.3114 | 2.2 | — | ✓ | ✓ | un-armed | ml/models/fall/gcn |
 | 5 | random-forest | exp-011-rf-shallow-refine | 0.1307 | 0.9286 | 0.2291 | 92.9 | — | ✓ | ✓ | un-armed | ml/models/fall/random-forest |
@@ -50,6 +50,8 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-013-gcn-lowdrop-refine | gcn | 0.1566 | 0.9286 | 0.2680 | 0.9 | ✓ | ✓ | un-armed | Wave 3. dropout=0.1 pinned underperformed wave 2 (hidden=33 sampled small); 0.1871 stands as family best |
 | 2026-06-11 | exp-014-lstm-3layer-lastshot | lstm | 0.0945 | 0.9286 | 0.1721 | 0.8 | ✓ | ✓ | un-armed | Wave 3. Last shot failed the stated bar (<0.15, AUC-PR 0.27) → **family retired from the loop** |
 | 2026-06-11 | exp-015-logreg-linear-hypothesis | logistic-regression | 0.3059 | 0.9286 | 0.4602 | 0.04 | ✓ | ✓ | un-armed | Wave 4 A-axis debut. C≈29 → 0.31 with **46 params** and best-overall AUC-PR 0.6279 — linear-separability hypothesis confirmed; trial trend rises toward the C=100 space boundary |
+| 2026-06-11 | exp-016-logreg-c300-probe | logistic-regression | 0.4000 | 0.9286 | 0.5591 | 0.04 | ✓ | ✓ | un-armed | Wave 5 boundary probe. C=300 → 0.400 but AUC-PR drops to 0.4446 — operating-point gain trades against curve quality |
+| 2026-06-11 | exp-017-logreg-c1000-probe | logistic-regression | 0.4483 | 0.9286 | 0.6047 | 0.04 | ✓ | ✓ | un-armed | Wave 5 boundary probe. C=1000 → **0.4483**, nominal overall lead (tie with svm within noise); AUC-PR 0.4182 keeps degrading — near-unregularized fit favors the R90 point specifically |
 
 ---
 
