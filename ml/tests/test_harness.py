@@ -458,11 +458,19 @@ class TestWritePauseReport:
 
 
 class TestSearchSpacesContract:
-    def test_five_families_defined(self) -> None:
-        assert len(SEARCH_SPACES) == 5
+    def test_every_registry_family_has_a_search_space(self) -> None:
+        from training.models import REGISTRY
+
+        assert set(SEARCH_SPACES) == set(REGISTRY), (
+            "SEARCH_SPACES and REGISTRY families must stay in lockstep — "
+            "a family without a search space silently degrades to a "
+            "single-default-trial study"
+        )
 
     def test_known_families_present(self) -> None:
-        for family in ("random-forest", "svm", "lstm", "transformer", "gcn"):
+        for family in (
+            "random-forest", "svm", "logistic-regression", "lstm", "transformer", "gcn"
+        ):
             assert family in SEARCH_SPACES, f"Missing search space for {family!r}"
 
     def test_all_entries_have_valid_spec_kinds(self) -> None:

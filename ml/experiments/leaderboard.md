@@ -5,7 +5,7 @@
 > NH gate: regression veto only — does not change score, but blocks adoption.
 > Rows with score = 0.0 failed at least one hard gate (see gate columns).
 
-Last updated: 2026-06-11 (wave 2 — exploit refinements; NH gate un-armed pending gold confirm, adoption provisional)
+Last updated: 2026-06-11 (wave 3 — refinement returns diminishing; lstm retired; logistic-regression family added for wave 4. NH gate un-armed pending gold confirm, adoption provisional)
 
 ---
 
@@ -20,7 +20,7 @@ Gate columns show outcome of the final artifact.
 | 2 | transformer | exp-010-transformer-1layer-refine | 0.2574 | 0.9286 | 0.4031 | 0.3 | — | ✓ | ✓ | un-armed | ml/models/fall/transformer |
 | 3 | gcn | exp-009-gcn-blocks3-refine | 0.1871 | 0.9286 | 0.3114 | 2.2 | — | ✓ | ✓ | un-armed | ml/models/fall/gcn |
 | 4 | random-forest | exp-011-rf-shallow-refine | 0.1307 | 0.9286 | 0.2291 | 92.9 | — | ✓ | ✓ | un-armed | ml/models/fall/random-forest |
-| 5 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1773 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm |
+| 5 | lstm | exp-005-lstm-hpsearch | 0.0977 | 0.9286 | 0.1773 | 1.5 | 295,802 | ✓ | ✓ | un-armed | ml/models/fall/lstm — **RETIRED** (wave 3: <0.15 with AUC-PR<0.3 across 10 configs) |
 
 AUC-PR (best per family): svm 0.6195 (w1) · gcn 0.5673 (w1) · transformer 0.5535 (w2) · rf 0.4310 (w1) · lstm 0.1842 (w1)
 (Test split: 1400 windows, 28 positive — small positive count; P@R90 deltas under ~0.02 are noise.
@@ -45,6 +45,9 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | 2026-06-11 | exp-009-gcn-blocks3-refine | gcn | 0.1871 | 0.9286 | 0.3114 | 2.2 | ✓ | ✓ | un-armed | Wave 2. blocks=3 pinned → hidden=110, lr=2.7e-4, **dropout=0.09** (wave-1's 0.48 was not the driver) |
 | 2026-06-11 | exp-010-transformer-1layer-refine | transformer | 0.2574 | 0.9286 | 0.4031 | 0.3 | ✓ | ✓ | un-armed | Wave 2. layers=1 pinned → d=64, heads=4, lr=1.2e-4 — 2× wave-1, now family rank 2 |
 | 2026-06-11 | exp-011-rf-shallow-refine | random-forest | 0.1307 | 0.9286 | 0.2291 | 92.9 | ✓ | ✓ | un-armed | Wave 2. depth=5 pinned — Δ+0.003 vs wave 1 = noise; RF plateaued ~0.13, deprioritize |
+| 2026-06-11 | exp-012-transformer-d64-lr-refine | transformer | 0.2524 | 0.9286 | 0.3976 | 0.3 | ✓ | ✓ | un-armed | Wave 3. lr-only search re-found lr=1.3e-4 (same point); 0.2524 vs 0.2574 = noise — lr region saturated |
+| 2026-06-11 | exp-013-gcn-lowdrop-refine | gcn | 0.1566 | 0.9286 | 0.2680 | 0.9 | ✓ | ✓ | un-armed | Wave 3. dropout=0.1 pinned underperformed wave 2 (hidden=33 sampled small); 0.1871 stands as family best |
+| 2026-06-11 | exp-014-lstm-3layer-lastshot | lstm | 0.0945 | 0.9286 | 0.1721 | 0.8 | ✓ | ✓ | un-armed | Wave 3. Last shot failed the stated bar (<0.15, AUC-PR 0.27) → **family retired from the loop** |
 
 ---
 

@@ -18,6 +18,7 @@ import torch
 from training.config import T_WINDOW
 from training.hp import active_hps, hp_float, hp_int, hp_opt_int, hp_str
 from training.models.gcn import GcnFallClassifier
+from training.models.logreg import LogisticRegressionFallClassifier
 from training.models.lstm import LstmFallClassifier
 from training.models.rf import RandomForestFallClassifier
 from training.models.svm import SvmFallClassifier
@@ -98,6 +99,10 @@ class TestEnvConsumption:
         assert clf._net.head.in_features == 32
         assert clf._net.blocks[0].drop.p == 0.25
 
+    def test_logreg(self, monkeypatch):
+        monkeypatch.setenv("HARNESS_HP_C", "7.5")
+        assert LogisticRegressionFallClassifier()._clf.C == 7.5
+
     def test_explicit_kwargs_beat_env(self, monkeypatch):
         monkeypatch.setenv("HARNESS_HP_HIDDEN", "64")
         clf = LstmFallClassifier(hidden=32)
@@ -112,6 +117,10 @@ class TestDefaultPreservation:
     def test_svm_defaults(self):
         clf = SvmFallClassifier()._clf
         assert (clf.C, clf.gamma, clf.kernel) == (1.0, "scale", "rbf")
+
+    def test_logreg_defaults(self):
+        clf = LogisticRegressionFallClassifier()._clf
+        assert (clf.C, clf.class_weight, clf.max_iter) == (1.0, "balanced", 1000)
 
     def test_torch_defaults(self):
         lstm = LstmFallClassifier()

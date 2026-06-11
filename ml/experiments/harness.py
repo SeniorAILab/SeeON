@@ -90,6 +90,9 @@ SEARCH_SPACES: dict[str, dict[str, tuple]] = {
         "gamma": ("float_log", 1e-4, 0.1),
         "kernel": ("categorical", ["rbf", "linear"]),
     },
+    "logistic-regression": {
+        "C": ("float_log", 0.01, 100.0),
+    },
     "lstm": {
         "hidden": ("int", 32, 256),
         "layers": ("int", 1, 3),
@@ -411,6 +414,9 @@ def _count_params(family: str) -> int:
     if hasattr(inner, "n_support_"):
         # SVM — count support vectors.
         return int(inner.n_support_.sum())
+    if hasattr(inner, "coef_"):
+        # Linear model — count weights + intercepts.
+        return int(inner.coef_.size + inner.intercept_.size)
     return -1
 
 
