@@ -1,0 +1,8 @@
+{
+  "id": "exp-028-gcn-blocks4-probe",
+  "model_family": "gcn",
+  "hypothesis": "Phase2/boundary: blocks search space caps at 3; probe blocks=4 with the wave-2 winning hidden/lr/dropout.",
+  "hp_override": {"blocks": 4, "hidden": 110, "lr": 0.00026587543983272726, "dropout": 0.09091248360355031},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

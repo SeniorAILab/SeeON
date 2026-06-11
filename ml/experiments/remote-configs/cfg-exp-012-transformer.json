@@ -1,0 +1,8 @@
+{
+  "id": "exp-012-transformer-d64-lr-refine",
+  "model_family": "transformer",
+  "hypothesis": "Wave3/exploit: pin the full wave-2 winning arch (d=64, heads=4, layers=1) and let Optuna spend all trials on lr alone around the 1e-4 region.",
+  "hp_override": {"d_model": 64, "heads": 4, "layers": 1},
+  "n_trials": 8,
+  "trial_timeout_s": 3600
+}

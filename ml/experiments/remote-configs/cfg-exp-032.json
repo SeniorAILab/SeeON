@@ -1,0 +1,7 @@
+{
+  "id": "exp-032-rf-budget30",
+  "model_family": "random-forest",
+  "hypothesis": "Phase2/budget: 30-trial TPE on the rf space to close out the family properly before final standings.",
+  "n_trials": 30,
+  "trial_timeout_s": 3600
+}

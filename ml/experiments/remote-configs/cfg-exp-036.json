@@ -1,0 +1,8 @@
+{
+  "id": "exp-036-logreg-best-restore",
+  "model_family": "logistic-regression",
+  "hypothesis": "Restore: canonical holds the C=600 probe (0.4407); family best is C=1000 (0.4483). Expect exact reproduction.",
+  "hp_override": {"C": 1000.0},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

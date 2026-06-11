@@ -1,0 +1,8 @@
+{
+  "id": "exp-038-svm-linear-scaled-sweep",
+  "model_family": "svm",
+  "hypothesis": "Phase3/Step3 cross-validation arm: scaled linear svm, 8-trial C sweep. Margin objectives are scale-sensitive too; if scaling lifts svm's NH capability ceiling later, the exclusion verdict gets revisited.",
+  "hp_override": {"scaled": 1, "kernel": "linear", "gamma": 0.01},
+  "n_trials": 8,
+  "trial_timeout_s": 3600
+}
