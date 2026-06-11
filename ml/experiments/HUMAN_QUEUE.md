@@ -119,3 +119,19 @@ the loop records them here and continues with other work instead of blocking.
   "fall" videos are now no-fall (2026-02-19 404호, 2026-04-19 203호) —
   the no-inheritance mandate was the right call. Confirm remains
   human-only; mask freeze and the 8h run stay blocked behind it.
+- 2026-06-11 12:35 — **Autoresearch loop phase 1 complete (waves 1–7,
+  exp-003…025, ~1.5h wall).** User authorized starting without gold confirm
+  (train.py is NH-independent; NH gate defers as un-armed). Highlights:
+  HP wiring (47d3cc3) immediately productive — svm linear-kernel discovery
+  lifted P@R90 0.114→0.4333; A-axis logistic-regression family added (46
+  params, 0.04 ms) and C-curve mapped to a peak of **0.4483 at C≈1000**, a
+  statistical tie with svm at the top; transformer settled at 0.2574 (d=64,
+  1 layer), gcn 0.1871, rf 0.1307; lstm retired on a pre-stated bar. Both
+  linear families' C curves fully mapped (over-regularized and
+  near-unregularized ends both degrade). Wave 7 retrained per-family-best
+  configs — exact score reproduction 5/5 — so `ml/models/fall/*` now holds
+  the leaderboard-best artifacts, ready for post-confirm NH batch
+  evaluation. Adoption note for the human: logreg-C1000 vs svm-C16 vs
+  logreg-C29 (best AUC-PR 0.628) should be decided WITH the NH gate, not on
+  LE2I P@R90 alone. Loop idles pending gates; processed-video staging
+  transfer stalled at 3/23 (531 MB) since ~11:00 — sender-side check needed.
