@@ -20,25 +20,34 @@ from pathlib import Path
 import joblib
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from training.config import SEED
-from training.hp import hp_float
+from training.hp import hp_bool, hp_float
 
 
 class LogisticRegressionFallClassifier:
     """Fall classifier backed by L2 logistic regression.
 
     HP kwargs default to ``HARNESS_HP_*`` env overrides (harness trials),
-    then to the fixed configuration.  Conforms to the
+    then to the fixed configuration.  ``scaled=True`` (env
+    ``HARNESS_HP_SCALED``) wraps the estimator in a StandardScaler Pipeline —
+    phase-3 Step 3 (fall-loop-phase3-linear-calibration): unscaled features
+    are the leading explanation for the C-inversion anomaly.  Conforms to the
     :class:`~training.models.base.FallClassifier` Protocol.
     """
 
-    def __init__(self, C: float | None = None) -> None:
-        self._clf = LogisticRegression(
+    def __init__(self, C: float | None = None, scaled: bool | None = None) -> None:
+        est = LogisticRegression(
             C=hp_float("C", 1.0) if C is None else float(C),
             class_weight="balanced",
             random_state=SEED,
             max_iter=1000,
+        )
+        scaled = hp_bool("scaled", False) if scaled is None else bool(scaled)
+        self._clf = (
+            Pipeline([("scaler", StandardScaler()), ("clf", est)]) if scaled else est
         )
 
     # ------------------------------------------------------------------
