@@ -29,6 +29,34 @@ def render_due(
     return frame_count % max(1, render_stride) == 0
 
 
+class FallEventLatch:
+    """Latch fall *events* out of the per-frame fall signal.
+
+    The per-window classifier honestly returns to 정상 once the fall motion
+    exits its window — correct trained semantics, but the "a fall happened"
+    fact would vanish from screen. This helper detects rising edges
+    (정상→낙상) and remembers the first onset time and total onset count so
+    the UI can keep a latched badge. Pure aggregation of real inference
+    outputs — it never invents a fall (ADR-005 §5). Product-grade alerting
+    (ack flow, notifications) is backend scope (ADR-003).
+    """
+
+    def __init__(self) -> None:
+        self.event_count: int = 0
+        self.first_event_sec: float | None = None
+        self._prev_fall: bool = False
+
+    def update(self, is_fall: bool, time_sec: float) -> bool:
+        """Feed one frame's fall state; return True on a rising edge (new event)."""
+        onset = is_fall and not self._prev_fall
+        if onset:
+            self.event_count += 1
+            if self.first_event_sec is None:
+                self.first_event_sec = time_sec
+        self._prev_fall = is_fall
+        return onset
+
+
 def iter_live_frames(
     source: FrameSource,
     model: ModelModule,

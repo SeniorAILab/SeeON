@@ -37,7 +37,7 @@ from demo.demo_ui import (  # noqa: E402
     select_classifier_spec,
     select_decision_threshold,
 )
-from demo.live_view import iter_live_frames, render_due  # noqa: E402
+from demo.live_view import FallEventLatch, iter_live_frames, render_due  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
@@ -137,6 +137,7 @@ def _render_live_viewer(
         PLAYING_KEY, start_label="재생", stop_label="정지"
     )
 
+    event_ph = st.empty()
     status_ph = st.empty()
     frame_ph = st.empty()
 
@@ -160,10 +161,19 @@ def _render_live_viewer(
     target = time.perf_counter()
     processed = 0
     last_painted_fall = False
+    latch = FallEventLatch()
     for overlay, status, confidence in iter_live_frames(
         source, model, show_boxes=show_boxes, show_pose=show_pose
     ):
         processed += 1
+        # Latched event badge: repainted only on a rising edge (정상→낙상);
+        # the raw per-frame status below stays untouched (ADR-005 §5 — the
+        # badge aggregates real inference, it never invents state).
+        if latch.update(status.is_fall, processed * frame_interval):
+            event_ph.error(
+                f"🚨 낙상 감지 {latch.event_count}회 — "
+                f"최초 {latch.first_event_sec:.1f}초 시점 (영상 종료까지 유지)"
+            )
         if render_due(
             processed,
             RENDER_FRAME_STRIDE,

@@ -63,6 +63,12 @@ frame_ph.image(overlay, channels="RGB", use_container_width=True)
 - Pacing: `frame_interval = 1.0 / max(fps, 1.0)` per processed frame; sleep
   toward it with `time.sleep(delay)` when `delay > 0`. When pose can't keep
   up, playback runs slower than real time — frames are never skipped.
+- **Latched event badge** — `FallEventLatch` (demo.live_view) turns rising
+  edges of the raw fall signal into a persistent 🚨 badge (first onset time +
+  count) above the status line. It is aggregation of real inference only —
+  it never invents or extends a fall state (ADR-005 §5); the raw per-frame
+  status stays untouched. Product alerting (ack, notifications) is backend
+  scope (ADR-003), not the demo's.
 
 ## 3. Independent overlay toggles
 
