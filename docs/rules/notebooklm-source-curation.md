@@ -65,6 +65,11 @@ Venue 주관기관 메모(`sponsor_org`)는 IEEE/ACM 공동 주관 등 신뢰 �
 **실제 PDF web URL > 아카이브/abstract 페이지**.
 예: `arxiv.org/pdf/…` > `arxiv.org/abs/…`.
 
+### 메타데이터 보강 (enrichment) 파이프라인
+
+URL만 존재하고 DOI/arXiv ID가 없는 소스는 `scripts/enrichment.py`가 단계적으로 해석한다:
+URL-regex → source_describe → **defuddle** (빈·짧은 제목인 경우 페이지 fetch로 제목 추출, Node/defuddle 필요, optional) → S2 title search (confidence ≥ 0.85) → UNRESOLVABLE.
+
 ---
 
 ## 4. 신간 재심사 규칙

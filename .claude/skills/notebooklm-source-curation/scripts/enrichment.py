@@ -4,13 +4,18 @@
 Contract:
     enrich_source(url: str, title: str) -> dict
         Resolves a NotebookLM source (URL + title) to structured metadata
-        via a three-stage resolution pipeline:
-            a. URL-regex     — extract DOI/arXiv ID directly from URL
+        via a four-stage resolution pipeline:
+            a. URL-regex       — extract DOI/arXiv ID directly from URL
             b. source_describe — parse structured metadata from NotebookLM
                source_describe response (caller provides pre-fetched dict)
-            c. S2 title search — Semantic Scholar /paper/search with
+            c. defuddle        — for opaque URLs with no DOI/arXiv and an
+               unreliable title (empty / ≤20 chars / generic), fetch the page
+               via `defuddle parse <url> --json` to extract a clean title (+
+               author/published), then feed into stage d. Skipped gracefully
+               if Node/defuddle is unavailable.
+            d. S2 title search — Semantic Scholar /paper/search with
                match-confidence ≥ 0.85
-            d. UNRESOLVABLE — all three fail
+            e. UNRESOLVABLE    — all four fail
 
         Returns:
             {
@@ -19,7 +24,9 @@ Contract:
                 "year": int | None,
                 "venue": str | None,
                 "citation_count": int | None,   # None = UNRESOLVABLE (never pass)
-                "resolution_path": str,          # "url_regex" | "source_describe" | "s2_title" | "unresolvable"
+                "resolution_path": str,          # "url_regex" | "source_describe" |
+                                                 # "defuddle+s2_title" | "s2_title" |
+                                                 # "unresolvable"
             }
 
         citation_count of None means UNRESOLVABLE — callers must route to
@@ -33,6 +40,8 @@ CLI usage:
 import argparse
 import json
 import re
+import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -121,6 +130,136 @@ def _fetch_s2_for_ids(doi: Optional[str], arxiv_id: Optional[str]) -> Optional[d
     return {"citation_count": count}
 
 
+# ── Defuddle stage helpers ────────────────────────────────────────────────────
+
+_GENERIC_TITLES = frozenset({
+    "pdf", "document", "untitled", "page", "article", "paper",
+    "file", "download", "view", "read",
+})
+
+
+def _is_unreliable_title(title: str, url: str) -> bool:
+    """Return True when the stored title is too unreliable to use for S2 search.
+
+    Triggers defuddle fallback when any of:
+    - title is empty / whitespace-only
+    - title length ≤ 20 characters
+    - title (lowercased, stripped) is in the generic-titles blocklist
+    - title equals the URL's domain name (NotebookLM sometimes stores the host
+      as the title for opaque/drive sources)
+    """
+    stripped = title.strip()
+    if not stripped or len(stripped) <= 20:
+        return True
+    if stripped.lower() in _GENERIC_TITLES:
+        return True
+    try:
+        host = urllib.parse.urlparse(url).netloc.lstrip("www.").split(":")[0]
+        if stripped.lower() == host.lower():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _defuddle_extract(url: str) -> Optional[dict]:
+    """Fetch page content via defuddle and return extracted metadata.
+
+    Uses `defuddle parse <url> --json` (the kepano/defuddle CLI).
+    Availability check via shutil.which; if Node or defuddle is absent,
+    logs a one-line notice to stderr and returns None — caller falls through
+    to S2 title search unchanged.
+
+    Returns dict with keys: title (str), author (str), published (str) —
+    or None on any failure (CLI unavailable, non-zero exit, JSON parse error,
+    network timeout).
+    """
+    cmd = shutil.which("defuddle") or shutil.which("npx")
+    if not cmd:
+        print(
+            "INFO: defuddle stage skipped — neither 'defuddle' nor 'npx' found on PATH",
+            file=sys.stderr,
+        )
+        return None
+
+    # Build the invocation: `defuddle parse <url> --json`
+    # or `npx -y defuddle parse <url> --json` when using npx
+    if cmd.endswith("npx"):
+        argv = [cmd, "-y", "defuddle", "parse", url, "--json"]
+    else:
+        argv = [cmd, "parse", url, "--json"]
+
+    try:
+        proc = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        print(f"INFO: defuddle stage skipped — subprocess error: {exc}", file=sys.stderr)
+        return None
+
+    if proc.returncode != 0:
+        print(
+            f"INFO: defuddle stage skipped — exit {proc.returncode}: "
+            f"{proc.stderr.strip()[:120]}",
+            file=sys.stderr,
+        )
+        return None
+
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"INFO: defuddle stage skipped — JSON parse error: {exc}", file=sys.stderr)
+        return None
+
+    extracted_title = " ".join((data.get("title") or "").split()).strip()
+    if not extracted_title:
+        return None
+
+    extracted_title = _clean_page_title(extracted_title)
+    if not extracted_title:
+        return None
+
+    return {
+        "title": extracted_title,
+        "author": (data.get("author") or "").strip(),
+        "published": (data.get("published") or "").strip(),
+    }
+
+
+def _clean_page_title(title: str) -> str:
+    """Strip common web-page title prefixes that aren't part of the paper title.
+
+    Many academic aggregators prepend their site name or section label, e.g.:
+        "Paper page - YOLOv7: Trainable bag-of-freebies..."
+        "[PDF] Attention Is All You Need"
+        "Abstract: Masked Autoencoders Are Scalable Vision Learners"
+        "Papers With Code - CVPR 2024"
+
+    Strategy: if the title contains " - " or " | ", take the *longer* segment.
+    This works because site prefixes are usually short ("Paper page", "[PDF]",
+    "Abstract") while the actual paper title is longer.
+
+    Common bracket/tag prefixes are stripped unconditionally first.
+    """
+    # Strip leading bracket tags: "[PDF]", "[arXiv]", "[1]" etc.
+    title = re.sub(r"^\[[^\]]{1,20}\]\s*", "", title).strip()
+
+    # Split on first " - " or " | " and keep the longer segment
+    for sep in (" - ", " | ", " – ", " — "):
+        if sep in title:
+            parts = title.split(sep, 1)
+            # Keep the longer part; if roughly equal, keep the right side
+            # (site names are on the left, paper titles on the right)
+            if len(parts[0]) < len(parts[1]) or len(parts[0]) <= 20:
+                title = parts[1].strip()
+            break
+
+    return title.strip()
+
+
 def enrich_source(
     url: str,
     title: str,
@@ -131,8 +270,11 @@ def enrich_source(
     Resolution order:
         a. URL-regex (fastest, no network)
         b. source_describe metadata (caller provides pre-fetched dict, no extra call)
-        c. Semantic Scholar title search (network, confidence ≥ 0.85)
-        d. UNRESOLVABLE
+        c. defuddle page extraction (optional, requires Node/defuddle on PATH);
+           only triggered when no DOI/arXiv found and title is unreliable.
+           Feeds cleaned title into stage d.
+        d. Semantic Scholar title search (network, confidence ≥ 0.85)
+        e. UNRESOLVABLE
 
     Args:
         url: The source URL as stored in NotebookLM.
@@ -148,7 +290,8 @@ def enrich_source(
             "year": int | None,
             "venue": str | None,
             "citation_count": int | None,
-            "resolution_path": "url_regex" | "source_describe" | "s2_title" | "unresolvable",
+            "resolution_path": "url_regex" | "source_describe" |
+                               "defuddle+s2_title" | "s2_title" | "unresolvable",
         }
     """
     doi: Optional[str] = None
@@ -202,10 +345,24 @@ def enrich_source(
                     "resolution_path": resolution_path,
                 }
 
-    # ── Stage c: S2 title search ─────────────────────────────────────────────
-    if title and title.strip():
+    # ── Stage c: defuddle page extraction ───────────────────────────────────
+    # Only triggered when no DOI/arXiv ID has been found AND the stored title
+    # looks unreliable (empty / too short / generic / equals domain name).
+    # defuddle fetches the live page and extracts a clean title; that title is
+    # then fed into stage d (S2 title search) below.
+    # If defuddle is unavailable or fails, this stage is a silent no-op.
+    defuddle_used = False
+    if not doi and not arxiv_id and _is_unreliable_title(title, url):
+        extracted = _defuddle_extract(url)
+        if extracted and extracted.get("title"):
+            title = extracted["title"]   # replace unreliable title with clean one
+            defuddle_used = True
+
+    # ── Stage d: S2 title search ─────────────────────────────────────────────
+    search_title = title.strip() if title else ""
+    if search_title:
         try:
-            match = search_by_title(title, confidence_threshold=0.85)
+            match = search_by_title(search_title, confidence_threshold=0.85)
         except urllib.error.URLError:
             match = None
 
@@ -215,7 +372,7 @@ def enrich_source(
             year = year or match.get("year")
             venue = venue or match.get("venue")
             citation_count = match.get("citation_count")
-            resolution_path = "s2_title"
+            resolution_path = "defuddle+s2_title" if defuddle_used else "s2_title"
             return {
                 "doi": doi,
                 "arxiv_id": arxiv_id,
@@ -225,7 +382,7 @@ def enrich_source(
                 "resolution_path": resolution_path,
             }
 
-    # ── Stage d: UNRESOLVABLE ────────────────────────────────────────────────
+    # ── Stage e: UNRESOLVABLE ────────────────────────────────────────────────
     return {
         "doi": doi,
         "arxiv_id": arxiv_id,
@@ -243,8 +400,11 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="enrichment.py",
         description=(
             "Resolve a source URL (and optional title) to structured metadata\n"
-            "via URL-regex → source_describe → S2 title search → UNRESOLVABLE.\n\n"
-            "Outputs JSON with: doi, arxiv_id, year, venue, citation_count, resolution_path.\n"
+            "via URL-regex → source_describe → defuddle → S2 title search → UNRESOLVABLE.\n\n"
+            "defuddle stage: optional (requires Node/defuddle on PATH); triggered only when\n"
+            "no DOI/arXiv found and stored title is unreliable (empty/short/generic).\n"
+            "resolution_path values: url_regex | source_describe | defuddle+s2_title |\n"
+            "                        s2_title | unresolvable\n\n"
             "citation_count=null means UNRESOLVABLE — route to manual review, never auto-pass."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

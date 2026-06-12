@@ -60,7 +60,8 @@ Full retroactive scan of all sources in a notebook.
 1. Call `mcp_notebooklm_source_list(notebook_id)` to retrieve all sources.
 2. Run `scripts/enrichment.py` (`enrich_source(url, title)`) on each source to
    resolve DOI / arXiv ID / year / venue / citation count.
-   Resolution order: URL-regex → source_describe metadata → S2 title search
+   Resolution order: URL-regex → source_describe metadata → defuddle (opaque
+   URLs with unreliable titles only, optional) → S2 title search
    (confidence ≥ 0.85) → UNRESOLVABLE.
 3. Classify each source by type and apply gate thresholds (type-differentiated).
 4. Load `docs/rules/notebooklm-venue-only-passes.yaml` for new-paper re-audit
@@ -80,11 +81,24 @@ Full retroactive scan of all sources in a notebook.
 | Script | Contract |
 |---|---|
 | `scripts/semantic_scholar.py` | `fetch_citations(ids) -> dict[str, int \| None]` — batch S2 lookup |
-| `scripts/enrichment.py` | `enrich_source(url, title) -> dict` — URL-regex / S2 title search / UNRESOLVABLE |
+| `scripts/enrichment.py` | `enrich_source(url, title) -> dict` — URL-regex / source_describe / defuddle / S2 title search / UNRESOLVABLE |
 | `scripts/gate.py` | CLI: `gate.py <url_or_doi>` → stdout `PASS\|BLOCK\|MANUAL_REVIEW` + reason |
 | `scripts/audit.py` | CLI: `audit.py <notebook_id> [--confirm]` → violation table + optional delete |
 
 All scripts: stdlib-only Python, executable via `python3 scripts/<name>.py --help`.
+
+### defuddle enrichment stage (optional)
+
+`enrichment.py` includes a defuddle stage ([kepano/defuddle](https://github.com/kepano/defuddle),
+Obsidian Clipper content extractor) positioned between source_describe and S2
+title search. It fires only when **no DOI/arXiv ID** was found **and** the stored
+title is unreliable (empty, ≤ 20 chars, or a generic string such as `"PDF"` /
+the domain name). defuddle fetches the live page, extracts a clean title (+ author
+/ published date), strips common page-title prefixes (`"Paper page - "`,
+`"[PDF] "`, etc.), normalises whitespace, then feeds the result into S2 title
+search. `resolution_path` is set to `"defuddle+s2_title"` when this stage
+produced the match. **Requires `defuddle` (or `npx`) on PATH; skipped gracefully
+otherwise** — one `INFO:` line to stderr, pipeline continues unchanged.
 
 ---
 
