@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from demo.live_view import iter_live_frames
+from demo.live_view import iter_live_frames, render_due
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 
 
@@ -74,3 +74,42 @@ def test_iter_live_frames_overlay_matches_input_frame_shape() -> None:
 
 def test_iter_live_frames_empty_source_yields_nothing() -> None:
     assert list(iter_live_frames(_FakeSource(count=0), _ScriptedModel(fall_at=0))) == []
+
+
+class TestRenderDue:
+    def test_paints_every_stride_th_frame(self) -> None:
+        due = [
+            render_due(n, 4, is_fall=False, last_painted_fall=False) for n in range(1, 9)
+        ]
+        assert due == [False, False, False, True, False, False, False, True]
+
+    def test_fall_onset_paints_immediately(self) -> None:
+        # Frame 5 with stride 4 would normally be skipped — fall onset forces it.
+        assert render_due(5, 4, is_fall=True, last_painted_fall=False) is True
+
+    def test_fall_clear_paints_immediately(self) -> None:
+        assert render_due(5, 4, is_fall=False, last_painted_fall=True) is True
+
+    def test_steady_fall_state_keeps_decimating(self) -> None:
+        assert render_due(5, 4, is_fall=True, last_painted_fall=True) is False
+        assert render_due(8, 4, is_fall=True, last_painted_fall=True) is True
+
+    def test_stride_one_paints_everything(self) -> None:
+        assert all(
+            render_due(n, 1, is_fall=False, last_painted_fall=False) for n in range(1, 5)
+        )
+
+
+def test_app_live_source_is_not_strided() -> None:
+    """The live playback source must consume every frame (train/serve parity).
+
+    Asserted on app.py's source text to keep Streamlit out of unit tests: the
+    VideoFileSource construction carries no frame_stride argument, and the
+    legacy PLAYBACK_FRAME_STRIDE constant is gone.
+    """
+    from pathlib import Path
+
+    app_src = (Path(__file__).parent.parent / "demo" / "app.py").read_text()
+    assert "PLAYBACK_FRAME_STRIDE" not in app_src
+    assert "VideoFileSource(selected_video.path)" in app_src
+    assert "RENDER_FRAME_STRIDE" in app_src
