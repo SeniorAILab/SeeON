@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from demo.live_view import iter_live_frames, render_due
+from demo.live_view import FallEventLatch, iter_live_frames, render_due
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 
 
@@ -98,6 +98,35 @@ class TestRenderDue:
         assert all(
             render_due(n, 1, is_fall=False, last_painted_fall=False) for n in range(1, 5)
         )
+
+
+class TestFallEventLatch:
+    def test_no_fall_no_event(self) -> None:
+        latch = FallEventLatch()
+        assert not any(latch.update(False, t * 0.1) for t in range(10))
+        assert latch.event_count == 0
+        assert latch.first_event_sec is None
+
+    def test_single_onset_records_time_and_counts_once(self) -> None:
+        latch = FallEventLatch()
+        signal = [False, False, True, True, True, False]
+        onsets = [latch.update(s, i * 0.5) for i, s in enumerate(signal)]
+        assert onsets == [False, False, True, False, False, False]
+        assert latch.event_count == 1
+        assert latch.first_event_sec == 1.0
+
+    def test_reentry_counts_new_event_keeps_first_time(self) -> None:
+        latch = FallEventLatch()
+        signal = [False, True, False, False, True, True]
+        for i, s in enumerate(signal):
+            latch.update(s, float(i))
+        assert latch.event_count == 2
+        assert latch.first_event_sec == 1.0
+
+    def test_fall_on_first_frame_is_an_onset(self) -> None:
+        latch = FallEventLatch()
+        assert latch.update(True, 0.0) is True
+        assert latch.first_event_sec == 0.0
 
 
 def test_app_live_source_is_not_strided() -> None:
