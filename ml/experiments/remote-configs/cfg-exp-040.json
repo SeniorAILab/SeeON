@@ -1,0 +1,8 @@
+{
+  "id": "exp-040-svm-best-restore2",
+  "model_family": "svm",
+  "hypothesis": "Restore after Step-3 sweeps: canonical holds the scaled variant (0.3881); family best remains unscaled linear C=10.51 (0.4407, exp-033).",
+  "hp_override": {"C": 10.509751486396292, "kernel": "linear", "gamma": 0.0024609287184222386, "scaled": 0},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

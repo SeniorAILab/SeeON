@@ -1,0 +1,7 @@
+{
+  "id": "exp-004-svm-hpsearch",
+  "model_family": "svm",
+  "hypothesis": "Wave1/A+B: tuned C/gamma (log-scale) beats default C=1.0 gamma=scale (baseline P@R90 0.1140); linear kernel is a candidate on the 144-dim handcrafted features.",
+  "n_trials": 5,
+  "trial_timeout_s": 3600
+}

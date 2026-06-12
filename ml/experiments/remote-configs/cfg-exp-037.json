@@ -1,0 +1,8 @@
+{
+  "id": "exp-037-logreg-scaled-sweep",
+  "model_family": "logistic-regression",
+  "hypothesis": "Phase3/Step3: StandardScaler pipeline + 8-trial C sweep (space now 0.01-3000). If scale contamination explains the C-inversion, the P@R90-best and AUC-PR-best C should converge and the R90 threshold should move off the 0.98 knife edge.",
+  "hp_override": {"scaled": 1},
+  "n_trials": 8,
+  "trial_timeout_s": 3600
+}

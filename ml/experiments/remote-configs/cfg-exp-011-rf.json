@@ -1,0 +1,8 @@
+{
+  "id": "exp-011-rf-shallow-refine",
+  "model_family": "random-forest",
+  "hypothesis": "Wave2/exploit: pin max_depth=5 (wave1: strong regularization won) and refine n_estimators/min_samples_leaf.",
+  "hp_override": {"max_depth": 5},
+  "n_trials": 5,
+  "trial_timeout_s": 3600
+}

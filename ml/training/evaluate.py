@@ -64,10 +64,11 @@ from training.config import (
 from training.data.le2i import load_clip_metas
 from training.data.windowing import WindowDataset
 from training.metadata import ModelMetadata, artifact_dir, load_metadata, save_metadata
+from training.models import REGISTRY
 
 log = logging.getLogger(__name__)
 
-_ALL_MODEL_KEYS: tuple[str, ...] = ("random-forest", "lstm", "transformer")
+_ALL_MODEL_KEYS: tuple[str, ...] = tuple(REGISTRY.keys())
 
 
 # ---------------------------------------------------------------------------
@@ -140,20 +141,10 @@ def _metrics_at(
 
 
 def _load_model(key: str, out_dir: Path) -> object:
-    """Load a saved fall-classifier artifact from *out_dir*."""
-    if key == "random-forest":
-        from training.models.rf import RandomForestFallClassifier
-
-        return RandomForestFallClassifier.load(out_dir)
-    if key == "lstm":
-        from training.models.lstm import LstmFallClassifier
-
-        return LstmFallClassifier.load(out_dir)
-    if key == "transformer":
-        from training.models.transformer import TransformerFallClassifier
-
-        return TransformerFallClassifier.load(out_dir)
-    raise ValueError(f"Unknown model key: {key!r}")
+    """Load a saved fall-classifier artifact from *out_dir* via REGISTRY."""
+    if key not in REGISTRY:
+        raise ValueError(f"Unknown model key: {key!r}")
+    return REGISTRY[key]["factory"].load(out_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +220,7 @@ def run(
 
     for key in _ALL_MODEL_KEYS:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
-        model_file = out_dir / ("model.pkl" if key == "random-forest" else "model.pt")
+        model_file = out_dir / REGISTRY[key]["artifact_filename"]
         if not out_dir.exists() or not model_file.exists():
             log.info("No artifact for %r (expected %s) — skipping", key, out_dir)
             continue
@@ -238,8 +229,8 @@ def run(
         clf = _load_model(key, out_dir)
         meta = load_metadata(out_dir)
 
-        X_test = X_test_feat if meta.framework == "sklearn" else X_test_seq
-        y_test = y_test_feat if meta.framework == "sklearn" else y_test_seq
+        X_test = X_test_feat if REGISTRY[key]["mode"] == "features" else X_test_seq
+        y_test = y_test_feat if REGISTRY[key]["mode"] == "features" else y_test_seq
 
         y_prob: np.ndarray = clf.predict_proba(X_test)[:, 1]  # type: ignore[union-attr]
 
@@ -399,7 +390,7 @@ def _run_gold8_eval(
 
     for key in _ALL_MODEL_KEYS:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
-        model_file = out_dir / ("model.pkl" if key == "random-forest" else "model.pt")
+        model_file = out_dir / REGISTRY[key]["artifact_filename"]
         if not model_file.exists():
             continue
 
@@ -428,7 +419,7 @@ def _run_gold8_eval(
                 end = min(start + win, n)
                 window[: end - start] = kpts_arr[start:end]
 
-                if meta.framework == "sklearn":
+                if REGISTRY[key]["mode"] == "features":
                     x = extract_window_features(window)[np.newaxis]
                 else:
                     x = window.reshape(1, win, KPT_VECTOR_DIM)

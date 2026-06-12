@@ -1,0 +1,8 @@
+{
+  "id": "exp-019-svm-linear-c300-probe",
+  "model_family": "svm",
+  "hypothesis": "Wave6/probe: same weak-regularization logic applied to the svm leader — linear kernel at C=300 (beyond the 100 search boundary; wave-2 plateau was C 6-16 at 0.39-0.43).",
+  "hp_override": {"kernel": "linear", "C": 300.0, "gamma": 0.01},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

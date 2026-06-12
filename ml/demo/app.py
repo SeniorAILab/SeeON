@@ -35,6 +35,7 @@ from demo.demo_ui import (  # noqa: E402
     render_status,
     select_classifier_params,
     select_classifier_spec,
+    select_decision_threshold,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
@@ -67,12 +68,14 @@ def main() -> None:
 
     selected_spec = select_classifier_spec()
     classifier_key: str | None = selected_spec.key if selected_spec.available else None
+    decision_threshold = select_decision_threshold(selected_spec)
     classifier_params = select_classifier_params()
 
     _render_live_viewer(
         selected_video=selected_video,
         classifier_key=classifier_key,
         classifier_params=classifier_params,
+        decision_threshold=decision_threshold,
     )
 
 
@@ -123,6 +126,7 @@ def _render_live_viewer(
     selected_video: videos.RegisteredVideo,
     classifier_key: str | None,
     classifier_params: ClassifierParams,
+    decision_threshold: float | None = None,
 ) -> None:
     st.subheader("Live Playback")
     st.caption(str(selected_video.path))
@@ -144,7 +148,7 @@ def _render_live_viewer(
     # processed — that incremental render IS the live view (ADR-010). Throughput
     # is throttled by PLAYBACK_FRAME_STRIDE and paced toward the clip's real-time
     # fps below.
-    model = build_model(size, classifier_key, classifier_params)
+    model = build_model(size, classifier_key, classifier_params, decision_threshold)
     source = VideoFileSource(selected_video.path, frame_stride=PLAYBACK_FRAME_STRIDE)
     info = read_video_playback_info(selected_video.path)
     frame_interval = PLAYBACK_FRAME_STRIDE / max(info.fps, 1.0)
