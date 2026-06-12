@@ -34,7 +34,8 @@ from demo.demo_ui import (  # noqa: E402
     render_live_controls,
     render_status,
     select_classifier_params,
-    select_model_and_threshold,
+    select_classifier_spec,
+    select_decision_threshold,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
@@ -65,8 +66,9 @@ def main() -> None:
         format_func=lambda video: video.display_name,
     )
 
-    selected_spec, decision_threshold = select_model_and_threshold()
+    selected_spec = select_classifier_spec()
     classifier_key: str | None = selected_spec.key if selected_spec.available else None
+    decision_threshold = select_decision_threshold(selected_spec)
     classifier_params = select_classifier_params()
 
     _render_live_viewer(
