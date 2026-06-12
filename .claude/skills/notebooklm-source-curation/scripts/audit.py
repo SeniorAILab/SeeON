@@ -188,22 +188,44 @@ def _audit_one(
 
     source_type = _classify_source_type(url, meta)
 
-    # Dedup (flag only; don't delete duplicates automatically)
-    key = _dedup_key(meta, url)
-    if key in existing_keys:
-        # Mark as duplicate but don't auto-delete
+    # ── OTHER — always manual review, never auto-delete ───────────────────────
+    # Must be checked BEFORE dedup so an OTHER source is never given 삭제
+    # just because it shares a key with another source.
+    if source_type == "OTHER":
         return {
             "source_id": source_id,
             "title": title,
             "url": url,
-            "type": source_type,
-            "violation": f"duplicate key: {key}",
-            "disposition": _DISPOSITION_DELETE,
+            "type": "OTHER",
+            "violation": "automated gate cannot evaluate this source type",
+            "disposition": _DISPOSITION_MANUAL,
             "meta": meta,
         }
-    existing_keys.add(key)
+
+    # ── Dedup — runs for all non-OTHER sources ───────────────────────────────
+    # _dedup_key returns None when there is no DOI/arXiv and the URL is empty;
+    # in that case there is no stable identity to deduplicate against (Bug 1
+    # fix).  When a key IS present (strong DOI/arXiv or non-empty URL),
+    # duplicates are flagged 삭제 even when citation count is UNRESOLVABLE —
+    # the extra copy should be removed regardless of S2 availability.
+    key = _dedup_key(meta, url)
+    if key is not None:
+        if key in existing_keys:
+            return {
+                "source_id": source_id,
+                "title": title,
+                "url": url,
+                "type": source_type,
+                "violation": f"duplicate key: {key}",
+                "disposition": _DISPOSITION_DELETE,
+                "meta": meta,
+            }
+        existing_keys.add(key)
 
     # ── Tech doc ──────────────────────────────────────────────────────────────
+    # Evaluated BEFORE the UNRESOLVABLE check: tech docs have no S2 entry by
+    # design, so resolution_path is always "unresolvable" for them.  Domain
+    # check is the only gate that matters here.
     if source_type == "기술문서":
         ok, reason = _is_official_tech_doc(url)
         if ok:
@@ -218,19 +240,11 @@ def _audit_one(
             "meta": meta,
         }
 
-    # ── OTHER ─────────────────────────────────────────────────────────────────
-    if source_type == "OTHER":
-        return {
-            "source_id": source_id,
-            "title": title,
-            "url": url,
-            "type": "OTHER",
-            "violation": "automated gate cannot evaluate this source type",
-            "disposition": _DISPOSITION_MANUAL,
-            "meta": meta,
-        }
-
-    # ── UNRESOLVABLE ──────────────────────────────────────────────────────────
+    # ── UNRESOLVABLE — always manual review, never auto-delete ───────────────
+    # Checked AFTER dedup so that duplicate arXiv/DOI sources are still
+    # flagged 삭제 even when S2 is rate-limited (the first occurrence is
+    # UNRESOLVABLE → manual review; extra copies are duplicates → 삭제).
+    # Checked AFTER 기술문서 because tech docs legitimately have no S2 record.
     if meta["resolution_path"] == "unresolvable":
         return {
             "source_id": source_id,
