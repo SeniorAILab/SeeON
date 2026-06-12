@@ -51,7 +51,7 @@ from typing import Optional
 
 # Import sibling module — handle both direct execution and package use
 try:
-    from semantic_scholar import fetch_citations, search_by_title
+    from semantic_scholar import fetch_paper_meta, search_by_title
 except ImportError:
     import importlib.util, os as _os
     _dir = _os.path.dirname(_os.path.abspath(__file__))
@@ -60,7 +60,7 @@ except ImportError:
     )
     _mod = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
-    fetch_citations = _mod.fetch_citations
+    fetch_paper_meta = _mod.fetch_paper_meta
     search_by_title = _mod.search_by_title
 
 
@@ -81,6 +81,50 @@ _DOI_PATTERNS = [
 
 # IEEE Xplore document IDs can sometimes be resolved via DOI pattern
 _IEEE_DOC_RE = re.compile(r"ieeexplore\.ieee\.org/[^?]*document/(\d+)", re.I)
+
+# ── Title-based extraction helpers ───────────────────────────────────────────
+
+# Matches titles of the form "[1805.07694] Paper Name" or "[cs.CV/0612032] ..."
+_ARXIV_IN_TITLE_RE = re.compile(r"^\[(\d{4}\.\d{4,5})\]|^\[([a-z\-]+/\d{7})\]", re.I)
+
+# Matches trailing parenthetical containing a 4-digit year, e.g.:
+#   "(Applied Sciences 2021, 11(1):329)"  "(CVPR 2019)"  "(arXiv 2023)"
+# Allows one level of nested parens inside (e.g. "11(1):329").
+_TITLE_TRAIL_PAREN_RE = re.compile(
+    r"\s*\((?:[^()]*|\([^()]*\))*\d{4}(?:[^()]*|\([^()]*\))*\)\s*$"
+)
+
+
+def _extract_from_title(title: str) -> Optional[str]:
+    """Return arXiv ID extracted from title bracket prefix, or None.
+
+    Handles titles stored as "[1805.07694] Two-Stream Adaptive..." where the
+    arXiv ID appears as a leading bracket tag.
+    """
+    m = _ARXIV_IN_TITLE_RE.match(title.strip())
+    if not m:
+        return None
+    return m.group(1) or m.group(2)
+
+
+def _clean_title_for_search(title: str) -> str:
+    """Return a cleaned title suitable for Semantic Scholar title search.
+
+    Removes:
+    - Leading arXiv bracket prefix: "[1805.07694] " -> ""
+    - Leading generic short bracket tags: "[PDF] " -> ""
+    - Trailing parenthetical with year: "Title (Journal 2021, 5(1):12)" -> "Title"
+    """
+    cleaned = title.strip()
+    # Strip leading arXiv ID bracket: "[1805.07694] ..."
+    cleaned = re.sub(r"^\[\d{4}\.\d{4,5}\]\s*", "", cleaned)
+    # Strip leading old-style arXiv bracket: "[cs.CV/0612032] ..."
+    cleaned = re.sub(r"^\[[a-z\-]+/\d{7}\]\s*", "", cleaned, flags=re.I)
+    # Strip other short bracket prefixes like "[PDF]", "[arXiv]", "[1]"
+    cleaned = re.sub(r"^\[[^\]]{1,20}\]\s*", "", cleaned)
+    # Strip trailing parenthetical containing a year: "(Applied Sciences 2021, ...)"
+    cleaned = _TITLE_TRAIL_PAREN_RE.sub("", cleaned).strip()
+    return cleaned
 
 
 def _extract_from_url(url: str) -> tuple[Optional[str], Optional[str]]:
@@ -108,7 +152,11 @@ def _extract_from_url(url: str) -> tuple[Optional[str], Optional[str]]:
 
 
 def _fetch_s2_for_ids(doi: Optional[str], arxiv_id: Optional[str]) -> Optional[dict]:
-    """Call fetch_citations for one paper and return a metadata dict or None."""
+    """Call fetch_paper_meta for one paper and return structured metadata or None.
+
+    Returns a dict with keys: citation_count, year, venue, doi, arxiv_id.
+    Returns None if the paper is not found on S2.
+    """
     s2_id: Optional[str] = None
     if arxiv_id:
         s2_id = f"arXiv:{arxiv_id}"
@@ -119,15 +167,22 @@ def _fetch_s2_for_ids(doi: Optional[str], arxiv_id: Optional[str]) -> Optional[d
         return None
 
     try:
-        results = fetch_citations([s2_id])
+        results = fetch_paper_meta([s2_id])
     except urllib.error.URLError:
         return None
 
-    count = results.get(s2_id)
-    if count is None:
+    paper = results.get(s2_id)
+    if paper is None:
         return None  # Not found on S2
 
-    return {"citation_count": count}
+    ext_ids = paper.get("externalIds") or {}
+    return {
+        "citation_count": paper.get("citationCount"),
+        "year": paper.get("year"),
+        "venue": paper.get("venue") or "",
+        "doi": ext_ids.get("DOI"),
+        "arxiv_id": ext_ids.get("ArXiv"),
+    }
 
 
 # ── Defuddle stage helpers ────────────────────────────────────────────────────
@@ -301,14 +356,24 @@ def enrich_source(
     citation_count: Optional[int] = None
     resolution_path = "unresolvable"
 
-    # ── Stage a: URL-regex ───────────────────────────────────────────────────
+    # ── Stage a: URL-regex + title arXiv bracket extraction ──────────────────
+    # Extract IDs from the URL first, then fall back to title bracket prefix
+    # (handles titles stored as "[1805.07694] Paper Name" with empty/opaque URL).
     doi_from_url, arxiv_from_url = _extract_from_url(url)
-    if doi_from_url or arxiv_from_url:
-        doi = doi_from_url
-        arxiv_id = arxiv_from_url
+    arxiv_from_title = _extract_from_title(title) if title else None
+    doi_cand = doi_from_url
+    arxiv_cand = arxiv_from_url or arxiv_from_title  # URL takes precedence
+
+    if doi_cand or arxiv_cand:
+        doi = doi_cand
+        arxiv_id = arxiv_cand
         s2_result = _fetch_s2_for_ids(doi, arxiv_id)
         if s2_result is not None:
             citation_count = s2_result.get("citation_count")
+            year = s2_result.get("year")
+            venue = s2_result.get("venue") or ""
+            doi = doi or s2_result.get("doi")
+            arxiv_id = arxiv_id or s2_result.get("arxiv_id")
             resolution_path = "url_regex"
             return {
                 "doi": doi,
@@ -335,6 +400,10 @@ def enrich_source(
             s2_result = _fetch_s2_for_ids(doi, arxiv_id)
             if s2_result is not None:
                 citation_count = s2_result.get("citation_count")
+                year = year or s2_result.get("year")
+                venue = venue or s2_result.get("venue") or ""
+                doi = doi or s2_result.get("doi")
+                arxiv_id = arxiv_id or s2_result.get("arxiv_id")
                 resolution_path = "source_describe"
                 return {
                     "doi": doi,
@@ -359,7 +428,13 @@ def enrich_source(
             defuddle_used = True
 
     # ── Stage d: S2 title search ─────────────────────────────────────────────
-    search_title = title.strip() if title else ""
+    # Clean the title: strip arXiv bracket prefix and trailing parenthetical
+    # venue/year info (e.g. "(Applied Sciences 2021, 11(1):329)") before
+    # passing to S2, which only knows the canonical paper title.
+    raw_title = title.strip() if title else ""
+    search_title = _clean_title_for_search(raw_title) if raw_title else ""
+    if not search_title:
+        search_title = raw_title  # fallback: use as-is if cleaning removed everything
     if search_title:
         try:
             match = search_by_title(search_title, confidence_threshold=0.85)

@@ -282,12 +282,20 @@ def _min_citations_for_age(age: int, is_arxiv_only: bool, thresholds: dict) -> O
 
 # ── Dedup check ───────────────────────────────────────────────────────────────
 
-def _dedup_key(meta: dict, url: str) -> str:
-    """Return the canonical dedup key: DOI > arXiv ID > normalized URL."""
+def _dedup_key(meta: dict, url: str) -> Optional[str]:
+    """Return the canonical dedup key: DOI > arXiv ID > normalized URL.
+
+    Returns None when there is no DOI, no arXiv ID, and the URL is empty or
+    blank.  Callers must treat None as "no key — skip dedup entirely"; they
+    must NOT add None to the existing_keys set.
+    """
     if meta.get("doi"):
         return f"doi:{meta['doi'].lower()}"
     if meta.get("arxiv_id"):
         return f"arxiv:{meta['arxiv_id'].lower()}"
+    # No strong identifier — fall back to URL only when non-empty
+    if not url or not url.strip():
+        return None  # empty URL → no stable key → never deduplicate
     # Normalize URL: strip trailing slash, lowercase scheme+host
     try:
         from urllib.parse import urlparse, urlunparse
@@ -331,10 +339,10 @@ def evaluate(
         return ("MANUAL_REVIEW",
                 f"enrichment error — {exc}; route to manual review", 2)
 
-    # Dedup check
+    # Dedup check — skip entirely when there is no stable key (empty URL + no DOI/arXiv)
     if existing_keys:
         key = _dedup_key(meta, url)
-        if key in existing_keys:
+        if key is not None and key in existing_keys:
             return ("BLOCK", f"duplicate — key already present: {key}", 1)
 
     source_type = _classify_source_type(url, meta)
