@@ -1,0 +1,13 @@
+# Streamlit Community Cloud dependency file (entrypoint-directory resolution).
+# Local/dev installs keep using the ml/ uv project (pyproject.toml); this file
+# exists only so Cloud builds the demo's inference path without the training
+# extras or multi-GB CUDA wheels.
+--extra-index-url https://download.pytorch.org/whl/cpu
+streamlit==1.58.0
+ultralytics>=8.3
+opencv-python-headless>=4.10
+torch>=2.3
+scikit-learn>=1.5
+joblib>=1.4
+numpy>=1.26
+huggingface_hub>=0.25

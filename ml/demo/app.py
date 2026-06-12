@@ -38,10 +38,15 @@ from demo.demo_ui import (  # noqa: E402
     select_decision_threshold,
 )
 from demo.live_view import FallEventLatch, iter_live_frames, render_due  # noqa: E402
+from demo.model_bootstrap import ensure_fall_models  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
+
+# Cloud deploys build from the weight-less GitHub repo; reacquire fall weights
+# before any classifier load. No-op when ml/models/fall/ is already populated.
+ensure_fall_models()
 
 # Rendering decimation only — inference always consumes every consecutive
 # frame (train/serve parity, ADR-013; see demo-live-inference-frame-parity).
