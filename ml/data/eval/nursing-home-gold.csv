@@ -1,0 +1,20 @@
+video,fall_start_frame,fall_end_frame,fps,status,notes
+2021-10-27 베스트요양원1 505호,3205,3240,24.0,confirmed,"rollator walk in severe stoop, rapid backward collapse; flat f3240; caregivers f3625+"
+2025-12-17 베스트요양원1 301호,2288,2336,57.85,confirmed,slow bedside slide below bed line; detector top5 missed
+2026-01-09 베스트요양원1 202호,4864,4960,57.43,confirmed,"BORDERLINE slow-sink near toilet door, seated to video end unable to rise; confirm fall-vs-intentional-sit"
+2026-02-11 베스트요양원1 401호,1064,1296,36.27,confirmed,blanket-covered bed-exit slide; head emerges on floor f1280
+2026-02-23 베스트요양원1 203호,3920,4000,35.23,confirmed,standing -> bending -> flat on back gripping bed rail; caregivers f4550+
+2026-02-23 베스트요양원2 203호,160,200,35.44,confirmed,"climbs over bed rail, slides off; buttocks on floor f180, flat f400; detector missed"
+2026-02-25 베스트요양원1 502호,170,250,41.34,confirmed,"HUMAN-REVIEWED 2026-06-11: confirmed fall — tumbles off bed edge while gripping (rolled down, not controlled); cannot rise, raises arm f546"
+2026-03-13 베스트요양원1 3층휴게실,644,658,36.16,confirmed,rollator man collapses backward ~0.39s; caregiver reacts f647
+2026-03-13 베스트요양원2 506호,1082,1102,38.88,confirmed,bends over bedside cabinet then rapid collapse; seated on floor f1200 unable to rise
+2026-03-27 베스트요양원1 301호,6,85,36.07,confirmed,slow slide to kneeling from video head; onset barely captured
+2026-04-02 베스트요양원2 405호,1043,1077,38.07,confirmed,walker user sinks forward ~34 frames gripping walker frame
+2026-04-08 베스트요양원1 305호,680,740,35.75,confirmed,"alone, slow forward sink bracing on footboard to kneeling; caregiver ~f870"
+2026-04-08 베스트요양원2 503호,1500,1800,35.49,confirmed,"HUMAN-REVIEWED 2026-06-11: terminal fall — grips rail, slow resisted descent f1500-1740, sprawled on floor by f1800, cannot rise (sits on floor to end). Earlier f105-180 = recovered near-fall (hard negative), not the gold event"
+2026-04-16 베스트요양원1 206호,1330,1560,35.85,confirmed,slow progressive descent ~5.9s to all-fours through video end
+2026-04-19 베스트요양원2 405호,786,813,37.59,confirmed,rapid collapse at commode chair ~0.72s to prone; caregiver ~f860
+2026-05-15 베스트요양원1 206호,613,640,39.86,confirmed,walks upright then collapses beside bed headboard ~0.7s; motionless to end; detector candidate f159-188 = FP
+2026-05-18 미상 205호,65,292,23.19,confirmed,forearm-walker user textbook slow slide ~9.8s to floor-sit; caregiver ~f378
+2026-05-24 베스트요양원2 502호,1708,1722,34.67,confirmed,collapses alongside wheelchair ~0.4s; down ~3.6min; all detector hints = FPs
+2026-05-29 4층휴게실 미상,128,152,25.9,confirmed,"rollator, knees buckle to floor-sit ~0.93s; caregiver sprints in ~f155"

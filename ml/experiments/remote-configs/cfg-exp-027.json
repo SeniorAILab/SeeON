@@ -1,0 +1,7 @@
+{
+  "id": "exp-027-gcn-budget30",
+  "model_family": "gcn",
+  "hypothesis": "Phase2/budget: 30-trial TPE on the full gcn space (best nonlinear family pre-logreg). Target: beat 0.1871.",
+  "n_trials": 30,
+  "trial_timeout_s": 3600
+}

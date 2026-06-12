@@ -1,0 +1,69 @@
+{
+  "id": "exp-032-rf-budget30",
+  "model_family": "random-forest",
+  "hypothesis": "Phase2/budget: 30-trial TPE on the rf space to close out the family properly before final standings.",
+  "score": 0.1383,
+  "recall_90_achieved": true,
+  "params_count": 13280,
+  "inference_latency_ms": 49.393,
+  "latency_gate_failed": false,
+  "eval_split_hash": "532e47af3fd22763bdacc05c5e95b379775df9caf0058d4ec07ac3c34b4fbe7e",
+  "weights_path": "/Users/beomsu/Documents/01_Project/eldercare-fall-ai-worktrees/feat/74-feat-fall-detector-autoresearch-loop-on-m1-pro/ml/models/fall/random-forest/model.pkl",
+  "train_seconds": 6.38,
+  "nh_gate": {
+    "gate_passed": true,
+    "missed_fall_ids": []
+  },
+  "optuna": {
+    "n_trials": 30,
+    "best_params": {
+      "n_estimators": 104,
+      "max_depth": 17,
+      "min_samples_leaf": 6
+    },
+    "trial_scores": [
+      0.125,
+      0.1126,
+      0.1244,
+      0.1275,
+      0.102,
+      0.1307,
+      0.1182,
+      0.1161,
+      0.1032,
+      0.1053,
+      0.125,
+      0.1275,
+      0.1281,
+      0.1275,
+      0.1187,
+      0.1232,
+      0.1275,
+      0.1171,
+      0.1281,
+      0.1368,
+      0.1268,
+      0.1182,
+      0.125,
+      0.1361,
+      0.1221,
+      0.1275,
+      0.1383,
+      0.1161,
+      0.1092,
+      0.1238
+    ]
+  },
+  "timestamps": {
+    "started_at": "2026-06-11T11:56:49.295235+00:00",
+    "finished_at": "2026-06-11T12:13:54.157129+00:00"
+  },
+  "arch_flags": {},
+  "eval_metrics": {
+    "precision": 0.1383,
+    "recall": 0.9286,
+    "threshold": 0.2823,
+    "f1": 0.2407,
+    "auc_pr": 0.3842
+  }
+}

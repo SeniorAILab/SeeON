@@ -1,0 +1,8 @@
+{
+  "id": "exp-025-transformer-best-restore-fix",
+  "model_family": "transformer",
+  "hypothesis": "Wave7/restore-fix: exp-022 pinned the wrong lr (exp-012's 1.3067e-4 instead of family-best exp-010's 1.2385e-4) and reproduced 0.2524. Re-pin the exact exp-010 config; expect 0.2574.",
+  "hp_override": {"d_model": 64, "heads": 4, "layers": 1, "lr": 0.0001238513729886094},
+  "n_trials": 1,
+  "trial_timeout_s": 3600
+}

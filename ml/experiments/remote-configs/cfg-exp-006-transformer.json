@@ -1,0 +1,7 @@
+{
+  "id": "exp-006-transformer-hpsearch",
+  "model_family": "transformer",
+  "hypothesis": "Wave1/A+B: smaller d_model (32-128) with tuned lr beats the over-parameterized fixed 256 default (baseline P@R90 0.0609) on the small 28-positive-window eval set.",
+  "n_trials": 5,
+  "trial_timeout_s": 3600
+}

@@ -1,0 +1,7 @@
+{
+  "id": "exp-033-svm-budget30",
+  "model_family": "svm",
+  "hypothesis": "Phase2/budget: 30-trial TPE on the full svm space — phase-1 best (0.4333) came from an 8-trial study; more budget may find a better linear-C/gamma region.",
+  "n_trials": 30,
+  "trial_timeout_s": 3600
+}

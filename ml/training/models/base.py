@@ -7,6 +7,7 @@ net-based classifiers can share a single, DRY training loop.
 
 from __future__ import annotations
 
+import json
 import random
 from pathlib import Path
 from typing import Protocol, Self, runtime_checkable
@@ -63,23 +64,40 @@ def _set_seeds(seed: int = SEED) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
+_ARCH_FILENAME = "arch.json"
+
+
 class TorchFallClassifier:
     """Shared FallClassifier implementation for torch-net-backed models.
 
     Subclasses construct their architecture and hand the ``nn.Module`` up;
-    fit / predict_proba / save / load are identical across nets. Subclass
-    ``__init__`` must take no arguments — :meth:`load` rebuilds via ``cls()``.
+    fit / predict_proba / save / load are identical across nets.  Subclass
+    ``__init__`` must be callable with no arguments (default architecture)
+    AND with the keys of *arch* as kwargs: :meth:`save` persists *arch* to
+    ``arch.json`` and :meth:`load` rebuilds via ``cls(**arch)`` so that
+    HP-varied architectures reload correctly in processes where the
+    ``HARNESS_HP_*`` env vars are absent (evaluate / latency measurement /
+    live demo).
+
+    *lr* is consumed by :meth:`fit` (training-time HP, not part of arch).
     """
 
-    def __init__(self, net: nn.Module) -> None:
+    def __init__(
+        self,
+        net: nn.Module,
+        arch: dict[str, object] | None = None,
+        lr: float = 1e-3,
+    ) -> None:
         self._net = net
+        self._arch: dict[str, object] = dict(arch or {})
+        self._lr = float(lr)
         self._device: torch.device | None = None
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train on *X* [N, T, 51] with binary labels *y* [N]."""
         _set_seeds(SEED)
         self._device = _autodetect_device()
-        train_torch_module(self._net, X, y, device=self._device)
+        train_torch_module(self._net, X, y, device=self._device, lr=self._lr)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Return softmax probabilities [N, 2] for *X* [N, T, 51]."""
@@ -91,14 +109,27 @@ class TorchFallClassifier:
         return torch.softmax(logits, dim=-1).cpu().numpy()
 
     def save(self, directory: Path) -> None:
-        """Write ``model.pt`` (state dict) into *directory*."""
+        """Write ``model.pt`` (state dict) + ``arch.json`` into *directory*."""
         directory.mkdir(parents=True, exist_ok=True)
         torch.save(self._net.state_dict(), directory / "model.pt")
+        if self._arch:
+            (directory / _ARCH_FILENAME).write_text(
+                json.dumps(self._arch, indent=2), encoding="utf-8"
+            )
 
     @classmethod
     def load(cls, directory: Path) -> Self:
-        """Rebuild a classifier from a *directory* written by :meth:`save`."""
-        obj = cls()
+        """Rebuild a classifier from a *directory* written by :meth:`save`.
+
+        When ``arch.json`` is present the net is reconstructed with the saved
+        constructor kwargs; older artifacts without the sidecar fall back to
+        the default architecture (``cls()``), preserving backward compat.
+        """
+        arch_path = directory / _ARCH_FILENAME
+        if arch_path.exists():
+            obj = cls(**json.loads(arch_path.read_text(encoding="utf-8")))
+        else:
+            obj = cls()
         device = _autodetect_device()
         obj._net.load_state_dict(
             torch.load(directory / "model.pt", map_location=device, weights_only=True)

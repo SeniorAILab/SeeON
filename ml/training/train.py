@@ -46,10 +46,11 @@ from training.config import (
 from training.data.le2i import ClipMeta, load_clip_metas
 from training.data.windowing import WindowDataset
 from training.metadata import ModelMetadata, artifact_dir, save_metadata
+from training.models import REGISTRY
 
 log = logging.getLogger(__name__)
 
-_ALL_MODEL_KEYS: tuple[str, ...] = ("random-forest", "lstm", "transformer")
+_ALL_MODEL_KEYS: tuple[str, ...] = tuple(REGISTRY.keys())
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +126,7 @@ def run(
         When set, subsample to *N* clips (``ceil(N/2)`` fall + ``floor(N/2)``
         ADL) and cap net training at 2 epochs so the run finishes quickly.
     models:
-        Model keys to train — any subset of ``("random-forest", "lstm", "transformer")``.
+        Model keys to train — any subset of the keys in ``models.REGISTRY``.
     """
     _set_all_seeds(SEED)
 
@@ -192,6 +193,15 @@ def run(
     total_windows = train_pos + train_neg + test_pos + test_neg
     total_pos_windows = train_pos + test_pos
     fall_fraction = total_pos_windows / total_windows if total_windows > 0 else 0.0
+    if total_pos_windows == 0:
+        # Applies in smoke mode too: single-class data breaks predict_proba
+        # ([:, 1] on an (N, 1) result) and is always a data-availability bug —
+        # the smoke subsampler guarantees >=1 fall clip whenever the source has
+        # any, so zero positives means the annotations never resolved.
+        raise ValueError(
+            f"No positive (fall) windows in training data (total={total_windows}). "
+            "Check that annotation .txt files exist and annotation_dir resolves."
+        )
     if smoke_n is None and fall_fraction < 0.02:
         raise ValueError(
             f"Fall-window fraction {fall_fraction:.3f} < 0.02. "
@@ -215,21 +225,23 @@ def run(
         return _feat_arrays
 
     is_smoke = smoke_n is not None
-    requested = [k for k in _ALL_MODEL_KEYS if k in models]
+    requested = [k for k in REGISTRY if k in models]
 
-    # === 단계 5: 요청된 모델별 학습 (rf=RandomForest, lstm/transformer=PyTorch net) ===
+    # === 단계 5: 요청된 모델별 학습 — REGISTRY 구동 (mode=="features"=sklearn, mode=="sequence"=PyTorch) ===
     for key in requested:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
         print(f"[train] training {key!r} → {out_dir}")
 
-        if key == "random-forest":
-            X_tr, y_tr = _get_feat()
-            from training.models.rf import RandomForestFallClassifier
+        entry = REGISTRY[key]
+        mode = entry["mode"]
+        factory = entry["factory"]
 
-            clf_rf = RandomForestFallClassifier()
-            clf_rf.fit(X_tr, y_tr)
-            clf_rf.save(out_dir)
-            y_pred = (clf_rf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD).astype(int)
+        if mode == "features":
+            X_tr, y_tr = _get_feat()
+            clf = factory()
+            clf.fit(X_tr, y_tr)
+            clf.save(out_dir)
+            y_pred = (clf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD).astype(int)
             train_f1 = float(f1_score(y_tr, y_pred, zero_division=0))
             meta = ModelMetadata(
                 model_type=key,
@@ -240,21 +252,16 @@ def run(
                 feature_dim=FEATURE_DIM,
                 seed=SEED,
                 operating_threshold=DEFAULT_OPERATING_THRESHOLD,
+                reacquire=f"cd ml && uv run python -m training.train --models {key}",
             )
 
-        else:
+        else:  # mode == "sequence" — applies to ALL sequence-mode REGISTRY entries (lstm, transformer, gcn, …)
             X_tr, y_tr = _get_seq()
-            if key == "lstm":
-                from training.models.lstm import LstmFallClassifier
-
-                clf_net: object = LstmFallClassifier()
-            else:
-                from training.models.transformer import TransformerFallClassifier
-
-                clf_net = TransformerFallClassifier()
+            clf = factory()
 
             if is_smoke:
                 # Cap net training at 2 epochs so smoke runs finish in < 5 min CPU.
+                # Monkey-patch applies to every mode=="sequence" entry, not just lstm/transformer.
                 import training.models.base as _base
 
                 _orig_train = _base.train_torch_module
@@ -266,15 +273,15 @@ def run(
 
                 _base.train_torch_module = _capped
                 try:
-                    clf_net.fit(X_tr, y_tr)  # type: ignore[union-attr]
+                    clf.fit(X_tr, y_tr)
                 finally:
                     _base.train_torch_module = _orig_train
             else:
-                clf_net.fit(X_tr, y_tr)  # type: ignore[union-attr]
+                clf.fit(X_tr, y_tr)
 
-            clf_net.save(out_dir)  # type: ignore[union-attr]
+            clf.save(out_dir)
             y_pred = (
-                clf_net.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD  # type: ignore[union-attr]
+                clf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD
             ).astype(int)
             train_f1 = float(f1_score(y_tr, y_pred, zero_division=0))
             meta = ModelMetadata(
@@ -286,6 +293,7 @@ def run(
                 feature_dim=None,
                 seed=SEED,
                 operating_threshold=DEFAULT_OPERATING_THRESHOLD,
+                reacquire=f"cd ml && uv run python -m training.train --models {key}",
             )
 
         # === 단계 6: 아티팩트 및 메타데이터 저장 ===
@@ -325,7 +333,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--models",
         type=str,
-        default="random-forest,lstm,transformer",
+        default=",".join(REGISTRY.keys()),
         help="Comma-separated model keys to train.",
     )
     args = parser.parse_args(argv)

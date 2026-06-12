@@ -15,7 +15,17 @@ The following controls are legitimate in the demo. Do not remove them; do not
 add knobs that duplicate model-seam internals.
 
 - **Classifier selectbox** — `select_classifier_spec()` from `demo.demo_ui`;
-  renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`.
+  renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`. The registry is
+  derived from `training.models.catalog.CATALOG`: every model family whose
+  trained artifact exists on disk is exposed automatically — never hand-list
+  families in the demo.
+- **판정 임계값 slider** — `select_decision_threshold(spec)` from
+  `demo.demo_ui`; shown for available temporal models only. Default comes from
+  `demo.thresholds.default_threshold` (NH-measured operating point where one
+  exists, else the artifact's LE2I `operating_threshold`). NH values are a
+  committed demo-side mapping citing
+  `ml/experiments/analysis/phase3-step2-nh-threshold-policy.md` — metadata.json
+  is overwritten on retrain and never carries NH-derived numbers.
 - **Detection-parameter expander** — `select_classifier_params()` from
   `demo.demo_ui`; "탐지 파라미터" expander (collapsed by default) exposing
   `conf`, `window`, `stride`, `sustained_down_sec`.
