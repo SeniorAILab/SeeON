@@ -468,6 +468,156 @@ def enrich_source(
     }
 
 
+# ── Bulk enrichment ──────────────────────────────────────────────────────────
+
+def _unresolvable_meta(doi: Optional[str], arxiv_id: Optional[str]) -> dict:
+    """Return the canonical unresolvable meta dict."""
+    return {
+        "doi": doi,
+        "arxiv_id": arxiv_id,
+        "year": None,
+        "venue": None,
+        "citation_count": None,
+        "resolution_path": "unresolvable",
+    }
+
+
+def enrich_sources_bulk(
+    sources: list,
+    use_defuddle: bool = False,
+) -> dict:
+    """Bulk-enrich sources using a batched Semantic Scholar resolution strategy.
+
+    Significantly faster than calling enrich_source() per source because it
+    resolves all DOI/arXiv IDs in a single S2 batch call (up to 500 per
+    request) instead of one HTTP request per source.
+
+    Three phases:
+      Phase 1 — local extraction (zero network):
+          Extract DOI/arXiv IDs from each source URL and title bracket prefix.
+          Partition sources into:
+            (a) has_id     — DOI or arXiv ID found; resolved via batch call
+            (b) title_only — no ID, has a usable title; uses search_by_title
+            (c) empty      — no ID, no usable title; UNRESOLVABLE immediately
+      Phase 2 — single batch call:
+          Collect all IDs from group (a) and call fetch_paper_meta() once.
+          fetch_paper_meta() handles the 500-ID chunking internally.
+          Group (a) sources whose batch result is null fall through to Phase 3.
+      Phase 3 — per-title search (rate-limited at 1 req/sec):
+          Run search_by_title for group (b) sources and group (a) null
+          fallbacks. defuddle is skipped unless use_defuddle=True (it shells
+          out one subprocess per URL — slow; not suitable for bulk mode by
+          default).
+
+    Args:
+        sources:      list of dicts with keys: source_id, url, title.
+        use_defuddle: enable defuddle page fetch for unreliable titles.
+                      Default False. Pass True via --defuddle in audit CLI.
+
+    Returns:
+        dict[source_id, meta] where meta has the same shape as enrich_source():
+        doi, arxiv_id, year, venue, citation_count, resolution_path.
+    """
+    result: dict = {}
+
+    # ── Phase 1: local extraction, zero network ──────────────────────────────
+    # group_a: (source_id, url, title, doi_cand, arxiv_cand, s2_id)
+    # group_b: (source_id, url, title) — queued for per-title search
+    group_a: list = []
+    group_b: list = []
+
+    for source in sources:
+        source_id = source.get("source_id", "")
+        url = (source.get("url") or "").strip()
+        title = (source.get("title") or "").strip()
+
+        doi_cand, arxiv_cand = _extract_from_url(url)
+        if not arxiv_cand and title:
+            arxiv_cand = _extract_from_title(title) or arxiv_cand
+
+        if doi_cand or arxiv_cand:
+            s2_id = f"arXiv:{arxiv_cand}" if arxiv_cand else doi_cand
+            group_a.append((source_id, url, title, doi_cand, arxiv_cand, s2_id))
+        else:
+            search_title = _clean_title_for_search(title) if title else ""
+            if not search_title:
+                search_title = title
+            if search_title and len(search_title) > 5:
+                group_b.append((source_id, url, title))
+            else:
+                result[source_id] = _unresolvable_meta(doi=None, arxiv_id=None)
+
+    # ── Phase 2: single batch call for all group (a) IDs ────────────────────
+    batch_results: dict = {}
+    if group_a:
+        all_s2_ids = [item[5] for item in group_a]
+        try:
+            batch_results = fetch_paper_meta(all_s2_ids)
+        except Exception:
+            batch_results = {sid: None for sid in all_s2_ids}
+
+    for source_id, url, title, doi_cand, arxiv_cand, s2_id in group_a:
+        paper = batch_results.get(s2_id)
+        if paper is not None:
+            ext_ids = paper.get("externalIds") or {}
+            result[source_id] = {
+                "doi": doi_cand or ext_ids.get("DOI"),
+                "arxiv_id": arxiv_cand or ext_ids.get("ArXiv"),
+                "year": paper.get("year"),
+                "venue": paper.get("venue") or "",
+                "citation_count": paper.get("citationCount"),
+                "resolution_path": "url_regex",
+            }
+        else:
+            # Batch returned null — record extracted IDs and queue for title search
+            result[source_id] = _unresolvable_meta(doi=doi_cand, arxiv_id=arxiv_cand)
+            group_b.append((source_id, url, title))
+
+    # ── Phase 3: per-title search for group (b) + group (a) null fallbacks ───
+    for source_id, url, title in group_b:
+        prev = result.get(source_id, {})
+        prev_doi = prev.get("doi")
+        prev_arxiv = prev.get("arxiv_id")
+
+        working_title = title
+        defuddle_used = False
+        if use_defuddle and not prev_doi and not prev_arxiv:
+            if _is_unreliable_title(title, url):
+                extracted = _defuddle_extract(url)
+                if extracted and extracted.get("title"):
+                    working_title = extracted["title"]
+                    defuddle_used = True
+
+        raw = working_title.strip()
+        search_title = _clean_title_for_search(raw) if raw else ""
+        if not search_title:
+            search_title = raw
+
+        if not search_title:
+            if source_id not in result:
+                result[source_id] = _unresolvable_meta(doi=prev_doi, arxiv_id=prev_arxiv)
+            continue
+
+        try:
+            match = search_by_title(search_title, confidence_threshold=0.85)
+        except Exception:
+            match = None
+
+        if match:
+            result[source_id] = {
+                "doi": prev_doi or match.get("doi"),
+                "arxiv_id": prev_arxiv or match.get("arxiv_id"),
+                "year": match.get("year"),
+                "venue": match.get("venue"),
+                "citation_count": match.get("citation_count"),
+                "resolution_path": "defuddle+s2_title" if defuddle_used else "s2_title",
+            }
+        elif source_id not in result:
+            result[source_id] = _unresolvable_meta(doi=prev_doi, arxiv_id=prev_arxiv)
+
+    return result
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 def _build_parser() -> argparse.ArgumentParser:

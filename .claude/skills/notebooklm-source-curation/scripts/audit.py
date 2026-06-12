@@ -45,7 +45,7 @@ from typing import Optional
 
 # Sibling module imports
 try:
-    from enrichment import enrich_source
+    from enrichment import enrich_source, enrich_sources_bulk
     from gate import (
         _classify_source_type,
         _dedup_key,
@@ -66,6 +66,7 @@ except ImportError:
         _spec.loader.exec_module(_m)
         if _name == "enrichment":
             enrich_source = _m.enrich_source
+            enrich_sources_bulk = _m.enrich_sources_bulk
         elif _name == "gate":
             _classify_source_type = _m._classify_source_type
             _dedup_key = _m._dedup_key
@@ -166,25 +167,36 @@ def _audit_one(
     thresholds: dict,
     existing_keys: set[str],
     venue_passes: list[dict],
+    pre_resolved_meta: Optional[dict] = None,
 ) -> dict:
-    """Audit one source. Returns a result dict with disposition."""
+    """Audit one source. Returns a result dict with disposition.
+
+    Args:
+        pre_resolved_meta: enriched meta dict from enrich_sources_bulk().
+            When provided, skips the enrich_source() network call.
+            Falls back to enrich_source() when None (standalone use).
+    """
     source_id = source.get("source_id", "")
     url = source.get("url", "")
     title = source.get("title", "")
 
-    # Enrich
-    try:
-        meta = enrich_source(url, title)
-    except Exception as exc:
-        return {
-            "source_id": source_id,
-            "title": title,
-            "url": url,
-            "type": "UNRESOLVABLE",
-            "violation": f"enrichment error: {exc}",
-            "disposition": _DISPOSITION_MANUAL,
-            "meta": {},
-        }
+    # Enrich: use pre-resolved meta when available (bulk audit path),
+    # fall back to per-source enrich_source() for standalone / gate use.
+    if pre_resolved_meta is not None:
+        meta = pre_resolved_meta
+    else:
+        try:
+            meta = enrich_source(url, title)
+        except Exception as exc:
+            return {
+                "source_id": source_id,
+                "title": title,
+                "url": url,
+                "type": "UNRESOLVABLE",
+                "violation": f"enrichment error: {exc}",
+                "disposition": _DISPOSITION_MANUAL,
+                "meta": {},
+            }
 
     source_type = _classify_source_type(url, meta)
 
@@ -496,8 +508,16 @@ def run_audit(
     sources: list[dict],
     confirm: bool = False,
     allowlist_path: Optional[str] = None,
+    use_defuddle: bool = False,
 ) -> int:
-    """Run audit on a list of sources. Returns exit code."""
+    """Run audit on a list of sources. Returns exit code.
+
+    Args:
+        use_defuddle: enable defuddle page fetch for unreliable titles in
+            bulk enrichment (slow — one subprocess per URL). Default False.
+            Pass True via --defuddle CLI flag when live page extraction is
+            needed for opaque/Drive sources.
+    """
     if not sources:
         print("No sources found.", file=sys.stderr)
         return 2
@@ -510,12 +530,25 @@ def run_audit(
     existing_keys: set[str] = set()
     total = len(sources)
 
+    # ── Phase 0: bulk enrichment (batch S2 + per-title fallback) ─────────────
+    # One batch HTTP call resolves all DOI/arXiv IDs; title searches only for
+    # the remainder. This reduces 138 sources from ~70 min → ~2–5 min.
+    print(f"Bulk-enriching {total} sources (batch S2 + per-title fallback) ...")
+    try:
+        bulk_meta = enrich_sources_bulk(sources, use_defuddle=use_defuddle)
+    except Exception as exc:
+        print(f"WARNING: bulk enrichment raised {exc!r}; proceeding with per-source enrichment",
+              file=sys.stderr)
+        bulk_meta = {}
+
     print(f"Auditing {total} sources in notebook {notebook_id} ...")
     results: list[dict] = []
     for i, source in enumerate(sources, 1):
         title_short = (source.get("title") or source.get("url", ""))[:50]
         print(f"  [{i}/{total}] {title_short}", end="\r")
-        result = _audit_one(source, allowlist, thresholds, existing_keys, venue_passes)
+        pre_meta = bulk_meta.get(source.get("source_id", ""))
+        result = _audit_one(source, allowlist, thresholds, existing_keys, venue_passes,
+                            pre_resolved_meta=pre_meta)
         results.append(result)
     print()
 
@@ -639,6 +672,17 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Path to notebooklm-venue-allowlist.yaml (auto-detected if omitted)",
     )
+    p.add_argument(
+        "--defuddle",
+        action="store_true",
+        help=(
+            "Enable defuddle page-fetch stage for sources with unreliable titles "
+            "(no DOI/arXiv + empty/short/generic stored title). "
+            "Shells out one subprocess per affected URL — slow. "
+            "Disabled by default in bulk audit mode; use only when live page "
+            "extraction is needed for opaque or Google Drive sources."
+        ),
+    )
     return p
 
 
@@ -665,6 +709,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         sources=sources,
         confirm=args.confirm,
         allowlist_path=args.allowlist,
+        use_defuddle=args.defuddle,
     )
 
 

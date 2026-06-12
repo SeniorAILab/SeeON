@@ -58,11 +58,16 @@ Full retroactive scan of all sources in a notebook.
 ### Workflow
 
 1. Call `mcp_notebooklm_source_list(notebook_id)` to retrieve all sources.
-2. Run `scripts/enrichment.py` (`enrich_source(url, title)`) on each source to
-   resolve DOI / arXiv ID / year / venue / citation count.
-   Resolution order: URL-regex → source_describe metadata → defuddle (opaque
-   URLs with unreliable titles only, optional) → S2 title search
-   (confidence ≥ 0.85) → UNRESOLVABLE.
+2. Run `scripts/audit.py` bulk enrichment (`enrich_sources_bulk(sources)`):
+   **Phase 1** (zero-network): extract DOI/arXiv IDs from all URLs and title
+   bracket prefixes; partition into (a) has-ID, (b) title-only, (c) empty.
+   **Phase 2** (one batch call): resolve all group-(a) IDs via a single
+   `POST /paper/batch` to Semantic Scholar (up to 500 IDs per request).
+   **Phase 3** (per-title, rate-limited): `search_by_title` for group (b) +
+   group (a) nulls. defuddle is **disabled by default** in audit bulk mode;
+   enable with `--defuddle` (see below).
+   Resolution paths: `url_regex` | `s2_title` | `defuddle+s2_title` |
+   `unresolvable`.
 3. Classify each source by type and apply gate thresholds (type-differentiated).
 4. Load `docs/rules/notebooklm-venue-only-passes.yaml` for new-paper re-audit
    (venue-only passes from previous cycle re-evaluated at current age).
@@ -80,10 +85,10 @@ Full retroactive scan of all sources in a notebook.
 
 | Script | Contract |
 |---|---|
-| `scripts/semantic_scholar.py` | `fetch_citations(ids) -> dict[str, int \| None]` — batch S2 lookup |
-| `scripts/enrichment.py` | `enrich_source(url, title) -> dict` — URL-regex / source_describe / defuddle / S2 title search / UNRESOLVABLE |
+| `scripts/semantic_scholar.py` | `fetch_citations(ids)`, `fetch_paper_meta(ids)` — batch S2 lookup (up to 500 IDs/call) |
+| `scripts/enrichment.py` | `enrich_source(url, title) -> dict` — single-source pipeline (gate use); `enrich_sources_bulk(sources, use_defuddle=False) -> dict[source_id, meta]` — bulk audit path |
 | `scripts/gate.py` | CLI: `gate.py <url_or_doi>` → stdout `PASS\|BLOCK\|MANUAL_REVIEW` + reason |
-| `scripts/audit.py` | CLI: `audit.py <notebook_id> [--confirm]` → violation table + optional delete |
+| `scripts/audit.py` | CLI: `audit.py <notebook_id> [--confirm] [--defuddle]` → bulk enrichment + violation table + optional delete |
 
 All scripts: stdlib-only Python, executable via `python3 scripts/<name>.py --help`.
 
@@ -99,6 +104,13 @@ the domain name). defuddle fetches the live page, extracts a clean title (+ auth
 search. `resolution_path` is set to `"defuddle+s2_title"` when this stage
 produced the match. **Requires `defuddle` (or `npx`) on PATH; skipped gracefully
 otherwise** — one `INFO:` line to stderr, pipeline continues unchanged.
+
+**Audit bulk mode**: defuddle is **disabled by default** (`--defuddle` not set)
+because it shells out one subprocess per affected URL and is slow at scale.
+Enable it only when live page extraction is needed for opaque / Google Drive
+sources: `python3 scripts/audit.py <id> --defuddle`.
+`enrich_source()` (used by `gate.py` for single-source evaluation) still
+runs defuddle unconditionally when triggered by an unreliable title.
 
 ---
 
