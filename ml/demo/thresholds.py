@@ -16,7 +16,6 @@ to their LE2I threshold.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Final
 
 from training.metadata import artifact_dir, load_metadata
@@ -28,34 +27,6 @@ NH_RECOMMENDED_THRESHOLDS: Final[dict[str, float]] = {
     "logistic_regression": 0.10,  # 17/19 @ 9.7% FP
     "transformer": 0.133,  # 18/19 @ 16.4% FP (its LE2I op, NH-validated)
 }
-
-
-@dataclass(frozen=True, slots=True)
-class OperatingPreset:
-    """A named (model, threshold) operating point — one click sets both."""
-
-    label: str
-    key: str  # demo classifier key
-    threshold: float
-    description: str
-
-
-# The gate-2 frontier candidates (phase3-step2 v2) as one-click presets, so an
-# operator can A/B the actual adoption decision without dialing model+slider.
-GATE2_PRESETS: Final[tuple[OperatingPreset, ...]] = (
-    OperatingPreset(
-        label="GCN @ 0.30",
-        key="gcn",
-        threshold=0.30,
-        description="재현율 우선 — 낙상 18/19 포착, 오경보 10.5% (gate-2 후보 A)",
-    ),
-    OperatingPreset(
-        label="RF @ 0.20",
-        key="random_forest",
-        threshold=0.20,
-        description="균형형 — 낙상 15/19 포착, 오경보 6.4% (gate-2 후보 B)",
-    ),
-)
 
 
 def default_threshold(key: str) -> float | None:

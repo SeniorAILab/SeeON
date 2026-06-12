@@ -13,9 +13,7 @@ from demo.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPos
 from demo.playback_status import CurrentPlaybackStatus
 from demo.seam import ModelModule
 from demo.temporal_module import TEMPORAL_MODEL_KEYS
-from demo.thresholds import GATE2_PRESETS, default_threshold
-
-_MANUAL_PRESET_LABEL = "직접 선택"
+from demo.thresholds import default_threshold
 
 
 def build_model(
@@ -120,47 +118,6 @@ def select_decision_threshold(spec: ClassifierSpec) -> float | None:
             ),
         )
     )
-
-
-def select_model_and_threshold() -> tuple[ClassifierSpec, float | None]:
-    """Render the 운영점 프리셋 control + model/threshold selection as one block.
-
-    A preset (gate-2 frontier candidate, demo.thresholds.GATE2_PRESETS) sets
-    model AND threshold in one click; 직접 선택 falls back to the classifier
-    selectbox with the per-model default threshold. The slider is always
-    rendered for available temporal models so the chosen point can be nudged.
-    """
-    preset_labels = [_MANUAL_PRESET_LABEL, *(p.label for p in GATE2_PRESETS)]
-    selected_label = st.segmented_control(
-        "운영점 프리셋 (gate-2 후보)",
-        options=preset_labels,
-        default=_MANUAL_PRESET_LABEL,
-        help="모델과 판정 임계값을 한 번에 설정합니다 — phase3-step2 NH 실측 운영점.",
-    )
-
-    preset = next((p for p in GATE2_PRESETS if p.label == selected_label), None)
-    if preset is None:
-        spec = select_classifier_spec()
-        return spec, select_decision_threshold(spec)
-
-    spec = next(s for s in CLASSIFIER_REGISTRY if s.key == preset.key)
-    if not spec.available:
-        st.warning(f"{spec.display_name} 아티팩트가 없어 프리셋을 적용할 수 없습니다.")
-        spec = select_classifier_spec()
-        return spec, select_decision_threshold(spec)
-
-    st.caption(f"**{spec.display_name}** · {preset.description}")
-    threshold = float(
-        st.slider(
-            "판정 임계값 (fall probability)",
-            min_value=0.0,
-            max_value=1.0,
-            value=preset.threshold,
-            step=0.005,
-            help="프리셋 운영점에서 시작합니다 — 움직여서 오경보/포착 변화를 비교해 보세요.",
-        )
-    )
-    return spec, threshold
 
 
 def select_classifier_params() -> ClassifierParams:
