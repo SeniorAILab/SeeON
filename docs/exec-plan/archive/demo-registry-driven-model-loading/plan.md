@@ -6,7 +6,7 @@ date: 2026-06-12
 owner: gobeumsu
 issue: 74
 created-from-spec: demo-registry-driven-model-loading/spec.md
-status: active
+status: done
 ---
 <!-- NOTE: plan body is immutable after finalize (first commit including this file).
      Scope change -> new slug + status: superseded-by. -->
