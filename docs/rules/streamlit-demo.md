@@ -55,8 +55,14 @@ frame_ph.image(overlay, channels="RGB", use_container_width=True)
   new image elements in a loop (causes infinite DOM growth).
 - Do **not** write mp4 files or call `st.video()` for the live-loop playback
   path.
-- Pacing: compute `frame_interval = frame_stride / max(fps, 1.0)` and sleep
-  toward it with `time.sleep(delay)` when `delay > 0`.
+- **Inference is never strided.** The model consumes every consecutive frame
+  (stride-1 `VideoFileSource`) so live windows match the training/eval
+  pipelines (ADR-013 anti-skew). Only the *repaint* is decimated — every
+  `RENDER_FRAME_STRIDE`-th frame via `render_due()`, which also repaints
+  immediately on any fall-state change so decimation never delays an alarm.
+- Pacing: `frame_interval = 1.0 / max(fps, 1.0)` per processed frame; sleep
+  toward it with `time.sleep(delay)` when `delay > 0`. When pose can't keep
+  up, playback runs slower than real time — frames are never skipped.
 
 ## 3. Independent overlay toggles
 

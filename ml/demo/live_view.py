@@ -10,6 +10,25 @@ from demo.seam import FrameSource, ModelModule
 from demo.yolo_overlay import render_yolo_overlay
 
 
+def render_due(
+    frame_count: int,
+    render_stride: int,
+    *,
+    is_fall: bool,
+    last_painted_fall: bool,
+) -> bool:
+    """Decide whether the UI should repaint for this processed frame.
+
+    Inference always runs on every consecutive frame (train/serve parity,
+    ADR-013); only *painting* is decimated to every ``render_stride``-th
+    frame. A change in fall state repaints immediately so decimation can
+    never delay an alarm — in either direction.
+    """
+    if is_fall != last_painted_fall:
+        return True
+    return frame_count % max(1, render_stride) == 0
+
+
 def iter_live_frames(
     source: FrameSource,
     model: ModelModule,
