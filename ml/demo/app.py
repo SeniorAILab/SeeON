@@ -37,13 +37,15 @@ from demo.demo_ui import (  # noqa: E402
     select_classifier_spec,
     select_decision_threshold,
 )
-from demo.live_view import iter_live_frames  # noqa: E402
+from demo.live_view import iter_live_frames, render_due  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
 st.set_page_config(page_title="Fall Detector Demo", layout="wide")
 
-PLAYBACK_FRAME_STRIDE: Final = 4
+# Rendering decimation only — inference always consumes every consecutive
+# frame (train/serve parity, ADR-013; see demo-live-inference-frame-parity).
+RENDER_FRAME_STRIDE: Final = 4
 PLAYING_KEY: Final = "live_playing"
 
 
@@ -144,30 +146,40 @@ def _render_live_viewer(
 
     # Streamlit is single-threaded: the render loop below blocks the script run,
     # so 정지 takes effect at the start of the next rerun rather than mid-clip.
-    # The loop still paints each frame into the placeholders the instant it is
-    # processed — that incremental render IS the live view (ADR-010). Throughput
-    # is throttled by PLAYBACK_FRAME_STRIDE and paced toward the clip's real-time
-    # fps below.
+    # Inference consumes EVERY consecutive frame (stride-1 source) so live
+    # windows match the training/eval pipelines (ADR-013 anti-skew); only the
+    # placeholder repaint is decimated via render_due — that incremental
+    # render IS the live view (ADR-010). Pacing targets the clip's native fps
+    # and degrades to slower-than-real-time when pose can't keep up — frames
+    # are never skipped to catch up.
     model = build_model(size, classifier_key, classifier_params, decision_threshold)
-    source = VideoFileSource(selected_video.path, frame_stride=PLAYBACK_FRAME_STRIDE)
+    source = VideoFileSource(selected_video.path)
     info = read_video_playback_info(selected_video.path)
-    frame_interval = PLAYBACK_FRAME_STRIDE / max(info.fps, 1.0)
+    frame_interval = 1.0 / max(info.fps, 1.0)
 
     target = time.perf_counter()
-    rendered = 0
+    processed = 0
+    last_painted_fall = False
     for overlay, status, confidence in iter_live_frames(
         source, model, show_boxes=show_boxes, show_pose=show_pose
     ):
-        frame_ph.image(overlay, channels="RGB", use_container_width=True)
-        render_status(status_ph, status, confidence)
-        rendered += 1
+        processed += 1
+        if render_due(
+            processed,
+            RENDER_FRAME_STRIDE,
+            is_fall=status.is_fall,
+            last_painted_fall=last_painted_fall,
+        ):
+            frame_ph.image(overlay, channels="RGB", use_container_width=True)
+            render_status(status_ph, status, confidence)
+            last_painted_fall = status.is_fall
         target += frame_interval
         delay = target - time.perf_counter()
         if delay > 0:
             time.sleep(delay)
 
     st.session_state[PLAYING_KEY] = False
-    status_ph.info(f"재생 완료 — {rendered} 프레임 처리됨. 다시 재생하려면 ▶︎ 재생.")
+    status_ph.info(f"재생 완료 — {processed} 프레임 처리됨. 다시 재생하려면 ▶︎ 재생.")
 
 
 if __name__ == "__main__":
