@@ -19,3 +19,9 @@ command = "notebooklm-mcp"
 # Both layers call the SAME scripts/git-guard/ scripts (single source of truth — D6).
 # deny-assets.sh staged is chained after assert-not-main for early asset-upload guidance.
 pre_tool_use = "sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/assert-not-main.sh\" && sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/deny-assets.sh\" staged"
+
+# Managed by LazyCodex: multi_agent_v2 is re-disabled on every Codex session start
+# because enabling it fails every turn with HTTP 400 (openai/codex#26753).
+# Opt out: LAZYCODEX_CONFIG_MIGRATION_DISABLED=1 (or OMO_CODEX_CONFIG_MIGRATION_DISABLED=1).
+[features.multi_agent_v2]
+enabled = false
