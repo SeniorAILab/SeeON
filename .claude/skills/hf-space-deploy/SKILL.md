@@ -40,9 +40,9 @@ free 16GB / 2-vCPU CPU tier) and verify real inference on the live URL.
 Assemble the Space contents in a scratch dir (convention: `/tmp/hf-space-eldercare-fall-demo/`):
 
 ```
-Dockerfile            # from assets/Dockerfile — do not weaken, see "Crash class"
-requirements.txt      # from assets/requirements.txt — pinned CPU wheels
-smoke.py              # from assets/smoke.py — boot canary, optional once stable
+Dockerfile            # from templates/Dockerfile — do not weaken, see "Crash class"
+requirements.txt      # from templates/requirements.txt — pinned CPU wheels
+smoke.py              # from templates/smoke.py — boot canary, optional once stable
 README.md             # HF Space card: sdk: docker, app_port: 7860
 .streamlit/config.toml
 demo/                 # copy of ml/demo (Space copy may add faulthandler.enable())
@@ -51,7 +51,7 @@ models/pose/*.pt      # YOLO pose weights
 models/fall/{gcn,random-forest,...}/   # model.pt + metadata.json
 ```
 
-Copy `assets/Dockerfile`, `assets/requirements.txt`, `assets/smoke.py` from this
+Copy `templates/Dockerfile`, `templates/requirements.txt`, `templates/smoke.py` from this
 skill into the staging dir rather than rewriting them.
 
 ## Crash class — why the Dockerfile looks like that
@@ -149,6 +149,6 @@ Known quirks: websocket sessions drop after clip completion and reset the page
   annotated fall at demo thresholds — note the gap between trained
   `operating_threshold` (GCN 0.026 / RF 0.09) and demo gate-2 presets
   (0.30 / 0.20) before concluding the model is blind.
-- The hardened Dockerfile lives only in the Space repo + this skill's `assets/`;
+- The hardened Dockerfile lives only in the Space repo + this skill's `templates/`;
   `ml/demo/requirements.txt` on main is unpinned and unhardened — apply the
   same hardening before any Streamlit Community Cloud deploy.
