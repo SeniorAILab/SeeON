@@ -19,7 +19,11 @@ from demo.temporal_module import (
     TEMPORAL_MODEL_KEYS,
     build_temporal_model,
 )
-from demo.thresholds import NH_RECOMMENDED_THRESHOLDS, default_threshold
+from demo.thresholds import (
+    GATE2_PRESETS,
+    NH_RECOMMENDED_THRESHOLDS,
+    default_threshold,
+)
 from training.data.features import extract_window_features
 from training.metadata import ModelMetadata, save_metadata
 from training.models.catalog import CATALOG, load_model_class
@@ -80,6 +84,20 @@ class TestThresholdDefaults:
 
     def test_none_for_unknown_key(self) -> None:
         assert default_threshold("__nonexistent__") is None
+
+
+class TestGate2Presets:
+    def test_preset_keys_are_valid_demo_keys(self) -> None:
+        for preset in GATE2_PRESETS:
+            assert preset.key in TEMPORAL_MODEL_KEYS
+
+    def test_preset_thresholds_match_nh_recommendations(self) -> None:
+        for preset in GATE2_PRESETS:
+            assert preset.threshold == pytest.approx(NH_RECOMMENDED_THRESHOLDS[preset.key])
+
+    def test_preset_labels_unique(self) -> None:
+        labels = [p.label for p in GATE2_PRESETS]
+        assert len(labels) == len(set(labels))
 
 
 class TestThresholdOverridePlumbing:
