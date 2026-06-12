@@ -127,6 +127,31 @@ runs defuddle unconditionally when triggered by an unreliable title.
 | `SRC_GATE_AUTHOR_MIN` | `3` | Frequent-author threshold for expansion candidates |
 | `S2_API_KEY` | _(empty)_ | Semantic Scholar API key; if set, reduces rate limit to 100ms |
 
+### .env file support
+
+All variables above can be placed in a `.env` file instead of being set in the
+shell. `semantic_scholar.py` loads `.env` automatically at import time (stdlib-only,
+no `python-dotenv` dependency). Because every other script in this skill imports
+`semantic_scholar` first, `.env` is effectively loaded for the entire pipeline.
+
+**Search order** (first file found wins):
+1. `<repo_root>/.env` — resolved via `parents[4]` / `parents[3]` from the script
+2. `./.env` — current working directory
+
+**Rules:**
+- Real environment variables always win — `.env` never overrides an already-set key.
+- Blank lines and `#` comments are ignored.
+- Values may be quoted with `'` or `"` (quotes are stripped).
+- Leading `export ` prefix is tolerated.
+
+**Setup:**
+```bash
+cp .env.example .env          # .env is gitignored; .env.example is tracked
+# Edit .env and set S2_API_KEY=<your-key>
+```
+
+`.env.example` at the repo root documents all supported variables with their defaults.
+
 ---
 
 ## Dedup keys (DOI > arXiv ID > normalized URL)

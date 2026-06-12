@@ -35,7 +35,61 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Optional
+
+
+# ── .env loader (stdlib-only, runs once at module import) ────────────────────
+
+_ENV_SEARCH_PATHS = [
+    Path(__file__).parents[4] / ".env",  # repo root via .claude/skills/.../scripts/
+    Path(__file__).parents[3] / ".env",  # one level up (handles .agents/skills depth)
+]
+
+
+def _load_dotenv() -> None:
+    """Load a .env file into os.environ; real environment variables always win.
+
+    Search order:
+        1. <repo_root>/.env  — via parents[4] then parents[3] from this script
+        2. ./.env            — current working directory (fallback)
+
+    Parsing rules:
+        - Blank lines and lines starting with '#' are ignored.
+        - Leading 'export ' prefix is stripped (tolerated, not required).
+        - Values may be surrounded by single or double quotes (stripped).
+        - No variable interpolation is performed.
+        - If a key is already present in os.environ it is never overwritten.
+    """
+    candidates = list(_ENV_SEARCH_PATHS) + [Path(".env")]
+    for path in candidates:
+        try:
+            if not path.exists():
+                continue
+            with open(path) as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if not _line or _line.startswith("#"):
+                        continue
+                    if _line.startswith("export "):
+                        _line = _line[7:].strip()
+                    if "=" not in _line:
+                        continue
+                    _key, _, _val = _line.partition("=")
+                    _key = _key.strip()
+                    _val = _val.strip()
+                    if (len(_val) >= 2
+                            and _val[0] == _val[-1]
+                            and _val[0] in ('"', "'")):
+                        _val = _val[1:-1]
+                    if _key and _key not in os.environ:
+                        os.environ[_key] = _val
+            break  # stop at the first .env file found
+        except OSError:
+            continue
+
+
+_load_dotenv()
 
 _S2_BATCH_URL = "https://api.semanticscholar.org/graph/v1/paper/batch"
 _S2_SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
