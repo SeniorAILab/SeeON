@@ -226,3 +226,24 @@ npm test -- --testPathPatterns="e2e-ac12"
 | `400 TenantMismatch` | `--facility-id` doesn't match the camera's org. Use the org ID printed by seed. |
 | Kakao `redirect_uri_mismatch` | Add `http://localhost:3001/auth/kakao/callback` to Kakao app's allowed redirect URIs. |
 | DB connection refused | Run `pnpm db:up` and wait for the container to be healthy. |
+
+---
+
+## Appendix — Seeded browser demo (no Kakao, automated evidence)
+
+For AC5/AC6/AC12 browser verification **without** real Kakao credentials, a seeded
+owner session can be minted (dev-only; requires `DIRECT_URL` + built `dist/`):
+
+```bash
+cd backend
+npm run build
+node_modules/.bin/dotenv -e .env.development -- node dist/src/main.js &   # backend :3000
+(cd ../front && BACKEND_ORIGIN=http://localhost:3000 npx next dev -p 3001 &)  # front :3001
+node_modules/.bin/dotenv -e .env.development -- node scripts/mint-demo-session.cjs
+# → prints {"cookie":"app_session=…","orgId":"demo-org-01","residentId":…}
+```
+
+Set the printed `app_session` cookie for `localhost`, open `http://localhost:3001/dashboard`,
+then run the `sim-fall.ts` injector (step 8). The "실시간 낙상 피드" updates live via SSE.
+Verified 2026-06-13: injected FALL (p=0.95) → feed card "홍길동 · 낙상 감지 — 신뢰도 95% · NEW"
+appeared without page reload. Only the real Kakao OAuth consent/login step (§7) requires console keys.
