@@ -10,6 +10,8 @@ from demo.seam import BoundingBox, DetectionLabel, DetectionResult
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)
+# Static bed ROI — yellow, visually distinct from person (green) / fall (red).
+BED_BOX_COLOR: Final = (255, 200, 0)
 CAPTION_TEXT_COLOR: Final = (16, 16, 16)
 CAPTION_FONT_SCALE: Final = 0.5
 CAPTION_THICKNESS: Final = 1
@@ -40,14 +42,18 @@ def render_yolo_overlay(
     result: DetectionResult,
     show_boxes: bool = True,
     show_pose: bool = True,
+    show_bed_box: bool = True,
 ) -> NDArray[np.uint8]:
-    """Render bounding boxes and/or pose skeleton from a normalised DetectionResult.
+    """Render the bed ROI, bounding boxes, and/or pose skeleton from a DetectionResult.
 
-    ``show_boxes`` and ``show_pose`` are independent: any of the four
-    combinations renders correctly. With both off, a clean copy of the input
-    frame is returned.
+    ``show_boxes``, ``show_pose``, and ``show_bed_box`` are independent: any
+    combination renders correctly. With all off, a clean copy of the input frame
+    is returned. The bed ROI is drawn first (underneath) so person boxes stay
+    legible on top; it is a no-op when ``result.bed_box`` is ``None`` (no bed).
     """
     overlay = frame.copy()
+    if show_bed_box and result.bed_box is not None:
+        _draw_bed_box(overlay=overlay, bed_box=result.bed_box)
     if show_boxes:
         for box, label in zip(result.boxes, result.labels, strict=True):
             _draw_detection_box(overlay=overlay, box=box, label=label)
@@ -55,6 +61,20 @@ def render_yolo_overlay(
         for pose in result.keypoints:
             _draw_pose(overlay=overlay, keypoints=pose)
     return overlay
+
+
+def _draw_bed_box(overlay: NDArray[np.uint8], bed_box: BoundingBox) -> None:
+    """Draw the static bed ROI rectangle + an ASCII "BED" caption."""
+    cv2.rectangle(
+        overlay, (bed_box.x1, bed_box.y1), (bed_box.x2, bed_box.y2), BED_BOX_COLOR, 2
+    )
+    _draw_caption(
+        overlay=overlay,
+        text="BED",
+        x=bed_box.x1,
+        y=bed_box.y1,
+        color=BED_BOX_COLOR,
+    )
 
 
 def _draw_detection_box(
