@@ -204,9 +204,17 @@ ALTER TABLE "ResidentStatus" ADD CONSTRAINT "ResidentStatus_orgId_residentId_fke
 -- AddForeignKey
 ALTER TABLE "ResidentStatus" ADD CONSTRAINT "ResidentStatus_orgId_sourceId_fkey" FOREIGN KEY ("orgId", "sourceId") REFERENCES "Camera"("orgId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- ─── RLS: Enable + Force on all tenant tables (ADR-A / NR1) ─────────────────
--- FORCE ROW LEVEL SECURITY means even the table owner (superuser) is subject
--- to the policy — the NOSUPERUSER NOBYPASSRLS app role sees only its org's rows.
+-- ─── RLS: Enable + Force on tenant tables (ADR-A / NR1) ──────────────────────
+-- Tenant tables = orgId-scoped domain data. FORCE ROW LEVEL SECURITY means
+-- the policy runs for ALL roles (including the migration superuser inside txns).
+--
+-- KakaoIdentity is intentionally EXCLUDED from RLS: Kakao login/onboarding
+-- happens before an org context is established (orgId may be NULL). RLS
+-- default-deny would block those rows. KakaoIdentity is gated at the app layer
+-- (like User and ServerSession). See TENANT_MODELS in prisma.service.ts.
+--
+-- Non-tenant identity/session tables (Organization, User, ServerSession,
+-- KakaoIdentity) are NOT listed here — they use app-layer guards only.
 
 ALTER TABLE "Resident" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Resident" FORCE ROW LEVEL SECURITY;
@@ -223,14 +231,15 @@ ALTER TABLE "Alert" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "ResidentStatus" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "ResidentStatus" FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE "KakaoIdentity" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "KakaoIdentity" FORCE ROW LEVEL SECURITY;
-
 -- ─── Default-deny RLS policies ───────────────────────────────────────────────
 -- USING:      filters rows returned by SELECT / UPDATE / DELETE.
 -- WITH CHECK: filters rows inserted / updated (rejects writes to wrong org).
 -- When app.org_id GUC is absent or empty, current_setting returns '' which
--- never matches any org_id — all rows are denied (default-deny).
+-- never matches any orgId — all rows are denied (default-deny).
+-- set_config('app.org_id', <id>, true) — the third argument `true` means
+-- is_local=true: the GUC is scoped to the current TRANSACTION only and reverts
+-- automatically on commit/rollback. Session-scoped SET (is_local=false) is
+-- strictly forbidden in production code; use PrismaService.withOrgContext().
 
 CREATE POLICY tenant_isolation ON "Resident"
   USING     ("orgId" = current_setting('app.org_id', true)::text)
@@ -252,14 +261,32 @@ CREATE POLICY tenant_isolation ON "ResidentStatus"
   USING     ("orgId" = current_setting('app.org_id', true)::text)
   WITH CHECK ("orgId" = current_setting('app.org_id', true)::text);
 
-CREATE POLICY tenant_isolation ON "KakaoIdentity"
-  USING     ("orgId" = current_setting('app.org_id', true)::text)
-  WITH CHECK ("orgId" = current_setting('app.org_id', true)::text);
-
 -- ─── Grant privileges to NOSUPERUSER app role (NR1) ──────────────────────────
--- All application DML goes through the fall_app role.
+-- Blanket DML grant covers ALL tables in schema public, including non-tenant
+-- identity/session tables (Organization, User, ServerSession, KakaoIdentity).
+-- Those tables are NOT RLS-protected; app-layer guards (middleware/guards in
+-- NestJS) enforce access control instead.
 -- Sequence grants are required for BIGSERIAL (alertSeq) auto-increment.
 
 GRANT USAGE ON SCHEMA public TO fall_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fall_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fall_app;
+
+-- ALTER DEFAULT PRIVILEGES ensures future tables created by the migration role
+-- (fall superuser) are automatically accessible to the app role (fall_app).
+-- Without this, new tables added by subsequent migrations would have no grants
+-- and fall_app would receive "permission denied" errors at runtime.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO fall_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO fall_app;
+
+-- ─── New tenant table checklist ───────────────────────────────────────────────
+-- When adding a NEW tenant (orgId-scoped) table in a future migration:
+-- 1. ALTER TABLE "NewTable" ENABLE ROW LEVEL SECURITY;
+-- 2. ALTER TABLE "NewTable" FORCE ROW LEVEL SECURITY;
+-- 3. CREATE POLICY tenant_isolation ON "NewTable"
+--      USING     ("orgId" = current_setting('app.org_id', true)::text)
+--      WITH CHECK ("orgId" = current_setting('app.org_id', true)::text);
+-- 4. Add table name to TENANT_MODELS in backend/src/prisma/prisma.service.ts.
+-- Grants are covered by ALTER DEFAULT PRIVILEGES above (step 5 not needed).

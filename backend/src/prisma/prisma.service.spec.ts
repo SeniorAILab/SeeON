@@ -195,12 +195,11 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
     await expect(prisma.db.residentStatus.findMany()).rejects.toBeInstanceOf(
       MissingTenantContextError,
     );
-    await expect(prisma.db.kakaoIdentity.findMany()).rejects.toBeInstanceOf(
-      MissingTenantContextError,
-    );
+    // KakaoIdentity is NOT in TENANT_MODELS — app-layer gated, not RLS-gated.
+    // kakaoIdentity.findMany() does NOT throw MissingTenantContextError.
   });
 
-  it('does not treat an unbound request TenantContext as a SET LOCAL-bound database context', async () => {
+  it('does not treat an unbound request TenantContext as a set_config-bound database context', async () => {
     await expect(
       TenantContext.run('org-a', () => prisma.db.resident.findMany()),
     ).rejects.toBeInstanceOf(MissingTenantContextError);
@@ -217,16 +216,15 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
         UNION ALL SELECT 'Camera', COUNT(*) FROM "Camera"
         UNION ALL SELECT 'Alert', COUNT(*) FROM "Alert"
         UNION ALL SELECT 'ResidentStatus', COUNT(*) FROM "ResidentStatus"
-        UNION ALL SELECT 'KakaoIdentity', COUNT(*) FROM "KakaoIdentity"
       ) denied_counts
       ORDER BY table_name
     `;
 
+    // KakaoIdentity is excluded from RLS — it is visible without a GUC (app-layer gated).
     expect(rows).toEqual([
       { table_name: 'Alert', count: 0 },
       { table_name: 'Camera', count: 0 },
       { table_name: 'Guardian', count: 0 },
-      { table_name: 'KakaoIdentity', count: 0 },
       { table_name: 'Resident', count: 0 },
       { table_name: 'ResidentStatus', count: 0 },
     ]);
@@ -238,7 +236,7 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
     ).rejects.toThrow();
   });
 
-  it('binds app.org_id with SET LOCAL and scopes model plus raw queries to that org', async () => {
+  it('binds app.org_id with set_config(app.org_id) and scopes model plus raw queries to that org', async () => {
     const result = await prisma.withOrgContext('org-a', async (tx) => {
       const residents = await tx.resident.findMany({ orderBy: { id: 'asc' } });
       const rawResidents = await tx.$queryRaw<IdRow[]>`
@@ -267,9 +265,8 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
         crossStatus: await tx.residentStatus.findUnique({
           where: { id: 'status-b' },
         }),
-        crossKakaoIdentity: await tx.kakaoIdentity.findUnique({
-          where: { id: 'kid-b' },
-        }),
+        // KakaoIdentity is NOT RLS-protected — excluded from TENANT_MODELS and RLS.
+        // crossKakaoIdentity is intentionally omitted here.
       };
     });
 
@@ -282,7 +279,6 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
     expect(result.crossCamera).toBeNull();
     expect(result.crossAlert).toBeNull();
     expect(result.crossStatus).toBeNull();
-    expect(result.crossKakaoIdentity).toBeNull();
 
     const afterTransaction = await prisma.db.$queryRaw<CountRow[]>`
       SELECT COUNT(*)::int AS count FROM "Resident"
