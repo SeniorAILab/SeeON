@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface CreateResidentDto {
@@ -13,7 +13,7 @@ export interface CreateResidentDto {
 
 export interface UpdateResidentDto {
   name?: string;
-  room?: string;
+  room?: string | null;
 }
 
 @Injectable()
@@ -81,10 +81,20 @@ export class ResidentsService {
         orgId,
         (tx: Prisma.TransactionClient) => tx.resident.delete({ where: { id } }),
       );
-    } catch {
-      throw new ConflictException(
-        'Resident cannot be deleted while guardians, cameras, alerts, or status rows reference it',
-      );
+    } catch (err: unknown) {
+      if (isReferenceConstraintError(err)) {
+        throw new ConflictException(
+          'Resident cannot be deleted while guardians, cameras, alerts, or status rows reference it',
+        );
+      }
+      throw err;
     }
   }
+}
+
+function isReferenceConstraintError(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    (err.code === 'P2003' || err.code === 'P2014')
+  );
 }

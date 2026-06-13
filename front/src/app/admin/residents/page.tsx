@@ -110,7 +110,7 @@ export default function ResidentsPage() {
     try {
       await api.patch<Resident>(`/api/residents/${editId}`, {
         name: editName.trim(),
-        room: editRoom.trim() || undefined,
+        room: editRoom.trim() || null,
       });
       setEditId(null);
       load();

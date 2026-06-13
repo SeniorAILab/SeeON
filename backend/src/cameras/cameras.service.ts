@@ -4,7 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Camera } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface CreateCameraDto {
@@ -14,7 +15,7 @@ export interface CreateCameraDto {
 
 export interface UpdateCameraDto {
   label?: string;
-  residentId?: string;
+  residentId?: string | null;
 }
 
 @Injectable()
@@ -22,9 +23,12 @@ export class CamerasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(orgId: string) {
-    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.camera.findMany({ orderBy: { createdAt: 'asc' } }),
+    const cameras = await this.prisma.withOrgContext(
+      orgId,
+      (tx: Prisma.TransactionClient) =>
+        tx.camera.findMany({ orderBy: { createdAt: 'asc' } }),
     );
+    return cameras.map(toCameraDto);
   }
 
   async getOne(orgId: string, id: string) {
@@ -33,25 +37,28 @@ export class CamerasService {
       (tx: Prisma.TransactionClient) => tx.camera.findUnique({ where: { id } }),
     );
     if (!cam) throw new NotFoundException('Camera not found');
-    return cam;
+    return toCameraDto(cam);
   }
 
   async create(orgId: string, dto: CreateCameraDto) {
     if (!dto.label.trim()) throw new ConflictException('label is required');
     const ingestKeyId = `cam-${crypto.randomBytes(8).toString('hex')}`;
-    // The HMAC secret — stored in full as the HMAC key (ingestSecretHash field).
+    // The HMAC secret is not returned from this service; Camera DTOs expose only the selector key id.
     const ingestSecretHash = crypto.randomBytes(32).toString('hex');
-    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.camera.create({
-        data: {
-          orgId,
-          label: dto.label.trim(),
-          residentId: dto.residentId ?? null,
-          ingestKeyId,
-          ingestSecretHash,
-        },
-      }),
+    const camera = await this.prisma.withOrgContext(
+      orgId,
+      (tx: Prisma.TransactionClient) =>
+        tx.camera.create({
+          data: {
+            orgId,
+            label: dto.label.trim(),
+            residentId: dto.residentId ?? null,
+            ingestKeyId,
+            ingestSecretHash,
+          },
+        }),
     );
+    return toCameraDto(camera);
   }
 
   async update(orgId: string, id: string, dto: UpdateCameraDto) {
@@ -63,15 +70,19 @@ export class CamerasService {
     if (dto.label !== undefined && !dto.label.trim()) {
       throw new ConflictException('label is required');
     }
-    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.camera.update({
-        where: { id },
-        data: {
-          label: dto.label?.trim(),
-          residentId: dto.residentId,
-        },
-      }),
+    const camera = await this.prisma.withOrgContext(
+      orgId,
+      (tx: Prisma.TransactionClient) =>
+        tx.camera.update({
+          where: { id },
+          data: {
+            label: dto.label?.trim(),
+            residentId:
+              dto.residentId === undefined ? undefined : dto.residentId,
+          },
+        }),
     );
+    return toCameraDto(camera);
   }
 
   async remove(orgId: string, id: string) {
@@ -81,14 +92,18 @@ export class CamerasService {
     );
     if (!existing) throw new NotFoundException('Camera not found');
     try {
-      return await this.prisma.withOrgContext(
+      const camera = await this.prisma.withOrgContext(
         orgId,
         (tx: Prisma.TransactionClient) => tx.camera.delete({ where: { id } }),
       );
-    } catch {
-      throw new ConflictException(
-        'Camera cannot be deleted while alerts or status rows reference it',
-      );
+      return toCameraDto(camera);
+    } catch (err: unknown) {
+      if (isReferenceConstraintError(err)) {
+        throw new ConflictException(
+          'Camera cannot be deleted while alerts or status rows reference it',
+        );
+      }
+      throw err;
     }
   }
 
@@ -101,4 +116,24 @@ export class CamerasService {
       }),
     );
   }
+}
+
+function toCameraDto(camera: Camera) {
+  return {
+    id: camera.id,
+    orgId: camera.orgId,
+    residentId: camera.residentId,
+    label: camera.label,
+    ingestKeyId: camera.ingestKeyId,
+    lastSeenAt: camera.lastSeenAt,
+    online: camera.online,
+    createdAt: camera.createdAt,
+  };
+}
+
+function isReferenceConstraintError(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    (err.code === 'P2003' || err.code === 'P2014')
+  );
 }

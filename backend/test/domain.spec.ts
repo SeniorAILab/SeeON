@@ -552,7 +552,10 @@ describe('AC7 — /alerts pagination, filter, org scope', () => {
       .patch(`/api/alerts/${alerts[0].id}/ack`)
       .set('cookie', sessionCookieA)
       .expect(200);
-    const body = ackRes.body as { status: string; resident: { name: string; room: string | null } | null };
+    const body = ackRes.body as {
+      status: string;
+      resident: { name: string; room: string | null } | null;
+    };
     expect(body.status).toBe('ACKED');
     // resident relation must be present (not undefined) so the front-end can display name/room
     expect(Object.prototype.hasOwnProperty.call(body, 'resident')).toBe(true);

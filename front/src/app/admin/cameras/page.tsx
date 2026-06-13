@@ -116,7 +116,7 @@ export default function CamerasPage() {
     try {
       await api.patch<Camera>(`/api/cameras/${editId}`, {
         label: editLabel.trim(),
-        residentId: editResidentId || undefined,
+        residentId: editResidentId || null,
       });
       setEditId(null);
       load();

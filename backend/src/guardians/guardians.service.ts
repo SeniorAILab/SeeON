@@ -16,7 +16,7 @@ export interface CreateGuardianDto {
 export interface UpdateGuardianDto {
   name?: string;
   phone?: string;
-  relation?: string;
+  relation?: string | null;
 }
 
 @Injectable()
@@ -80,7 +80,7 @@ export class GuardiansService {
           phone: dto.phone?.trim(),
           relation:
             dto.relation !== undefined
-              ? dto.relation.trim() || null
+              ? dto.relation?.trim() || null
               : undefined,
         },
       }),

@@ -125,7 +125,7 @@ export default function GuardiansPage() {
       await api.patch<Guardian>(`/api/guardians/${editId}`, {
         name: editName.trim(),
         phone: editPhone.trim(),
-        relation: editRelation.trim() || undefined,
+        relation: editRelation.trim() || null,
       });
       setEditId(null);
       load();
