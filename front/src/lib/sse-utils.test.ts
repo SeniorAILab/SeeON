@@ -11,6 +11,7 @@ import { test } from "node:test";
 // runnable with --experimental-strip-types without bundler resolution.
 
 type AlertStatus = "NEW" | "ACKED" | "RESOLVED";
+type ResidentState = "NORMAL" | "WARNING" | "FALL";
 
 interface SseAlert {
   alertSeq: string;
@@ -22,6 +23,27 @@ interface SseAlert {
   probability: number;
   detectedAt: string;
   status: AlertStatus;
+}
+
+interface ResidentStatus {
+  id: string;
+  residentId: string;
+  orgId: string;
+  state: ResidentState;
+  lastSeenAt: string | null;
+  cameraOnline: boolean;
+  source: string | null;
+  updatedAt: string;
+  resident?: { name: string; room: string | null } | null;
+}
+
+interface SseStatusEvent {
+  alertSeq: string;
+  orgId: string;
+  residentId: string;
+  state: ResidentState;
+  cameraOnline: boolean;
+  lastSeenAt: string | null;
 }
 
 function sortAlertsBySeq(alerts: SseAlert[]): SseAlert[] {
@@ -39,6 +61,38 @@ function mergeAlerts(existing: SseAlert[], incoming: SseAlert[]): SseAlert[] {
   for (const a of existing) map.set(a.alertSeq, a);
   for (const a of incoming) map.set(a.alertSeq, a);
   return sortAlertsBySeq(Array.from(map.values()));
+}
+
+function mergeStatuses(
+  existing: ResidentStatus[],
+  incoming: SseStatusEvent,
+): ResidentStatus[] {
+  const idx = existing.findIndex((s) => s.residentId === incoming.residentId);
+  if (idx === -1) {
+    return [
+      ...existing,
+      {
+        id: incoming.residentId,
+        residentId: incoming.residentId,
+        orgId: incoming.orgId,
+        state: incoming.state,
+        lastSeenAt: incoming.lastSeenAt,
+        cameraOnline: incoming.cameraOnline,
+        source: null,
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+  }
+  return existing.map((s, i) =>
+    i === idx
+      ? {
+          ...s,
+          state: incoming.state,
+          cameraOnline: incoming.cameraOnline,
+          lastSeenAt: incoming.lastSeenAt,
+        }
+      : s,
+  );
 }
 
 function maskPhone(phone: string): string {
@@ -62,6 +116,40 @@ function makeAlert(seq: string, overrides?: Partial<SseAlert>): SseAlert {
     probability: 0.9,
     detectedAt: new Date().toISOString(),
     status: "NEW",
+    ...overrides,
+  };
+}
+
+function makeStatus(
+  residentId: string,
+  state: ResidentState = "NORMAL",
+  overrides?: Partial<ResidentStatus>,
+): ResidentStatus {
+  return {
+    id: `status-${residentId}`,
+    residentId,
+    orgId: "org1",
+    state,
+    lastSeenAt: null,
+    cameraOnline: false,
+    source: null,
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function makeStatusEvent(
+  residentId: string,
+  state: ResidentState,
+  overrides?: Partial<SseStatusEvent>,
+): SseStatusEvent {
+  return {
+    alertSeq: "1",
+    orgId: "org1",
+    residentId,
+    state,
+    cameraOnline: true,
+    lastSeenAt: new Date().toISOString(),
     ...overrides,
   };
 }
@@ -143,6 +231,72 @@ test("mergeAlerts: reconnect replay dedup — interleaved sequences", () => {
     result.map((a) => a.alertSeq),
     ["7", "6", "5", "4", "3"],
   );
+});
+
+// ---- mergeStatuses ----
+
+test("mergeStatuses: updates state for existing resident", () => {
+  const existing = [makeStatus("res1", "NORMAL")];
+  const event = makeStatusEvent("res1", "FALL");
+  const result = mergeStatuses(existing, event);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].state, "FALL");
+  assert.equal(result[0].residentId, "res1");
+});
+
+test("mergeStatuses: updates cameraOnline and lastSeenAt", () => {
+  const ts = new Date().toISOString();
+  const existing = [makeStatus("res1", "NORMAL", { cameraOnline: false, lastSeenAt: null })];
+  const event = makeStatusEvent("res1", "FALL", { cameraOnline: true, lastSeenAt: ts });
+  const result = mergeStatuses(existing, event);
+  assert.equal(result[0].cameraOnline, true);
+  assert.equal(result[0].lastSeenAt, ts);
+});
+
+test("mergeStatuses: preserves other fields (name, room, id) from snapshot", () => {
+  const existing = [
+    makeStatus("res1", "NORMAL", {
+      id: "status-db-id",
+      resident: { name: "홍길동", room: "101" },
+    }),
+  ];
+  const event = makeStatusEvent("res1", "WARNING");
+  const result = mergeStatuses(existing, event);
+  assert.equal(result[0].id, "status-db-id");
+  assert.deepStrictEqual(result[0].resident, { name: "홍길동", room: "101" });
+  assert.equal(result[0].state, "WARNING");
+});
+
+test("mergeStatuses: appends minimal entry for unknown resident", () => {
+  const existing = [makeStatus("res1", "NORMAL")];
+  const event = makeStatusEvent("res2", "FALL");
+  const result = mergeStatuses(existing, event);
+  assert.equal(result.length, 2);
+  const added = result.find((s) => s.residentId === "res2");
+  assert.ok(added, "res2 should be in result");
+  assert.equal(added!.state, "FALL");
+});
+
+test("mergeStatuses: does not affect other residents", () => {
+  const existing = [makeStatus("res1", "NORMAL"), makeStatus("res2", "NORMAL")];
+  const event = makeStatusEvent("res1", "FALL");
+  const result = mergeStatuses(existing, event);
+  const res2 = result.find((s) => s.residentId === "res2");
+  assert.equal(res2?.state, "NORMAL");
+});
+
+test("mergeStatuses: FALL → NORMAL transition", () => {
+  const existing = [makeStatus("res1", "FALL")];
+  const event = makeStatusEvent("res1", "NORMAL", { cameraOnline: false });
+  const result = mergeStatuses(existing, event);
+  assert.equal(result[0].state, "NORMAL");
+});
+
+test("mergeStatuses: empty existing + new resident creates entry", () => {
+  const event = makeStatusEvent("res1", "WARNING");
+  const result = mergeStatuses([], event);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].state, "WARNING");
 });
 
 // ---- maskPhone ----

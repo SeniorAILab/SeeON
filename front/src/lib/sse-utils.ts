@@ -33,6 +33,19 @@ export interface ResidentStatus {
 }
 
 /**
+ * Payload of the named `event: status` SSE frame emitted by the backend
+ * after each committed alert (AC5/AC6 live resident status badge).
+ */
+export interface SseStatusEvent {
+  alertSeq: string; // BigInt serialized as string
+  orgId: string;
+  residentId: string;
+  state: ResidentState;
+  cameraOnline: boolean;
+  lastSeenAt: string | null;
+}
+
+/**
  * Sort alerts descending by alertSeq (most-recent first).
  * alertSeq is a BigInt serialized as a decimal string.
  */
@@ -58,6 +71,45 @@ export function mergeAlerts(
   for (const a of existing) map.set(a.alertSeq, a);
   for (const a of incoming) map.set(a.alertSeq, a); // incoming wins on dup
   return sortAlertsBySeq(Array.from(map.values()));
+}
+
+/**
+ * Merge a live `event: status` payload into the existing statuses array.
+ * Updates the matching resident's state, cameraOnline, and lastSeenAt.
+ * If the resident is not yet in the array, appends a minimal entry.
+ * Preserves all other fields (name, room, id, updatedAt, etc.) from snapshot.
+ */
+export function mergeStatuses(
+  existing: ResidentStatus[],
+  incoming: SseStatusEvent,
+): ResidentStatus[] {
+  const idx = existing.findIndex((s) => s.residentId === incoming.residentId);
+  if (idx === -1) {
+    // Resident not yet in list — add a minimal entry so the badge appears.
+    return [
+      ...existing,
+      {
+        id: incoming.residentId,
+        residentId: incoming.residentId,
+        orgId: incoming.orgId,
+        state: incoming.state,
+        lastSeenAt: incoming.lastSeenAt,
+        cameraOnline: incoming.cameraOnline,
+        source: null,
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+  }
+  return existing.map((s, i) =>
+    i === idx
+      ? {
+          ...s,
+          state: incoming.state,
+          cameraOnline: incoming.cameraOnline,
+          lastSeenAt: incoming.lastSeenAt,
+        }
+      : s,
+  );
 }
 
 /**

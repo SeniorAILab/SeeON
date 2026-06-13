@@ -5,7 +5,14 @@
  * Last-Event-ID: parsed as bigint alertSeq. On reconnect:
  *   1. Replay org-scoped alerts WHERE alertSeq > lastEventId ORDER BY alertSeq.
  *   2. REST-snapshot ResidentStatus current state.
- *   3. Live events stream via AlertWriterService.subscribe.
+ *   3. Live events stream via AlertWriterService.subscribe (alerts) and
+ *      AlertWriterService.subscribeStatus (status events — AC5/AC6).
+ *
+ * AC5/AC6: after each ingest a named `event: status` frame is emitted so the
+ * dashboard can live-update resident status badges (NORMAL→FALL/WARNING)
+ * without waiting for a page reload. The `event: status-snapshot` on connect
+ * is still sent to seed the initial state; live `event: status` frames delta-
+ * update from there.
  *
  * F6/AC4: re-auth tick every SSE_REAUTH_INTERVAL_MS ms. Re-validates
  *   ServerSession (revokedAt/expiresAt/sessionVersion). If invalid, closes stream.
@@ -31,10 +38,12 @@ import type { Response } from 'express';
 import { RequireOrgGuard, SessionGuard } from '../auth/session.guard.js';
 import type { RequestWithAuth } from '../auth/session.guard.js';
 import { AlertWriterService } from '../alerts/alert-writer.service.js';
-import type { AlertEvent } from '../alerts/alert-writer.service.js';
+import type {
+  AlertEvent,
+  StatusEvent,
+} from '../alerts/alert-writer.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { StatusService } from '../status/status.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
 import { SessionService } from '../auth/session.service.js';
 
 /** Injection token for the SSE re-auth tick interval (ms). Override in tests. */
@@ -49,7 +58,6 @@ export class SseController {
     private readonly writer: AlertWriterService,
     private readonly alerts: AlertsService,
     private readonly status: StatusService,
-    private readonly prisma: PrismaService,
     private readonly sessions: SessionService,
     @Inject(SSE_REAUTH_INTERVAL_MS)
     private readonly reAuthIntervalMs: number,
@@ -90,6 +98,8 @@ export class SseController {
     let replayHighWatermark = 0n;
     let liveReady = false;
     const liveBuffer: AlertEvent[] = [];
+    const statusLiveBuffer: StatusEvent[] = [];
+
     const unsub = this.writer.subscribe(orgId, (event: AlertEvent) => {
       if (!liveReady) {
         liveBuffer.push(event);
@@ -98,12 +108,42 @@ export class SseController {
       write(formatAlertEvent(event));
     });
 
-    // Replay backlog (F8 Last-Event-ID).
+    // Subscribe to status events (AC5/AC6) — buffer during replay phase.
+    const unsubStatus = this.writer.subscribeStatus(
+      orgId,
+      (event: StatusEvent) => {
+        if (!liveReady) {
+          statusLiveBuffer.push(event);
+          return;
+        }
+        write(formatStatusEvent(event));
+      },
+    );
+
+    const failBeforeLive = (eventName: string) => {
+      write(`event: ${eventName}\ndata: {}\n\n`);
+      unsub();
+      unsubStatus();
+      try {
+        res.end();
+      } catch {
+        /* ignore */
+      }
+    };
+
+    // Replay backlog (F8 Last-Event-ID). Invalid cursors skip replay; replay failures fail visibly.
     const lastEventIdHeader = req.headers['last-event-id'];
+    let lastSeq: bigint | null = null;
     if (lastEventIdHeader) {
       try {
-        const lastSeq = BigInt(String(lastEventIdHeader));
-        replayHighWatermark = lastSeq;
+        lastSeq = BigInt(String(lastEventIdHeader));
+      } catch {
+        lastSeq = null;
+      }
+    }
+    if (lastSeq !== null) {
+      replayHighWatermark = lastSeq;
+      try {
         const backlog = await this.alerts.replay(orgId, lastSeq);
         for (const alert of backlog) {
           if (alert.alertSeq > replayHighWatermark) {
@@ -112,7 +152,8 @@ export class SseController {
           write(formatAlertEvent(alert));
         }
       } catch {
-        // invalid Last-Event-ID → skip replay
+        failBeforeLive('replay-error');
+        return;
       }
     }
 
@@ -121,16 +162,27 @@ export class SseController {
       const statuses = await this.status.listByOrg(orgId);
       write(`event: status-snapshot\ndata: ${JSON.stringify(statuses)}\n\n`);
     } catch {
-      // non-fatal
+      failBeforeLive('status-snapshot-error');
+      return;
     }
 
     liveReady = true;
+
+    // Flush alert live buffer.
     for (const event of liveBuffer) {
       if (event.alertSeq > replayHighWatermark) {
         write(formatAlertEvent(event));
       }
     }
     liveBuffer.length = 0;
+
+    // Flush status live buffer — only events whose alertSeq is beyond replay.
+    for (const event of statusLiveBuffer) {
+      if (event.alertSeq > replayHighWatermark) {
+        write(formatStatusEvent(event));
+      }
+    }
+    statusLiveBuffer.length = 0;
 
     // Heartbeat to keep connection alive.
     const heartbeat = setInterval(() => write(': heartbeat\n\n'), HEARTBEAT_MS);
@@ -143,6 +195,7 @@ export class SseController {
       clearInterval(heartbeat);
       if (reAuthTick !== null) clearInterval(reAuthTick);
       unsub();
+      unsubStatus();
       try {
         res.end();
       } catch {
@@ -166,7 +219,8 @@ export class SseController {
             cleanup();
           }
         } catch {
-          // DB unreachable — keep stream alive; do not kick healthy sessions
+          write('event: session-invalid\ndata: {}\n\n');
+          cleanup();
         }
       })();
     }, this.reAuthIntervalMs);
@@ -202,6 +256,22 @@ function formatAlertEvent(event: SseAlertLike): string {
     status: event.status,
     resident: event.resident ?? null,
   });
+}
+
+/** Format a named `event: status` SSE frame (AC5/AC6 live badge). */
+function formatStatusEvent(event: StatusEvent): string {
+  return (
+    `id: ${event.alertSeq}\n` +
+    `event: status\n` +
+    `data: ${JSON.stringify({
+      alertSeq: event.alertSeq.toString(),
+      orgId: event.orgId,
+      residentId: event.residentId,
+      state: event.state,
+      cameraOnline: event.cameraOnline,
+      lastSeenAt: event.lastSeenAt,
+    })}\n\n`
+  );
 }
 
 function formatSseEvent(

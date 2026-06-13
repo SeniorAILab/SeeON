@@ -7,6 +7,10 @@
  *
  * SSE clients subscribe via `subscribe(orgId, fn)` and receive emitted events
  * for their org. Unsubscribe by calling the returned cleanup function.
+ *
+ * After each committed alert, a StatusEvent is emitted via subscribeStatus
+ * so SSE streams can deliver `event: status` frames to connected clients
+ * (AC5/AC6 live resident status badge).
  */
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
@@ -27,6 +31,16 @@ export interface AlertEvent {
   resident?: { name: string; room: string | null } | null;
 }
 
+/** Emitted after each committed alert; carries the new ResidentStatus state. */
+export interface StatusEvent {
+  alertSeq: bigint;
+  orgId: string;
+  residentId: string;
+  state: ResidentState;
+  cameraOnline: boolean;
+  lastSeenAt: Date | null;
+}
+
 export interface WriteAlertInput {
   orgId: string;
   residentId: string;
@@ -41,16 +55,18 @@ export interface WriteAlertInput {
 const CAMERA_ONLINE_TIMEOUT_MS = 30_000;
 
 type Listener = (event: AlertEvent) => void;
+type StatusListener = (event: StatusEvent) => void;
 
 @Injectable()
 export class AlertWriterService {
   private readonly _listeners = new Map<string, Set<Listener>>();
+  private readonly _statusListeners = new Map<string, Set<StatusListener>>();
   private _queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Subscribe to live SSE events for orgId.
+   * Subscribe to live alert SSE events for orgId.
    * Returns an unsubscribe function.
    */
   subscribe(orgId: string, fn: Listener): () => void {
@@ -61,6 +77,20 @@ export class AlertWriterService {
     }
     listeners.add(fn);
     return () => this._listeners.get(orgId)?.delete(fn);
+  }
+
+  /**
+   * Subscribe to live status-change events for orgId (AC5/AC6).
+   * Returns an unsubscribe function.
+   */
+  subscribeStatus(orgId: string, fn: StatusListener): () => void {
+    let listeners = this._statusListeners.get(orgId);
+    if (!listeners) {
+      listeners = new Set();
+      this._statusListeners.set(orgId, listeners);
+    }
+    listeners.add(fn);
+    return () => this._statusListeners.get(orgId)?.delete(fn);
   }
 
   /**
@@ -153,13 +183,37 @@ export class AlertWriterService {
       resident: alert.resident,
     };
 
-    // Emit AFTER commit (F3).
+    // Emit alert AFTER commit (F3).
     this._emit(orgId, event);
+
+    // Emit status event (AC5/AC6) — same causal order, same alertSeq.
+    const statusEvent: StatusEvent = {
+      alertSeq: alert.alertSeq,
+      orgId,
+      residentId,
+      state: newState,
+      cameraOnline,
+      lastSeenAt: detectedAt,
+    };
+    this._emitStatus(orgId, statusEvent);
+
     return event;
   }
 
   private _emit(orgId: string, event: AlertEvent): void {
     const listeners = this._listeners.get(orgId);
+    if (!listeners) return;
+    for (const fn of listeners) {
+      try {
+        fn(event);
+      } catch {
+        // listener errors must not crash the writer
+      }
+    }
+  }
+
+  private _emitStatus(orgId: string, event: StatusEvent): void {
+    const listeners = this._statusListeners.get(orgId);
     if (!listeners) return;
     for (const fn of listeners) {
       try {

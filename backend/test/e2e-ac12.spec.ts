@@ -426,4 +426,46 @@ describe('AC12 — demo sim injector + dashboard e2e (seeded/mock session, no li
       .send(body)
       .expect(401);
   });
+  // ── Step 8: Live SSE emits event: status on ingest (AC5/AC6) ─────────────
+
+  it('live SSE emits event: status when new alert ingested (AC5/AC6 live badge)', async () => {
+    const detectedAt = new Date().toISOString();
+    const body = {
+      resident_id: residentId,
+      facility_id: ORG_ID,
+      probability: 0.88,
+      snapshot_url: null,
+      detected_at: detectedAt,
+      type: 'FALL',
+    };
+    const headers = makeIngestHeaders(CAM_KEYID, CAM_SECRET, {
+      resident_id: residentId,
+      facility_id: ORG_ID,
+      type: 'FALL',
+      detected_at: detectedAt,
+    });
+
+    // Open SSE starting after the previously injected alert so no replay
+    // interference — we only want to observe the live status event.
+    const ssePromise = readSseUntil(
+      serverUrl,
+      sessionCookie,
+      injectedAlertSeq,
+      (body) => body.includes('event: status\n'),
+    );
+
+    // Give SSE a moment to connect before injecting.
+    await new Promise<void>((r) => setTimeout(r, 120));
+
+    await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(headers)
+      .send(body)
+      .expect(201);
+
+    const stream = await ssePromise;
+    expect(stream.body).toContain('event: status\n');
+    expect(stream.body).toContain(residentId);
+    expect(stream.body).toContain('"state":"FALL"');
+  }, 10_000);
 });
