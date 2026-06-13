@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
 import type { SseAlert } from "../../lib/sse-utils";
@@ -36,30 +36,34 @@ export default function AlertsPage({
     initialResidentId ?? "",
   );
 
-  const load = useCallback((residentId: string) => {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    let cancelled = false;
     const params = new URLSearchParams({ limit: "50" });
-    if (residentId) params.set("residentId", residentId);
+    if (filterResidentId) params.set("residentId", filterResidentId);
+
     api
       .get<SseAlert[]>(`/api/alerts?${params.toString()}`)
       .then((data) => {
+        if (cancelled) return;
         setAlerts(data);
         setLoading(false);
       })
       .catch((err: Error) => {
+        if (cancelled) return;
         setError(err.message);
         setLoading(false);
       });
-  }, []);
 
-  useEffect(() => {
-    load(filterResidentId);
-  }, [load, filterResidentId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [filterResidentId]);
 
   function handleFilter(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    setLoading(true);
+    setError(null);
     setFilterResidentId((fd.get("residentId") as string) ?? "");
   }
 
@@ -98,7 +102,11 @@ export default function AlertsPage({
           {filterResidentId && (
             <button
               type="button"
-              onClick={() => setFilterResidentId("")}
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                setFilterResidentId("");
+              }}
               className="rounded-xl border border-white/10 px-5 py-2 text-sm text-slate-400 transition hover:text-white"
             >
               초기화

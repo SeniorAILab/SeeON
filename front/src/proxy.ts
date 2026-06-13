@@ -4,7 +4,10 @@ const protectedPrefixes = ["/dashboard", "/alerts", "/admin"];
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const hasSessionCookie = Boolean(request.cookies.get("app_session")?.value);
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const hasSessionCookie =
+    Boolean(request.cookies.get("app_session")?.value) ||
+    /(?:^|;\s*)app_session=/.test(cookieHeader);
   const protectedRoute = protectedPrefixes.some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`),
   );

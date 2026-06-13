@@ -36,17 +36,22 @@ export default function AlertDetailPage({
   const [acking, setAcking] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     api
       .get<SseAlert>(`/api/alerts/${id}`)
       .then((data) => {
+        if (cancelled) return;
         setAlert(data);
         setLoading(false);
       })
       .catch((err: Error) => {
+        if (cancelled) return;
         setError(err.message);
         setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   async function handleAck() {

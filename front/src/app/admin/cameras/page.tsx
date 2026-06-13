@@ -56,8 +56,26 @@ export default function CamerasPage() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    Promise.all([
+      api.get<Camera[]>("/api/cameras"),
+      api.get<Resident[]>("/api/residents"),
+    ])
+      .then(([cams, res]) => {
+        if (cancelled) return;
+        setCameras(cams);
+        setResidents(res);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

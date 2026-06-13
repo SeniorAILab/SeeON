@@ -24,6 +24,7 @@ export interface AlertEvent {
   snapshotKey: string | null;
   detectedAt: Date;
   status: string;
+  resident?: { name: string; room: string | null } | null;
 }
 
 export interface WriteAlertInput {
@@ -112,6 +113,7 @@ export class AlertWriterService {
             detectedAt,
             idempotencyKey,
           },
+          include: { resident: { select: { name: true, room: true } } },
         });
 
         // Upsert ResidentStatus.
@@ -148,6 +150,7 @@ export class AlertWriterService {
       snapshotKey: alert.snapshotKey,
       detectedAt: alert.detectedAt,
       status: alert.status,
+      resident: alert.resident,
     };
 
     // Emit AFTER commit (F3).

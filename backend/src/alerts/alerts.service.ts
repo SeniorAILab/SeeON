@@ -79,6 +79,7 @@ export class AlertsService {
       tx.alert.findMany({
         where: { alertSeq: { gt: afterSeq } },
         orderBy: { alertSeq: 'asc' },
+        include: { resident: { select: { name: true, room: true } } },
       }),
     );
   }

@@ -185,6 +185,7 @@ type SseAlertLike = Pick<
   | 'snapshotKey'
   | 'detectedAt'
   | 'status'
+  | 'resident'
 >;
 
 function formatAlertEvent(event: SseAlertLike): string {
@@ -199,6 +200,7 @@ function formatAlertEvent(event: SseAlertLike): string {
     snapshotKey: event.snapshotKey,
     detectedAt: event.detectedAt,
     status: event.status,
+    resident: event.resident ?? null,
   });
 }
 

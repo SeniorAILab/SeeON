@@ -59,8 +59,26 @@ export default function GuardiansPage() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    Promise.all([
+      api.get<Guardian[]>("/api/guardians"),
+      api.get<Resident[]>("/api/residents"),
+    ])
+      .then(([gds, res]) => {
+        if (cancelled) return;
+        setGuardians(gds);
+        setResidents(res);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

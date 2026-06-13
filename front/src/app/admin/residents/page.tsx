@@ -53,8 +53,23 @@ export default function ResidentsPage() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    api
+      .get<Resident[]>("/api/residents")
+      .then((data) => {
+        if (cancelled) return;
+        setResidents(data);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
