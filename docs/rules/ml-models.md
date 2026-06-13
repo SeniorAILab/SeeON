@@ -11,6 +11,9 @@ ml/models/
 ├── pose/                      # YOLO26-pose weight cache (ephemeral, re-downloadable)
 │   ├── yolo26{n,s,m,l,x}-pose.pt
 │   └── metadata.json
+├── bed/                       # bed-localization COCO-det weight cache (issue #100)
+│   ├── yolo26n.pt             # COCO-det, class 59 = 'bed'; created lazily on first download
+│   └── metadata.json
 └── fall/                      # fall-detection models (function axis)
     ├── random-forest/         # trained sklearn RF
     ├── lstm/                  # trained PyTorch LSTM
@@ -21,14 +24,17 @@ ml/models/
         └── tomotsugu_yolov8/
 ```
 
-- **Top level = function axis** (`pose`, `fall`). Never add a new top-level folder for
-  ephemeral/durable or origin distinctions — those go in `metadata.json`.
+- **Top level = function axis** (`pose`, `fall`, `bed`). A new top-level folder is allowed
+  ONLY for a genuinely new model *function* — `bed` (bed-localization, issue #100) is one.
+  Never add a new top-level folder for ephemeral/durable or origin distinctions — those go
+  in `metadata.json`. The `bed` axis was distilled into the bed-localization ADR, which
+  amends [ADR-015](../decisions/ADR-015-ml-models-single-root.md)'s allowed top-level set.
 - **`ml/models/` is gitignored in its entirety** (single `.gitignore` entry). No file
   inside `ml/models/` is ever committed or pushed.
 
 ## `metadata.json` required fields
 
-Every model folder (`pose/`, `fall/<type>/`, `fall/pretrained/<name>/`) **must** contain
+Every model folder (`pose/`, `bed/`, `fall/<type>/`, `fall/pretrained/<name>/`) **must** contain
 a `metadata.json` file with at minimum:
 
 | Field | Type | Required for | Meaning |

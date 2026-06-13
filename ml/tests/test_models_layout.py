@@ -14,7 +14,11 @@ import pytest
 
 MODELS_ROOT = Path(__file__).resolve().parents[1] / "models"
 
-ALLOWED_TOP_LEVEL = {"pose", "fall"}
+# Function axes (ADR-015 + bed-localization ADR, issue #100): pose | fall | bed.
+# A new top-level folder is allowed ONLY for a genuinely new model *function*
+# (bed-localization is one); origin/ephemeral distinctions still belong in
+# metadata.json, never a new top-level folder.
+ALLOWED_TOP_LEVEL = {"pose", "fall", "bed"}
 ALLOWED_SOURCES = {"downloaded", "trained", "third-party"}
 
 pytestmark = pytest.mark.skipif(
@@ -26,6 +30,11 @@ pytestmark = pytest.mark.skipif(
 def _model_folders() -> list[Path]:
     """Every folder required to carry a metadata.json per the contract."""
     folders = [MODELS_ROOT / "pose"]
+    bed = MODELS_ROOT / "bed"
+    if bed.is_dir():
+        # bed axis is created lazily on first weight download; enforce the
+        # metadata contract whenever the folder exists.
+        folders.append(bed)
     fall = MODELS_ROOT / "fall"
     for child in sorted(fall.iterdir()):
         if not child.is_dir():
