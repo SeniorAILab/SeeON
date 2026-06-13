@@ -28,6 +28,10 @@ def _result_with_label(text: str, is_fall: bool) -> DetectionResult:
     return DetectionResult(boxes=(box,), labels=(label,), keypoints=((),))
 
 
+def _bed_box() -> BoundingBox:
+    return BoundingBox(x1=20, y1=20, x2=200, y2=180, confidence=0.8)
+
+
 # ---------------------------------------------------------------------------
 # cv2 path — English labels
 # ---------------------------------------------------------------------------
@@ -77,3 +81,43 @@ def test_normal_label_caption_region_differs_from_no_box_render() -> None:
         show_pose=False,
     )
     assert not np.array_equal(with_boxes, without_boxes)
+
+
+# ---------------------------------------------------------------------------
+# bed ROI rendering (issue #100)
+# ---------------------------------------------------------------------------
+
+
+def test_bed_box_renders_visible_pixels_when_present() -> None:
+    """A bed_box must paint visible pixels vs the same render with it suppressed."""
+    frame = _blank_frame()
+    result = DetectionResult(bed_box=_bed_box())
+    with_bed = render_yolo_overlay(
+        frame, result, show_boxes=False, show_pose=False, show_bed_box=True
+    )
+    without_bed = render_yolo_overlay(
+        frame, result, show_boxes=False, show_pose=False, show_bed_box=False
+    )
+    assert not np.array_equal(with_bed, without_bed)
+
+
+def test_no_bed_box_is_noop() -> None:
+    """bed_box=None (no bed) renders identically whether or not show_bed_box is set."""
+    frame = _blank_frame()
+    result = DetectionResult(bed_box=None)
+    shown = render_yolo_overlay(
+        frame, result, show_boxes=False, show_pose=False, show_bed_box=True
+    )
+    assert np.array_equal(shown, frame)
+
+
+def test_bed_box_independent_of_person_boxes() -> None:
+    """Bed ROI draws even when person boxes are suppressed."""
+    frame = _blank_frame()
+    box = BoundingBox(x1=50, y1=50, x2=150, y2=150, confidence=0.9)
+    label = DetectionLabel(text=NORMAL_LABEL_TEXT, confidence=0.9, is_fall=False)
+    result = DetectionResult(boxes=(box,), labels=(label,), keypoints=((),), bed_box=_bed_box())
+    bed_only = render_yolo_overlay(
+        frame, result, show_boxes=False, show_pose=False, show_bed_box=True
+    )
+    assert not np.array_equal(bed_only, frame)
