@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { SESSION_COOKIE_NAME } from './auth.constants';
 import { readCookie } from './cookie.util';
@@ -36,7 +42,8 @@ export class RequireOrgGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<RequestWithAuth>();
     if (!request.user) throw new UnauthorizedException('Missing session');
-    if (!request.user.orgId) throw new ForbiddenException('Organization onboarding required');
+    if (!request.user.orgId)
+      throw new ForbiddenException('Organization onboarding required');
     return true;
   }
 }

@@ -12,7 +12,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { OAUTH_STATE_COOKIE_NAME, OAUTH_STATE_TTL_SECONDS } from './auth.constants';
+import {
+  OAUTH_STATE_COOKIE_NAME,
+  OAUTH_STATE_TTL_SECONDS,
+} from './auth.constants';
 import { AuthService } from './auth.service';
 import type { CreateOrganizationBody } from './auth.types';
 import {
@@ -47,7 +50,10 @@ export class AuthController {
     @Req() request: RequestWithAuth,
     @Res() response: Response,
   ): Promise<void> {
-    const expectedState = readCookie(request.headers.cookie, OAUTH_STATE_COOKIE_NAME);
+    const expectedState = readCookie(
+      request.headers.cookie,
+      OAUTH_STATE_COOKIE_NAME,
+    );
     if (!state || !expectedState || state !== expectedState) {
       throw new BadRequestException('Invalid OAuth state');
     }
@@ -59,7 +65,10 @@ export class AuthController {
 
   @Get('/auth/me')
   @UseGuards(SessionGuard)
-  me(@Req() request: RequestWithAuth, @Res({ passthrough: true }) response: Response) {
+  me(
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     this.refreshRotatedCookie(request, response);
     return { user: request.user };
   }
@@ -67,7 +76,10 @@ export class AuthController {
   @Post('/auth/logout')
   @UseGuards(SessionGuard)
   @HttpCode(204)
-  async logout(@Req() request: RequestWithAuth, @Res({ passthrough: true }) response: Response): Promise<void> {
+  async logout(
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     if (request.sessionId) await this.sessions.revoke(request.sessionId);
     clearSessionCookie(response);
   }
@@ -80,9 +92,11 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     if (!request.user) throw new BadRequestException('Missing user');
-    const facilityName = typeof body.facilityName === 'string' ? body.facilityName : '';
+    const facilityName =
+      typeof body.facilityName === 'string' ? body.facilityName : '';
     const businessRegistrationNumber =
-      typeof body.businessRegistrationNumber === 'string' && body.businessRegistrationNumber.trim()
+      typeof body.businessRegistrationNumber === 'string' &&
+      body.businessRegistrationNumber.trim()
         ? body.businessRegistrationNumber.trim()
         : null;
     const session = await this.auth.createOrganizationForUser(
@@ -97,7 +111,10 @@ export class AuthController {
   @Get('/api/protected-probe')
   @UseGuards(SessionGuard)
   @Header('cache-control', 'no-store')
-  protectedProbe(@Req() request: RequestWithAuth, @Res({ passthrough: true }) response: Response) {
+  protectedProbe(
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     this.refreshRotatedCookie(request, response);
     return { user: request.user };
   }
@@ -105,14 +122,32 @@ export class AuthController {
   @Get('/api/org-protected-probe')
   @UseGuards(SessionGuard, RequireOrgGuard)
   @Header('cache-control', 'no-store')
-  orgProtectedProbe(@Req() request: RequestWithAuth, @Res({ passthrough: true }) response: Response) {
+  orgProtectedProbe(
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     this.refreshRotatedCookie(request, response);
     return { orgId: request.user?.orgId };
   }
 
-  private refreshRotatedCookie(request: RequestWithAuth, response: Response): void {
+  @Get('/sse')
+  @UseGuards(SessionGuard, RequireOrgGuard)
+  @Header('content-type', 'text/event-stream')
+  @Header('cache-control', 'no-store')
+  sseAuthProbe(): string {
+    return ': auth-ok\n\n';
+  }
+
+  private refreshRotatedCookie(
+    request: RequestWithAuth,
+    response: Response,
+  ): void {
     if (request.rotatedSessionToken && request.rotatedSessionMaxAgeSeconds) {
-      setSessionCookie(response, request.rotatedSessionToken, request.rotatedSessionMaxAgeSeconds);
+      setSessionCookie(
+        response,
+        request.rotatedSessionToken,
+        request.rotatedSessionMaxAgeSeconds,
+      );
     }
   }
 }
