@@ -7,6 +7,10 @@
  *   2. REST-snapshot ResidentStatus current state.
  *   3. Live events stream via AlertWriterService.subscribe.
  *
+ * F6/AC4: re-auth tick every SSE_REAUTH_INTERVAL_MS ms. Re-validates
+ *   ServerSession (revokedAt/expiresAt/sessionVersion). If invalid, closes stream.
+ *   Token is injectable for test override.
+ *
  * F10 (no buffering): sets X-Accel-Buffering: no, Cache-Control: no-cache.
  * F13: SSE id field = alertSeq (bigint), NOT the cuid pk.
  *
@@ -18,6 +22,7 @@ import {
   ForbiddenException,
   Get,
   Header,
+  Inject,
   Req,
   Res,
   UseGuards,
@@ -30,6 +35,10 @@ import type { AlertEvent } from '../alerts/alert-writer.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { StatusService } from '../status/status.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SessionService } from '../auth/session.service.js';
+
+/** Injection token for the SSE re-auth tick interval (ms). Override in tests. */
+export const SSE_REAUTH_INTERVAL_MS = 'SSE_REAUTH_INTERVAL_MS';
 
 const HEARTBEAT_MS = 20_000;
 
@@ -41,6 +50,9 @@ export class SseController {
     private readonly alerts: AlertsService,
     private readonly status: StatusService,
     private readonly prisma: PrismaService,
+    private readonly sessions: SessionService,
+    @Inject(SSE_REAUTH_INTERVAL_MS)
+    private readonly reAuthIntervalMs: number,
   ) {}
 
   @Get('api/sse')
@@ -50,6 +62,10 @@ export class SseController {
   @Header('x-accel-buffering', 'no') // F10: disable Nginx/proxy buffering
   async sse(@Req() req: RequestWithAuth, @Res() res: Response): Promise<void> {
     const orgId = requireOrgId(req);
+
+    // Capture session identity at connection time (set by SessionGuard).
+    const sessionId = requireSessionId(req);
+    const sessionVersion = requireSessionVersion(req);
 
     res.flushHeaders();
 
@@ -70,26 +86,30 @@ export class SseController {
     // Initial comment to establish connection.
     write(': connected\n\n');
 
+    // Subscribe before replay to close the replay/live handoff gap.
+    let replayHighWatermark = 0n;
+    let liveReady = false;
+    const liveBuffer: AlertEvent[] = [];
+    const unsub = this.writer.subscribe(orgId, (event: AlertEvent) => {
+      if (!liveReady) {
+        liveBuffer.push(event);
+        return;
+      }
+      write(formatAlertEvent(event));
+    });
+
     // Replay backlog (F8 Last-Event-ID).
     const lastEventIdHeader = req.headers['last-event-id'];
     if (lastEventIdHeader) {
       try {
         const lastSeq = BigInt(String(lastEventIdHeader));
+        replayHighWatermark = lastSeq;
         const backlog = await this.alerts.replay(orgId, lastSeq);
         for (const alert of backlog) {
-          write(
-            formatSseEvent(alert.alertSeq, {
-              alertSeq: alert.alertSeq.toString(),
-              id: alert.id,
-              orgId: alert.orgId,
-              residentId: alert.residentId,
-              cameraId: alert.cameraId,
-              type: alert.type,
-              probability: alert.probability,
-              detectedAt: alert.detectedAt,
-              status: alert.status,
-            }),
-          );
+          if (alert.alertSeq > replayHighWatermark) {
+            replayHighWatermark = alert.alertSeq;
+          }
+          write(formatAlertEvent(alert));
         }
       } catch {
         // invalid Last-Event-ID → skip replay
@@ -104,29 +124,24 @@ export class SseController {
       // non-fatal
     }
 
-    // Subscribe to live events.
-    const unsub = this.writer.subscribe(orgId, (event: AlertEvent) => {
-      write(
-        formatSseEvent(event.alertSeq, {
-          alertSeq: event.alertSeq.toString(),
-          id: event.id,
-          orgId: event.orgId,
-          residentId: event.residentId,
-          cameraId: event.cameraId,
-          type: event.type,
-          probability: event.probability,
-          detectedAt: event.detectedAt,
-          status: event.status,
-        }),
-      );
-    });
+    liveReady = true;
+    for (const event of liveBuffer) {
+      if (event.alertSeq > replayHighWatermark) {
+        write(formatAlertEvent(event));
+      }
+    }
+    liveBuffer.length = 0;
 
     // Heartbeat to keep connection alive.
     const heartbeat = setInterval(() => write(': heartbeat\n\n'), HEARTBEAT_MS);
 
-    // Cleanup on client disconnect.
+    // Re-auth tick holder — assigned below after cleanup is defined.
+    let reAuthTick: ReturnType<typeof setInterval> | null = null;
+
+    // Cleanup on client disconnect or session invalidation.
     const cleanup = () => {
       clearInterval(heartbeat);
+      if (reAuthTick !== null) clearInterval(reAuthTick);
       unsub();
       try {
         res.end();
@@ -137,7 +152,54 @@ export class SseController {
 
     req.socket.on('close', cleanup);
     req.on('close', cleanup);
+
+    // F6/AC4: periodic session re-validation.
+    reAuthTick = setInterval(() => {
+      void (async () => {
+        try {
+          const active = await this.sessions.checkActive(
+            sessionId,
+            sessionVersion,
+          );
+          if (!active) {
+            write('event: session-invalid\ndata: {}\n\n');
+            cleanup();
+          }
+        } catch {
+          // DB unreachable — keep stream alive; do not kick healthy sessions
+        }
+      })();
+    }, this.reAuthIntervalMs);
   }
+}
+
+type SseAlertLike = Pick<
+  AlertEvent,
+  | 'alertSeq'
+  | 'id'
+  | 'orgId'
+  | 'residentId'
+  | 'cameraId'
+  | 'type'
+  | 'probability'
+  | 'snapshotKey'
+  | 'detectedAt'
+  | 'status'
+>;
+
+function formatAlertEvent(event: SseAlertLike): string {
+  return formatSseEvent(event.alertSeq, {
+    alertSeq: event.alertSeq.toString(),
+    id: event.id,
+    orgId: event.orgId,
+    residentId: event.residentId,
+    cameraId: event.cameraId,
+    type: event.type,
+    probability: event.probability,
+    snapshotKey: event.snapshotKey,
+    detectedAt: event.detectedAt,
+    status: event.status,
+  });
 }
 
 function formatSseEvent(
@@ -151,4 +213,17 @@ function requireOrgId(req: RequestWithAuth): string {
   const orgId = req.user?.orgId;
   if (!orgId) throw new ForbiddenException('Organization context required');
   return orgId;
+}
+
+function requireSessionId(req: RequestWithAuth): string {
+  if (!req.sessionId) throw new ForbiddenException('Session required');
+  return req.sessionId;
+}
+
+function requireSessionVersion(req: RequestWithAuth): number {
+  const sessionVersion = req.user?.sessionVersion;
+  if (typeof sessionVersion !== 'number') {
+    throw new ForbiddenException('Session required');
+  }
+  return sessionVersion;
 }

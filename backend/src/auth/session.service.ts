@@ -109,6 +109,33 @@ export class SessionService implements OnModuleInit {
       data: { revokedAt: new Date() },
     });
   }
+  /**
+   * Lightweight re-auth check for SSE re-auth tick (F6/AC4).
+   * Returns false if the session is revoked, expired, or the user's
+   * sessionVersion has been bumped (invalidating all prior tokens).
+   * Does NOT rotate the session.
+   */
+  async checkActive(
+    sessionId: string,
+    expectedSessionVersion: number,
+  ): Promise<boolean> {
+    const session = await this.prisma.db.serverSession.findUnique({
+      where: { id: sessionId },
+      select: { revokedAt: true, expiresAt: true, userId: true },
+    });
+    if (
+      !session ||
+      session.revokedAt !== null ||
+      session.expiresAt <= new Date()
+    ) {
+      return false;
+    }
+    const user = await this.prisma.db.user.findUnique({
+      where: { id: session.userId },
+      select: { sessionVersion: true },
+    });
+    return user !== null && user.sessionVersion === expectedSessionVersion;
+  }
 
   private shouldRotate(iat: number): boolean {
     return Math.floor(Date.now() / 1000) - iat >= this.refreshWindowSeconds();

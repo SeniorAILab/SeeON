@@ -43,6 +43,7 @@ export class AlertsController {
     @Query('residentId') residentId?: string,
     @Query('status') status?: string,
     @Query('afterSeq') afterSeq?: string,
+    @Query('beforeSeq') beforeSeq?: string,
     @Query('limit') limit?: string,
   ) {
     const validStatus = Object.values(AlertStatus).includes(
@@ -54,6 +55,7 @@ export class AlertsController {
       residentId,
       status: validStatus,
       afterSeq: afterSeq ? BigInt(afterSeq) : undefined,
+      beforeSeq: beforeSeq ? BigInt(beforeSeq) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
   }

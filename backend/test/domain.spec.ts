@@ -13,9 +13,11 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
+import * as http from 'http';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
+import type { AddressInfo } from 'net';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { KakaoClient } from '../src/auth/kakao.client';
@@ -59,6 +61,69 @@ function makeIngestHeaders(
     'x-signature': signature,
     'x-ingest-timestamp': Date.now().toString(),
   };
+}
+
+type SseRead = {
+  statusCode: number | undefined;
+  headers: http.IncomingHttpHeaders;
+  body: string;
+};
+
+function baseUrl(): string {
+  const server = app.getHttpServer() as {
+    address: () => AddressInfo | string | null;
+  };
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('test server is not listening');
+  }
+  return `http://127.0.0.1:${address.port}`;
+}
+
+function readSseUntil(
+  cookie: string,
+  lastEventId: string | null,
+  predicate: (body: string) => boolean,
+): Promise<SseRead> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let statusCode: number | undefined;
+    let headers: http.IncomingHttpHeaders = {};
+    let body = '';
+    let requestRef: http.ClientRequest | null = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      const ref = requestRef; // snapshot avoids TS 5.7 narrowing-to-never in closure
+      if (ref) ref.destroy();
+      resolve({ statusCode, headers, body });
+    };
+    const req = http.get(
+      `${baseUrl()}/api/sse`,
+      {
+        headers: {
+          cookie,
+          ...(lastEventId ? { 'Last-Event-ID': lastEventId } : {}),
+        },
+      },
+      (res) => {
+        statusCode = res.statusCode;
+        headers = res.headers;
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => {
+          body += chunk;
+          if (predicate(body)) finish();
+        });
+        res.on('end', finish);
+      },
+    );
+    requestRef = req;
+    req.setTimeout(2_000, finish);
+    req.on('error', (err: NodeJS.ErrnoException) => {
+      if (settled && err.code === 'ECONNRESET') return;
+      reject(err);
+    });
+  });
 }
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -188,7 +253,7 @@ beforeAll(async () => {
 
   app = moduleRef.createNestApplication();
   app.use(cookieParser());
-  await app.init();
+  await app.listen(0, '127.0.0.1');
 
   const sessions = app.get(SessionService);
   const sessionA = await sessions.createSession(userA);
@@ -420,6 +485,73 @@ describe('AC7 — /alerts pagination, filter, org scope', () => {
       .expect(200);
     expect((ackRes.body as { status: string }).status).toBe('ACKED');
   });
+
+  it('filters by ACKED status and honors explicit limit', async () => {
+    const list = await request(app.getHttpServer())
+      .get(`/api/alerts?residentId=${resA_id}&limit=1`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const alerts = list.body as Array<{ id: string }>;
+    expect(alerts.length).toBeLessThanOrEqual(1);
+    if (!alerts.length) return;
+
+    await request(app.getHttpServer())
+      .patch(`/api/alerts/${alerts[0].id}/ack`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/alerts?status=ACKED&limit=1')
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const body = res.body as Array<{ status: string }>;
+    expect(body.length).toBeLessThanOrEqual(1);
+    expect(body.every((a) => a.status === 'ACKED')).toBe(true);
+  });
+});
+// ─── AC7-backward: beforeSeq backward pagination ──────────────────────────────
+
+describe('AC7-backward — /alerts beforeSeq backward cursor', () => {
+  it('returns only alerts with alertSeq < beforeSeq in desc order', async () => {
+    const all = await request(app.getHttpServer())
+      .get('/api/alerts')
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const allAlerts = all.body as Array<{ alertSeq: string }>;
+    if (allAlerts.length < 2) return; // not enough data; skip
+
+    // Pick a middle cursor
+    const cursorIdx = Math.floor(allAlerts.length / 2);
+    const cursor = allAlerts[cursorIdx].alertSeq;
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/alerts?beforeSeq=${cursor}`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const page = res.body as Array<{ alertSeq: string; orgId: string }>;
+
+    // Every returned alert must be strictly older than the cursor.
+    expect(page.length).toBeGreaterThan(0);
+    expect(page.every((a) => BigInt(a.alertSeq) < BigInt(cursor))).toBe(true);
+    // Org scope preserved.
+    expect(page.every((a) => a.orgId === ORG_A)).toBe(true);
+    // Still ordered desc.
+    for (let i = 1; i < page.length; i++) {
+      expect(BigInt(page[i - 1].alertSeq) >= BigInt(page[i].alertSeq)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('returns empty when beforeSeq is at or below the minimum alertSeq', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/alerts?beforeSeq=1')
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const page = res.body as Array<{ alertSeq: string }>;
+    // Either empty or (all seqs < 1 which is impossible) ← expect empty.
+    expect(page.every((a) => BigInt(a.alertSeq) < 1n)).toBe(true);
+  });
 });
 
 // ─── AC8: SSE replay + no-miss under concurrent inserts ───────────────────────
@@ -509,6 +641,67 @@ describe('AC8 — SSE replay via Last-Event-ID (alertSeq)', () => {
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
+
+  it('GET /api/sse replays Last-Event-ID backlog and emits status snapshot over HTTP', async () => {
+    const t = Date.now();
+    const firstDetectedAt = new Date(t - 2_000).toISOString();
+    const first = await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(
+        makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+          resident_id: resA_id,
+          facility_id: ORG_A,
+          type: 'SSE_REPLAY_FIRST',
+          detected_at: firstDetectedAt,
+        }),
+      )
+      .send({
+        resident_id: resA_id,
+        facility_id: ORG_A,
+        probability: 0.9,
+        snapshot_url: null,
+        detected_at: firstDetectedAt,
+        type: 'SSE_REPLAY_FIRST',
+      })
+      .expect(201);
+    const secondDetectedAt = new Date(t - 1_000).toISOString();
+    const second = await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(
+        makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+          resident_id: resA_id,
+          facility_id: ORG_A,
+          type: 'SSE_REPLAY_SECOND',
+          detected_at: secondDetectedAt,
+        }),
+      )
+      .send({
+        resident_id: resA_id,
+        facility_id: ORG_A,
+        probability: 0.9,
+        snapshot_url: null,
+        detected_at: secondDetectedAt,
+        type: 'SSE_REPLAY_SECOND',
+      })
+      .expect(201);
+
+    const firstSeq = (first.body as { alertSeq: string }).alertSeq;
+    const secondSeq = (second.body as { alertSeq: string }).alertSeq;
+    const stream = await readSseUntil(
+      sessionCookieA,
+      firstSeq,
+      (body) =>
+        body.includes(`id: ${secondSeq}`) &&
+        body.includes('event: status-snapshot'),
+    );
+
+    expect(stream.statusCode).toBe(200);
+    expect(stream.headers['x-accel-buffering']).toBe('no');
+    expect(stream.body).toContain(`id: ${secondSeq}`);
+    expect(stream.body).toContain('SSE_REPLAY_SECOND');
+    expect(stream.body).toContain('event: status-snapshot');
+    expect(stream.body).not.toContain(ORG_B);
+  }, 10_000);
 });
 
 // ─── F5: Snapshot upload/proxy ────────────────────────────────────────────────
@@ -643,6 +836,71 @@ describe('AC9 — ingest HMAC, freshness, idempotency, tenant coherence, contrac
       .set(headers)
       .send(body)
       .expect(401);
+  });
+
+  it('rejects malformed X-Ingest-Timestamp → 400', async () => {
+    const body = validBody();
+    const headers = makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+      resident_id: body.resident_id,
+      facility_id: body.facility_id,
+      type: body.type,
+      detected_at: body.detected_at,
+    });
+    headers['x-ingest-timestamp'] = 'not-a-date';
+    await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(headers)
+      .send(body)
+      .expect(400);
+  });
+
+  it('rejects future detected_at → 400', async () => {
+    const body = {
+      ...validBody(),
+      detected_at: new Date(Date.now() + 6 * 60 * 1000).toISOString(),
+    };
+    await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(
+        makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+          resident_id: body.resident_id,
+          facility_id: body.facility_id,
+          type: body.type,
+          detected_at: body.detected_at,
+        }),
+      )
+      .send(body)
+      .expect(400);
+  });
+
+  it('rejects invalid detected_at and probability contract values → 400', async () => {
+    const invalidDateBody = { ...validBody(), detected_at: 'not-a-date' };
+    await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(
+        makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+          resident_id: invalidDateBody.resident_id,
+          facility_id: invalidDateBody.facility_id,
+          type: invalidDateBody.type,
+          detected_at: invalidDateBody.detected_at,
+        }),
+      )
+      .send(invalidDateBody)
+      .expect(400);
+
+    const invalidProbabilityBody = { ...validBody(), probability: 1.5 };
+    await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(
+        makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+          resident_id: invalidProbabilityBody.resident_id,
+          facility_id: invalidProbabilityBody.facility_id,
+          type: invalidProbabilityBody.type,
+          detected_at: invalidProbabilityBody.detected_at,
+        }),
+      )
+      .send(invalidProbabilityBody)
+      .expect(400);
   });
 
   it('rejects unknown key-id → 401', async () => {

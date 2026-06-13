@@ -44,4 +44,34 @@ export class StatusService {
     }
     return s;
   }
+  /**
+   * Upsert ResidentStatus.cameraOnline = true for the resident assigned to
+   * the heartbeating camera. Called from the ingest heartbeat endpoint (F6).
+   * The 30s decay still applies on read via _decayOnline.
+   */
+  async recordCameraHeartbeat(
+    orgId: string,
+    cameraId: string,
+    residentId: string | null,
+  ): Promise<void> {
+    if (!residentId) return; // camera not assigned to a resident
+    const now = new Date();
+    await this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
+      tx.residentStatus.upsert({
+        where: { residentId },
+        create: {
+          orgId,
+          residentId,
+          cameraOnline: true,
+          lastSeenAt: now,
+          sourceId: cameraId,
+        },
+        update: {
+          cameraOnline: true,
+          lastSeenAt: now,
+          sourceId: cameraId,
+        },
+      }),
+    );
+  }
 }

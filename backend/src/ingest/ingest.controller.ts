@@ -27,6 +27,8 @@ import type {
 } from './hmac.guard.js';
 import { AlertWriterService } from '../alerts/alert-writer.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { CamerasService } from '../cameras/cameras.service.js';
+import { StatusService } from '../status/status.service.js';
 import {
   MissingFieldException,
   StaleTimestampException,
@@ -49,6 +51,8 @@ export class IngestController {
   constructor(
     private readonly writer: AlertWriterService,
     private readonly prisma: PrismaService,
+    private readonly cameras: CamerasService,
+    private readonly status: StatusService,
   ) {}
 
   @Post('alerts')
@@ -159,6 +163,30 @@ export class IngestController {
       }
       throw err;
     }
+  }
+  /**
+   * POST /ingest/heartbeat — HMAC-authenticated camera heartbeat (F6).
+   *
+   * Canonical body for HMAC: all body fields absent → sign "|||"
+   * (same HmacIngestGuard, empty-body canonical).
+   * Updates Camera.lastSeenAt + Camera.online, and upserts
+   * ResidentStatus.cameraOnline = true if camera is assigned to a resident.
+   * The 30s decay on read is preserved.
+   */
+  @Post('heartbeat')
+  @UseGuards(HmacIngestGuard)
+  @HttpCode(200)
+  async heartbeat(@Req() req: RequestWithIngestCamera) {
+    const camera = requireIngestCamera(req);
+    await Promise.all([
+      this.cameras.recordHeartbeat(camera.orgId, camera.id),
+      this.status.recordCameraHeartbeat(
+        camera.orgId,
+        camera.id,
+        camera.residentId,
+      ),
+    ]);
+    return { ok: true };
   }
 }
 

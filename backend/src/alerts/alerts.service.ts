@@ -7,7 +7,10 @@ import { OrgScopedNotFoundException } from '../common/domain-errors.js';
 export interface AlertQuery {
   residentId?: string;
   status?: AlertStatus;
+  /** Forward cursor: returns alerts with alertSeq > afterSeq. */
   afterSeq?: bigint;
+  /** Backward cursor: returns alerts with alertSeq < beforeSeq (AC7 history scroll). */
+  beforeSeq?: bigint;
   limit?: number;
 }
 
@@ -16,14 +19,18 @@ export class AlertsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(orgId: string, query: AlertQuery = {}) {
-    const { residentId, status, afterSeq, limit = 50 } = query;
+    const { residentId, status, afterSeq, beforeSeq, limit = 50 } = query;
     const take = Math.min(limit, 200);
+    const alertSeqFilter: { gt?: bigint; lt?: bigint } = {};
+    if (afterSeq !== undefined) alertSeqFilter.gt = afterSeq;
+    if (beforeSeq !== undefined) alertSeqFilter.lt = beforeSeq;
     return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
       tx.alert.findMany({
         where: {
           residentId: residentId ?? undefined,
           status: status ?? undefined,
-          alertSeq: afterSeq !== undefined ? { gt: afterSeq } : undefined,
+          alertSeq:
+            Object.keys(alertSeqFilter).length > 0 ? alertSeqFilter : undefined,
         },
         orderBy: { alertSeq: 'desc' },
         take,
