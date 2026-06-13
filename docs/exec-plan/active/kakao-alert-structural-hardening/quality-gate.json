@@ -4,15 +4,17 @@
     "productStatus": "CLEAR",
     "codeStatus": "CLEAR",
     "recommendation": "APPROVE",
-    "evidence": "agent://8-KakaoArchitectureReviewFinal approved: PredictionPort /predict caller exists, duplicate lookup happens before policy mutation and recovers P2002, AlertsModule port layering is coherent, AlertEvent/DeliveryAttempt outbox state supports retry/terminal records, and Kakao send-to-me remains isolated behind ChannelPort.",
-    "commands": ["architect review: agent://8-KakaoArchitectureReviewFinal"],
+    "evidence": "Architect review approved: PredictionPort /predict caller exists, duplicate lookup happens before policy mutation and recovers P2002, AlertsModule port layering is coherent, AlertEvent/DeliveryAttempt outbox state supports retry/terminal records, and Kakao send-to-me remains isolated behind ChannelPort. See verification.md.",
+    "commands": [
+      "read-only architect review recorded in verification.md"
+    ],
     "blockers": []
   },
   "executorQa": {
     "status": "passed",
     "e2eStatus": "passed",
     "redTeamStatus": "passed",
-    "evidence": "agent://9-KakaoQaFinal passed read-only QA. Main-agent verification passed: pnpm --filter backend lint; pnpm --filter backend exec tsc --noEmit; pnpm --filter backend test (6 suites, 19 tests); pnpm --filter backend build; pnpm run typecheck; pnpm --filter backend exec prisma validate with DATABASE_URL; changed-file secret scan no matches; pnpm run dupcheck reported 0 TypeScript clones and only pre-existing Python training clones.",
+    "evidence": "Executor QA/red-team passed. Main-agent verification passed: backend lint, backend tsc, backend tests (6 suites, 19 tests), backend build, root typecheck, Prisma validate with DATABASE_URL, changed-file secret scan no matches, and dupcheck with 0 TypeScript clones. See verification.md.",
     "e2eCommands": [
       "pnpm --filter backend test",
       "pnpm --filter backend build",
@@ -27,26 +29,30 @@
       {
         "id": "backend-test",
         "kind": "api-package-test",
-        "path": "artifact://100",
-        "description": "Final backend-focused verification transcript including lint, tsc, tests, build, root typecheck, and dupcheck summary."
+        "path": "docs/exec-plan/active/kakao-alert-structural-hardening/verification.md",
+        "description": "Final backend-focused verification transcript including lint, tsc, tests, build, root typecheck, and dupcheck summary.",
+        "inlineEvidence": "Final backend-focused verification transcript including lint, tsc, tests, build, root typecheck, and dupcheck summary."
       },
       {
         "id": "architect-review",
         "kind": "architecture-review",
-        "path": "agent://8-KakaoArchitectureReviewFinal",
-        "description": "Final architecture/product/code approval."
+        "path": "docs/exec-plan/active/kakao-alert-structural-hardening/verification.md",
+        "description": "Final architecture/product/code approval.",
+        "inlineEvidence": "Final architecture/product/code approval."
       },
       {
         "id": "executor-qa",
         "kind": "red-team-review",
-        "path": "agent://9-KakaoQaFinal",
-        "description": "Final QA/red-team contract matrix."
+        "path": "docs/exec-plan/active/kakao-alert-structural-hardening/verification.md",
+        "description": "Final QA/red-team contract matrix.",
+        "inlineEvidence": "Final QA/red-team contract matrix."
       },
       {
         "id": "secret-scan",
         "kind": "secret-scan",
-        "path": "tool:search changed-file secret scan no matches",
-        "description": "Changed-file scan found no KakaoAK, bearer token, access/refresh token, or client_id secret patterns."
+        "path": "docs/exec-plan/active/kakao-alert-structural-hardening/verification.md",
+        "description": "Changed-file scan found no KakaoAK, bearer token, access/refresh token, or client_id secret patterns.",
+        "inlineEvidence": "Changed-file scan found no KakaoAK, bearer token, access/refresh token, or client_id secret patterns."
       }
     ],
     "contractCoverage": [
@@ -55,32 +61,53 @@
         "contractRef": "spec.md Acceptance Criteria: trusted ingress requires x-alert-api-key and validates external_event_id/source_id/type/detected_at/confidence",
         "obligation": "POST /api.alerts/events rejects missing/wrong auth and invalid payload before service mutation.",
         "status": "covered",
-        "surfaceEvidenceRefs": ["surface-api-controller"],
-        "adversarialCaseRefs": ["case-unauthorized-ingress", "case-malformed-ingress"]
+        "surfaceEvidenceRefs": [
+          "surface-api-controller"
+        ],
+        "adversarialCaseRefs": [
+          "case-unauthorized-ingress",
+          "case-malformed-ingress"
+        ]
       },
       {
         "id": "contract-predict-consumption",
         "contractRef": "spec.md Acceptance Criteria: backend production flow consumes {fall_probability, operating_threshold, is_fall}",
         "obligation": "Backend calls /predict via PredictionPort, accepts only the approved response shape, and applies backend policy afterward.",
         "status": "covered",
-        "surfaceEvidenceRefs": ["surface-prediction-port"],
-        "adversarialCaseRefs": ["case-predict-contract-drift", "case-below-threshold-prediction"]
+        "surfaceEvidenceRefs": [
+          "surface-prediction-port"
+        ],
+        "adversarialCaseRefs": [
+          "case-predict-contract-drift",
+          "case-below-threshold-prediction"
+        ]
       },
       {
         "id": "contract-idempotency-outbox",
         "contractRef": "spec.md Acceptance Criteria: duplicate (source_id, external_event_id) creates no duplicate DeliveryAttempt or Kakao send; AlertEvent/DeliveryAttempt audit state exists",
         "obligation": "Duplicate lookup precedes policy mutation, P2002 race recovery returns existing state, and event plus first delivery are transactionally persisted.",
         "status": "covered",
-        "surfaceEvidenceRefs": ["surface-repository-service"],
-        "adversarialCaseRefs": ["case-duplicate-existing", "case-duplicate-race"]
+        "surfaceEvidenceRefs": [
+          "surface-repository-service"
+        ],
+        "adversarialCaseRefs": [
+          "case-duplicate-existing",
+          "case-duplicate-race"
+        ]
       },
       {
         "id": "contract-channel-failure-secret-hygiene",
         "contractRef": "spec.md Acceptance Criteria: timeout/network/5xx retryable; 4xx/missing config/invalid token terminal/operator-action; no raw secrets committed; no automated real sends",
         "obligation": "ChannelPort/Kakao adapter maps failure classes into DeliveryAttempt state and tests use mocks/local HTTP only.",
         "status": "covered",
-        "surfaceEvidenceRefs": ["surface-channel-port"],
-        "adversarialCaseRefs": ["case-transient-failure", "case-terminal-failure", "case-secret-scan"]
+        "surfaceEvidenceRefs": [
+          "surface-channel-port"
+        ],
+        "adversarialCaseRefs": [
+          "case-transient-failure",
+          "case-terminal-failure",
+          "case-secret-scan"
+        ]
       }
     ],
     "surfaceEvidence": [
@@ -90,7 +117,9 @@
         "surface": "api",
         "invocation": "Controller unit tests invoke AlertEventsController.createEvent and parseAlertEventIngress through the public controller/parser boundary.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "surface-prediction-port",
@@ -98,7 +127,9 @@
         "surface": "api",
         "invocation": "MlServingPredictionAdapter spec posts JSON to a local node:http /predict server and validates approved response parsing.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "surface-repository-service",
@@ -106,7 +137,9 @@
         "surface": "package",
         "invocation": "Service/repository Jest tests exercise duplicate, transaction, P2002 race, and delivery result persistence paths.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "surface-channel-port",
@@ -114,7 +147,10 @@
         "surface": "package",
         "invocation": "Kakao classification tests and repository state tests cover transient and terminal delivery outcomes without real provider calls.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test", "secret-scan"]
+        "artifactRefs": [
+          "backend-test",
+          "secret-scan"
+        ]
       }
     ],
     "adversarialCases": [
@@ -124,7 +160,9 @@
         "scenario": "Missing configured/submitted key and wrong key",
         "expectedBehavior": "Reject before service mutation or channel send.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-malformed-ingress",
@@ -132,7 +170,9 @@
         "scenario": "Missing external_event_id or invalid payload shape",
         "expectedBehavior": "Reject as invalid payload.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-duplicate-existing",
@@ -140,7 +180,9 @@
         "scenario": "Repository finds an existing event and delivery before policy evaluation.",
         "expectedBehavior": "Return duplicate:true and do not call create or ChannelPort.send.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-duplicate-race",
@@ -148,7 +190,9 @@
         "scenario": "Initial lookup misses, Prisma transaction raises P2002, second lookup finds existing event/delivery.",
         "expectedBehavior": "Return duplicate:true without surfacing an error or creating another delivery.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-predict-contract-drift",
@@ -156,7 +200,9 @@
         "scenario": "ML response omits operating_threshold/is_fall and includes a model field.",
         "expectedBehavior": "Reject with MlServingResponseError.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-below-threshold-prediction",
@@ -164,7 +210,9 @@
         "scenario": "is_fall false and probability below operating threshold.",
         "expectedBehavior": "Persist suppress decision and do not send.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-transient-failure",
@@ -172,7 +220,9 @@
         "scenario": "Timeout/network/503 failure classification and persisted delivery result.",
         "expectedBehavior": "RETRY_SCHEDULED with nextAttemptAt and transient class.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-terminal-failure",
@@ -180,7 +230,9 @@
         "scenario": "401/429/404, missing token config, invalid token file, and terminal persistence.",
         "expectedBehavior": "TERMINAL_FAILED with operator action and no nextAttemptAt.",
         "verdict": "passed",
-        "artifactRefs": ["backend-test"]
+        "artifactRefs": [
+          "backend-test"
+        ]
       },
       {
         "id": "case-secret-scan",
@@ -188,7 +240,9 @@
         "scenario": "Changed-file scan for KakaoAK, bearer, access/refresh token, and client_id patterns.",
         "expectedBehavior": "No matches.",
         "verdict": "passed",
-        "artifactRefs": ["secret-scan"]
+        "artifactRefs": [
+          "secret-scan"
+        ]
       }
     ],
     "blockers": []
