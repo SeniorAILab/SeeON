@@ -113,7 +113,7 @@ pnpm start:dev
 **Terminal B — frontend**
 ```bash
 cd front
-pnpm dev
+pnpm dev -- -p 3001
 # Listening on http://localhost:3001
 ```
 

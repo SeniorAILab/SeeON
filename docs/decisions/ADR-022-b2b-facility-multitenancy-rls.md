@@ -35,8 +35,8 @@ with application-level belt-and-suspenders guard:
 
 ### 1. `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`
 
-Every tenant table (`Resident`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`,
-`KakaoIdentity`) has:
+Every tenant table (`Resident`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`) has:
+
 
 ```sql
 ALTER TABLE <table> ENABLE ROW LEVEL SECURITY;
@@ -45,30 +45,39 @@ ALTER TABLE <table> FORCE ROW LEVEL SECURITY;
 
 `FORCE` ensures the policy applies even to the table owner — a superuser connected as the
 table owner bypasses RLS unless FORCE is set.
+> **`KakaoIdentity` is excluded from RLS.** Kakao login/onboarding happens before an org
+> context is established (`orgId` may be `NULL`). RLS default-deny would block those rows.
+> `KakaoIdentity` is gated at the application layer, like `User` and `ServerSession`.
+> The five RLS-enforced tables are: `Resident`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`.
 
-### 2. Per-request `app.current_org_id` GUC via `SET LOCAL`
+
+### 2. Per-request `app.org_id` GUC via `set_config(..., true)`
+
 
 The single policy on every tenant table is:
 
 ```sql
 CREATE POLICY tenant_isolation ON <table>
-  USING (org_id = current_setting('app.current_org_id', TRUE)::uuid)
-  WITH CHECK (org_id = current_setting('app.current_org_id', TRUE)::uuid);
+  USING (org_id = current_setting('app.org_id', true)::text)
+  WITH CHECK (org_id = current_setting('app.org_id', true)::text);
+
 ```
 
-`current_setting('app.current_org_id', TRUE)` returns `NULL` when the GUC is absent (missing →
-NULL → `org_id = NULL` → false → zero rows). The policy is default-deny without any explicit
-`DEFAULT DENY` clause because an un-set GUC produces the `false` comparison.
+`current_setting('app.org_id', true)` returns `''` when the GUC is absent (missing →
+empty string → `org_id = ''` → false → zero rows). The policy is default-deny without any
+explicit `DEFAULT DENY` clause because an un-set GUC produces the `false` comparison.
+Note: `orgId` values are CUIDs (`String`), so the cast target is `::text`, not `::uuid`.
 
-A NestJS request-scoped Prisma middleware (org-context interceptor) sets the GUC inside an
-interactive transaction for every request after session validation:
+A NestJS `PrismaService.withOrgContext()` method sets the GUC inside an interactive
+transaction for every request after session validation:
 
-```sql
-SET LOCAL app.current_org_id = '<orgId>';
+```ts
+await tx.$executeRaw`SELECT set_config('app.org_id', ${orgId}, true)`;
 ```
 
-`SET LOCAL` confines the value to the current transaction; the GUC resets automatically on
-`COMMIT`/`ROLLBACK`, so connection-pool reuse cannot bleed a prior tenant's context.
+The third argument `true` means `is_local = true`: the GUC is scoped to the current
+**transaction** only and reverts automatically on `COMMIT`/`ROLLBACK`, so
+connection-pool reuse cannot bleed a prior tenant's context.
 
 ### 3. Dedicated `NOSUPERUSER NOBYPASSRLS` runtime role
 
@@ -76,18 +85,23 @@ The application runtime connection uses a dedicated Postgres role with **no supe
 privilege and `NOBYPASSRLS`**:
 
 ```sql
-CREATE ROLE app_runtime NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS LOGIN
+CREATE ROLE fall_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS LOGIN
   PASSWORD '...';
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fall_app;
 ```
 
-The `fall` superuser role used for `prisma migrate` and seeding is **not** used at runtime.
-`DATABASE_URL` for the application process points to `app_runtime`. Migration/seed scripts use
-a separate privileged `DATABASE_MIGRATE_URL`.
+The `fall_app` role is created idempotently in `backend/prisma/init/01-create-app-role.sql`
+(runs via `docker-entrypoint-initdb.d` on first DB init). The migration
+(`init_domain_models`) contains only `GRANT` statements — **no `CREATE ROLE`**.
+
+The `fall` superuser role is used for migrations and seeding (`DIRECT_URL`) and is
+**not** used at runtime. `DATABASE_URL` for the application process points to `fall_app`.
+
 
 This separation is the hard gate: a superuser bypasses RLS regardless of policies; a
 NOSUPERUSER+NOBYPASSRLS role cannot. Cross-tenant denial tests are valid only when run
-**as `app_runtime`**, not as the superuser.
+**as `fall_app`**, not as the superuser.
+
 
 ### 4. Composite FK coherence
 
@@ -110,10 +124,11 @@ surfaces as a typed boot/runtime error, not a silent zero-row result.
 
 ### 6. Seed and migration path under RLS FORCE
 
-Migration scripts run via the privileged `DATABASE_MIGRATE_URL` role (superuser or explicit
+Migration scripts run via the privileged `DIRECT_URL` role (superuser `fall` with
 `BYPASSRLS`). Seed scripts that must insert multi-tenant data set the GUC explicitly per org
-block (`SET LOCAL app.current_org_id = '<orgId>'`) or run as the privileged role scoped to
-seeding only.
+block (`SELECT set_config('app.org_id', '<orgId>', true)`) or run as the privileged role
+scoped to seeding only.
+
 
 ## Decision Drivers
 
@@ -174,20 +189,23 @@ by schema-level separation.
 
 **Negative / trade-offs:**
 
-- Two Postgres roles are required (`app_runtime` and a privileged migrate role); `DATABASE_URL`
-  and `DATABASE_MIGRATE_URL` must both be configured in the environment.
+- Two Postgres roles are required (`fall_app` for runtime and the `fall` superuser for
+  migrations); `DATABASE_URL` and `DIRECT_URL` must both be configured in the environment.
+
 - Prisma does not model RLS natively; policies and composite FKs are added via raw SQL appended
   to the `init` migration file — a maintenance coupling to watch during future migrations.
-- Every tenant query must run inside a transaction that sets `app.current_org_id` via `SET LOCAL`.
-  Bare `$queryRaw` calls that bypass the interceptor are also under the RLS policy but the
-  extension backstop will not fire for them; raw SQL authors must set the GUC manually.
+- Every tenant query must run inside a transaction that sets `app.org_id` via
+  `set_config('app.org_id', orgId, true)` (is_local=true). Bare `$queryRaw` calls that
+  bypass `withOrgContext()` are also under the RLS policy but the extension backstop will
+  not fire for them; raw SQL authors must set the GUC manually.
+
 - Seeding and testing require explicit GUC setup or the privileged role; naive integration tests
   connected as the superuser give false-positive passes.
 
 ## Follow-ups
 
 - Denial test matrix (un-scoped-query denial + cross-tenant 404 for every tenant model) must be
-  run **as `app_runtime`** as part of AC2/AC10 acceptance gate (P1/P6).
+  run **as `fall_app`** as part of AC2/AC10 acceptance gate (P1/P6).
 - Composite-FK rejection tests (attempt insert of mismatched `orgId` in child tables) are required
   before the Phase 1 slice is merged.
 - Multi-instance scale-out (if needed beyond single-instance MVP) must revisit connection-pool
