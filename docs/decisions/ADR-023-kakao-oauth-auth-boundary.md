@@ -74,19 +74,22 @@ revoked session causes the stream to be closed server-side within one tick.
 **No access/refresh tokens stored**: Kakao's access/refresh tokens are not persisted this build
 (scope limited to profile + account). Only `KakaoIdentity.kakaoId` is stored.
 
-### 3. Single browser-facing origin via Next.js rewrites
+### 3. Single browser-facing origin via Next.js rewrites and route handlers
 
 The browser communicates with **one origin only**: the Next.js frontend. Backend APIs are not
-directly browser-reachable. `next.config.ts` rewrites:
+directly browser-reachable. `next.config.ts` rewrites ordinary backend routes, and the production
+SSE stream is owned by a Next App Router route handler that proxies to the backend stream:
 
 ```
-/auth/*   → http://backend:3000/auth/*
-/api/*    → http://backend:3000/api/*
-/sse      → http://backend:3000/sse
+/auth/*      → http://backend:3000/auth/*
+/api/*       → http://backend:3000/api/* for REST routes
+/api/sse     → front/src/app/api/sse/route.ts → http://backend:3000/api/sse
+/orgs        → http://backend:3000/orgs
+/sse         → http://backend:3000/sse (auth/session probe only, not the alert stream)
 ```
 
-This makes the `app_session` cookie a **first-party cookie** for all browser fetch calls and
-`EventSource` connections — no cross-origin credential dance, no `SameSite=None`, no CORS
+This makes the `app_session` cookie a **first-party cookie** for browser fetch calls and for
+`EventSource('/api/sse')` — no cross-origin credential dance, no `SameSite=None`, no CORS
 credentials configuration needed in the browser.
 
 The Kakao `redirect_uri` is registered as a front-origin path (e.g.,
@@ -198,10 +201,11 @@ Expose the backend on a second origin; configure `SameSite=None; Secure` and COR
 
 - AC4 verification: secrets env-only + fail-fast on boot; cookie attributes tested (`httpOnly`,
   `Secure`, `SameSite=Lax`); logout must cause both subsequent API calls and the live SSE stream
-  to be rejected/closed within one keep-alive tick.
-- Session TTL, rotation window, and keep-alive tick interval are configuration constants — extract
-  to env vars (`SESSION_TTL_SECONDS`, `SESSION_REFRESH_WINDOW_SECONDS`, `SSE_KEEPALIVE_SECONDS`)
-  so they are tunable without code changes.
+  to be rejected/closed within one session re-validation tick.
+- Session TTL and rotation window remain configuration constants. The SSE session re-validation
+  interval is currently provided by the `SSE_REAUTH_INTERVAL_MS` injection token (default 20 s in
+  `DashboardModule`, overridden in tests); expose it as an env setting when operations need runtime
+  tuning without code changes.
 - Future #96 (Kakao outbound dispatch): the `ServerSession` model is ready; add Kakao token
   storage in a new migration when dispatch scope is approved.
 - Multi-provider auth (if a non-Kakao provider is added): the `KakaoIdentity` pattern

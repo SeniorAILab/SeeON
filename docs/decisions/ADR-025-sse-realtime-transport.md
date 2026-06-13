@@ -22,8 +22,10 @@ Additional constraints:
 
 - Session authentication must use the `app_session` httpOnly cookie (ADR-023). `EventSource` does
   not support the `Authorization` header, so the auth mechanism must be cookie-based.
-- The SSE origin must be the same as the front origin (Next.js rewrite `/sse → backend:3000/sse`)
-  so the first-party cookie is included automatically.
+- The production alert stream is same-origin at the frontend path `GET /api/sse`. The Next App
+  Router route `front/src/app/api/sse/route.ts` proxies to backend `GET /api/sse`, forwarding the
+  first-party cookie and `Last-Event-ID`. The legacy `/sse` rewrite is an auth/session probe, not
+  the production alert stream.
 - Alert events must be delivered without gaps or reordering across reconnects (life-safety
   requirement: no distinct alert may be dropped — plan pre-mortem 2).
 - The system is a single-instance MVP at this stage. Multi-instance fan-out (LISTEN/NOTIFY) is an
@@ -39,7 +41,9 @@ The plan Architect (stage-02) and Critic (stage-06) assessed the transport choic
 
 ### 1. Server-Sent Events over HTTP/1.1 (read-only push)
 
-`GET /sse` (proxied via Next rewrite from the browser) opens a persistent SSE connection:
+`GET /api/sse` opens a persistent SSE connection. In the browser, `EventSource('/api/sse')`
+hits the Next App Router route handler, which forwards the stream to backend `GET /api/sse` while
+preserving the `app_session` cookie and `Last-Event-ID` header:
 
 ```
 Content-Type: text/event-stream
@@ -62,11 +66,11 @@ before the stream opens. Only fully onboarded sessions reach the stream.
 
 ### 2. `alertSeq` as the SSE `id` field and `Last-Event-ID` cursor
 
-Every SSE event carries:
+Alert frames use the SSE `id` field but intentionally omit a named `event:` line, so the browser
+receives them through `EventSource.onmessage`:
 
 ```
 id: <alertSeq>
-event: alert
 data: { "alertSeq": "...", "residentId": "...", ... }
 ```
 
@@ -86,13 +90,16 @@ ORDER BY alert_seq ASC;
 This delivers every committed alert that arrived since the last acknowledged event, in strict
 insert order, with no gaps.
 
-### 3. REST re-snapshot of `ResidentStatus` on reconnect
+### 3. Backend-emitted `ResidentStatus` snapshot and live status events
 
 The alert event log replay (via `Last-Event-ID`) restores the alert feed, but the dashboard's
 current-state grid (resident status badges) is derived from `ResidentStatus` (ADR-024), not the
-event log. On reconnect, the client performs a separate `GET /status` REST call to re-fetch the
-full `ResidentStatus` snapshot for all org residents. This decouples the event log (what happened)
-from the current state (what is true now) and avoids replaying state-change events.
+event log. On connect/reconnect, backend `GET /api/sse` emits a named `event: status-snapshot`
+frame containing the full org-scoped `ResidentStatus[]`. After each committed alert, the backend
+also emits a named `event: status` delta so badges update without waiting for a page reload.
+
+Dashboard server render and non-stream API reads use REST `GET /api/status`, but reconnect
+resnapshot is carried on the SSE stream itself.
 
 ### 4. Single-consumer in-process write queue (serialized alertSeq emit)
 
@@ -192,7 +199,7 @@ and fans out to its local SSE connections.
 
 ### Client-side EventSource with `Authorization` query parameter
 
-Pass the session token in the URL (`/sse?token=<jwt>`) for `EventSource` authentication instead
+Pass the session token in the URL (`/api/sse?token=<jwt>`) for `EventSource` authentication instead
 of relying on cookies.
 
 - Pros: works for any EventSource URL regardless of origin; cookie not required.
@@ -208,8 +215,8 @@ of relying on cookies.
 - Sub-second alert delivery for a single-instance deployment (AC6) without any additional
   infrastructure (message broker, Redis, etc.).
 - `Last-Event-ID` replay is protocol-native; no custom application-level replay protocol needed.
-- Cookie authentication is automatic via the first-party Next rewrite; no token plumbing in
-  the SSE client code.
+- Cookie authentication is automatic because the browser connects to first-party `/api/sse`; the
+  Next route handler proxies the cookie-bearing stream to backend `/api/sse`.
 - In-process write queue is simple, auditable, and requires no external dependencies at MVP scale.
 - Logout semantically closes the SSE stream within one keep-alive tick (ADR-023).
 
@@ -228,17 +235,19 @@ of relying on cookies.
 
 ## Follow-ups
 
-- AC6 sub-second SSE delivery must be verified against the chosen Next rewrite path (not assumed);
-  unbuffered response confirmed in the NestJS SSE controller.
-- F10 (Critic): verify the Next 16 rewrite does not buffer the `text/event-stream` response
-  (default Next response helpers may buffer); use a raw `http.ServerResponse` or a NestJS
-  `@Sse()` decorator that writes directly to the socket.
+- AC6 sub-second SSE delivery must be verified against the chosen Next App Router proxy path
+  (`/api/sse` → backend `/api/sse`), not assumed; unbuffered response confirmed in the NestJS SSE
+  controller and Next route handler.
+- F10 (Critic): verify neither the Next route handler nor upstream proxy buffers the
+  `text/event-stream` response; the route must forward the raw backend stream directly.
 - AC8 interleaved-concurrent-insert reconnect test: fire concurrent ingest from ≥2 cameras
   while the client drops mid-flight; assert no gap, no duplicate, and strict `alertSeq` order
   in the replay.
 - Multi-instance upgrade path: when horizontal scale is required, add `pg_notify('alerts',
   json_build_object(...))` in the alert writer transaction and replace the in-process queue with
   a per-process `pg_listen` subscriber that fans out to local SSE connections. This is an additive
-  change; the SSE client protocol (Last-Event-ID, event format) is unchanged.
-- SSE keep-alive tick interval should be configurable via `SSE_KEEPALIVE_SECONDS` env var
-  (default 30 s); the session re-validation happens on each tick.
+  change to the alert writer/SSE fan-out services, not a redesign. It preserves the client
+  protocol: unnamed alert messages with `id: alertSeq`, named `event: status-snapshot`, named
+  `event: status`, and `Last-Event-ID` replay.
+- The SSE session re-validation interval is provided through the `SSE_REAUTH_INTERVAL_MS`
+  injection token (default 20 s in the dashboard module; tests override it for fast closure).
