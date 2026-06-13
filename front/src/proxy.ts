@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const protectedPrefixes = ["/dashboard", "/alerts", "/admin"];
-const publicAuthRoutes = ["/login"];
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const hasSession = Boolean(request.cookies.get("app_session")?.value);
-  const protectedRoute = protectedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  const hasSessionCookie = Boolean(request.cookies.get("app_session")?.value);
+  const protectedRoute = protectedPrefixes.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
 
-  if (protectedRoute && !hasSession) {
+  // Optimistic UX-only gate: the backend remains authoritative. Dashboard server
+  // rendering calls /auth/session before showing org-scoped content, so forged/stale
+  // cookies cannot expose data even when this quick cookie-name check passes.
+  if (protectedRoute && !hasSessionCookie) {
     return NextResponse.redirect(new URL("/login", request.nextUrl));
-  }
-
-  if (publicAuthRoutes.includes(path) && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
   }
 
   return NextResponse.next();

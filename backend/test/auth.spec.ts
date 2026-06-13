@@ -1,10 +1,13 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { KakaoClient } from '../src/auth/kakao.client';
+import { setOAuthStateCookie, setSessionCookie } from '../src/auth/cookie.util';
+import { SessionService } from '../src/auth/session.service';
 import { createSignedSessionToken } from '../src/auth/signed-token';
 
 const TEST_SECRET = 'test-session-secret-minimum-32-characters';
@@ -22,6 +25,88 @@ type AuthResponseBody = {
 type OrgProbeBody = {
   orgId: string | null;
 };
+
+describe('auth fail-fast config and cookie attributes', () => {
+  it('fails fast for missing/short session secrets and missing Kakao env', () => {
+    expect(() =>
+      new SessionService(
+        {} as never,
+        new ConfigService({ SESSION_JWT_SECRET: 'short' }),
+      ).onModuleInit(),
+    ).toThrow(ServiceUnavailableException);
+
+    const originalKakaoKey = process.env.KAKAO_REST_API_KEY;
+    const originalRedirectUri = process.env.KAKAO_REDIRECT_URI;
+    delete process.env.KAKAO_REST_API_KEY;
+    delete process.env.KAKAO_REDIRECT_URI;
+    try {
+      expect(() =>
+        new KakaoClient(new ConfigService({})).onModuleInit(),
+      ).toThrow(ServiceUnavailableException);
+      expect(() =>
+        new KakaoClient(
+          new ConfigService({
+            KAKAO_REST_API_KEY: 'rest-key',
+          }),
+        ).onModuleInit(),
+      ).toThrow(ServiceUnavailableException);
+    } finally {
+      if (originalKakaoKey === undefined) delete process.env.KAKAO_REST_API_KEY;
+      else process.env.KAKAO_REST_API_KEY = originalKakaoKey;
+      if (originalRedirectUri === undefined)
+        delete process.env.KAKAO_REDIRECT_URI;
+      else process.env.KAKAO_REDIRECT_URI = originalRedirectUri;
+    }
+  });
+
+  it('sets bounded production cookie attributes for session and OAuth state', () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const sessionCookie = jest.fn();
+    const stateCookie = jest.fn();
+    try {
+      setSessionCookie(
+        { cookie: sessionCookie } as unknown as Parameters<
+          typeof setSessionCookie
+        >[0],
+        'session-token',
+        123,
+      );
+      setOAuthStateCookie(
+        { cookie: stateCookie } as unknown as Parameters<
+          typeof setOAuthStateCookie
+        >[0],
+        'state-token',
+        45,
+      );
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
+
+    expect(sessionCookie).toHaveBeenCalledWith(
+      'app_session',
+      'session-token',
+      expect.objectContaining({
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 123000,
+      }),
+    );
+    expect(stateCookie).toHaveBeenCalledWith(
+      'kakao_oauth_state',
+      'state-token',
+      expect.objectContaining({
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        path: '/auth',
+        maxAge: 45000,
+      }),
+    );
+  });
+});
 
 describe('Kakao auth/session tenant boundary (e2e)', () => {
   let app: INestApplication<App>;
@@ -78,6 +163,7 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
 
   it('rejects unauthenticated protected requests with 401', async () => {
     await request(app.getHttpServer()).get('/auth/me').expect(401);
+    await request(app.getHttpServer()).get('/auth/session').expect(401);
     await request(app.getHttpServer()).get('/api/protected-probe').expect(401);
   });
 
@@ -116,6 +202,11 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
       .set('cookie', firstSessionCookie)
       .expect(403);
 
+    await request(app.getHttpServer())
+      .get('/sse')
+      .set('cookie', firstSessionCookie)
+      .expect(403);
+
     const orgCreate = await request(app.getHttpServer())
       .post('/orgs')
       .set('cookie', firstSessionCookie)
@@ -130,6 +221,10 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
     const orgCreateBody = orgCreate.body as unknown as AuthResponseBody;
     expect(orgCreateBody.user.orgId).toBeTruthy();
     expect(orgCreateBody.user.role).toBe('OWNER');
+    const kakaoIdentity = await direct.kakaoIdentity.findUniqueOrThrow({
+      where: { userId: orgCreateBody.user.id },
+    });
+    expect(JSON.stringify(kakaoIdentity)).not.toContain('test-access-token');
 
     const orgProbe = await request(app.getHttpServer())
       .get('/api/org-protected-probe')
@@ -155,8 +250,57 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
       },
       TEST_SECRET,
     );
-    const rotated = await request(app.getHttpServer())
+    const expiredToken = createSignedSessionToken(
+      {
+        sessionId: activeSession.id,
+        userId: orgCreateBody.user.id,
+        orgId: orgCreateBody.user.orgId,
+        sessionVersion: orgCreateBody.user.sessionVersion,
+        iat: nowSeconds - 3600,
+        exp: nowSeconds - 1,
+      },
+      TEST_SECRET,
+    );
+    const staleVersionToken = createSignedSessionToken(
+      {
+        sessionId: activeSession.id,
+        userId: orgCreateBody.user.id,
+        orgId: orgCreateBody.user.orgId,
+        sessionVersion: orgCreateBody.user.sessionVersion + 1,
+        iat: nowSeconds,
+        exp: nowSeconds + 1800,
+      },
+      TEST_SECRET,
+    );
+    const tamperedToken = `${oldToken.slice(0, -1)}${oldToken.endsWith('a') ? 'b' : 'a'}`;
+
+    await request(app.getHttpServer())
       .get('/auth/me')
+      .set('cookie', `app_session=${tamperedToken}`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('cookie', `app_session=${expiredToken}`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('cookie', `app_session=${staleVersionToken}`)
+      .expect(401);
+
+    const serverRenderSession = await request(app.getHttpServer())
+      .get('/auth/session')
+      .set('cookie', `app_session=${oldToken}`)
+      .expect(200);
+    expect(
+      extractSessionCookieOptional(serverRenderSession.headers['set-cookie']),
+    ).toBeNull();
+    await expect(
+      direct.serverSession.findUniqueOrThrow({
+        where: { id: activeSession.id },
+      }),
+    ).resolves.toMatchObject({ revokedAt: null });
+    const rotated = await request(app.getHttpServer())
+      .get('/sse')
       .set('cookie', `app_session=${oldToken}`)
       .expect(200);
     const rotatedCookie = extractSessionCookie(rotated.headers['set-cookie']);
@@ -166,6 +310,10 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
         where: { id: activeSession.id },
       }),
     ).resolves.toMatchObject({ revokedAt: expect.any(Date) as Date });
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('cookie', `app_session=${oldToken}`)
+      .expect(401);
 
     await request(app.getHttpServer())
       .get('/sse')
@@ -183,9 +331,37 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
       .expect(401);
 
     await request(app.getHttpServer())
+      .get('/api/protected-probe')
+      .set('cookie', rotatedCookie)
+      .expect(401);
+
+    await request(app.getHttpServer())
       .get('/sse')
       .set('cookie', rotatedCookie)
       .expect(401);
+  });
+
+  it('rejects OAuth callbacks when a state cookie is present but query state is missing or different', async () => {
+    const login = await request(app.getHttpServer())
+      .get('/auth/kakao/login')
+      .expect(302);
+    const stateCookie = login.headers['set-cookie'][0];
+
+    const missingState = await request(app.getHttpServer())
+      .get('/auth/kakao/callback?code=test-code')
+      .set('cookie', stateCookie)
+      .expect(400);
+    expect(
+      extractSessionCookieOptional(missingState.headers['set-cookie']),
+    ).toBeNull();
+
+    const mismatchedState = await request(app.getHttpServer())
+      .get('/auth/kakao/callback?code=test-code&state=different')
+      .set('cookie', stateCookie)
+      .expect(400);
+    expect(
+      extractSessionCookieOptional(mismatchedState.headers['set-cookie']),
+    ).toBeNull();
   });
 
   it('rejects callback requests with missing or mismatched OAuth state', async () => {
@@ -195,6 +371,16 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
   });
 });
 
+function extractSessionCookieOptional(
+  setCookie: string[] | string | undefined,
+): string | null {
+  const values = Array.isArray(setCookie)
+    ? setCookie
+    : setCookie
+      ? [setCookie]
+      : [];
+  return values.find((value) => value.startsWith('app_session=')) ?? null;
+}
 function extractSessionCookie(
   setCookie: string[] | string | undefined,
 ): string {

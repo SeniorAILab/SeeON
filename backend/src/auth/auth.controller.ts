@@ -15,6 +15,7 @@ import type { Response } from 'express';
 import {
   OAUTH_STATE_COOKIE_NAME,
   OAUTH_STATE_TTL_SECONDS,
+  SESSION_COOKIE_NAME,
 } from './auth.constants';
 import { AuthService } from './auth.service';
 import type { CreateOrganizationBody } from './auth.types';
@@ -71,6 +72,14 @@ export class AuthController {
   ) {
     this.refreshRotatedCookie(request, response);
     return { user: request.user };
+  }
+
+  @Get('/auth/session')
+  @Header('cache-control', 'no-store')
+  async sessionForServerRender(@Req() request: RequestWithAuth) {
+    const token = readCookie(request.headers.cookie, SESSION_COOKIE_NAME);
+    const valid = await this.sessions.validateToken(token, { rotate: false });
+    return { user: valid.user };
   }
 
   @Post('/auth/logout')
@@ -134,7 +143,11 @@ export class AuthController {
   @UseGuards(SessionGuard, RequireOrgGuard)
   @Header('content-type', 'text/event-stream')
   @Header('cache-control', 'no-store')
-  sseAuthProbe(): string {
+  sseAuthProbe(
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ): string {
+    this.refreshRotatedCookie(request, response);
     return ': auth-ok\n\n';
   }
 

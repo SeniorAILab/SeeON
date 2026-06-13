@@ -61,7 +61,10 @@ export class SessionService implements OnModuleInit {
     return { token, maxAgeSeconds: ttlSeconds, session };
   }
 
-  async validateToken(token: string | undefined): Promise<ValidSession> {
+  async validateToken(
+    token: string | undefined,
+    options: { rotate?: boolean } = {},
+  ): Promise<ValidSession> {
     if (!token) throw new UnauthorizedException('Missing session');
     const payload = verifySignedSessionToken(token, this.sessionSecret());
     if (!payload) throw new UnauthorizedException('Invalid session');
@@ -82,7 +85,7 @@ export class SessionService implements OnModuleInit {
     let activeSession = session;
 
     let rotatedToken: string | null = null;
-    if (this.shouldRotate(payload.iat)) {
+    if (options.rotate !== false && this.shouldRotate(payload.iat)) {
       await this.prisma.db.serverSession.update({
         where: { id: session.id },
         data: { revokedAt: new Date() },
