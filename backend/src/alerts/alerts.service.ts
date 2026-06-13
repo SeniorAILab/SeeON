@@ -56,6 +56,17 @@ export class AlertsService {
     );
   }
 
+  async setSnapshotKey(orgId: string, id: string, snapshotKey: string) {
+    const existing = await this.prisma.withOrgContext(
+      orgId,
+      (tx: Prisma.TransactionClient) => tx.alert.findUnique({ where: { id } }),
+    );
+    if (!existing) throw new OrgScopedNotFoundException('alert');
+    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
+      tx.alert.update({ where: { id }, data: { snapshotKey } }),
+    );
+  }
+
   async replay(orgId: string, afterSeq: bigint) {
     return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
       tx.alert.findMany({

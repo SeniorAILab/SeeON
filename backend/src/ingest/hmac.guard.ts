@@ -95,11 +95,12 @@ export class HmacIngestGuard implements CanActivate {
       .update(canonical)
       .digest('hex');
 
+    const signatureBuffer = hexToBuffer(signature);
+    const expectedBuffer = Buffer.from(expected, 'hex');
     if (
-      !crypto.timingSafeEqual(
-        Buffer.from(signature, 'hex'),
-        Buffer.from(expected, 'hex'),
-      )
+      !signatureBuffer ||
+      signatureBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
     ) {
       throw new InvalidSignatureException();
     }
@@ -121,4 +122,9 @@ function canonicalValue(value: unknown): string {
     return String(value);
   }
   return '';
+}
+
+function hexToBuffer(value: string): Buffer | null {
+  if (!/^[a-f0-9]+$/i.test(value) || value.length % 2 !== 0) return null;
+  return Buffer.from(value, 'hex');
 }

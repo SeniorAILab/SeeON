@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   Controller,
   ForbiddenException,
   Get,
   HttpCode,
   Param,
+  Put,
   Patch,
   Query,
   Req,
@@ -20,6 +22,14 @@ import { OrgContextInterceptor } from '../auth/org-context.interceptor.js';
 import type { RequestWithAuth } from '../auth/session.guard.js';
 import { AlertsService } from './alerts.service.js';
 import { OrgScopedNotFoundException } from '../common/domain-errors.js';
+
+const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+const SNAPSHOT_EXTENSIONS = new Map<string, string>([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['application/octet-stream', 'bin'],
+  ['multipart/form-data', 'bin'],
+]);
 
 @Controller()
 @UseGuards(SessionGuard, RequireOrgGuard)
@@ -60,6 +70,40 @@ export class AlertsController {
   }
 
   /**
+   * PUT /api/snapshots/:alertId — authenticated snapshot upload.
+   * Stores bytes locally under a server-derived key; payload URLs are never fetched.
+   */
+  @Put('api/snapshots/:alertId')
+  @HttpCode(201)
+  async uploadSnapshot(
+    @Req() req: RequestWithAuth,
+    @Param('alertId') alertId: string,
+  ) {
+    const orgId = requireOrgId(req);
+    const alert = await this.service.getOne(orgId, alertId);
+    const contentType = String(req.headers['content-type'] ?? '')
+      .split(';')[0]
+      .trim()
+      .toLowerCase();
+    const extension = SNAPSHOT_EXTENSIONS.get(contentType);
+    if (!extension) {
+      throw new BadRequestException('Unsupported snapshot content type');
+    }
+
+    const body = await readRequestBody(req, MAX_SNAPSHOT_BYTES);
+    if (body.length === 0) throw new BadRequestException('Snapshot is empty');
+
+    const snapshotDir = snapshotRoot();
+    const snapshotKey = path.posix.join(orgId, `${alert.id}.${extension}`);
+    const filePath = resolveSnapshotPath(snapshotDir, snapshotKey);
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, body);
+    await this.service.setSnapshotKey(orgId, alert.id, snapshotKey);
+
+    return { snapshotKey };
+  }
+
+  /**
    * GET /api/snapshots/:alertId — Snapshot proxy (F5).
    * Verifies alert.orgId == req.user.orgId, then streams file from local disk.
    * Backend never dereferences edge URLs (SSRF-safe).
@@ -73,15 +117,9 @@ export class AlertsController {
     const alert = await this.service.getOne(requireOrgId(req), alertId);
     if (!alert.snapshotKey) throw new OrgScopedNotFoundException('snapshot');
 
-    // snapshotKey is a relative path under SNAPSHOT_DIR (never an edge URL).
-    const snapshotDir =
-      process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), 'snapshots');
-    const filePath = path.join(snapshotDir, alert.snapshotKey);
-
-    // Path traversal guard: resolved path must be under snapshotDir.
-    if (!filePath.startsWith(path.resolve(snapshotDir))) {
-      throw new OrgScopedNotFoundException('snapshot');
-    }
+    // snapshotKey is a relative server-owned key under SNAPSHOT_DIR.
+    const snapshotDir = snapshotRoot();
+    const filePath = resolveSnapshotPath(snapshotDir, alert.snapshotKey);
 
     if (!fs.existsSync(filePath))
       throw new OrgScopedNotFoundException('snapshot');
@@ -90,6 +128,37 @@ export class AlertsController {
     res.setHeader('cache-control', 'private, max-age=300');
     fs.createReadStream(filePath).pipe(res);
   }
+}
+
+function snapshotRoot(): string {
+  return process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), 'snapshots');
+}
+
+function resolveSnapshotPath(snapshotDir: string, snapshotKey: string): string {
+  const root = path.resolve(snapshotDir);
+  const resolved = path.resolve(root, snapshotKey);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new OrgScopedNotFoundException('snapshot');
+  }
+  return resolved;
+}
+
+async function readRequestBody(
+  req: RequestWithAuth,
+  maxBytes: number,
+): Promise<Buffer> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for await (const chunk of req as AsyncIterable<Buffer | string>) {
+    const buffer: Uint8Array =
+      typeof chunk === 'string' ? Buffer.from(chunk) : new Uint8Array(chunk);
+    total += buffer.length;
+    if (total > maxBytes) {
+      throw new BadRequestException('Snapshot exceeds size limit');
+    }
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
 }
 
 function requireOrgId(req: RequestWithAuth): string {
