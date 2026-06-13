@@ -12,6 +12,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
@@ -71,6 +72,8 @@ const CAM_A_KEYID = `g003-cam-a-${Date.now()}`;
 const CAM_A_SECRET = crypto.randomBytes(16).toString('hex');
 const CAM_B_KEYID = `g003-cam-b-${Date.now()}`;
 const CAM_B_SECRET = crypto.randomBytes(16).toString('hex');
+const SNAPSHOT_DIR = `/tmp/g003-snapshots-${Date.now()}`;
+const OUTSIDE_SNAPSHOT = `/tmp/g003-outside-${Date.now()}.jpg`;
 let resA_id: string;
 let resB_id: string;
 let camA_id: string;
@@ -82,6 +85,9 @@ beforeAll(async () => {
   process.env.SESSION_JWT_SECRET = 'test-session-secret-minimum-32-characters';
   process.env.KAKAO_REST_API_KEY = 'test-kakao-key';
   process.env.KAKAO_REDIRECT_URI = 'http://localhost:3001/auth/kakao/callback';
+  process.env.SNAPSHOT_DIR = SNAPSHOT_DIR;
+  fs.rmSync(SNAPSHOT_DIR, { recursive: true, force: true });
+  fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
 
   direct = new PrismaClient({
     datasources: { db: { url: process.env.DIRECT_URL } },
@@ -212,6 +218,8 @@ afterAll(async () => {
   await direct.organization.deleteMany({
     where: { id: { in: [ORG_A, ORG_B] } },
   });
+  fs.rmSync(SNAPSHOT_DIR, { recursive: true, force: true });
+  fs.rmSync(OUTSIDE_SNAPSHOT, { force: true });
   await app.close();
   await direct.$disconnect();
 });
@@ -503,6 +511,79 @@ describe('AC8 — SSE replay via Last-Event-ID (alertSeq)', () => {
   });
 });
 
+// ─── F5: Snapshot upload/proxy ────────────────────────────────────────────────
+
+describe('F5 — snapshot upload and proxy', () => {
+  async function createOrgAAlert(): Promise<string> {
+    const detectedAt = new Date().toISOString();
+    const body = {
+      resident_id: resA_id,
+      facility_id: ORG_A,
+      probability: 0.95,
+      snapshot_url: 'http://169.254.169.254/latest/meta-data',
+      detected_at: detectedAt,
+      type: `SNAPSHOT_${Date.now()}`,
+    };
+    const res = await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(
+        makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+          resident_id: body.resident_id,
+          facility_id: body.facility_id,
+          type: body.type,
+          detected_at: body.detected_at,
+        }),
+      )
+      .send(body)
+      .expect(201);
+    return (res.body as { id: string }).id;
+  }
+
+  it('stores authenticated snapshot bytes under a server-derived key and proxies them', async () => {
+    const alertId = await createOrgAAlert();
+    const upload = await request(app.getHttpServer())
+      .put(`/api/snapshots/${alertId}`)
+      .set('cookie', sessionCookieA)
+      .set('content-type', 'image/jpeg')
+      .send(Buffer.from([0xff, 0xd8, 0xff, 0xd9]))
+      .expect(201);
+
+    const snapshotKey = (upload.body as { snapshotKey: string }).snapshotKey;
+    expect(snapshotKey).toContain(ORG_A);
+    expect(snapshotKey).not.toContain('169.254.169.254');
+
+    await request(app.getHttpServer())
+      .get(`/api/snapshots/${alertId}`)
+      .set('cookie', sessionCookieA)
+      .expect('content-type', /image\/jpeg/)
+      .expect(200);
+  });
+
+  it('rejects cross-org snapshot access and stored path traversal keys', async () => {
+    const alertId = await createOrgAAlert();
+
+    await request(app.getHttpServer())
+      .put(`/api/snapshots/${alertId}`)
+      .set('cookie', sessionCookieB)
+      .set('content-type', 'image/jpeg')
+      .send(Buffer.from([0xff, 0xd8, 0xff, 0xd9]))
+      .expect(404);
+
+    fs.writeFileSync(OUTSIDE_SNAPSHOT, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+    await direct.alert.update({
+      where: { id: alertId },
+      data: {
+        snapshotKey: `../${OUTSIDE_SNAPSHOT.split('/').pop() ?? 'outside.jpg'}`,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get(`/api/snapshots/${alertId}`)
+      .set('cookie', sessionCookieA)
+      .expect(404);
+  });
+});
+
 // ─── AC9: Ingest validation ───────────────────────────────────────────────────
 
 describe('AC9 — ingest HMAC, freshness, idempotency, tenant coherence, contract', () => {
@@ -541,6 +622,22 @@ describe('AC9 — ingest HMAC, freshness, idempotency, tenant coherence, contrac
       detected_at: body.detected_at,
     });
     headers['x-signature'] = 'deadbeef'.repeat(8);
+    await request(app.getHttpServer())
+      .post('/ingest/alerts')
+      .set(headers)
+      .send(body)
+      .expect(401);
+  });
+
+  it('rejects malformed signature length → 401', async () => {
+    const body = validBody();
+    const headers = makeIngestHeaders(CAM_A_KEYID, CAM_A_SECRET, {
+      resident_id: body.resident_id,
+      facility_id: body.facility_id,
+      type: body.type,
+      detected_at: body.detected_at,
+    });
+    headers['x-signature'] = 'deadbeef';
     await request(app.getHttpServer())
       .post('/ingest/alerts')
       .set(headers)
