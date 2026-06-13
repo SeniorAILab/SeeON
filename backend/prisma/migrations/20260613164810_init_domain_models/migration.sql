@@ -184,7 +184,7 @@ ALTER TABLE "Guardian" ADD CONSTRAINT "Guardian_orgId_residentId_fkey" FOREIGN K
 ALTER TABLE "Camera" ADD CONSTRAINT "Camera_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Camera" ADD CONSTRAINT "Camera_residentId_fkey" FOREIGN KEY ("residentId") REFERENCES "Resident"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Camera" ADD CONSTRAINT "Camera_orgId_residentId_fkey" FOREIGN KEY ("orgId", "residentId") REFERENCES "Resident"("orgId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Alert" ADD CONSTRAINT "Alert_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -193,7 +193,7 @@ ALTER TABLE "Alert" ADD CONSTRAINT "Alert_orgId_fkey" FOREIGN KEY ("orgId") REFE
 ALTER TABLE "Alert" ADD CONSTRAINT "Alert_orgId_residentId_fkey" FOREIGN KEY ("orgId", "residentId") REFERENCES "Resident"("orgId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Alert" ADD CONSTRAINT "Alert_cameraId_fkey" FOREIGN KEY ("cameraId") REFERENCES "Camera"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Alert" ADD CONSTRAINT "Alert_orgId_cameraId_fkey" FOREIGN KEY ("orgId", "cameraId") REFERENCES "Camera"("orgId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ResidentStatus" ADD CONSTRAINT "ResidentStatus_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -201,18 +201,8 @@ ALTER TABLE "ResidentStatus" ADD CONSTRAINT "ResidentStatus_orgId_fkey" FOREIGN 
 -- AddForeignKey
 ALTER TABLE "ResidentStatus" ADD CONSTRAINT "ResidentStatus_orgId_residentId_fkey" FOREIGN KEY ("orgId", "residentId") REFERENCES "Resident"("orgId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- ─── Additional composite FKs (F9: orgId coherence for nullable FK fields) ───
-
--- Camera: composite FK enforces residentId belongs to same org (Camera.orgId = Resident.orgId)
--- Prisma generated a simple FK on residentId only; this composite constraint is stronger.
-ALTER TABLE "Camera" ADD CONSTRAINT "Camera_orgId_residentId_composite_fkey"
-  FOREIGN KEY ("orgId", "residentId") REFERENCES "Resident"("orgId", "id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Alert: composite FK enforces cameraId belongs to same org (Alert.orgId = Camera.orgId)
-ALTER TABLE "Alert" ADD CONSTRAINT "Alert_orgId_cameraId_composite_fkey"
-  FOREIGN KEY ("orgId", "cameraId") REFERENCES "Camera"("orgId", "id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey
+ALTER TABLE "ResidentStatus" ADD CONSTRAINT "ResidentStatus_orgId_sourceId_fkey" FOREIGN KEY ("orgId", "sourceId") REFERENCES "Camera"("orgId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- ─── RLS: Enable + Force on all tenant tables (ADR-A / NR1) ─────────────────
 -- FORCE ROW LEVEL SECURITY means even the table owner (superuser) is subject
@@ -270,5 +260,6 @@ CREATE POLICY tenant_isolation ON "KakaoIdentity"
 -- All application DML goes through the fall_app role.
 -- Sequence grants are required for BIGSERIAL (alertSeq) auto-increment.
 
+GRANT USAGE ON SCHEMA public TO fall_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fall_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fall_app;

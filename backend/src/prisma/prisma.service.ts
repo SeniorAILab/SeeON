@@ -49,7 +49,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       query: {
         $allModels: {
           async $allOperations({ model, operation, args, query }) {
-            if (TENANT_MODELS.has(model) && !TenantContext.getOrgId()) {
+            if (TENANT_MODELS.has(model) && !TenantContext.getBoundOrgId()) {
               throw new MissingTenantContextError(model, operation);
             }
             return query(args);
@@ -97,8 +97,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
    *
    * Sequence:
    *   1. Validate orgId is non-empty (fail-closed).
-   *   2. Run TenantContext.run(orgId) so the $allOperations guard sees orgId
-   *      for all async continuations within fn.
+   *   2. Run TenantContext.runBound(orgId) so the $allOperations guard accepts
+   *      tenant model access only inside this transaction-bound scope.
    *   3. Open an interactive $transaction on db (extended client, so the tx
    *      also has the guard applied).
    *   4. SET LOCAL "app.org_id" on the transaction's connection. Postgres RLS
@@ -120,7 +120,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       throw new MissingTenantContextError('*', 'withOrgContext');
     }
 
-    return TenantContext.run(orgId, () =>
+    return TenantContext.runBound(orgId, () =>
       this.db.$transaction(
         async (tx) => {
           // Bind the GUC on this connection. SET LOCAL scope = current txn.

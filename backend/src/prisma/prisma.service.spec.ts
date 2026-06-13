@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { MissingTenantContextError } from '../common/errors';
+import { TenantContext } from '../common/tenant-context';
 import { PrismaService } from './prisma.service';
 
 type RoleRow = {
@@ -145,8 +146,18 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
 
     await direct.residentStatus.createMany({
       data: [
-        { id: 'status-a', orgId: 'org-a', residentId: 'res-a' },
-        { id: 'status-b', orgId: 'org-b', residentId: 'res-b' },
+        {
+          id: 'status-a',
+          orgId: 'org-a',
+          residentId: 'res-a',
+          sourceId: 'cam-a',
+        },
+        {
+          id: 'status-b',
+          orgId: 'org-b',
+          residentId: 'res-b',
+          sourceId: 'cam-b',
+        },
       ],
     });
   });
@@ -189,24 +200,64 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
     );
   });
 
-  it('lets Postgres RLS deny unscoped raw SQL issued by the app role', async () => {
-    const rows = await prisma.db.$queryRaw<CountRow[]>`
-      SELECT COUNT(*)::int AS count FROM "Resident"
-    `;
-
-    expect(rows[0]?.count).toBe(0);
+  it('does not treat an unbound request TenantContext as a SET LOCAL-bound database context', async () => {
+    await expect(
+      TenantContext.run('org-a', () => prisma.db.resident.findMany()),
+    ).rejects.toBeInstanceOf(MissingTenantContextError);
   });
 
-  it('binds app.current_org_id with SET LOCAL and scopes model plus raw queries to that org', async () => {
+  it('lets Postgres RLS deny unscoped raw SQL issued by the app role', async () => {
+    const rows = await prisma.db.$queryRaw<
+      Array<CountRow & { table_name: string }>
+    >`
+      SELECT table_name, count::int
+      FROM (
+        SELECT 'Resident' AS table_name, COUNT(*) AS count FROM "Resident"
+        UNION ALL SELECT 'Guardian', COUNT(*) FROM "Guardian"
+        UNION ALL SELECT 'Camera', COUNT(*) FROM "Camera"
+        UNION ALL SELECT 'Alert', COUNT(*) FROM "Alert"
+        UNION ALL SELECT 'ResidentStatus', COUNT(*) FROM "ResidentStatus"
+        UNION ALL SELECT 'KakaoIdentity', COUNT(*) FROM "KakaoIdentity"
+      ) denied_counts
+      ORDER BY table_name
+    `;
+
+    expect(rows).toEqual([
+      { table_name: 'Alert', count: 0 },
+      { table_name: 'Camera', count: 0 },
+      { table_name: 'Guardian', count: 0 },
+      { table_name: 'KakaoIdentity', count: 0 },
+      { table_name: 'Resident', count: 0 },
+      { table_name: 'ResidentStatus', count: 0 },
+    ]);
+
+    await expect(
+      prisma.db.$executeRaw`
+        INSERT INTO "Resident" (id, "orgId", name) VALUES ('raw-unscoped', 'org-a', 'Raw Unscoped')
+      `,
+    ).rejects.toThrow();
+  });
+
+  it('binds app.org_id with SET LOCAL and scopes model plus raw queries to that org', async () => {
     const result = await prisma.withOrgContext('org-a', async (tx) => {
       const residents = await tx.resident.findMany({ orderBy: { id: 'asc' } });
       const rawResidents = await tx.$queryRaw<IdRow[]>`
         SELECT id FROM "Resident" ORDER BY id
       `;
+      const rawCrossOrgResidents = await tx.$queryRaw<IdRow[]>`
+        SELECT id FROM "Resident" WHERE "orgId" = 'org-b'
+      `;
+      const rawCrossOrgUpdate = await tx.$executeRaw`
+        UPDATE "Resident" SET room = 'hacked' WHERE "orgId" = 'org-b'
+      `;
 
       return {
         residentIds: residents.map((resident) => resident.id),
         rawResidentIds: rawResidents.map((resident) => resident.id),
+        rawCrossOrgResidentIds: rawCrossOrgResidents.map(
+          (resident) => resident.id,
+        ),
+        rawCrossOrgUpdate,
         crossResident: await tx.resident.findUnique({ where: { id: 'res-b' } }),
         crossGuardian: await tx.guardian.findUnique({
           where: { id: 'guard-b' },
@@ -224,12 +275,54 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
 
     expect(result.residentIds).toEqual(['res-a', 'res-c']);
     expect(result.rawResidentIds).toEqual(['res-a', 'res-c']);
+    expect(result.rawCrossOrgResidentIds).toEqual([]);
+    expect(result.rawCrossOrgUpdate).toBe(0);
     expect(result.crossResident).toBeNull();
     expect(result.crossGuardian).toBeNull();
     expect(result.crossCamera).toBeNull();
     expect(result.crossAlert).toBeNull();
     expect(result.crossStatus).toBeNull();
     expect(result.crossKakaoIdentity).toBeNull();
+
+    const afterTransaction = await prisma.db.$queryRaw<CountRow[]>`
+      SELECT COUNT(*)::int AS count FROM "Resident"
+    `;
+    expect(afterTransaction[0]?.count).toBe(0);
+  });
+
+  it('lets Postgres RLS reject scoped raw writes that target a different org', async () => {
+    await expect(
+      prisma.withOrgContext(
+        'org-a',
+        async (tx) =>
+          tx.$executeRaw`
+          INSERT INTO "Resident" (id, "orgId", name) VALUES ('raw-wrong-org', 'org-b', 'Raw Wrong Org')
+        `,
+      ),
+    ).rejects.toThrow();
+
+    const rows = await direct.resident.findMany({
+      where: { id: 'raw-wrong-org' },
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it('keeps concurrent org-bound transactions isolated', async () => {
+    const [orgAIds, orgBIds] = await Promise.all([
+      prisma.withOrgContext('org-a', async (tx) =>
+        (await tx.resident.findMany({ orderBy: { id: 'asc' } })).map(
+          (resident) => resident.id,
+        ),
+      ),
+      prisma.withOrgContext('org-b', async (tx) =>
+        (await tx.resident.findMany({ orderBy: { id: 'asc' } })).map(
+          (resident) => resident.id,
+        ),
+      ),
+    ]);
+
+    expect(orgAIds).toEqual(['res-a', 'res-c']);
+    expect(orgBIds).toEqual(['res-b']);
   });
 
   it('rejects cross-org composite foreign keys at the database layer', async () => {
@@ -282,6 +375,18 @@ describe('Prisma tenant boundary (RLS + org GUC)', () => {
           id: 'bad-status',
           orgId: 'org-b',
           residentId: 'res-c',
+        },
+      }),
+      'P2003',
+    );
+
+    await expectPrismaCode(
+      direct.residentStatus.create({
+        data: {
+          id: 'bad-status-source',
+          orgId: 'org-a',
+          residentId: 'res-c',
+          sourceId: 'cam-b',
         },
       }),
       'P2003',

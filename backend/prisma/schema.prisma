@@ -33,7 +33,7 @@ enum ResidentState {
   FALL
 }
 
-// ─── Root (non-tenant) tables ─────────────────────────────────────────────────
+// ─── Root/auth tables (not tenant-domain list/query surfaces) ────────────────
 
 /// Root tenant. Not RLS-protected (gated by app-layer membership check).
 model Organization {
@@ -52,7 +52,9 @@ model Organization {
   sessions         ServerSession[]
 }
 
-/// Platform user. orgId is nullable until onboarding completes.
+/// Platform identity root. orgId is nullable until onboarding completes; auth code
+/// must access users by authenticated user/session only, then bind orgId before
+/// tenant-domain data queries. No tenant data list/detail route may query User.
 model User {
   id             String   @id @default(cuid())
   orgId          String?
@@ -82,7 +84,8 @@ model KakaoIdentity {
   org  Organization? @relation(fields: [orgId], references: [id])
 }
 
-/// Server-side session record for JWT revocation and SSE re-auth.
+/// Server-side session root for JWT revocation and SSE re-auth. Session lookup is
+/// by opaque session id/user id only; tenant-domain access starts after org GUC binding.
 model ServerSession {
   id        String    @id @default(cuid())
   userId    String
@@ -152,6 +155,7 @@ model Camera {
   /// a camera from being assigned to a resident in a different org (F9).
   resident Resident?    @relation(fields: [orgId, residentId], references: [orgId, id])
   alerts   Alert[]
+  residentStatuses ResidentStatus[] @relation("ResidentStatusSource")
 
   @@unique([orgId, id])
   @@unique([orgId, label])
@@ -197,12 +201,14 @@ model ResidentStatus {
   state        ResidentState @default(NORMAL)
   lastSeenAt   DateTime?
   cameraOnline Boolean       @default(false)
-  /// Nullable cameraId (plain field; integrity enforced by app layer + RLS).
+  /// Nullable cameraId. Composite FK (orgId, sourceId) → Camera(orgId, id)
+  /// prevents dangling or cross-org status source references.
   sourceId     String?
   updatedAt    DateTime      @updatedAt
 
   org      Organization @relation(fields: [orgId], references: [id])
   resident Resident     @relation(fields: [orgId, residentId], references: [orgId, id])
+  source   Camera?      @relation("ResidentStatusSource", fields: [orgId, sourceId], references: [orgId, id])
 
   @@unique([orgId, residentId])
 }

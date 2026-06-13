@@ -14,10 +14,11 @@ import * as crypto from 'crypto';
   return this.toString();
 };
 
-// Use privileged connection to bypass RLS during seed (NR3)
-const directUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+// Use privileged connection to bypass RLS during seed (NR3). Do not fall back
+// to DATABASE_URL: the runtime app role must stay NOSUPERUSER/NOBYPASSRLS.
+const directUrl = process.env.DIRECT_URL;
 if (!directUrl) {
-  console.error('DIRECT_URL or DATABASE_URL must be set');
+  console.error('DIRECT_URL must be set for privileged seed execution');
   process.exit(1);
 }
 
