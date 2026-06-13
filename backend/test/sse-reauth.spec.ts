@@ -82,9 +82,12 @@ afterAll(async () => {
 });
 
 function getPort(): number {
-  const server = app.getHttpServer() as { address: () => AddressInfo | string | null };
+  const server = app.getHttpServer() as {
+    address: () => AddressInfo | string | null;
+  };
   const addr = server.address();
-  if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+  if (!addr || typeof addr === 'string')
+    throw new Error('Server not listening');
   return addr.port;
 }
 
@@ -145,13 +148,11 @@ describe('SSE re-auth tick (F6/AC4)', () => {
           });
 
           // Revoke the session after connection is established.
-          setTimeout(async () => {
-            try {
-              await sessions.revoke(sessionId);
-            } catch (e) {
+          setTimeout(() => {
+            void sessions.revoke(sessionId).catch((e: unknown) => {
               clearTimeout(deadline);
-              reject(e);
-            }
+              reject(e instanceof Error ? e : new Error(String(e)));
+            });
           }, 50);
         },
       );

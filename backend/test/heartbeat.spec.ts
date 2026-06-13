@@ -118,7 +118,7 @@ describe('POST /ingest/heartbeat', () => {
 
     const status = await statusService.getByResident(ORG, residentId);
     expect(status).not.toBeNull();
-    expect(status!.cameraOnline).toBe(true);
+    expect(status?.cameraOnline).toBe(true);
   });
 
   it('cameraOnline decays to false when lastSeenAt > 30 s ago', async () => {
@@ -137,7 +137,7 @@ describe('POST /ingest/heartbeat', () => {
 
     // Reading via StatusService should apply the 30 s decay.
     const status = await statusService.getByResident(ORG, residentId);
-    expect(status!.cameraOnline).toBe(false);
+    expect(status?.cameraOnline).toBe(false);
   });
 
   it('rejects tampered signature → 401', async () => {
