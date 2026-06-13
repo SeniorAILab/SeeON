@@ -126,4 +126,4 @@ requires human review on the operator's machine (where the footage is).
   and the worktree reverts to the symlink convention.
 
 Operational detail (commands, registry of current datasets, handshake steps)
-lives in [`docs/rules/ml-dataset-custody.md`](../rules/ml-dataset-custody.md).
+lives in [`docs/rules/ml-dataset-custody.md`](../../rules/ml-dataset-custody.md).

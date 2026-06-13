@@ -2,9 +2,17 @@
 
 ## Status
 
-Accepted. Pose domain-fit on our nursing-home CCTV was tested on 2026-06-08 and is
-**partially verified**: pose is captured precisely wherever a person is *detected*, but
-bedridden patients under a ceiling top-down view (often blanket-covered) are an
+Superseded by [ADR-025](./ADR-025-yolo26-pose-framework-adoption.md) for the
+YOLO26-pose framework adoption decision, [ADR-026](./ADR-026-frame-model-seam-architecture.md)
+for the frame/model seam architecture, and [ADR-027](./ADR-027-inference-output-baseline-policy.md)
+for output-axis semantics plus retained comparison-baseline policy. This file is
+retained as the historical source record, including the 2026-06-08 partial
+domain-fit verification and roadmap; the original decision body is not deleted.
+
+Historical pre-MECE status text retained for audit: Accepted. Pose domain-fit on
+our nursing-home CCTV was tested on 2026-06-08 and is **partially verified**:
+pose is captured precisely wherever a person is *detected*, but bedridden
+patients under a ceiling top-down view (often blanket-covered) are an
 out-of-distribution *detection-miss*. See **Verification Results** and Decision §1.
 
 ## Date

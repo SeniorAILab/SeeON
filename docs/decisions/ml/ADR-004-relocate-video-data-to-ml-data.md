@@ -2,10 +2,17 @@
 
 ## Status
 
-Accepted. Partially superseded by
-[ADR-012](./ADR-012-ml-data-domain-first-layout.md) (input location rule →
-domain-scoped `ml/data/{domain}/{raw,processed}`; the gitignore boundary and
-"raw is sacred" invariants remain binding, inherited by ADR-012).
+Superseded by [ADR-012](./ADR-012-ml-data-domain-first-layout.md). ADR-012 is
+the current active data-layout decision: source footage inputs live under
+`ml/data/{domain}/{raw,processed}` and inherit this ADR's gitignore boundary and
+"raw is sacred" invariants. This file is retained as the historical
+source record for the original `assets/` → `ml/data/` relocation; the original
+decision body is not deleted.
+
+Historical pre-MECE status text retained for audit: Accepted. Partially
+superseded by [ADR-012](./ADR-012-ml-data-domain-first-layout.md) (input
+location rule → domain-scoped `ml/data/{domain}/{raw,processed}`; the gitignore
+boundary and "raw is sacred" invariants remain binding, inherited by ADR-012).
 
 ## Date
 

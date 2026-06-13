@@ -2,7 +2,7 @@
 
 > Scope: the `ml/` uv project. A standing convention every change must follow.
 > Records the *operational* "where does this model file go" rule; the *why* lives
-> in [ADR-015](../decisions/ADR-015-ml-models-single-root.md).
+> in [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md).
 
 ## Layout
 
@@ -76,5 +76,5 @@ gets a symlink `<worktree>/ml/models → <main-checkout>/ml/models`, created aut
   use the kebab form as the on-disk key. The mapping lives in
   `demo/temporal_module.py:_KEY_TO_ARTIFACT`.
 
-See [ADR-015](../decisions/ADR-015-ml-models-single-root.md) for the full design rationale and
+See [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) for the full design rationale and
 supersede relationships to ADR-003/ADR-007.

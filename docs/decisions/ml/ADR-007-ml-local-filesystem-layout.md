@@ -2,12 +2,19 @@
 
 ## Status
 
-Accepted. Partially superseded by
-[ADR-012](./ADR-012-ml-data-domain-first-layout.md) — MECE table rows 3 and 6
-are stale: row 6 (domain-bound derived outputs `annotated/`, `poses/`) and row 3
-(top-level source inputs `raw/`, `processed/`) now live inside
-`ml/data/{domain}/`; `ml/weights/` and rows 1, 2, 4, 5 remain in force per ADR-012.
-Further partially superseded by
+Superseded by [ADR-012](./ADR-012-ml-data-domain-first-layout.md) for current
+`ml/data/` domain/role layout and by [ADR-015](./ADR-015-ml-models-single-root.md)
+for current model-related paths (`ml/models/pose/`, `ml/models/fall/<model_type>/`,
+and `ml/models/fall/pretrained/`). This file is retained as the
+historical source record for the earlier local filesystem partition; the
+original decision body is not deleted.
+
+Historical pre-MECE status text retained for audit: Accepted. Partially
+superseded by [ADR-012](./ADR-012-ml-data-domain-first-layout.md) — MECE table
+rows 3 and 6 are stale: row 6 (domain-bound derived outputs `annotated/`,
+`poses/`) and row 3 (top-level source inputs `raw/`, `processed/`) now live
+inside `ml/data/{domain}/`; `ml/weights/` and rows 1, 2, 4, 5 remain in force
+per ADR-012. Further partially superseded by
 [ADR-015](./ADR-015-ml-models-single-root.md) — `ml/weights/` (row 5) moves to
 `ml/models/pose/`; `ml/artifacts/pretrained/` (row 2) moves to
 `ml/models/fall/pretrained/`; first-party trained artifacts (row 1, governed by

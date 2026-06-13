@@ -115,5 +115,5 @@ future work, gated on these recorded baselines.
   version under ADR-003 addressing).
 
 Operational parameters and runnable procedures live in
-[`docs/rules/ml-training.md`](../rules/ml-training.md); this ADR records only
+[`docs/rules/ml-training.md`](../../rules/ml-training.md); this ADR records only
 the decisions and their rationale.
