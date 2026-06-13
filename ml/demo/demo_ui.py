@@ -52,13 +52,13 @@ def render_live_controls(
     """
     size_col, boxes_col, pose_col = st.columns([2, 1, 1])
     size = size_col.selectbox(
-        "YOLO26-pose size",
+        "YOLO26-pose 크기",
         options=POSE_MODEL_SIZES,
         format_func=lambda s: POSE_MODEL_SIZE_LABELS[s],
         help="사이즈가 클수록 정확도는 높아지고 속도는 느려집니다.",
     )
-    show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
-    show_pose = pose_col.checkbox("Pose skeleton", value=True)
+    show_boxes = boxes_col.checkbox("바운딩 박스", value=True)
+    show_pose = pose_col.checkbox("포즈 스켈레톤", value=True)
 
     play_col, stop_col = st.columns(2)
     if play_col.button(start_label, use_container_width=True, type="primary"):
@@ -107,7 +107,7 @@ def select_decision_threshold(spec: ClassifierSpec) -> float | None:
         return None
     return float(
         st.slider(
-            "판정 임계값 (fall probability)",
+            "판정 임계값 (낙상 확률)",
             min_value=0.0,
             max_value=1.0,
             value=round(default, 3),
@@ -127,8 +127,8 @@ def select_classifier_params() -> ClassifierParams:
         conf = col1.number_input(
             "신뢰도 임계값 (conf)", min_value=0.01, max_value=1.0, value=0.05, step=0.01
         )
-        window = col1.number_input("윈도우 (frames)", min_value=1, value=60, step=1)
-        stride_param = col2.number_input("스트라이드 (frames)", min_value=1, value=15, step=1)
+        window = col1.number_input("윈도우 (프레임)", min_value=1, value=60, step=1)
+        stride_param = col2.number_input("스트라이드 (프레임)", min_value=1, value=15, step=1)
         sustained = col2.number_input(
             "낙상 판단 지속시간 (초)", min_value=0.1, max_value=30.0, value=2.0, step=0.1
         )

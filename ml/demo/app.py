@@ -42,7 +42,7 @@ from demo.model_bootstrap import ensure_fall_models  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
-st.set_page_config(page_title="Fall Detector Demo", layout="wide")
+st.set_page_config(page_title="eldercare-fall-ai", layout="wide")
 
 # Cloud deploys build from the weight-less GitHub repo; reacquire fall weights
 # before any classifier load. No-op when ml/models/fall/ is already populated.
@@ -55,10 +55,17 @@ PLAYING_KEY: Final = "live_playing"
 
 
 def main() -> None:
-    st.title("Fall Detector Demo")
+    st.markdown(
+        '<div style="background:#4A90E2;padding:0.5rem 1.25rem;border-radius:6px;margin-bottom:0.5rem;">'
+        '<span style="color:#fff;font-size:1.4rem;font-weight:700;letter-spacing:0.03em;">eldercare-fall-ai</span>'
+        '<span style="color:rgba(255,255,255,0.75);font-size:0.9rem;font-weight:400;margin-left:0.75rem;">'
+        "낙상 감지 AI 데모</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
     st.caption(
-        "Local ML demo only — real-time per-frame live inference (ADR-010). "
-        "This is not a clinical prediction or backend alert flow."
+        "로컬 ML 데모 전용 — 실시간 프레임 단위 추론 (ADR-010). "
+        "임상 진단 또는 백엔드 알림 서비스가 아닙니다."
     )
 
     app_assets.handle_upload()
@@ -68,7 +75,7 @@ def main() -> None:
         return
 
     selected_video = st.selectbox(
-        "Video",
+        "영상",
         options=registered_videos,
         format_func=lambda video: video.display_name,
     )
@@ -135,7 +142,7 @@ def _render_live_viewer(
     classifier_params: ClassifierParams,
     decision_threshold: float | None = None,
 ) -> None:
-    st.subheader("Live Playback")
+    st.subheader("실시간 재생")
     st.caption(str(selected_video.path))
 
     size, show_boxes, show_pose = render_live_controls(
