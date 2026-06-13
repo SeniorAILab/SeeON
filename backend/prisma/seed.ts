@@ -73,7 +73,7 @@ async function main() {
   const [cam1, cam2] = await Promise.all([
     prisma.camera.upsert({
       where: { orgId_id: { orgId: org.id, id: 'demo-cam-01' } },
-      update: {},
+      update: { ingestKeyId: cam1Keys.keyId, ingestSecretHash: cam1Keys.hash },
       create: {
         id: 'demo-cam-01',
         orgId: org.id,
@@ -85,7 +85,7 @@ async function main() {
     }),
     prisma.camera.upsert({
       where: { orgId_id: { orgId: org.id, id: 'demo-cam-02' } },
-      update: {},
+      update: { ingestKeyId: cam2Keys.keyId, ingestSecretHash: cam2Keys.hash },
       create: {
         id: 'demo-cam-02',
         orgId: org.id,
