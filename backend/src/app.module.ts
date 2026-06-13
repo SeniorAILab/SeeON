@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AlertsModule } from './alerts/alerts.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -11,6 +12,7 @@ import { PrismaModule } from './prisma/prisma.module';
       envFilePath: `.env.${process.env.NODE_ENV ?? 'development'}`,
     }),
     PrismaModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

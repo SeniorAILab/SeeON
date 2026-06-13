@@ -79,13 +79,13 @@ Runs via: `pnpm dev:front` → `pnpm --filter front dev`
 
 NestJS 11, `@nestjs/config` (env-file per `NODE_ENV`), Prisma 6 (PostgreSQL). Listens on `PORT` (default 3000, configured in `.env.development`).
 
-`AppModule` wires `ConfigModule` (global, reads `.env.${NODE_ENV}`) and `PrismaModule`. Domain models (`AnalysisJob`, `Prediction`, `Alert`) are scaffolded as schema comments and will be added when feature work starts.
+`AppModule` wires `ConfigModule` (global, reads `.env.${NODE_ENV}`), `PrismaModule`, and `AlertsModule`. Alerting is now the first backend domain module: controllers parse trusted ingress, services own policy/orchestration, repositories own Prisma persistence, and ports/adapters own channel effects.
 
-Key responsibilities (all deferred, ownership defined now):
-- Call ML serving (`ML_SERVING_URL=http://localhost:8000`) with a video window
+Key responsibilities:
+- Call ML serving (`ML_SERVING_URL=http://localhost:8000`) for `/predict` model signal
 - Apply alert policy (threshold, dedup, rate-limit)
-- Dispatch webhooks (Kakao alert, etc.)
-- Persist all events to PostgreSQL via Prisma
+- Persist `AlertEvent` and `DeliveryAttempt` state to PostgreSQL before external delivery
+- Dispatch Kakao send-to-me through a pilot `ChannelPort` adapter, with future AlimTalk/provider adapters behind the same boundary
 
 Runs via: `pnpm dev:backend` → `pnpm --filter backend start:dev`
 
@@ -114,7 +114,7 @@ Runs via: `pnpm dev:ml` → `uv run --directory ml uvicorn serving.main:app --re
 [POST /predict]  ──►  ml/serving/main.py
      │                   │
      │                   ▼  FallDetector.predict(window) → fall_probability ∈ [0, 1]
-     │               PredictResponse { model, version, fall_probability }
+    │               PredictResponse { fall_probability, operating_threshold, is_fall }
      │
      ▼  backend receives response
 [backend webhook handler]  ──►  alert policy (threshold, dedup)
@@ -122,6 +122,8 @@ Runs via: `pnpm dev:ml` → `uv run --directory ml uvicorn serving.main:app --re
      ▼
 [PostgreSQL]  +  [outbound webhook / Kakao alert]
 ```
+
+Production hardening splits the contract into backend-orchestrated `/predict` consumption and a separate trusted pilot/edge ingress `POST /api.alerts/events`. The trusted ingress requires `x-alert-api-key` plus `external_event_id`; duplicate `(source_id, external_event_id)` requests return existing state without another delivery attempt.
 
 The PoC placeholder (`serving/model.py`) returns `min(1.0, len(window) / 100.0)` so the full path is exercisable without trained weights. Replace `FallDetector.predict` with real YOLO26-pose keypoint inference when weights are ready (framework choice per [ADR-005](decisions/ADR-005-yolo26-pose-and-module-seam.md)).
 
@@ -230,5 +232,9 @@ Lint philosophy: basics only — ESLint defaults for TS, ruff rule sets E/F/I/UP
 | [ADR-013 — Le2i training-pipeline decisions](decisions/ADR-013-le2i-training-pipeline-decisions.md) | Dataset (Le2i over UP-Fall); window T=30/stride=5; positive iff overlap ≥ 0.5; clip-wise split (0.25); operating threshold = Recall ≥ 0.90 persisted to `metadata.json`; gold-clip secondary eval |
 | [ADR-014 — Fail-fast error policy](decisions/ADR-014-fail-fast-error-policy.md) | Code refuses with typed exception when it cannot fulfil its contract; fake fallbacks forbidden in production paths. Enforced by ruff/eslint/tsc/jscpd deny-list (`docs/rules/code-stability.md`) |
 | [ADR-015 — `ml/models/` single root](decisions/ADR-015-ml-models-single-root.md) | Consolidated `ml/weights/`, `ml/artifacts/fall-detector/`, `ml/artifacts/pretrained/` into a single gitignored `ml/models/` root (`pose/` for YOLO weights, `fall/` for trained + third-party models). `metadata.json` mandate. `rf` → `random-forest`. Partially supersedes ADR-003 §3 and ADR-007 rows 1/2/5 |
+| [ADR-024 — Backend-orchestrated alert API architecture](decisions/ADR-024-backend-orchestrated-alert-api-architecture.md) | Backend consumes `/predict` model signal, owns alert policy/idempotency/persistence/delivery, and keeps trusted pilot/edge ingress separate. |
+| [ADR-025 — Nest domain-bounded layering for alerts](decisions/ADR-025-nest-domain-bounded-alerts-layering.md) | Alerts use a Nest module boundary with internal controller/use-case/repository/ports/adapters seams instead of global folder-theater layering. |
+| [ADR-026 — Postgres alert event and delivery outbox model](decisions/ADR-026-alert-event-delivery-outbox-model.md) | `AlertEvent` and `DeliveryAttempt` provide durable idempotency, delivery status, retry metadata, and terminal operator-action records. |
+| [ADR-027 — ChannelPort with Kakao send-to-me pilot](decisions/ADR-027-channel-port-kakao-send-to-me-pilot.md) | Kakao send-to-me remains pilot-only behind provider-neutral `ChannelPort`, preserving an AlimTalk-ready adapter boundary. |
 
 > Rationale for each decision lives in the ADR files above, not repeated here.
