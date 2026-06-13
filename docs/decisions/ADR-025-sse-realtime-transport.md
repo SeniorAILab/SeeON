@@ -224,7 +224,7 @@ of relying on cookies.
 - `alertSeq` is a `BigInt` in Postgres/Prisma; must be serialized as a string in JSON payloads
   and the SSE `id` field (ADR-024 follow-up).
 - The interleaved-insert reconnect test (concurrent inserts + drop/reconnect) is a required
-  acceptance test for AC8, not optional. It must run as the `app_runtime` DB role (ADR-022).
+  acceptance test for AC8, not optional. It must run as the `fall_app` DB role (ADR-022).
 
 ## Follow-ups
 
