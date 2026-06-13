@@ -39,6 +39,8 @@ export default function GuardiansPage() {
   const [editRelation, setEditRelation] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -133,6 +135,22 @@ export default function GuardiansPage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(g: Guardian) {
+    if (!window.confirm(`${g.name} 보호자를 삭제할까요?`)) return;
+    setDeletingId(g.id);
+    setDeleteError(null);
+    try {
+      await api.delete<Guardian>(`/api/guardians/${g.id}`);
+      setGuardians((current) => current.filter((item) => item.id !== g.id));
+    } catch (err: Error | unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : "삭제에 실패했습니다",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -239,6 +257,11 @@ export default function GuardiansPage() {
             {error}
           </div>
         )}
+        {deleteError && !loading && (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+            {deleteError}
+          </div>
+        )}
         {!loading && !error && (
           <div className="flex flex-col gap-2">
             {guardians.length === 0 && (
@@ -322,6 +345,14 @@ export default function GuardiansPage() {
                     className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:text-white"
                   >
                     편집
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(g)}
+                    disabled={deletingId === g.id}
+                    className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 transition hover:border-red-400/40 hover:text-red-200 disabled:opacity-60"
+                  >
+                    {deletingId === g.id ? "삭제 중..." : "삭제"}
                   </button>
                 </div>
               ),

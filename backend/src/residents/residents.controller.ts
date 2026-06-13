@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Delete,
   Get,
   Param,
   Patch,
@@ -49,6 +50,11 @@ export class ResidentsController {
     @Body() body: { name?: string; room?: string },
   ) {
     return this.service.update(requireOrgId(req), id, body);
+  }
+
+  @Delete(':id')
+  remove(@Req() req: RequestWithAuth, @Param('id') id: string) {
+    return this.service.remove(requireOrgId(req), id);
   }
 }
 

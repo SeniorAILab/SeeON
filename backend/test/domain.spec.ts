@@ -327,6 +327,56 @@ describe('AC2 — tenant isolation (org A cannot access org B data)', () => {
     expect([404, 403]).toContain(res.status);
   });
 
+  it('DELETE org-scoped admin resources: resident, guardian, and camera stay tenant-bound', async () => {
+    const resident = await request(app.getHttpServer())
+      .post('/api/residents')
+      .set('cookie', sessionCookieA)
+      .send({ name: 'Delete Resident', room: 'D1' })
+      .expect(201);
+    const residentId = (resident.body as { id: string }).id;
+
+    const guardian = await request(app.getHttpServer())
+      .post('/api/guardians')
+      .set('cookie', sessionCookieA)
+      .send({ residentId, name: 'Delete Guardian', phone: '01000001111' })
+      .expect(201);
+    const guardianId = (guardian.body as { id: string }).id;
+
+    const camera = await request(app.getHttpServer())
+      .post('/api/cameras')
+      .set('cookie', sessionCookieA)
+      .send({ label: `Delete Cam ${Date.now()}` })
+      .expect(201);
+    const cameraId = (camera.body as { id: string }).id;
+
+    await request(app.getHttpServer())
+      .delete(`/api/guardians/${guardianId}`)
+      .set('cookie', sessionCookieB)
+      .expect(404);
+    await request(app.getHttpServer())
+      .delete(`/api/guardians/${guardianId}`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .delete(`/api/cameras/${cameraId}`)
+      .set('cookie', sessionCookieB)
+      .expect(404);
+    await request(app.getHttpServer())
+      .delete(`/api/cameras/${cameraId}`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .delete(`/api/residents/${residentId}`)
+      .set('cookie', sessionCookieB)
+      .expect(404);
+    await request(app.getHttpServer())
+      .delete(`/api/residents/${residentId}`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+  });
+
   it('GET /api/cameras: org A sees only org A cameras', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/cameras')

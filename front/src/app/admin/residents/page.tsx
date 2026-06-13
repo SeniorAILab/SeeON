@@ -36,6 +36,8 @@ export default function ResidentsPage() {
   const [editRoom, setEditRoom] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -121,6 +123,22 @@ export default function ResidentsPage() {
     }
   }
 
+  async function handleDelete(r: Resident) {
+    if (!window.confirm(`${r.name} 대상자를 삭제할까요?`)) return;
+    setDeletingId(r.id);
+    setDeleteError(null);
+    try {
+      await api.delete<Resident>(`/api/residents/${r.id}`);
+      setResidents((current) => current.filter((item) => item.id !== r.id));
+    } catch (err: Error | unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : "삭제에 실패했습니다",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
       <div className="mx-auto max-w-3xl">
@@ -199,6 +217,11 @@ export default function ResidentsPage() {
             {error}
           </div>
         )}
+        {deleteError && !loading && (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+            {deleteError}
+          </div>
+        )}
         {!loading && !error && (
           <div className="flex flex-col gap-2">
             {residents.length === 0 && <EmptyState />}
@@ -258,6 +281,14 @@ export default function ResidentsPage() {
                     className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:text-white"
                   >
                     편집
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(r)}
+                    disabled={deletingId === r.id}
+                    className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 transition hover:border-red-400/40 hover:text-red-200 disabled:opacity-60"
+                  >
+                    {deletingId === r.id ? "삭제 중..." : "삭제"}
                   </button>
                 </div>
               ),

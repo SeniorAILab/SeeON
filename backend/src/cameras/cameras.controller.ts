@@ -2,6 +2,7 @@ import {
   Body,
   ForbiddenException,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -49,6 +50,11 @@ export class CamerasController {
     @Body() body: { label?: string; residentId?: string },
   ) {
     return this.service.update(requireOrgId(req), id, body);
+  }
+
+  @Delete(':id')
+  remove(@Req() req: RequestWithAuth, @Param('id') id: string) {
+    return this.service.remove(requireOrgId(req), id);
   }
 }
 

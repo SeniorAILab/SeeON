@@ -55,6 +55,9 @@ export class ResidentsService {
         tx.resident.findUnique({ where: { id } }),
     );
     if (!existing) throw new NotFoundException('Resident not found');
+    if (dto.name !== undefined && !dto.name.trim()) {
+      throw new ConflictException('name is required');
+    }
     return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
       tx.resident.update({
         where: { id },
@@ -64,5 +67,24 @@ export class ResidentsService {
         },
       }),
     );
+  }
+
+  async remove(orgId: string, id: string) {
+    const existing = await this.prisma.withOrgContext(
+      orgId,
+      (tx: Prisma.TransactionClient) =>
+        tx.resident.findUnique({ where: { id } }),
+    );
+    if (!existing) throw new NotFoundException('Resident not found');
+    try {
+      return await this.prisma.withOrgContext(
+        orgId,
+        (tx: Prisma.TransactionClient) => tx.resident.delete({ where: { id } }),
+      );
+    } catch {
+      throw new ConflictException(
+        'Resident cannot be deleted while guardians, cameras, alerts, or status rows reference it',
+      );
+    }
   }
 }

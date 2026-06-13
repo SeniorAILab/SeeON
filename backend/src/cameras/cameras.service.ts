@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -33,6 +37,7 @@ export class CamerasService {
   }
 
   async create(orgId: string, dto: CreateCameraDto) {
+    if (!dto.label.trim()) throw new ConflictException('label is required');
     const ingestKeyId = `cam-${crypto.randomBytes(8).toString('hex')}`;
     // The HMAC secret — stored in full as the HMAC key (ingestSecretHash field).
     const ingestSecretHash = crypto.randomBytes(32).toString('hex');
@@ -40,7 +45,7 @@ export class CamerasService {
       tx.camera.create({
         data: {
           orgId,
-          label: dto.label,
+          label: dto.label.trim(),
           residentId: dto.residentId ?? null,
           ingestKeyId,
           ingestSecretHash,
@@ -55,15 +60,36 @@ export class CamerasService {
       (tx: Prisma.TransactionClient) => tx.camera.findUnique({ where: { id } }),
     );
     if (!existing) throw new NotFoundException('Camera not found');
+    if (dto.label !== undefined && !dto.label.trim()) {
+      throw new ConflictException('label is required');
+    }
     return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
       tx.camera.update({
         where: { id },
         data: {
-          label: dto.label,
+          label: dto.label?.trim(),
           residentId: dto.residentId,
         },
       }),
     );
+  }
+
+  async remove(orgId: string, id: string) {
+    const existing = await this.prisma.withOrgContext(
+      orgId,
+      (tx: Prisma.TransactionClient) => tx.camera.findUnique({ where: { id } }),
+    );
+    if (!existing) throw new NotFoundException('Camera not found');
+    try {
+      return await this.prisma.withOrgContext(
+        orgId,
+        (tx: Prisma.TransactionClient) => tx.camera.delete({ where: { id } }),
+      );
+    } catch {
+      throw new ConflictException(
+        'Camera cannot be deleted while alerts or status rows reference it',
+      );
+    }
   }
 
   async recordHeartbeat(orgId: string, cameraId: string) {

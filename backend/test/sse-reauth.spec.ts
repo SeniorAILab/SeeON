@@ -19,6 +19,8 @@ import { AppModule } from '../src/app.module';
 import { KakaoClient } from '../src/auth/kakao.client';
 import { SessionService } from '../src/auth/session.service';
 import { SSE_REAUTH_INTERVAL_MS } from '../src/dashboard/sse.controller';
+import { AlertsService } from '../src/alerts/alerts.service';
+import { StatusService } from '../src/status/status.service';
 
 const REAUTH_MS = 200;
 
@@ -89,6 +91,63 @@ function getPort(): number {
   if (!addr || typeof addr === 'string')
     throw new Error('Server not listening');
   return addr.port;
+}
+
+async function createSessionCookie(label: string): Promise<string> {
+  const user = await direct.user.create({
+    data: {
+      kakaoId: `${label}-${Date.now()}`,
+      nickname: label,
+      orgId: ORG,
+    },
+  });
+  const created = await sessions.createSession(user);
+  return `app_session=${created.token}`;
+}
+
+function readSseUntilClose(
+  path: string,
+  cookie: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<string> {
+  const port = getPort();
+  return new Promise<string>((resolve, reject) => {
+    let body = '';
+    const deadline = setTimeout(
+      () => reject(new Error(`Timeout: SSE ${path} did not close`)),
+      REAUTH_MS * 6 + 500,
+    );
+    const req = http.get(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path,
+        headers: { cookie, ...extraHeaders },
+      },
+      (res) => {
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        res.once('end', () => {
+          clearTimeout(deadline);
+          resolve(body);
+        });
+        res.once('error', () => {
+          clearTimeout(deadline);
+          resolve(body);
+        });
+      },
+    );
+    req.once('error', (err: NodeJS.ErrnoException) => {
+      clearTimeout(deadline);
+      if (err.code === 'ECONNRESET') {
+        resolve(body);
+        return;
+      }
+      reject(err);
+    });
+  });
 }
 
 describe('SSE re-auth tick (F6/AC4)', () => {
@@ -170,5 +229,48 @@ describe('SSE re-auth tick (F6/AC4)', () => {
     });
 
     expect(streamEnded).toBe(true);
+  }, 10_000);
+
+  it('closes SSE stream when session revalidation throws', async () => {
+    const cookie = await createSessionCookie('sse-reauth-throw');
+    const spy = jest
+      .spyOn(sessions, 'checkActive')
+      .mockRejectedValueOnce(new Error('auth store unavailable'));
+    try {
+      const body = await readSseUntilClose('/api/sse', cookie);
+      expect(body).toContain('event: session-invalid');
+    } finally {
+      spy.mockRestore();
+    }
+  }, 10_000);
+
+  it('closes SSE stream visibly when replay fails', async () => {
+    const cookie = await createSessionCookie('sse-replay-fail');
+    const alerts = app.get(AlertsService);
+    const spy = jest
+      .spyOn(alerts, 'replay')
+      .mockRejectedValueOnce(new Error('replay unavailable'));
+    try {
+      const body = await readSseUntilClose('/api/sse', cookie, {
+        'last-event-id': '0',
+      });
+      expect(body).toContain('event: replay-error');
+    } finally {
+      spy.mockRestore();
+    }
+  }, 10_000);
+
+  it('closes SSE stream visibly when status snapshot fails', async () => {
+    const cookie = await createSessionCookie('sse-status-fail');
+    const status = app.get(StatusService);
+    const spy = jest
+      .spyOn(status, 'listByOrg')
+      .mockRejectedValueOnce(new Error('status unavailable'));
+    try {
+      const body = await readSseUntilClose('/api/sse', cookie);
+      expect(body).toContain('event: status-snapshot-error');
+    } finally {
+      spy.mockRestore();
+    }
   }, 10_000);
 });
