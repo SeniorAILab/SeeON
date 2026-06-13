@@ -2,10 +2,19 @@
 
 ## Status
 
-Accepted. Partially superseded by
-[ADR-015](./ADR-015-ml-models-single-root.md) — §3 artifact path formula
-(`ml/artifacts/<name>/<version>/`) is replaced by `ml/models/fall/<model_type>/`.
-Serving/training lifecycle split and responsibility boundary remain in force.
+Superseded by [ADR-015](./ADR-015-ml-models-single-root.md) for the old artifact
+path formula, [ADR-022](./ADR-022-ml-serving-training-lifecycle.md) for the ML
+serving/training lifecycle boundary, [ADR-023](../common/ADR-023-ml-backend-prediction-boundary.md)
+for the ML/backend prediction boundary, and [ADR-024](../common/ADR-024-ml-demo-product-surface-boundary.md)
+for the ML demo/product frontend boundary. This file is retained as the
+historical source record for those successor decisions; the original decision
+body is not deleted.
+
+Historical pre-MECE status text retained for audit: Accepted. Partially
+superseded by [ADR-015](./ADR-015-ml-models-single-root.md) — §3 artifact path
+formula (`ml/artifacts/<name>/<version>/`) is replaced by
+`ml/models/fall/<model_type>/`. Serving/training lifecycle split and
+responsibility boundary remain in force.
 
 ## Date
 

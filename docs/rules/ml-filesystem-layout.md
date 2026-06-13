@@ -2,8 +2,8 @@
 
 > Scope: the `ml/` uv project. A standing convention every change must follow.
 > Records the *operational* "where does this file go" rule; the *why* lives in
-> [ADR-012](../decisions/ADR-012-ml-data-domain-first-layout.md) (data layout)
-> and [ADR-015](../decisions/ADR-015-ml-models-single-root.md) (model layout,
+> [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) (data layout)
+> and [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) (model layout,
 > supersedes ADR-003 §3 and ADR-007 rows 1/2/5).
 
 ## `ml/data/` — domain-first, two tiers
@@ -75,7 +75,7 @@ four role folders you need. Point the relevant config constant
   disposable and re-downloadable; never curate a weight outside `ml/models/`
   (ADR-015).
 
-See [ADR-012](../decisions/ADR-012-ml-data-domain-first-layout.md) for the data
+See [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) for the data
 layout and its supersede relationships to ADR-004/ADR-007. See
-[ADR-015](../decisions/ADR-015-ml-models-single-root.md) for the model layout
+[ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) for the model layout
 and its supersede relationships to ADR-003/ADR-007.

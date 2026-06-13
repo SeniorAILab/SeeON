@@ -2,7 +2,7 @@
 
 > Scope: every dataset and model artifact that exists on more than one machine.
 > Records the *operational* "who holds what, and how it moves" rule; the *why*
-> lives in [ADR-018](../decisions/ADR-018-cross-machine-dataset-custody.md).
+> lives in [ADR-018](../decisions/ml/ADR-018-cross-machine-dataset-custody.md).
 > Single-machine layout is [ml-filesystem-layout.md](./ml-filesystem-layout.md)
 > (ADR-012); model layout is [ml-models.md](./ml-models.md) (ADR-015).
 

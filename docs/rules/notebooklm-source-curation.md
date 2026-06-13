@@ -3,7 +3,7 @@
 > Scope: NotebookLM 노트북에 입수하는 모든 소스. 모든 수치 기준은 `SRC_GATE_*`
 > 환경변수로 오버라이드 가능하다(하드코딩 없음).
 > 강제 메커니즘은 `.claude/skills/notebooklm-source-curation/`에 구현된다.
-> Venue 판정 메커니즘 근거: [ADR-021 (distill 예정)](../decisions/ADR-021-notebooklm-venue-judgment-mechanism.md).
+> Venue 판정 메커니즘 근거는 향후 별도 ADR로 distill한다. 현재 재구성된 ADR-021은 ML demo cloud deployment deferral이므로 이 규칙은 ADR-021 번호를 선점하지 않는다.
 
 ---
 

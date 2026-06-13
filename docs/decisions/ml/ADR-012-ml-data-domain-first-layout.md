@@ -2,10 +2,17 @@
 
 ## Status
 
-Accepted. **Partially supersedes ADR-004 and ADR-007** (scope detailed below —
-neither is fully replaced; their inherited invariants are listed explicitly).
-The deliberately deferred hook/script validation is resolved by **ADR-016**:
+Accepted. Supersedes ADR-004 and ADR-007 for current `ml/data/` layout. Partially
+superseded by [ADR-028](../common/ADR-028-demo-access-boundary.md), which extracts
+the access-boundary clauses into `common/`. The deliberately deferred hook/script
+validation is resolved by [ADR-016](../common/ADR-016-enforcement-timing-principle.md):
 layout conventions are audit-tier, not hook-blocked.
+
+Historical pre-MECE status text retained for audit: Accepted. **Partially
+supersedes ADR-004 and ADR-007** (scope detailed below — neither is fully
+replaced; their inherited invariants are listed explicitly). The deliberately
+deferred hook/script validation is resolved by **ADR-016**: layout conventions
+are audit-tier, not hook-blocked.
 
 ## Date
 

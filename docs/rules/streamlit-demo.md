@@ -5,9 +5,9 @@
 >
 > **Decision references (not repeated here):**
 > live per-frame inference as the standard observation mode →
-> [ADR-010](../decisions/ADR-010-realtime-live-inference-demo-mode.md);
+> [ADR-010](../decisions/ml/ADR-010-realtime-live-inference-demo-mode.md);
 > live-camera page and `CameraSource` →
-> [ADR-011](../decisions/ADR-011-live-camera-intake-and-multipage-demo.md).
+> [ADR-011](../decisions/ml/ADR-011-live-camera-intake-and-multipage-demo.md).
 
 ## 1. Allowed operator controls
 
