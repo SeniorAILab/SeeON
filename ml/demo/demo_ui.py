@@ -72,8 +72,11 @@ def render_status(
     placeholder: st.delta_generator.DeltaGenerator,
     status: CurrentPlaybackStatus,
     confidence: float,
+    alert_status: str | None = None,
 ) -> None:
     body = f"**{status.label}** · {status.detail} · 낙상도 {confidence:.0%} · {status.pose_label}"
+    if alert_status is not None:
+        body = f"{body} · {alert_status}"
     if status.is_fall:
         placeholder.error(f"🔴 {body}")
     else:

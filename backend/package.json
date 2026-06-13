@@ -12,6 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "kakao:auth": "ts-node scripts/kakao-auth.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "dotenv -e .env.development -- prisma migrate dev",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
