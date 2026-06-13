@@ -27,7 +27,12 @@
  *     --resident-id demo-res-01 \
  *     --facility-id demo-org-01 \
  *     [--count 1] [--probability 0.92] [--type FALL] [--heartbeat] [--secret-hashed]
+ *
+ * Optional authenticated snapshot upload (same production snapshot path):
+ *   --snapshot-file /tmp/fall.jpg --session-cookie "app_session=..."
+ *   [--snapshot-content-type image/jpeg]
  */
+import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as http from 'http';
 import * as https from 'https';
@@ -51,6 +56,15 @@ function argValue(flag: string, envKey: string, defaultValue?: string): string {
   process.exit(1);
 }
 
+function optionalArgValue(flag: string, envKey: string): string | null {
+  const idx = argv.indexOf(`--${flag}`);
+  if (idx !== -1 && argv[idx + 1] !== undefined && !argv[idx + 1].startsWith('--')) {
+    return argv[idx + 1];
+  }
+  const fromEnv = process.env[envKey];
+  return fromEnv !== undefined && fromEnv !== '' ? fromEnv : null;
+}
+
 function hasFlag(name: string): boolean {
   return argv.includes(`--${name}`);
 }
@@ -65,6 +79,15 @@ const probStr      = argValue('probability', 'INGEST_PROBABILITY', '0.92');
 const alertType    = argValue('type',        'INGEST_TYPE',        'FALL');
 const sendHeartbeat = hasFlag('heartbeat');
 const secretHashed  = hasFlag('secret-hashed');
+const snapshotFile = optionalArgValue('snapshot-file', 'INGEST_SNAPSHOT_FILE');
+const sessionCookie =
+  optionalArgValue('session-cookie', 'INGEST_SESSION_COOKIE') ??
+  optionalArgValue('app-session-cookie', 'APP_SESSION_COOKIE');
+const snapshotContentType = argValue(
+  'snapshot-content-type',
+  'INGEST_SNAPSHOT_CONTENT_TYPE',
+  'image/jpeg',
+);
 
 const count = parseInt(countStr, 10);
 if (!Number.isFinite(count) || count < 1) {
@@ -83,6 +106,11 @@ if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
 const hmacKey = secretHashed
   ? rawSecret
   : crypto.createHash('sha256').update(rawSecret).digest('hex');
+const snapshotBytes = snapshotFile ? fs.readFileSync(snapshotFile) : null;
+if (snapshotBytes && !sessionCookie) {
+  console.error('Error: --snapshot-file requires --session-cookie (or env INGEST_SESSION_COOKIE).');
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // HMAC helpers — must match backend/src/ingest/hmac.guard.ts
@@ -127,17 +155,22 @@ interface HttpResult {
   body: string;
 }
 
-function httpPost(targetUrl: string, headers: Record<string, string>, body: string): Promise<HttpResult> {
+function httpRequest(
+  method: 'POST' | 'PUT',
+  targetUrl: string,
+  headers: Record<string, string>,
+  body: string | Buffer,
+): Promise<HttpResult> {
   return new Promise((resolve, reject) => {
     const parsed = new url.URL(targetUrl);
     const lib = parsed.protocol === 'https:' ? https : http;
-    const bodyBuf = Buffer.from(body, 'utf8');
+    const bodyBuf = Buffer.isBuffer(body) ? body : Buffer.from(body, 'utf8');
     const req = lib.request(
       {
         hostname: parsed.hostname,
         port:     parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
         path:     parsed.pathname + parsed.search,
-        method:   'POST',
+        method,
         headers:  { ...headers, 'content-length': String(bodyBuf.length) },
       },
       (res) => {
@@ -154,6 +187,14 @@ function httpPost(targetUrl: string, headers: Record<string, string>, body: stri
   });
 }
 
+function httpPost(targetUrl: string, headers: Record<string, string>, body: string): Promise<HttpResult> {
+  return httpRequest('POST', targetUrl, headers, body);
+}
+
+function httpPut(targetUrl: string, headers: Record<string, string>, body: Buffer): Promise<HttpResult> {
+  return httpRequest('PUT', targetUrl, headers, body);
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -163,6 +204,12 @@ async function main(): Promise<void> {
     `sim-fall: ${count} alert(s) → ${baseUrl}/ingest/alerts` +
     `  [type=${alertType}, p=${probability}, keyId=${keyId}]`,
   );
+  if (snapshotBytes) {
+    console.log(
+      `sim-fall: authenticated snapshot upload enabled ` +
+      `[${snapshotContentType}, ${snapshotBytes.length} bytes]`,
+    );
+  }
 
   for (let i = 0; i < count; i++) {
     // Use current time; each iteration gets a fresh timestamp to avoid
@@ -192,6 +239,34 @@ async function main(): Promise<void> {
     if (res.status === 201 || res.status === 200) {
       const label = res.status === 201 ? '✓ 201 created' : '⟳ 200 duplicate';
       console.log(`  [${i + 1}/${count}] ${label} — ${res.body.trimEnd()}`);
+
+      if (snapshotBytes) {
+        let alertId: string | null = null;
+        try {
+          const parsed = JSON.parse(res.body) as { id?: unknown };
+          alertId = typeof parsed.id === 'string' ? parsed.id : null;
+        } catch {
+          alertId = null;
+        }
+        if (!alertId) {
+          console.error(`  [${i + 1}/${count}] ✗ snapshot upload skipped — response did not include alert id`);
+          process.exit(1);
+        }
+        const upload = await httpPut(
+          `${baseUrl}/api/snapshots/${encodeURIComponent(alertId)}`,
+          {
+            'content-type': snapshotContentType,
+            cookie:         sessionCookie as string,
+          },
+          snapshotBytes,
+        );
+        if (upload.status === 201) {
+          console.log(`      ↳ snapshot 201 — ${upload.body.trimEnd()}`);
+        } else {
+          console.error(`      ↳ snapshot ✗ ${upload.status} — ${upload.body.trimEnd()}`);
+          process.exit(1);
+        }
+      }
     } else {
       console.error(`  [${i + 1}/${count}] ✗ ${res.status} — ${res.body.trimEnd()}`);
       process.exit(1);

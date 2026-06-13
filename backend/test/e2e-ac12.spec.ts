@@ -7,10 +7,11 @@
  *   3. GET /api/status  → 200, includes the resident.
  *   4. GET /api/alerts  → 200, empty or only unrelated alerts for this org.
  *   5. POST /ingest/alerts (HMAC-signed, same contract as sim-fall.ts) → 201.
- *   6. GET /api/alerts  → 200, injected alert is present.
- *   7. GET /api/sse with Last-Event-ID = alertSeq - 1 → SSE stream replays
+ *   6. PUT /api/snapshots/:id then GET /api/snapshots/:id → authenticated server-owned path.
+ *   7. GET /api/alerts  → 200, injected alert is present.
+ *   8. GET /api/sse with Last-Event-ID = alertSeq - 1 → SSE stream replays
  *      the alert and delivers a status-snapshot event.
- *   8. GET /api/status/:residentId → state = FALL  (probability 0.92 ≥ 0.8).
+ *   9. GET /api/status/:residentId → state = FALL  (probability 0.92 ≥ 0.8).
  *
  * Real Kakao OAuth round-trip is excluded per boundary agreement (G002).
  * See docs/runbook-live-demo.md for live-demo instructions.
@@ -355,6 +356,26 @@ describe('AC12 — demo sim injector + dashboard e2e (seeded/mock session, no li
     expect(alert.alertSeq).toBe(injectedAlertSeq);
   });
 
+  it('PUT/GET /api/snapshots/:id uses authenticated server-owned snapshot path', async () => {
+    const upload = await request(app.getHttpServer())
+      .put(`/api/snapshots/${injectedAlertId}`)
+      .set('cookie', sessionCookie)
+      .set('content-type', 'image/jpeg')
+      .send(Buffer.from([0xff, 0xd8, 0xff, 0xd9]))
+      .expect(201);
+
+    const snapshot = upload.body as { snapshotKey: string };
+    expect(snapshot.snapshotKey).toContain(ORG_ID);
+    expect(snapshot.snapshotKey).toContain(injectedAlertId);
+    expect(snapshot.snapshotKey).not.toContain('http');
+
+    await request(app.getHttpServer())
+      .get(`/api/snapshots/${injectedAlertId}`)
+      .set('cookie', sessionCookie)
+      .expect('content-type', /image\/jpeg/)
+      .expect(200);
+  });
+
   // ── Step 4: SSE replay delivers the alert ────────────────────────────────
 
   it('GET /api/sse with Last-Event-ID → replays injected alert + status-snapshot', async () => {
@@ -456,6 +477,7 @@ describe('AC12 — demo sim injector + dashboard e2e (seeded/mock session, no li
 
     // Give SSE a moment to connect before injecting.
     await new Promise<void>((r) => setTimeout(r, 120));
+    const startedAt = Date.now();
 
     await request(app.getHttpServer())
       .post('/ingest/alerts')
@@ -464,6 +486,7 @@ describe('AC12 — demo sim injector + dashboard e2e (seeded/mock session, no li
       .expect(201);
 
     const stream = await ssePromise;
+    expect(Date.now() - startedAt).toBeLessThan(1000);
     expect(stream.body).toContain('event: status\n');
     expect(stream.body).toContain(residentId);
     expect(stream.body).toContain('"state":"FALL"');

@@ -137,7 +137,7 @@ pnpm dev -- -p 3001
 
 ## 8. Inject a simulated fall event
 
-Use `sim-fall.ts` to send a HMAC-signed fall alert to the running backend.
+Use `sim-fall.ts` to send a HMAC-signed fall alert to the running backend. If you pass a snapshot file and an authenticated `app_session` cookie, the script also uploads the bytes through the production `PUT /api/snapshots/:alertId` path after ingest succeeds.
 
 ```bash
 cd backend
@@ -152,7 +152,10 @@ npx ts-node --project tsconfig.scripts.json scripts/sim-fall.ts \
   --probability 0.95 \
   --type FALL \
   --count 3 \
-  --heartbeat
+  --heartbeat \
+  --snapshot-file /tmp/demo-fall.jpg \
+  --session-cookie "app_session=<owner-session-cookie>" \
+  --snapshot-content-type image/jpeg
 ```
 
 Expected output:
@@ -160,8 +163,11 @@ Expected output:
 ```
 sim-fall: 3 alert(s) → http://localhost:3000/ingest/alerts  [type=FALL, p=0.95, keyId=demo-cam-01-keyid]
   [1/3] ✓ 201 created — {"alertSeq":"42","id":"clxxx...","status":"created"}
+      ↳ snapshot 201 — {"snapshotKey":"demo-org-01/clxxx....jpg"}
   [2/3] ✓ 201 created — {"alertSeq":"43","id":"clxxx...","status":"created"}
+      ↳ snapshot 201 — {"snapshotKey":"demo-org-01/clxxx....jpg"}
   [3/3] ✓ 201 created — {"alertSeq":"44","id":"clxxx...","status":"created"}
+      ↳ snapshot 201 — {"snapshotKey":"demo-org-01/clxxx....jpg"}
 
 sim-fall: heartbeat → http://localhost:3000/ingest/heartbeat
   ✓ heartbeat 200 — {"ok":true}
@@ -183,6 +189,9 @@ sim-fall: done.
 | `--type` | `INGEST_TYPE` | `FALL` | Alert type string |
 | `--heartbeat` | — | off | Also send a heartbeat |
 | `--secret-hashed` | — | off | Treat `--secret` as already the HMAC key (skip sha256) |
+| `--snapshot-file` | `INGEST_SNAPSHOT_FILE` | off | Upload this local file to `PUT /api/snapshots/:alertId` after each created alert |
+| `--session-cookie` | `INGEST_SESSION_COOKIE` | *(required with snapshot)* | Authenticated owner cookie for snapshot upload |
+| `--snapshot-content-type` | `INGEST_SNAPSHOT_CONTENT_TYPE` | `image/jpeg` | Content type sent to the snapshot endpoint |
 
 > **Key derivation note:** The seed stores `sha256(plaintext_secret)` as
 > `ingestSecretHash` in the database.  `sim-fall.ts` automatically applies
@@ -232,18 +241,19 @@ npm test -- --testPathPatterns="e2e-ac12"
 ## Appendix — Seeded browser demo (no Kakao, automated evidence)
 
 For AC5/AC6/AC12 browser verification **without** real Kakao credentials, a seeded
-owner session can be minted (dev-only; requires `DIRECT_URL` + built `dist/`):
+owner session can be minted (dev-only; requires `DIRECT_URL`, built `dist/`, exact seeded org/resident, and explicit `ALLOW_DEMO_SESSION_MINT=1`):
 
 ```bash
 cd backend
 npm run build
 node_modules/.bin/dotenv -e .env.development -- node dist/src/main.js &   # backend :3000
 (cd ../front && BACKEND_ORIGIN=http://localhost:3000 npx next dev -p 3001 &)  # front :3001
-node_modules/.bin/dotenv -e .env.development -- node scripts/mint-demo-session.cjs
+ALLOW_DEMO_SESSION_MINT=1 node_modules/.bin/dotenv -e .env.development -- node scripts/mint-demo-session.cjs
 # → prints {"cookie":"app_session=…","orgId":"demo-org-01","residentId":…}
+# Optional: DEMO_ORG_ID=demo-org-01 DEMO_RESIDENT_ID=demo-res-01 override the exact seed target.
 ```
 
 Set the printed `app_session` cookie for `localhost`, open `http://localhost:3001/dashboard`,
-then run the `sim-fall.ts` injector (step 8). The "실시간 낙상 피드" updates live via SSE.
+then run the `sim-fall.ts` injector (step 8). To verify the same production snapshot path, pass a small local image with `--snapshot-file` and the minted `app_session` cookie with `--session-cookie`.
 Verified 2026-06-13: injected FALL (p=0.95) → feed card "홍길동 · 낙상 감지 — 신뢰도 95% · NEW"
-appeared without page reload. Only the real Kakao OAuth consent/login step (§7) requires console keys.
+appeared without page reload, and AC12 regression covers authenticated snapshot upload/proxy. Only the real Kakao OAuth consent/login step (§7) requires console keys.
