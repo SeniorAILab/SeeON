@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import itertools  # noqa: E402
 import tempfile  # noqa: E402
 import time  # noqa: E402
+from typing import Final  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
@@ -34,10 +35,22 @@ from demo.yolo_overlay import render_yolo_overlay  # noqa: E402
 from util.camera_probe import probe_cameras  # noqa: E402
 from util.frame_source import CameraSource, FrameSource  # noqa: E402
 
-PLAYING_KEY = "bed_exit_playing"
-UPLOAD_PATH_KEY = "bed_exit_upload_path"
+PLAYING_KEY: Final = "bed_exit_playing"
+UPLOAD_PATH_KEY: Final = "bed_exit_upload_path"
 # Inference runs on every frame; only the repaint is decimated (ADR-010/013).
-RENDER_FRAME_STRIDE = 4
+RENDER_FRAME_STRIDE: Final = 4
+
+
+def _should_emit_event_badge(
+    *, night_mode: bool, is_new_event: bool, bed_present: bool
+) -> bool:
+    """Whether to surface the latched 🚨 bed-exit alert this frame.
+
+    AC-8: night-mode OFF is monitor-only — the per-frame status line still
+    reflects the live state, but no latched exit *event* is fired. A real bed
+    ROI must exist (no bed → nothing to exit).
+    """
+    return night_mode and bed_present and is_new_event
 
 
 def _select_bed_exit_params() -> BedExitParams:
@@ -268,9 +281,17 @@ def _run_detection(
         processed += 1
         is_exit = any(label.text == BED_EXIT_LABEL_TEXT for label in result.labels)
 
-        # Latched event badge — rising edge only, aggregation of real inference
-        # (ADR-005 §5). Kept above the per-frame status, never overwritten.
-        if latch.update(is_exit, frame.time_sec) and bed_box is not None:
+        # The latch advances every frame so its count / first-time stay honest
+        # aggregations of real inference (rising edge only, never fabricated —
+        # ADR-005 §5). The 🚨 badge it drives is an *event*, gated by night-mode:
+        # daytime is monitor-only (AC-8), so the alert is suppressed while the
+        # per-frame status line below still reflects the live state.
+        is_new_event = latch.update(is_exit, frame.time_sec)
+        if _should_emit_event_badge(
+            night_mode=night_mode,
+            is_new_event=is_new_event,
+            bed_present=bed_box is not None,
+        ):
             event_ph.error(
                 f"🚨 침대 이탈 {latch.event_count}회 — "
                 f"최초 {latch.first_event_sec:.1f}초 시점 (재생 종료까지 유지)"
@@ -311,4 +332,5 @@ def _run_detection(
     status_ph.info(f"재생 완료 — {processed} 프레임 처리됨. 다시 시작하려면 ▶︎ 시작.")
 
 
-main()
+if __name__ == "__main__":
+    main()
