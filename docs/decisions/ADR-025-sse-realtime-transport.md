@@ -78,7 +78,7 @@ On reconnect, the backend replays:
 
 ```sql
 SELECT * FROM alerts
-WHERE org_id = current_setting('app.current_org_id')
+WHERE org_id = current_setting('app.org_id', true)::text
   AND alert_seq > $lastEventId
 ORDER BY alert_seq ASC;
 ```

@@ -117,7 +117,7 @@ schema level — not merely prevented by application logic.
 
 ### 5. Application backstop (Prisma Client extension)
 
-A Prisma Client extension (`$allOperations` hook) throws a typed `TenantContextMissingError`
+A Prisma Client extension (`$allOperations` hook) throws a typed `MissingTenantContextError`
 for any query against a tenant model when no org context is bound in the current execution
 scope. This catches misuse (e.g., a forgotten transaction wrapper) before it reaches the DB and
 surfaces as a typed boot/runtime error, not a silent zero-row result.
