@@ -1,6 +1,6 @@
 # Architecture Overview — eldercare-fall-ai
 
-> PoC status (2026-06-07). Realtime transport, full feature implementation, and ML training pipeline are explicitly deferred. This document reflects the scaffolded skeleton only.
+> Status (2026-06-13): B2B facility signup/auth, org-scoped backend APIs, `/api/sse` realtime dashboard transport, HMAC ingest, snapshots, and demo AC12 flow are implemented for the production frontend MVP. ML training/inference remains a separate lifecycle owned by `ml/`.
 
 ---
 
@@ -71,7 +71,7 @@ eldercare-fall-ai/                  ← orchestration layer only (no app deps he
 
 ### 1. `front/` — Product UI
 
-Next.js 16.2.7 (App Router), React 19, Tailwind CSS v4. Currently a `create-next-app` skeleton (`src/app/page.tsx`, `layout.tsx`). Future work: upload UI, caregiver dashboard, alert feed. Realtime transport strategy (SSE / WebSocket / polling) is not yet decided.
+Next.js 16.2.7 (App Router), React 19, Tailwind CSS v4. The production frontend MVP now includes Kakao-authenticated facility onboarding, a protected NOC dashboard, same-origin `EventSource('/api/sse')` realtime alert/status feed, alert history/detail ACK pages, and admin CRUD screens for residents, guardians, and cameras.
 
 Runs via: `pnpm dev:front` → `pnpm --filter front dev`
 
@@ -79,13 +79,15 @@ Runs via: `pnpm dev:front` → `pnpm --filter front dev`
 
 NestJS 11, `@nestjs/config` (env-file per `NODE_ENV`), Prisma 6 (PostgreSQL). Listens on `PORT` (default 3000, configured in `.env.development`).
 
-`AppModule` wires `ConfigModule` (global, reads `.env.${NODE_ENV}`) and `PrismaModule`. Domain models (`AnalysisJob`, `Prediction`, `Alert`) are scaffolded as schema comments and will be added when feature work starts.
+`AppModule` wires configuration, Prisma, auth, org/domain APIs, ingest, dashboard SSE, status, and snapshot handling. The Prisma schema now owns the B2B domain models (`Organization`, `User`, `KakaoIdentity`, `ServerSession`, `Resident`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`) with RLS and composite-FK constraints recorded in ADR-022/024.
 
-Key responsibilities (all deferred, ownership defined now):
-- Call ML serving (`ML_SERVING_URL=http://localhost:8000`) with a video window
-- Apply alert policy (threshold, dedup, rate-limit)
-- Dispatch webhooks (Kakao alert, etc.)
-- Persist all events to PostgreSQL via Prisma
+Key responsibilities:
+- Own the facility/user auth boundary with backend Kakao OAuth, httpOnly `app_session`, and org-scoped guards.
+- Expose org-scoped REST APIs for residents, guardians, cameras, alerts, snapshots, and current `ResidentStatus`.
+- Accept trusted camera/demo ingress through HMAC-authenticated `POST /ingest/alerts` and heartbeat endpoints.
+- Apply backend alert policy, idempotency, snapshot custody, and `alertSeq` ordering before realtime fan-out.
+- Serve backend `GET /api/sse` for alert replay, status snapshots, live status deltas, and session re-validation.
+- Keep outbound Kakao/AlimTalk dispatch outside this MVP; automated real Kakao sends are not part of the shipped flow.
 
 Runs via: `pnpm dev:backend` → `pnpm --filter backend start:dev`
 
