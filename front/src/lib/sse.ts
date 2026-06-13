@@ -44,6 +44,11 @@ interface UseAlertStreamOptions {
   initialStatuses?: ResidentStatus[];
   /** Cap the in-memory alert list. Default 100. */
   maxAlerts?: number;
+  /**
+   * Called when the backend sends `event: session-invalid` (session expired/revoked).
+   * Defaults to `window.location.assign('/login')`.
+   */
+  onSessionInvalid?: () => void;
 }
 
 export function useAlertStream(options: UseAlertStreamOptions = {}): AlertStreamState {
@@ -51,6 +56,7 @@ export function useAlertStream(options: UseAlertStreamOptions = {}): AlertStream
     initialAlerts = [],
     initialStatuses = [],
     maxAlerts = 100,
+    onSessionInvalid,
   } = options;
 
   const [state, setState] = useState<AlertStreamState>({
@@ -64,6 +70,12 @@ export function useAlertStream(options: UseAlertStreamOptions = {}): AlertStream
   useEffect(() => {
     maxAlertsRef.current = maxAlerts;
   }, [maxAlerts]);
+
+  // Keep onSessionInvalid stable in the effect closure (avoids re-connecting on prop change).
+  const onSessionInvalidRef = useRef(onSessionInvalid);
+  useEffect(() => {
+    onSessionInvalidRef.current = onSessionInvalid;
+  }, [onSessionInvalid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +139,21 @@ export function useAlertStream(options: UseAlertStreamOptions = {}): AlertStream
         setState((prev) => ({ ...prev, statuses }));
       } catch {
         // ignore
+      }
+    });
+
+    // Named event: backend signals session expiry/revoke (F6/AC4 re-auth tick).
+    // Close the EventSource first to prevent stale '재연결 중...' state, then
+    // redirect to /login (or invoke the caller-supplied callback).
+    es.addEventListener("session-invalid", () => {
+      if (cancelled) return;
+      cancelled = true;
+      es.close();
+      setState((prev) => ({ ...prev, connected: false }));
+      if (onSessionInvalidRef.current) {
+        onSessionInvalidRef.current();
+      } else if (typeof window !== "undefined") {
+        window.location.assign("/login");
       }
     });
 

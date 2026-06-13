@@ -3,6 +3,12 @@
  * All paths hit /api/... which Next.js rewrites to the backend origin.
  * credentials:'include' forwards the httpOnly session cookie (same-origin).
  * 401 → hard redirect to /login.
+ * 403 → session valid but no org context → redirect to /onboarding
+ *       (consistent with server-side dashboard redirect; see auth/org-context.interceptor).
+ *
+ * Optimistic badge thresholds (probability >= 0.8 → FALL, >= 0.5 → WARNING, else NORMAL)
+ * mirror the ingest/alert-writer contract in backend/src/alerts/alert-writer.service.ts.
+ * Update here if the backend threshold logic changes.
  */
 
 export class ApiError extends Error {
@@ -30,6 +36,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       window.location.assign("/login");
     }
     throw new ApiError(401, "Unauthenticated");
+  }
+
+  // 403 with a valid session means the user has no org yet → send to onboarding.
+  if (res.status === 403) {
+    if (typeof window !== "undefined") {
+      window.location.assign("/onboarding");
+    }
+    throw new ApiError(403, "Forbidden");
   }
 
   if (!res.ok) {

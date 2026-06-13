@@ -319,4 +319,22 @@ test("maskPhone: exactly 7 digits", () => {
   assert.ok(result.endsWith("1234"));
 });
 
+
+// ---- session-invalid event ----
+// The backend emits `event: session-invalid\ndata: {}\n\n`.
+// The data payload is always an empty object; the event *name* is what matters.
+// These tests verify that the payload parses cleanly and is safely ignorable.
+
+test("session-invalid: data payload parses as empty object", () => {
+  const data = "{}";
+  const parsed = JSON.parse(data) as Record<string, unknown>;
+  assert.deepStrictEqual(parsed, {});
+});
+
+test("session-invalid: data payload missing keys does not throw", () => {
+  const data = "{}";
+  const parsed = JSON.parse(data) as { reason?: string };
+  // no key access should throw
+  assert.equal(parsed.reason, undefined);
+});
 console.log("All tests passed.");

@@ -385,6 +385,11 @@ describe('AC2 — tenant isolation (org A cannot access org B data)', () => {
     const ids = (res.body as Array<{ id: string }>).map((c) => c.id);
     expect(ids).toContain(camA_id);
     expect(ids).not.toContain(camB_id);
+    expect(
+      (res.body as Array<Record<string, unknown>>).every(
+        (camera) => !('ingestSecretHash' in camera),
+      ),
+    ).toBe(true);
   });
 
   it('GET /api/alerts: org A sees only org A alerts', async () => {
@@ -534,6 +539,26 @@ describe('AC7 — /alerts pagination, filter, org scope', () => {
       .set('cookie', sessionCookieA)
       .expect(200);
     expect((ackRes.body as { status: string }).status).toBe('ACKED');
+  });
+
+  it('PATCH /api/alerts/:id/ack response includes resident name and room', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/alerts?residentId=${resA_id}&limit=1`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const alerts = res.body as Array<{ id: string }>;
+    if (!alerts.length) return;
+    const ackRes = await request(app.getHttpServer())
+      .patch(`/api/alerts/${alerts[0].id}/ack`)
+      .set('cookie', sessionCookieA)
+      .expect(200);
+    const body = ackRes.body as { status: string; resident: { name: string; room: string | null } | null };
+    expect(body.status).toBe('ACKED');
+    // resident relation must be present (not undefined) so the front-end can display name/room
+    expect(Object.prototype.hasOwnProperty.call(body, 'resident')).toBe(true);
+    if (body.resident) {
+      expect(typeof body.resident.name).toBe('string');
+    }
   });
 
   it('filters by ACKED status and honors explicit limit', async () => {

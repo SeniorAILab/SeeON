@@ -59,7 +59,11 @@ export class AlertsService {
     );
     if (!existing) throw new NotFoundException('Alert not found');
     return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.alert.update({ where: { id }, data: { status: AlertStatus.ACKED } }),
+      tx.alert.update({
+        where: { id },
+        data: { status: AlertStatus.ACKED },
+        include: { resident: { select: { name: true, room: true } } },
+      }),
     );
   }
 
