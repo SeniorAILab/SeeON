@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the ML lifecycle and dependency-boundary clauses of [ADR-003](./ADR-003-ml-serving-training-split.md). ADR-003 remains as the preserved historical source record. ADR-015 separately supersedes ADR-003's old artifact-path formula.
+Accepted. Supersedes the ML lifecycle and dependency-boundary clauses of retired source ADR-003. ADR-015 separately supersedes ADR-003's old artifact-path formula. ADR-003 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 
 ## Date
 
@@ -61,6 +61,6 @@ Rejected by ADR-003 and preserved here only as historical context. Python ML dep
 - A single uv project still means dependency-group discipline matters; careless imports can re-couple serving to training dependencies.
 - Slim serving environments require an explicit install mode rather than being the default developer setup.
 
-## Source preservation
+## Source mapping
 
-This ADR is a distilled active successor. The full original context, alternatives, and consequences that led to this decision remain preserved in ADR-003. No ADR-003 body text is deleted by this split.
+This ADR is a distilled active successor. The original ADR-003 context, alternatives, and consequences are recoverable from git history; this ADR plus ADR-015, ADR-023, and ADR-024 carry the current active clauses so the visible corpus stays MECE.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the Streamlit-demo/product-frontend boundary clauses of [ADR-003](../ml/ADR-003-ml-serving-training-split.md). ADR-003 remains as the preserved historical source record.
+Accepted. Supersedes the Streamlit-demo/product-frontend boundary clauses of retired source ADR-003. ADR-003 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 
 ## Date
 
@@ -58,6 +58,6 @@ Rejected. Future plans can easily mistake a working demo flow for a product cont
 - Similar screens may exist in both Streamlit and Next.js until product UI catches up.
 - Plans must say which surface they target rather than relying on generic “frontend/demo” wording.
 
-## Source preservation
+## Source mapping
 
-This ADR preserves the active Streamlit-demo/product-frontend boundary from ADR-003. ADR-003 remains intact as historical context.
+This ADR preserves the active Streamlit-demo/product-frontend boundary from ADR-003. The original ADR-003 text remains recoverable from git history; this ADR carries the current product-surface clause so the visible corpus stays MECE.
