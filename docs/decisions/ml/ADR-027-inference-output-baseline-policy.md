@@ -65,4 +65,4 @@ Rejected. Fake adapters paint model state that did not come from a model. That v
 
 ## Source mapping
 
-This ADR distills ADR-005's output-axis and baseline-retention policy. The original ADR-005 explanation, control findings, and trade-offs remain recoverable from git history; this ADR carries the current output/baseline clause so the visible corpus stays MECE.
+This ADR distills retired source ADR-005's output-axis and baseline-retention policy. The original ADR-005 explanation, control findings, and trade-offs remain recoverable from git history; this ADR carries the current output/baseline clause so the visible corpus stays MECE.

@@ -51,11 +51,11 @@ evaluation in the demo), so it is recorded here rather than buried in a plan.
 | Concern | Owning ADR |
 |---|---|
 | Frame-intake **code location** (`VideoFileSource` lives in `ml/util/`) | ADR-006 |
-| Model-seam **contract** + pose backbone | ADR-005 |
+| Model-seam **contract** + pose backbone | ADR-026 / ADR-025 |
 | Demo **observation/playback MODE** — live per-frame vs pre-rendered batch | **ADR-010 (this)** |
 
 This ADR decides only *how the demo presents inference to the observer*. It
-reuses ADR-006's intake unchanged and does not touch the ADR-005 seam contract.
+reuses ADR-006's intake unchanged and does not touch the ADR-026 seam contract.
 
 ## Alternatives Considered
 
@@ -87,7 +87,7 @@ once recorded-clip live playback is solid.
 ## Relationship to Other ADRs
 
 - **References ADR-006** — reuses `VideoFileSource` frame intake unchanged.
-- **References ADR-005** — the per-frame inference seam is the same; only the
+- **References ADR-026 and ADR-025** — the per-frame inference seam and pose backbone are the same; only the
   presentation changes.
 - **Implementation** is tracked in GitHub issue **#39**. This ADR records the
   *decision*; the issue records the *how*.

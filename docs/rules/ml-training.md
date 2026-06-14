@@ -4,7 +4,7 @@
 > procedures, and contracts. The *decisions* behind them live in
 > [ADR-013](../decisions/ml/ADR-013-le2i-training-pipeline-decisions.md)
 > (dataset, labelling, threshold policy, gold-clip eval) on top of
-> [ADR-009](../decisions/ml/ADR-009-fall-classification-strategy.md) (strategy) and [ADR-025](../decisions/ml/ADR-025-yolo26-pose-framework-adoption.md) (pose backbone; extracted from historical ADR-005).
+> [ADR-009](../decisions/ml/ADR-009-fall-classification-strategy.md) (strategy) and [ADR-025](../decisions/ml/ADR-025-yolo26-pose-framework-adoption.md) (pose backbone; extracted from retired source ADR-005).
 
 ## Locked parameters (`training/config.py` is the single source of truth)
 

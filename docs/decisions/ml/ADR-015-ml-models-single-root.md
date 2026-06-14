@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted. **Partially supersedes ADR-003** (§3 artifact layout — `ml/artifacts/<name>/<version>/`
-replaced by `ml/models/fall/<model_type>/`) and **ADR-007** (`ml/weights/` → `ml/models/pose/`;
+Accepted. **Partially supersedes retired source ADR-003** (§3 artifact layout — `ml/artifacts/<name>/<version>/`
+replaced by `ml/models/fall/<model_type>/`) and **retired source ADR-007** (`ml/weights/` → `ml/models/pose/`;
 `ml/artifacts/pretrained/` → `ml/models/fall/pretrained/`). ADR-012 MECE rows 1, 2, and 7 are
 stale; ADR-015 is the current map for all model-related paths.
 
@@ -16,14 +16,14 @@ stale; ADR-015 is the current map for all model-related paths.
 Three separate locations held model-class files with no single owning root:
 
 1. **`ml/weights/`** — Ultralytics auto-download target for YOLO26-pose weights (ephemeral,
-   re-downloadable). Governed by ADR-007 row 5.
+   re-downloadable). Previously governed by retired source ADR-007 row 5.
 2. **`ml/artifacts/fall-detector/`** — Trained fall-classifier artifacts (`rf/`, `lstm/`,
-   `transformer/`). The ADR-003 Triton-inspired `<name>/<version>/` layout was unused in practice
+   `transformer/`). The retired ADR-003 Triton-inspired `<name>/<version>/` layout was unused in practice
    (`version` was always `poc`) and the `fall-detector/` middle level was redundant.
-3. **`ml/artifacts/pretrained/`** — Third-party comparison checkpoints. Governed by ADR-005, but
+3. **`ml/artifacts/pretrained/`** — Third-party comparison checkpoints. Previously governed by retired source ADR-005, but
    co-located with trained outputs despite being downloaded, not trained.
 
-Serving code used a `version` parameter to address artifacts, which matched the old ADR-003 path
+Serving code used a `version` parameter to address artifacts, which matched the old retired ADR-003 path
 formula but misnamed the semantics (the parameter selects *which model type* to load, not a
 version).
 

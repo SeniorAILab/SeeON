@@ -10,7 +10,7 @@ Accepted.
 
 ## Context
 
-ADR-005 made the model-seam (`ModelModule.predict(frame)→DetectionResult`)
+Retired source ADR-005 made the model-seam (`ModelModule.predict(frame)→DetectionResult`)
 **pluggable** but deliberately left open the question it could not yet answer:
 *what classifier fills that seam?* Per-frame RGB classifiers were rejected there
 (domain collapse). The v1 demo then shipped a single immediately-available
@@ -62,7 +62,7 @@ classifier, the data pipeline, and the eval baseline. Hence this ADR.
    time window, not the aspect ratio of one box.
 
 3. **Classifier content = learned temporal models** (LSTM / Transformer / TCN)
-   over keypoint windows. This is what fills the ADR-005 model-seam going forward.
+   over keypoint windows. This is what fills the [ADR-026](./ADR-026-frame-model-seam-architecture.md) model-seam going forward.
 
 4. **Training-data strategy is sequenced — public datasets first, our own
    footage later:**
@@ -81,11 +81,11 @@ classifier, the data pipeline, and the eval baseline. Hence this ADR.
 
 | Concern | Owning ADR |
 |---|---|
-| Pose backbone + the pluggable model-seam **contract** | ADR-005 |
+| Pose backbone + the pluggable model-seam **contract** | ADR-025 / ADR-026 |
 | Frame-intake **code location** (`VideoFileSource`) | ADR-006 |
 | **What fills the classifier seam** — feature representation, classifier family, training-data strategy, eval baseline | **ADR-009 (this)** |
 
-This ADR does **not** reopen the seam contract or the pose backbone (ADR-005),
+This ADR does **not** reopen the seam contract or the pose backbone (ADR-026 / ADR-025),
 nor frame-intake placement (ADR-006). It decides only the *content* flowing
 through the already-agreed seam.
 
@@ -109,7 +109,7 @@ labels. Public datasets give a faster, citable baseline now; VLM-labeling is the
 right tool once we know how far public-data transfer gets us.
 
 ### D. Per-frame RGB classifier
-**Already rejected in ADR-005** (domain collapse). Not reconsidered.
+**Already rejected by retired source ADR-005 and preserved in ADR-025** (domain collapse). Not reconsidered.
 
 ## Consequences
 
@@ -126,13 +126,12 @@ right tool once we know how far public-data transfer gets us.
 - **Sensor-only** datasets (SisFall, FallAllD = accelerometer) cannot yield pose
   and are excluded; the usable public corpus is smaller than it first appears.
 - Requires training infrastructure investment (windowing, training loop, model
-  artifacts under ADR-003) that the rule-based path avoided.
+  artifacts under ADR-015) that the rule-based path avoided.
 
 ## Relationship to Other ADRs
 
-- **Complements ADR-005; does not supersede it.** ADR-005's seam contract and
-  YOLO26-pose backbone stand unchanged. This ADR fills the seam ADR-005 left open.
-- **References ADR-003** (serving/training split) and **ADR-015** (model layout) —
+- **Complements ADR-025 and ADR-026; does not supersede them.** The YOLO26-pose backbone and seam contract stand unchanged. This ADR fills the classifier content behind that seam.
+- **References ADR-022** (serving/training lifecycle) and **ADR-015** (model layout) —
   trained temporal models live under `ml/models/fall/<model_type>/`.
 - **Implementation** is tracked in GitHub issue **#40** (track 2b). This ADR
   records the *decision*; the issue records the *how*.
