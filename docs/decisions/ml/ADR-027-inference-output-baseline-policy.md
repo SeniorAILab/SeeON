@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the output-axis and baseline-retention clauses of [ADR-005](./ADR-005-yolo26-pose-and-module-seam.md). ADR-005 remains as the preserved historical source record.
+Accepted. Supersedes the output-axis and baseline-retention clauses of retired source ADR-005. ADR-005 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 
 ## Date
 
@@ -63,6 +63,6 @@ Rejected. Fake adapters paint model state that did not come from a model. That v
 - The demo may carry real legacy comparison modules longer than a pure cleanup pass would prefer.
 - Reviewers must distinguish retained real baselines from prohibited fake fallbacks.
 
-## Source preservation
+## Source mapping
 
-This ADR distills ADR-005's output-axis and baseline-retention policy. ADR-005 remains preserved with the full original explanation, control findings, and trade-offs.
+This ADR distills ADR-005's output-axis and baseline-retention policy. The original ADR-005 explanation, control findings, and trade-offs remain recoverable from git history; this ADR carries the current output/baseline clause so the visible corpus stays MECE.

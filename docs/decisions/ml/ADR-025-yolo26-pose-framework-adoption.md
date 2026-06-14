@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the pose-framework adoption clauses of [ADR-005](./ADR-005-yolo26-pose-and-module-seam.md). ADR-005 remains as the preserved historical source record for the full original investigation and verification detail.
+Accepted. Supersedes the pose-framework adoption clauses of retired source ADR-005. ADR-005 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 
 ## Date
 
@@ -64,6 +64,6 @@ Rejected. Larger weights may recover in-distribution misses, but only domain dat
 - The framework choice is still conditional on domain fine-tuning for the hardest top-down cases.
 - Pose quality lacks keypoint ground truth on nursing-home footage; visual inspection and GT-free proxies remain weaker than OKS labels.
 
-## Source preservation
+## Source mapping
 
-This ADR distills the framework adoption decision from ADR-005. ADR-005's original context, verification table, roadmap, alternatives, and consequences remain preserved in the historical source ADR.
+This ADR distills the framework adoption decision from ADR-005. ADR-005's original context, verification table, roadmap, alternatives, and consequences remain recoverable from git history; ADR-025, ADR-026, and ADR-027 carry the current active clauses so the visible corpus stays MECE.

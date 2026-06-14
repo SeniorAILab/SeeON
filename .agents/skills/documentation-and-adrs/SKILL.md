@@ -35,7 +35,7 @@ ADRs capture the reasoning behind significant technical decisions. They're the h
 
 ### ADR Template
 
-Store ADRs in `docs/decisions/` with sequential numbering:
+Store ADRs in `docs/decisions/{ml,backend,frontend,common}/` with sequential numbering. Retired source ADR gaps are allowed only with coverage-matrix proof in `docs/decisions/README.md` and git-history recovery of the exact source body.
 
 ```markdown
 # ADR-001: Use PostgreSQL for primary database
@@ -86,28 +86,29 @@ Use PostgreSQL with Prisma ORM.
 PROPOSED → ACCEPTED → (SUPERSEDED or DEPRECATED)
 ```
 
-- **Don't delete old ADRs.** They capture historical context.
+- **Don't delete active ADRs just to clean up history.** They capture why current decisions exist.
+- Fully superseded, non-MECE source ADR files may be retired from the visible corpus only when `docs/decisions/README.md` maps every active clause to successor ADRs and the exact original body remains recoverable from git history.
 - When a decision changes, write a new ADR that references and supersedes the old one.
 
 ## Boundary: plan vs ADR
 
 Plans and ADRs answer different questions with different lifespans. Never conflate them.
 
-| | plan (`docs/exec-plan/`) | ADR (`docs/decisions/`) |
+| | plan (`docs/exec-plan/`) | ADR (`docs/decisions/{ml,backend,frontend,common}/`) |
 |---|---|---|
-| Question | *How* to implement this specific work | *Why* this cross-cutting choice — and what alternatives were rejected |
-| Scope | One feature / task (work-scoped) | Cross-cutting — constrains all future work |
-| Lifespan | Archivable when work ends | Permanent — superseded only, never deleted |
-| Body | Immutable after finalize; scope change → new slug | Superseded by a new ADR that references the old one |
+| Question | *How* to implement this specific work | *Why* this expensive-to-reverse choice — and what alternatives were rejected |
+| Scope | One feature / task (work-scoped) | Ecosystem-local (`ml`, `backend`, `frontend`) or strict common if it still constrains multiple domains after attempted split |
+| Lifespan | Archivable when work ends | Permanent as current authority; fully superseded non-MECE source files may be retired only after successor coverage is proven |
+| Body | Immutable after finalize; scope change → new slug | Superseded by successor ADR(s); retired source bodies must remain recoverable from git history and mapped in the coverage matrix |
 | Author | omc-plan / omo / omx agents | documentation-and-adrs skill |
-| Location | `docs/exec-plan/active/{slug}/plan.md` → `archive/{slug}/` | `docs/decisions/ADR-NNN-*.md` |
+| Location | `docs/exec-plan/active/{slug}/plan.md` → `archive/{slug}/` | `docs/decisions/{ml,backend,frontend,common}/ADR-NNN-*.md` |
 
 ### Distill rule
 
-When a plan contains an expensive-to-reverse, cross-cutting choice (framework selection, data model,
+When a plan contains an expensive-to-reverse, ecosystem-local or strict-common choice (framework selection, data model,
 auth strategy, API shape, infrastructure), **distill that choice into a new ADR** before or at the
 time the plan is archived. The plan entry itself is not replaced — the ADR lives alongside it in
-`docs/decisions/`.
+`docs/decisions/{ml,backend,frontend,common}/`.
 
 Ask: "Would a future agent/engineer working on an unrelated feature need to know this decision?"
 If yes → write an ADR. If it only affects this feature's implementation details → leave it in the plan.
@@ -134,7 +135,7 @@ Add frontmatter line(s) before moving:
 **Supersede timing:** When creating a superseding plan (plan-B), archive the superseded plan
 (plan-A) in the same action before beginning execution of plan-B.
 
-Plans stay in `docs/exec-plan/`; ADRs stay in `docs/decisions/`. Do not merge, move, or delete ADRs.
+Plans stay in `docs/exec-plan/`; active ADRs stay in `docs/decisions/{ml,backend,frontend,common}/`. Do not merge plans into ADRs. Retire a fully superseded source ADR only under the coverage-matrix + git-history rule above.
 
 ## Inline Documentation
 

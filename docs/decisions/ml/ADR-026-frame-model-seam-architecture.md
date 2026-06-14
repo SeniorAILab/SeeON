@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the two-seam architecture clauses of [ADR-005](./ADR-005-yolo26-pose-and-module-seam.md). ADR-005 remains as the preserved historical source record.
+Accepted. Supersedes the two-seam architecture clauses of retired source ADR-005. ADR-005 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 
 ## Date
 
@@ -61,6 +61,6 @@ Rejected. Raw framework objects make the UI and downstream processing brittle to
 - Protocol/convention enforcement is weaker than a registry or contract-test suite.
 - Contributors must understand that model choice and render output options are different axes.
 
-## Source preservation
+## Source mapping
 
-This ADR preserves the seam architecture from ADR-005. ADR-005 remains intact as the historical source for the original combined framework/seam decision.
+This ADR preserves the seam architecture from ADR-005. The original ADR-005 text remains recoverable from git history; this ADR carries the current seam-architecture clause so the visible corpus stays MECE.
