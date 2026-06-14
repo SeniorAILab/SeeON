@@ -9,12 +9,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import itertools  # noqa: E402
-import tempfile  # noqa: E402
 import time  # noqa: E402
 from typing import Final  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
+from demo import app_assets  # noqa: E402
+from demo import video_registry as videos  # noqa: E402
 from demo.bed_detector import BedDetector  # noqa: E402
 from demo.bed_exit import (  # noqa: E402
     BED_EXIT_LABEL_TEXT,
@@ -22,7 +23,11 @@ from demo.bed_exit import (  # noqa: E402
     BedExitParams,
 )
 from demo.bed_exit_latch import BedExitLatch  # noqa: E402
-from demo.demo_mode import OPERATOR_MODE, demo_mode  # noqa: E402
+from demo.demo_mode import (  # noqa: E402
+    OPERATOR_MODE,
+    demo_mode,
+    filter_videos_for_public_mode,
+)
 from demo.live_view import render_due  # noqa: E402
 from demo.model_modules import (  # noqa: E402
     POSE_MODEL_SIZE_LABELS,
@@ -36,7 +41,6 @@ from util.camera_probe import probe_cameras  # noqa: E402
 from util.frame_source import CameraSource, FrameSource  # noqa: E402
 
 PLAYING_KEY: Final = "bed_exit_playing"
-UPLOAD_PATH_KEY: Final = "bed_exit_upload_path"
 # Inference runs on every frame; only the repaint is decimated (ADR-010/013).
 RENDER_FRAME_STRIDE: Final = 4
 
@@ -104,41 +108,89 @@ def _select_bed_exit_params() -> BedExitParams:
 
 
 def _select_source() -> tuple[FrameSource | None, float]:
-    """Render source selection (upload | live camera); return (source, frame_interval).
+    """Render source selection (registered video | live camera).
 
-    ``frame_interval`` is the per-frame pacing target in seconds for an uploaded
-    clip (paced to native fps), or 0.0 for the live camera (the camera itself is
-    the real-time gate — no pacing sleep, mirroring pages/live_camera.py).
-    Returns ``(None, 0.0)`` when nothing is ready to play yet.
+    The video path mirrors the fall page (app.py): uploads register through the
+    shared video_registry and operator mode exposes the same domain/role
+    selector, so both demo pages pick clips identically and FALL_DEMO_MODE access
+    rules apply uniformly (ADR-012). Live camera stays a bed-exit-only source.
+
+    Returns ``(source, frame_interval)`` — the per-frame pacing target in seconds
+    for a clip (paced to native fps), or 0.0 for the live camera (the camera is
+    the real-time gate, no pacing sleep). ``(None, 0.0)`` when nothing is ready.
     """
     mode = st.radio(
         "입력 소스",
-        options=("영상 업로드", "라이브 카메라"),
+        options=("등록 영상", "라이브 카메라"),
         horizontal=True,
     )
+    if mode == "등록 영상":
+        return _select_registered_video()
+    return _select_live_camera()
 
-    if mode == "영상 업로드":
-        uploaded = st.file_uploader(
-            "침대가 보이는 영상 업로드", type=["mp4", "mov", "avi", "mkv"]
+
+def _select_registered_video() -> tuple[FrameSource | None, float]:
+    """Pick a clip from the shared video registry, exactly like the fall page."""
+    app_assets.handle_upload()
+    registered_videos = _list_videos_for_mode(demo_mode())
+    if not registered_videos:
+        st.info("재생할 영상이 없습니다 — 위에서 영상을 업로드하세요.")
+        return None, 0.0
+    selected_video = st.selectbox(
+        "영상",
+        options=registered_videos,
+        format_func=lambda video: video.display_name,
+    )
+    info = read_video_playback_info(selected_video.path)
+    return VideoFileSource(selected_video.path), 1.0 / max(info.fps, 1.0)
+
+
+def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
+    """Resolve the video dropdown options for the active FALL_DEMO_MODE.
+
+    operator — domain selector over ml/data/{domain}/{processed,raw} plus
+    uploads. public (fail-safe default) — only clips uploaded in the current
+    browser session; internal domain sources are never listed (ADR-012 Access
+    Boundary). Same policy the fall page (app.py) applies — the bed-exit page
+    must not widen it.
+    """
+    if mode == OPERATOR_MODE:
+        domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
+        col_domain, col_role = st.columns(2)
+        selected_domain = col_domain.segmented_control(
+            "도메인",
+            options=domain_options,
+            default=domain_options[0] if domain_options else None,
         )
-        if uploaded is None:
-            return None, 0.0
-        # Persist to a session-scoped temp file so reruns reuse one path rather
-        # than rewriting bytes every interaction.
-        cache = st.session_state.get(UPLOAD_PATH_KEY)
-        key = f"{uploaded.name}:{uploaded.size}"
-        if cache is None or cache[0] != key:
-            suffix = Path(uploaded.name).suffix or ".mp4"
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-            tmp.write(uploaded.getbuffer())
-            tmp.close()
-            cache = (key, tmp.name)
-            st.session_state[UPLOAD_PATH_KEY] = cache
-        path = Path(cache[1])
-        info = read_video_playback_info(path)
-        return VideoFileSource(path), 1.0 / max(info.fps, 1.0)
+        if selected_domain is None:
+            return []
+        if selected_domain == videos.UPLOADS_DOMAIN:
+            return videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
+        role_options = videos.list_roles_for_domain(selected_domain)
+        if not role_options:
+            return []
+        selected_role = col_role.segmented_control(
+            "종류",
+            options=role_options,
+            format_func=lambda r: r.value,
+            default=role_options[0],
+        )
+        if selected_role is None:
+            return []
+        return videos.list_registered_videos(
+            include_sources=(selected_role,),
+            domains=(selected_domain,),
+        )
+    st.caption("Public mode — 이 세션에서 업로드한 영상만 표시됩니다.")
+    session_upload_ids: set[str] = st.session_state.setdefault(
+        app_assets.SESSION_UPLOAD_IDS_KEY, set()
+    )
+    uploads = videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
+    return filter_videos_for_public_mode(uploads, session_upload_ids)
 
-    # 라이브 카메라
+
+def _select_live_camera() -> tuple[FrameSource | None, float]:
+    """Probe + pick a live camera (bed-exit-only source; the fall page has none)."""
     if st.button("카메라 다시 검색"):
         st.session_state.pop("bed_exit_cameras", None)
     if "bed_exit_cameras" not in st.session_state:
