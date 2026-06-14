@@ -289,7 +289,7 @@ For shipped features:
 
 Special consideration for AI agent context:
 
-- **AGENTS.md / rules files** — Document project conventions so agents follow them
+- **AGENTS.md / runtime rules files** — Document project conventions so agents follow them
 - **Spec files** — Keep specs updated so agents build the right thing
 - **ADRs** — Help agents understand why past decisions were made (prevents re-deciding)
 - **Inline gotchas** — Prevent agents from falling into known traps
