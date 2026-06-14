@@ -77,4 +77,4 @@ gets a symlink `<worktree>/ml/models → <main-checkout>/ml/models`, created aut
   `demo/temporal_module.py:_KEY_TO_ARTIFACT`.
 
 See [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) for the full design rationale and
-supersede relationships to ADR-003/ADR-007.
+supersede relationships to retired source ADR-003/ADR-007.

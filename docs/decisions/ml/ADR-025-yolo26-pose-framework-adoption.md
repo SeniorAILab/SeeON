@@ -41,7 +41,7 @@ The project remains honest about verification: YOLO26-pose was **partially verif
 
 ### Stay on bbox appearance classifiers
 
-Rejected. ADR-005's controls showed the upstream bbox classifiers reproduced their home-domain behavior but collapsed on nursing-home CCTV. The failure is method-level: RGB/bbox appearance is brittle to viewpoint, occlusion, and temporal-event requirements.
+Rejected. Retired source ADR-005's controls showed the upstream bbox classifiers reproduced their home-domain behavior but collapsed on nursing-home CCTV. The failure is method-level: RGB/bbox appearance is brittle to viewpoint, occlusion, and temporal-event requirements.
 
 ### MediaPipe BlazePose as the primary framework
 
@@ -66,4 +66,4 @@ Rejected. Larger weights may recover in-distribution misses, but only domain dat
 
 ## Source mapping
 
-This ADR distills the framework adoption decision from ADR-005. ADR-005's original context, verification table, roadmap, alternatives, and consequences remain recoverable from git history; ADR-025, ADR-026, and ADR-027 carry the current active clauses so the visible corpus stays MECE.
+This ADR distills the framework adoption decision from retired source ADR-005. ADR-005's original context, verification table, roadmap, alternatives, and consequences remain recoverable from git history; ADR-025, ADR-026, and ADR-027 carry the current active clauses so the visible corpus stays MECE.

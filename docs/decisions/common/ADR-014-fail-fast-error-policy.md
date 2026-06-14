@@ -71,7 +71,7 @@ agent-driven repo.
 | Error-handling **policy**: fail-fast, typed refusal, boundary rule, loud degradation | **ADR-014 (this)** |
 | The concrete **deny-list** (lint rule IDs, exemption mechanics) | `docs/rules/code-stability.md` |
 | **ML inference quality** — model runs but confidently misses falls (no exception exists to propagate) | Excluded — runtime-monitoring concern, future research/ADR |
-| Classifier content, model-seam, data strategy | ADR-005 / ADR-009 (untouched) |
+| Classifier content, model-seam, data strategy | ADR-009 / ADR-026 / ADR-012 (untouched) |
 | Repo/dependency topology (jscpd lands as root tooling devDependency) | ADR-001 (consistent with its orchestration-shell role) |
 
 ## Alternatives Considered
@@ -117,7 +117,7 @@ approaches deployment in a real facility.
 
 - **References ADR-001** — jscpd enters as a root-level tooling devDependency, within the
   orchestration-shell role ADR-001 assigns to the root `package.json`.
-- **Does not touch ADR-003/005/006/007/009** — serving/training split, seams, layouts,
+- **Does not touch ADR-022/023/026/012/009** — serving/training split, ML/backend boundary, seams, layouts,
   and classifier strategy are unaffected; this ADR governs how their code *fails*.
 - **Recorded by** `docs/rules/code-stability.md` (standing rule) and implemented via plan
   `code-stability-enforcement` (issue #51).

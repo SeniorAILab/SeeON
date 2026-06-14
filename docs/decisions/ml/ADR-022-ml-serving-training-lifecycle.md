@@ -46,7 +46,7 @@ Rejected for this repository stage. Separate uv projects would add duplicate con
 
 ### Node/Nest-owned model inference
 
-Rejected by ADR-003 and preserved here only as historical context. Python ML dependencies and TypeScript backend dependencies should not be fused into one runtime.
+Rejected by retired source ADR-003 and preserved here only as historical context. Python ML dependencies and TypeScript backend dependencies should not be fused into one runtime.
 
 ## Consequences
 

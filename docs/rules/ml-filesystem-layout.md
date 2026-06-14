@@ -4,7 +4,7 @@
 > Records the *operational* "where does this file go" rule; the *why* lives in
 > [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) (data layout)
 > and [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) (model layout,
-> supersedes ADR-003 §3 and ADR-007 rows 1/2/5).
+> supersedes retired source ADR-003 §3 and ADR-007 rows 1/2/5).
 
 ## `ml/data/` — domain-first, two tiers
 
@@ -50,11 +50,11 @@ four role folders you need. Point the relevant config constant
 - **Weights, footage, and generated outputs are gitignored and NEVER committed
   or pushed.** `ml/data/` and `ml/models/` (the entire tree) are in
   `.gitignore`. Run `git status` before every commit and confirm none are
-  staged (inherited from ADR-004 via ADR-012; `ml/models/` single entry per
+  staged (inherited from retired source ADR-004 via ADR-012; `ml/models/` single entry per
   ADR-015).
 - **Raw is sacred.** Files under any `{domain}/raw/` are never modified in
   place; processing writes lossless copies to `{domain}/processed/` only
-  (inherited from ADR-004 via ADR-012).
+  (inherited from retired source ADR-004 via ADR-012).
 - **`ml/data/` is partitioned domain-first.** Data goes in
   `{domain}/{role}/` with the fixed role vocabulary above. Cross-domain
   outputs go in `eval/`; nothing else lives at the top level. Never create a
@@ -76,6 +76,6 @@ four role folders you need. Point the relevant config constant
   (ADR-015).
 
 See [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) for the data
-layout and its supersede relationships to ADR-004/ADR-007. See
+layout and its supersede relationships to retired source ADR-004/ADR-007. See
 [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) for the model layout
-and its supersede relationships to ADR-003/ADR-007.
+and its supersede relationships to retired source ADR-003/ADR-007.
