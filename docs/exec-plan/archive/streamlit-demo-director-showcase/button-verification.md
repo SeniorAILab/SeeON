@@ -15,12 +15,12 @@
 | HTTP GET `http://localhost:8599/` after 18 s | 200 | **200 PASS** |
 | Tracebacks in server log | none | **none PASS** |
 
-Server log tail (no errors):
+Server log tail (no errors; network addresses redacted):
 ```
 Uvicorn server started on 0.0.0.0:8599
   Local URL: http://localhost:8599
-  Network URL: http://192.168.219.52:8599
-  External URL: http://182.220.172.167:8599
+  Network URL: http://<local-ip>:8599
+  External URL: <redacted>
 ```
 
 ---
