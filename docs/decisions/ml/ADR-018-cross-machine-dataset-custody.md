@@ -73,7 +73,7 @@ requires human review on the operator's machine (where the footage is).
 - Pros: no staging choreography, both machines mount one truth
 - Cons: nursing-home CCTV would transit/persist on third-party or
   network-exposed storage
-- Rejected: violates the privacy perimeter (ADR-012 Access Boundary). The data
+- Rejected: violates the privacy perimeter (ADR-028 Demo Access Boundary). The data
   must stay on operator-controlled disks.
 
 ### git-lfs for footage and weights
@@ -126,4 +126,4 @@ requires human review on the operator's machine (where the footage is).
   and the worktree reverts to the symlink convention.
 
 Operational detail (commands, registry of current datasets, handshake steps)
-lives in [`docs/rules/ml-dataset-custody.md`](../rules/ml-dataset-custody.md).
+lives in [`docs/rules/ml-dataset-custody.md`](../../rules/ml-dataset-custody.md).

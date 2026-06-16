@@ -4,7 +4,7 @@ date: 2026-06-13
 author: gobeumsu
 status: active
 issues: [23, 9]
-related-adrs: [ADR-003, ADR-005, ADR-006, ADR-013, ADR-014, ADR-015]
+related-adrs: [ADR-023, ADR-025, ADR-006, ADR-013, ADR-014, ADR-015]
 spec: ./spec.md
 ---
 
@@ -19,7 +19,7 @@ spec: ./spec.md
 ## Authority Boundary
 
 This plan is the work queue for #23, not the final architectural record. The
-cross-cutting choices named here must be distilled into ADR-022/ADR-023 and
+cross-cutting choices named here must be distilled into ADR-029/ADR-030 and
 `docs/rules/layer-boundaries.md` before implementation code starts; until those
 artifacts land, this document is a scoped plan/spec record rather than the source
 of architectural authority.
@@ -38,7 +38,7 @@ of architectural authority.
    (기본 `ml/models`) — API 표면이 아닌 serving 내부에서 해석.
 5. **의존성**: serving 코어에 `scikit-learn`, `joblib` 추가 (검증 완료: RF 아티팩트는
    `rf.py:61`에서 내부 sklearn 객체만 dump — training 클래스 참조 없음, 역직렬화에 sklearn만 필요).
-6. **산출물 (D5)**: ADR-022(계약)·ADR-023(레이어)·`rules/layer-boundaries.md`·이슈 #23 갱신.
+6. **산출물 (D5)**: ADR-029(계약)·ADR-030(레이어)·`rules/layer-boundaries.md`·이슈 #23 갱신.
 
 ### Scope — 포함 / 제외
 
@@ -47,7 +47,7 @@ of architectural authority.
 | `/predict` 실추론 (RF, stateless, 윈도우=1인 트랙) | demo 전면 슬림화 (seam/pose_yolo/스트리밍 추출) — 별도 슬러그 |
 | `ml/inference/` 3파일 추출 + demo/training 역참조 | FrameSource→serving 배선 — **계약상 영구 제외** (spec D1) |
 | git-guard import 방향 가드 (hook 전용) | backend NestJS 호출자 (#28, 별도 plan) |
-| ADR-022/023 + rules/layer-boundaries.md + #23 갱신 | LSTM/Transformer 서빙 (torch/ONNX 결정 필요) |
+| ADR-029/030 + rules/layer-boundaries.md + #23 갱신 | LSTM/Transformer 서빙 (torch/ONNX 결정 필요) |
 | serving deps + 슬림 환경 검증 | Dockerfile/배포 (ADR-021로 호스팅 미결 — 후속) |
 
 ## API Contract (target)
@@ -131,10 +131,10 @@ POST /predict
 
 ### Step 7 — 문서·이슈 정렬
 
-- `docs/decisions/ADR-022-predict-contract.md` — 입력/응답 스키마, 모델 이름 불투명 원칙,
+- `docs/decisions/ADR-029-predict-contract.md` — 입력/응답 스키마, 모델 이름 불투명 원칙,
   두 층 판정 경계(모델 수준 = ML / 제품 수준 = backend), threshold 단일 출처.
-  ADR-003 §4 계약(`fall_probability` 단일 출력)을 부분 supersede.
-- `docs/decisions/ADR-023-inference-layer.md` — `ml/inference/` 신설(최소 추출 + 점진 확장 경로),
+  ADR-023 계약(`fall_probability` 단일 출력)을 부분 supersede.
+- `docs/decisions/ADR-030-inference-layer.md` — `ml/inference/` 신설(최소 추출 + 점진 확장 경로),
   import 방향 불변식, hook 전용 강제 위치 (ADR-008/016 계열).
 - `docs/rules/layer-boundaries.md` — 허용/금지 import 매트릭스 상세 (ADR-015+rules 짝 패턴).
 - `docs/architecture.md` — 디렉토리 트리(`ml/inference/`), 응답 스키마 갱신.
@@ -152,7 +152,7 @@ POST /predict
 6. 가드: 위반 import를 담은 커밋이 pre-commit에서 차단된다 (수동 1회 + 스크립트 단위 테스트).
 7. `uv sync --no-default-groups` 환경에서 serving 테스트 서브셋 통과 (ultralytics/torch 부재).
 8. 기존 `ml/` 전체 pytest + ruff green.
-9. ADR-022/023 + rules/layer-boundaries.md 존재, #23 본문이 확정 계약과 일치.
+9. ADR-029/030 + rules/layer-boundaries.md 존재, #23 본문이 확정 계약과 일치.
 
 ## Risks & Mitigations
 
@@ -175,7 +175,7 @@ POST /predict
 
 ## Follow-ups (별도 슬러그/이슈)
 
-- demo 전면 슬림화 — seam/pose_yolo/스트리밍 모듈의 inference 추출 (ADR-023이 경로 명문화).
+- demo 전면 슬림화 — seam/pose_yolo/스트리밍 모듈의 inference 추출 (ADR-030이 경로 명문화).
 - #28 backend 호출자 + Prediction 영속화 (이 계약 소비).
 - #36 realtime transport 결정 후 라이브 ingest 경로.
 - LSTM/Transformer 서빙 (torch 동봉 vs ONNX).

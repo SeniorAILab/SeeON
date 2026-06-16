@@ -7,6 +7,8 @@ method: dynamic workflow (wf_24b3f309-fd5) — inventory -> audit (53 agents) ->
 
 # docs↔code 정합 감사 보고서
 
+> **역사 스냅샷 (2026-06-10) — ADR MECE 재편(PR #104) 이전 상태 기록.** 이 감사는 ADR 코퍼스 재편 전 시점을 기록한 것이다. 본문이 언급하는 `ADR-001/003/004/005/007`은 이후 **폐기된 source ADR**이며, 현재 권위는 successor로 이관됐다: ADR-003→ADR-022/023/024/015, ADR-004→ADR-012, ADR-005→ADR-025/026/027, ADR-007→ADR-012/015 (`docs/decisions/README.md` coverage matrix 참조). 아래 "수정 권고"는 당시 시점 기준이며 일부는 재편으로 이미 해소·무효화됐다. 폐기 ADR 본문을 직접 수정하라는 항목은 더 이상 유효하지 않다.
+
 ## 1. 정합 요약
 
 전반적인 아키텍처 결정 자체(polyglot monorepo 구조, ML/Backend 경계, ADR 라이프사이클, worktree 브랜치 전략, 의존성 그룹 분리 개념)는 코드베이스와 잘 맞아 있다. Backend(NestJS), Frontend(Next.js), Prisma 스키마 관련 문서는 실제 코드와 대체로 일치하며, git 훅·가드 스크립트는 AGENTS.md 규약대로 구현돼 있다. 개별 ADR의 핵심 결정 로직 자체가 잘못된 사례는 없으며, 불일치는 구현이 발전하면서 스냅샷이 갱신되지 않은 **상태 기술(status description)** 에 집중된다.

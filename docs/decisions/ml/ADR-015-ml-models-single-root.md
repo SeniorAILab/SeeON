@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted. **Partially supersedes ADR-003** (§3 artifact layout — `ml/artifacts/<name>/<version>/`
-replaced by `ml/models/fall/<model_type>/`) and **ADR-007** (`ml/weights/` → `ml/models/pose/`;
+Accepted. **Partially supersedes retired source ADR-003** (§3 artifact layout — `ml/artifacts/<name>/<version>/`
+replaced by `ml/models/fall/<model_type>/`) and **retired source ADR-007** (`ml/weights/` → `ml/models/pose/`;
 `ml/artifacts/pretrained/` → `ml/models/fall/pretrained/`). ADR-012 MECE rows 1, 2, and 7 are
 stale; ADR-015 is the current map for all model-related paths.
 
@@ -16,14 +16,14 @@ stale; ADR-015 is the current map for all model-related paths.
 Three separate locations held model-class files with no single owning root:
 
 1. **`ml/weights/`** — Ultralytics auto-download target for YOLO26-pose weights (ephemeral,
-   re-downloadable). Governed by ADR-007 row 5.
+   re-downloadable). Previously governed by retired source ADR-007 row 5.
 2. **`ml/artifacts/fall-detector/`** — Trained fall-classifier artifacts (`rf/`, `lstm/`,
-   `transformer/`). The ADR-003 Triton-inspired `<name>/<version>/` layout was unused in practice
+   `transformer/`). The retired ADR-003 Triton-inspired `<name>/<version>/` layout was unused in practice
    (`version` was always `poc`) and the `fall-detector/` middle level was redundant.
-3. **`ml/artifacts/pretrained/`** — Third-party comparison checkpoints. Governed by ADR-005, but
+3. **`ml/artifacts/pretrained/`** — Third-party comparison checkpoints. Previously governed by retired source ADR-005, but
    co-located with trained outputs despite being downloaded, not trained.
 
-Serving code used a `version` parameter to address artifacts, which matched the old ADR-003 path
+Serving code used a `version` parameter to address artifacts, which matched the old retired ADR-003 path
 formula but misnamed the semantics (the parameter selects *which model type* to load, not a
 version).
 
@@ -112,13 +112,11 @@ independent paths; that is not the current situation. Version belongs in `metada
 
 ## Relationship to Other ADRs
 
-- **Partially supersedes ADR-003 §3** (artifact path formula). The serving/training lifecycle
-  split, FastAPI surface, and dependency-boundary rules in ADR-003 are unchanged.
-- **Partially supersedes ADR-007** (rows 1, 2, 5 of the ADR-007 MECE table —
-  first-party artifacts, pretrained checkpoints, weight cache). All other ADR-007 rows and
-  discriminators are untouched.
+- **Partially supersedes retired source ADR-003 §3** (artifact path formula). The serving/training lifecycle, ML/backend boundary, and demo/product boundary now live in ADR-022, ADR-023, and ADR-024.
+- **Partially supersedes retired source ADR-007** (rows 1, 2, 5 of the ADR-007 MECE table —
+  first-party artifacts, pretrained checkpoints, weight cache). Its exact source body remains recoverable from git history and mapped in the README coverage matrix.
 - **Updates ADR-012 MECE table** rows 1, 2, and 7 (see table below). `ml/data/` layout
-  (ADR-012 primary decision), the `ModelModule` seam (ADR-005), and the worktree enforcement
+  (ADR-012 primary decision), the `ModelModule` seam (retired source ADR-005; current authority ADR-026), and the worktree enforcement
   policy (ADR-008) are not touched.
 - **Implementation tracked** in GitHub issue **#56**.
 

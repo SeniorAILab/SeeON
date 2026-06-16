@@ -5,9 +5,9 @@
 >
 > **Decision references (not repeated here):**
 > live per-frame inference as the standard observation mode →
-> [ADR-010](../decisions/ADR-010-realtime-live-inference-demo-mode.md);
+> [ADR-010](../decisions/ml/ADR-010-realtime-live-inference-demo-mode.md);
 > live-camera page and `CameraSource` →
-> [ADR-011](../decisions/ADR-011-live-camera-intake-and-multipage-demo.md).
+> [ADR-011](../decisions/ml/ADR-011-live-camera-intake-and-multipage-demo.md).
 
 ## 1. Allowed operator controls
 
@@ -66,14 +66,14 @@ frame_ph.image(overlay, channels="RGB", use_container_width=True)
 - **Latched event badge** — `FallEventLatch` (demo.live_view) turns rising
   edges of the raw fall signal into a persistent 🚨 badge (first onset time +
   count) above the status line. It is aggregation of real inference only —
-  it never invents or extends a fall state (ADR-005 §5); the raw per-frame
+  it never invents or extends a fall state (ADR-027); the raw per-frame
   status stays untouched. Product alerting (ack, notifications) is backend
-  scope (ADR-003), not the demo's.
+  scope (ADR-023), not the demo's.
 
 ## 3. Independent overlay toggles
 
 Bounding boxes and the pose skeleton are **independent render options** on a
-single `DetectionResult` (per ADR-005 §3), not separate models. Expose each as
+single `DetectionResult` (per ADR-027), not separate models. Expose each as
 its own `st.checkbox`; all four on/off combinations must render correctly, and
 "both off" returns a clean frame. `render_yolo_overlay(frame, result,
 show_boxes=..., show_pose=...)` honors the flags.
@@ -89,7 +89,7 @@ The demo defaults to `FALL_DEMO_MODE=public` (fail-safe):
 
 - **The default is `public` on purpose.** A deployment that forgets to set
   `FALL_DEMO_MODE` must **never** expose nursing-home footage
-  (ADR-012 Access Boundary). Never flip the default to `operator`.
+  (ADR-028 Demo Access Boundary). Never flip the default to `operator`.
 - **Public-mode invariants:** internal domain sources are not listed, not
   reachable by any widget, and uploads outside the current session's
   `st.session_state["session_upload_ids"]` set are not shown. Session
@@ -120,7 +120,7 @@ Selecting the pose model size is a **one-line weight swap through the model-seam
 (`pose_weight_filename(size)` → `yolo26{size}-pose.pt`), not bespoke UI logic.
 Any future "choose pose model" or "choose downstream classifier" control must be
 wired through `demo.classifiers` / `demo.model_modules`, leaving the renderer
-and downstream consumers untouched (ADR-005 §3). Do not branch the UI on
+and downstream consumers untouched (ADR-026/027). Do not branch the UI on
 framework internals.
 
 ## 7. Operational notes
@@ -128,7 +128,7 @@ framework internals.
 - **First-select latency.** `yolo26{s,m,l,x}-pose.pt` weights download on first
   selection and are large. They cache to `ml/weights/` (not the `ml/` root) via
   `pose_weight_path(size)` — see [ml-filesystem-layout.md](./ml-filesystem-layout.md)
-  and ADR-007. `*.pt` is gitignored — never commit weights. Expect a one-time
+  and ADR-015. `*.pt` is gitignored — never commit weights. Expect a one-time
   download delay when a size is picked for the first time.
 - **Import contract.** `streamlit run demo/app.py` only puts `ml/demo/` on the
   path; pytest uses `pythonpath=["."]` = `ml/`. `app.py` bootstraps `sys.path`
@@ -136,4 +136,4 @@ framework internals.
   (`from demo.x import …`, `from util.x import …`). Do not reintroduce
   `try/except ModuleNotFoundError` dual-import shims.
 - **Never fabricate data.** Nothing in the demo may paint keypoints, boxes, or
-  labels that did not come from a real model inference (ADR-005 §5).
+  labels that did not come from a real model inference (ADR-027).

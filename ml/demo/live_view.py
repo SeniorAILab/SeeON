@@ -37,8 +37,8 @@ class FallEventLatch:
     fact would vanish from screen. This helper detects rising edges
     (정상→낙상) and remembers the first onset time and total onset count so
     the UI can keep a latched badge. Pure aggregation of real inference
-    outputs — it never invents a fall (ADR-005 §5). Product-grade alerting
-    (ack flow, notifications) is backend scope (ADR-003).
+    outputs — it never invents a fall (ADR-027). Product-grade alerting
+    (ack flow, notifications) is backend scope (ADR-023).
     """
 
     def __init__(self) -> None:
