@@ -13,6 +13,7 @@ class CurrentPlaybackStatus:
     label: str
     detail: str
     pose_label: str
+    pose_count: int
     is_fall: bool
 
 
@@ -28,11 +29,13 @@ def current_playback_status(
             label="정상",
             detail=f"{time_sec:.2f}s / 낙상 없음",
             pose_label=pose_label,
+            pose_count=pose_count,
             is_fall=False,
         )
     return CurrentPlaybackStatus(
         label="낙상",
         detail=f"{time_sec:.2f}s / 낙상 감지",
         pose_label=pose_label,
+        pose_count=pose_count,
         is_fall=True,
     )

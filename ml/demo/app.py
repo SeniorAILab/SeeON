@@ -17,12 +17,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import time  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
 from typing import Final  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
+from demo.alert_client import AlertClient  # noqa: E402
 from demo.classifiers import ClassifierParams  # noqa: E402
 from demo.demo_mode import (  # noqa: E402
     OPERATOR_MODE,
@@ -37,7 +39,12 @@ from demo.demo_ui import (  # noqa: E402
     select_classifier_spec,
     select_decision_threshold,
 )
-from demo.live_view import FallEventLatch, iter_live_frames, render_due  # noqa: E402
+from demo.live_view import (  # noqa: E402
+    DetectionLossMonitor,
+    FallEventLatch,
+    iter_live_frames,
+    render_due,
+)
 from demo.model_bootstrap import ensure_fall_models  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
 from demo.ui_labels import (  # noqa: E402
@@ -183,35 +190,65 @@ def _render_live_viewer(
     processed = 0
     last_painted_fall = False
     latch = FallEventLatch()
-    for overlay, status, confidence in iter_live_frames(
-        source, model, show_boxes=show_boxes, show_pose=show_pose
-    ):
-        processed += 1
-        # Latched event badge: repainted only on a rising edge (정상→낙상);
-        # the raw per-frame status below stays untouched (ADR-027 — the
-        # badge aggregates real inference, it never invents state).
-        if latch.update(status.is_fall, processed * frame_interval):
-            event_ph.error(
-                f"🚨 낙상 감지 {latch.event_count}회 — "
-                f"최초 {latch.first_event_sec:.1f}초 시점 (영상 종료까지 유지)"
-            )
-        if render_due(
-            processed,
-            RENDER_FRAME_STRIDE,
-            is_fall=status.is_fall,
-            last_painted_fall=last_painted_fall,
+    loss_monitor = DetectionLossMonitor()
+    alert_client = AlertClient.from_env(source_id=selected_video.video_id)
+    try:
+        for overlay, status, confidence in iter_live_frames(
+            source, model, show_boxes=show_boxes, show_pose=show_pose
         ):
-            frame_ph.image(overlay, channels="RGB", use_container_width=True)
-            render_status(status_ph, status, confidence)
-            last_painted_fall = status.is_fall
-        target += frame_interval
-        delay = target - time.perf_counter()
-        if delay > 0:
-            time.sleep(delay)
+            processed += 1
+            frame_time_sec = processed * frame_interval
+            detected_at = _utc_now_iso()
+            # Latched event badge: repainted only on a rising edge (정상→낙상);
+            # the raw per-frame status below stays untouched (ADR-027 — the
+            # badge aggregates real inference, it never invents state).
+            if latch.update(status.is_fall, frame_time_sec):
+                if alert_client is not None:
+                    alert_client.send(
+                        event_type="fall",
+                        detected_at=detected_at,
+                        confidence=confidence,
+                    )
+                event_ph.error(
+                    f"🚨 낙상 감지 {latch.event_count}회 — "
+                    f"최초 {latch.first_event_sec:.1f}초 시점 (영상 종료까지 유지)"
+                )
+            if loss_monitor.update(pose_count=status.pose_count, time_sec=frame_time_sec):
+                if alert_client is not None:
+                    alert_client.send(
+                        event_type="detection-lost",
+                        detected_at=detected_at,
+                    )
+            if render_due(
+                processed,
+                RENDER_FRAME_STRIDE,
+                is_fall=status.is_fall,
+                last_painted_fall=last_painted_fall,
+            ):
+                frame_ph.image(overlay, channels="RGB", use_container_width=True)
+                render_status(
+                    status_ph,
+                    status,
+                    confidence,
+                    alert_status=alert_client.status_text()
+                    if alert_client is not None
+                    else None,
+                )
+                last_painted_fall = status.is_fall
+            target += frame_interval
+            delay = target - time.perf_counter()
+            if delay > 0:
+                time.sleep(delay)
+    finally:
+        if alert_client is not None:
+            alert_client.close()
 
     st.session_state[PLAYING_KEY] = False
     status_ph.info(f"재생 완료 — {processed} 프레임 처리됨. 다시 재생하려면 ▶︎ 재생.")
 
 
+
+def _utc_now_iso() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 if __name__ == "__main__":
     main()
