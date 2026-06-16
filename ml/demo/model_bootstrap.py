@@ -20,7 +20,10 @@ def ensure_fall_models(target_dir: Path = FALL_MODELS_DIR) -> None:
     """Download fall weights when missing; no-op (and fully offline) when present."""
     if any(target_dir.glob("*/metadata.json")):
         return
-    # Lazy import: local operator runs with weights in place never need the hub.
-    from huggingface_hub import snapshot_download
+    try:
+        # Lazy import: local operator runs with weights in place never need the hub.
+        from huggingface_hub import snapshot_download
+    except ModuleNotFoundError:
+        return
 
     snapshot_download(repo_id=FALL_MODELS_REPO, local_dir=target_dir)
