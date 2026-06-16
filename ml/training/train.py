@@ -227,7 +227,8 @@ def run(
     is_smoke = smoke_n is not None
     requested = [k for k in REGISTRY if k in models]
 
-    # === 단계 5: 요청된 모델별 학습 — REGISTRY 구동 (mode=="features"=sklearn, mode=="sequence"=PyTorch) ===
+    # === 단계 5: 요청된 모델별 학습 — REGISTRY 구동 ===
+    # (mode=="features"=sklearn, mode=="sequence"=PyTorch)
     for key in requested:
         out_dir = artifact_dir(key, ARTIFACT_BASE)
         print(f"[train] training {key!r} → {out_dir}")
@@ -255,7 +256,8 @@ def run(
                 reacquire=f"cd ml && uv run python -m training.train --models {key}",
             )
 
-        else:  # mode == "sequence" — applies to ALL sequence-mode REGISTRY entries (lstm, transformer, gcn, …)
+        # mode == "sequence": all sequence REGISTRY entries (lstm, transformer, gcn, …)
+        else:
             X_tr, y_tr = _get_seq()
             clf = factory()
 

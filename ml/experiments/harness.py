@@ -44,9 +44,9 @@ import os
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import optuna
 
@@ -60,6 +60,11 @@ from training.config import (
 from training.models import REGISTRY
 
 log = logging.getLogger(__name__)
+
+
+def _fail(message: str) -> NoReturn:
+    # TRY301: guard-raise lifted out of the experiment capture try block.
+    raise RuntimeError(message)
 
 # Silence Optuna's verbose default output; harness does its own logging.
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -597,7 +602,7 @@ def run(config_path: Path, *, runs_dir: Path | None = None, status_path: Path | 
             family,
         )
 
-    started_at = datetime.now(tz=timezone.utc).isoformat()
+    started_at = datetime.now(tz=UTC).isoformat()
     harness_error = False
     succeeded = False
 
@@ -615,16 +620,16 @@ def run(config_path: Path, *, runs_dir: Path | None = None, status_path: Path | 
         train_seconds = time.perf_counter() - t_train_start
 
         if not train_ok:
-            raise RuntimeError(f"Final train subprocess failed for family={family!r}")
+            _fail(f"Final train subprocess failed for family={family!r}")
 
         # --- Final evaluate ---
         if not _run_subprocess_eval():
-            raise RuntimeError("Final evaluate subprocess failed")
+            _fail("Final evaluate subprocess failed")
 
         # --- Read LE2I metrics ---
         metrics = _read_recall90_metrics(family)
         if metrics is None:
-            raise RuntimeError(
+            _fail(
                 f"No recall_90 metrics found for {family!r} after final evaluate"
             )
 
@@ -661,7 +666,7 @@ def run(config_path: Path, *, runs_dir: Path | None = None, status_path: Path | 
         weights_path = str(out_dir / artifact_filename)
 
         # --- Build result JSON ---
-        finished_at = datetime.now(tz=timezone.utc).isoformat()
+        finished_at = datetime.now(tz=UTC).isoformat()
         result: dict[str, Any] = {
             "id": exp_id,
             "model_family": family,
