@@ -1,4 +1,4 @@
-"""FALL_DEMO_MODE policy — app-layer access separation (ADR-012 Access Boundary).
+"""FALL_DEMO_MODE policy — app-layer access separation (ADR-028 Demo Access Boundary).
 
 The video registry stays mode-agnostic; this module owns the mode resolution
 and the public-mode visibility filter that app.py applies on top of it.

@@ -20,7 +20,7 @@ either follow or explicitly supersede: *which* dataset, *how* windows are
 labelled, *how* the operating threshold is chosen and shipped, and *how* models
 are compared against the gold clips.
 
-MECE boundary: ADR-003 owns artifact layout, ADR-005 owns the pose backbone,
+MECE boundary: ADR-015 owns model artifact layout, ADR-025 owns the pose backbone,
 ADR-009 owns the strategy and the gold baseline, ADR-012 owns data location.
 This ADR owns only the four contract decisions below.
 
@@ -76,7 +76,7 @@ Beyond held-out Le2i windows, every trained model is evaluated against the
 **nursing-home gold clips** (ADR-009's locked baseline): a clip is predicted
 *fall* iff the fraction of positive windows ≥ 0.5
 (`GOLD8_POS_WINDOW_FRACTION`), per-clip results (including `no_person_frac`,
-per ADR-005's honesty rule) are written to a CSV under `ml/data/eval/`, and the
+per ADR-027's honesty rule) are written to a CSV under `ml/data/eval/`, and the
 report states the rule-based floor (0/8) alongside. This is the
 domain-transfer check: Le2i is side-view footage, the nursing-home cameras are
 top-down — Le2i metrics alone must never gate a model.
@@ -112,8 +112,8 @@ future work, gated on these recorded baselines.
   collapsed" are not supported.
 - T/stride/overlap are locked by this contract; changing them invalidates all
   trained artifacts and requires a superseding ADR (or an explicit new
-  version under ADR-003 addressing).
+  version under ADR-015 model addressing).
 
 Operational parameters and runnable procedures live in
-[`docs/rules/ml-training.md`](../rules/ml-training.md); this ADR records only
+[`docs/rules/ml-training.md`](../../rules/ml-training.md); this ADR records only
 the decisions and their rationale.

@@ -92,7 +92,7 @@ camera better than a name, with zero dependencies.
 ### C. Browser-side camera via streamlit-webrtc
 
 **Rejected (for now).** Solves a problem we don't have — the demo is a local dev
-tool (ADR-003) on the same machine as the camera. WebRTC adds a dependency,
+tool ([ADR-024](../common/ADR-024-ml-demo-product-surface-boundary.md)) on the same machine as the camera. WebRTC adds a dependency,
 TURN/ICE complexity, and a different frame-delivery model. If a remote-browser
 camera is ever needed, that is a new decision, not an amendment to this one.
 
@@ -110,7 +110,7 @@ two modes serve different needs and now coexist as sibling pages.
   (RTSP serving intake) have a worked example of which differences belong inside
   a `FrameSource` (timing, buffering, termination) and which stay out (pacing —
   a presentation concern).
-- `iter_live_frames` needed zero changes — evidence the ADR-005/010 seam design
+- `iter_live_frames` needed zero changes — evidence the ADR-026/010 seam design
   holds.
 - Camera selection works for any device OpenCV can open, with no new
   dependencies.

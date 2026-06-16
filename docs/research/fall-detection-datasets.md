@@ -82,7 +82,7 @@ related: [fall-detection-methods, streaming-windowing, fall-state-taxonomy]
 
 ## 4. ADR 후보 (사용자가 직접 결정 — cross-cutting)
 
-- **ADR 후보 D1 — 자체 데이터셋을 1차 데이터 소스로 공식화.** 공개셋은 보조. (ADR-007 ml 레이아웃과 연동: `ml/data/{raw,processed,annotated}`에 라벨 스키마 추가)
+- **ADR 후보 D1 — 자체 데이터셋을 1차 데이터 소스로 공식화.** 공개셋은 보조. (ADR-012 ml 레이아웃과 연동: `ml/data/{raw,processed,annotated}`에 라벨 스키마 추가)
 - **ADR 후보 D2 — 라벨링 도구/프로토콜 표준.** L2 반자동 + Kappa 임계값 + 라벨 스키마(=§4 taxonomy 산출물).
 - **ADR 후보 D3 — 데이터 거버넌스/프라이버시.** 요양원 영상 보관·익명화(골격화) 정책. (배포 시 GDPR/개인정보 이슈는 코퍼스도 반복 경고)
 - **ADR 후보 D4 — 공개셋 사용 범위/라이선스.** 상용 배포 가능 라이선스만 사전학습에 허용할지.

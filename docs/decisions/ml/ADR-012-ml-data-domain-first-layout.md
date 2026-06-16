@@ -2,10 +2,13 @@
 
 ## Status
 
-Accepted. **Partially supersedes ADR-004 and ADR-007** (scope detailed below —
-neither is fully replaced; their inherited invariants are listed explicitly).
-The deliberately deferred hook/script validation is resolved by **ADR-016**:
+Accepted. Supersedes retired source ADR-004 and ADR-007 for current `ml/data/` layout. Partially
+superseded by [ADR-028](../common/ADR-028-demo-access-boundary.md), which extracts
+the access-boundary clauses into `common/`. The deliberately deferred hook/script
+validation is resolved by [ADR-016](../common/ADR-016-enforcement-timing-principle.md):
 layout conventions are audit-tier, not hook-blocked.
+
+Historical pre-MECE source ADRs ADR-004 and ADR-007 are now retired from the visible corpus after their active clauses were represented by ADR-012 and ADR-015. Their exact original bodies remain recoverable from git history and are mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 
 ## Date
 
@@ -13,8 +16,8 @@ layout conventions are audit-tier, not hook-blocked.
 
 ## Context
 
-ADR-004 and ADR-007 partition `ml/data/` by **role only**: ADR-004 owns the
-input-role subdirs `{raw, processed, uploads}`, ADR-007 owns the output-role
+Retired source ADR-004 and ADR-007 partitioned `ml/data/` by **role only**: ADR-004 owned the
+input-role subdirs `{raw, processed, uploads}`, ADR-007 owned the output-role
 subdirs `{annotated, eval, …}`. The **provenance/domain axis was never
 defined** — and that gap is exactly where the layout drifted: when the Le2i
 public fall dataset arrived for temporal-model training (#40), `le2i_raw/` and
@@ -89,8 +92,8 @@ ml/data/
   domain-bound derived outputs (`annotated/`, and the newly named `poses/`)
   live **inside** `ml/data/{domain}/`; only genuinely cross-domain outputs live
   in top-level `ml/data/eval/`.
-- **Untouched:** row 5 (`ml/weights/` upstream cache) and every discriminator
-  ADR-007 defines against ADR-003/005. The role axis itself survives — it is
+- **Inherited:** row 5 (`ml/weights/` upstream cache) and every discriminator
+  ADR-007 defined against retired source ADR-003/005. The role axis itself survives — it is
   demoted from the *first* partition axis to the *second* (within-domain) axis.
 
 ### Updated MECE partition (replaces the ADR-007 table as the current map)
@@ -107,7 +110,7 @@ ml/data/
 
 [^1]: Rows 1, 2, and 7 updated by [ADR-015](./ADR-015-ml-models-single-root.md), which
 consolidated `ml/weights/`, `ml/artifacts/pretrained/`, and `ml/artifacts/fall-detector/`
-into a single `ml/models/` root. Prior locations recorded in ADR-003 §3 and ADR-007 rows
+into a single `ml/models/` root. Prior locations recorded in retired source ADR-003 §3 and retired source ADR-007 rows
 1/2/5 are superseded.
 
 ## Access Boundary
@@ -142,7 +145,7 @@ level down and leaves `ml/data/raw` ambiguous (raw *what*?).
 
 **Rejected.** Creates a third data root next to `data/` and `artifacts/`,
 splitting the single gitignored boundary that protects all local media — the
-same reasoning that rejected `ml/outputs/` in ADR-007. One root, one ignore
+same reasoning that retired source ADR-007 used to reject `ml/outputs/`. One root, one ignore
 rule, one privacy perimeter.
 
 ### C. Domains with free-form subfolders (no mandatory vocabulary)

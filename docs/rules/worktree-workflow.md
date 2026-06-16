@@ -1,7 +1,7 @@
 # Worktree Workflow
 
-> Standing convention. See `docs/decisions/ADR-008-issue-driven-worktree-enforcement.md`
-> for the cross-cutting rationale (distilled when this plan is archived). Enforcement is
+> Standing convention. See [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md)
+> for the cross-cutting rationale. Enforcement is
 > automatic via `scripts/git-guard/` and `.githooks/` after running
 > `scripts/git-guard/setup-hooks.sh`.
 

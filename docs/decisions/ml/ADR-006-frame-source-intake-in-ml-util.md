@@ -10,24 +10,24 @@ Accepted.
 
 ## Context
 
-ADR-005 established a **stream-seam** (`FrameSource` — a single iterator that
+Retired source ADR-005 originally established a **stream-seam** (`FrameSource` — a single iterator that
 unifies a stored video file and a live RTSP stream into one sequence of frames)
 and a **model-seam** (`ModelModule.predict(frame) → DetectionResult`). At the
 time, both seams plus the playback/seek helpers and the overlay renderer all
 lived together under `ml/demo/`.
 
-That collocation has one concrete problem. ADR-005 §4 states the explicit intent
+That collocation has one concrete problem. The current seam authority, [ADR-026](./ADR-026-frame-model-seam-architecture.md), preserves the explicit intent
 that **stored-video playback and live serving are the same logic** and that the
 `FrameSource` intake is shaped so the *serving* path can reuse it later. But
 while the intake physically sits inside `ml/demo/`, a future serving/realtime
 module cannot reuse it without importing from `demo/` — i.e. without taking a
-dependency on a developer-only demo package. The demo is a dev tool (ADR-003);
+dependency on a developer-only demo package. The demo is a dev tool, not the product frontend ([ADR-024](../common/ADR-024-ml-demo-product-surface-boundary.md));
 serving code reaching into it inverts the intended direction and couples the
 production inference path to throwaway UI scaffolding.
 
 This is a **module-placement** decision: *where does the frame-source intake
 live so that serving can reuse it without depending on `demo/`?* It is distinct
-from, and does not reopen, the seam *design* (ADR-005) or the demo *UX* (which
+from, and does not reopen, the seam *design* ([ADR-026](./ADR-026-frame-model-seam-architecture.md)) or the demo *UX* (which
 is plan-level detail, not architectural).
 
 ## Decision
@@ -47,7 +47,7 @@ fails if any `demo` import appears, so the direction cannot silently invert.
 
 ### What stays in `demo/` (explicitly out of scope for this ADR)
 
-To keep this decision **MECE** — one decision, no overlap with ADR-005 or the
+To keep this decision **MECE** — one decision, no overlap with ADR-026/ADR-025 or the
 plan — the following deliberately do **not** move, and their placement is *not*
 relitigated here:
 
@@ -68,14 +68,14 @@ preemptively.
 
 ## Relationship to other ADRs
 
-- **References ADR-005; does not supersede it.** ADR-005's two-seam *design*
+- **References ADR-026; does not supersede it.** ADR-026's two-seam *design*
   stands unchanged. ADR-006 only *places* the stream-seam intake in a shared
   module; it does not alter the seam contract, the model-seam, or the YOLO26-pose
-  framework choice.
-- **Complements ADR-003** (serving/training split). The intake is a serving-side
+  framework choice governed by [ADR-025](./ADR-025-yolo26-pose-framework-adoption.md).
+- **Complements ADR-022 and ADR-023.** The intake is a serving-side
   construct; putting it in `ml/util/` is precisely what lets the FastAPI serving
-  path reuse one frame-intake without depending on the demo, honoring ADR-003's
-  lifecycle boundary.
+  path reuse one frame-intake without depending on the demo, honoring the ML lifecycle
+  boundary in [ADR-022](./ADR-022-ml-serving-training-lifecycle.md) and the ML/backend boundary in [ADR-023](../common/ADR-023-ml-backend-prediction-boundary.md).
 
 ## Alternatives Considered
 
@@ -83,14 +83,14 @@ preemptively.
 
 **Rejected.** Serving reuse would require importing from `demo/`, inverting the
 intended dependency direction and coupling production inference to a dev tool.
-The whole point of designing `FrameSource` now (ADR-005 §4) is undermined if it
+The whole point of designing `FrameSource` now (current seam authority: ADR-026) is undermined if it
 cannot be reached without the demo.
 
 ### B. Move *both* seams (stream + model) to `ml/util/`
 
 **Rejected (YAGNI).** The model-seam has exactly one consumer today (the demo).
 Relocating it now is speculative generality with no second consumer to justify
-it. The stream-seam is different: ADR-005 already names a concrete future
+it. The stream-seam is different: ADR-026 already names a concrete future
 consumer (serving/realtime), so moving *only* it is the minimal, justified step.
 The model-seam can follow later if and when a second consumer appears.
 
@@ -108,7 +108,7 @@ if the intake surface expands.
 
 - Serving / future realtime can reuse the exact frame-intake the demo uses,
   importing `util.frame_source` with no dependency on `demo/` — the reuse
-  ADR-005 §4 designed for is now physically possible.
+  ADR-026 designed for is now physically possible.
 - The `demo → util` direction is guard-tested, so the coupling cannot silently
   invert.
 - The intake has a self-contained read loop (no demo import), making it portable
@@ -119,6 +119,6 @@ if the intake surface expands.
 - A second small package boundary (`ml/util/`) now exists; contributors must put
   shared intake there, not in `demo/`.
 - The model-seam and stream-seam now live in *different* packages
-  (`demo/seam.py` vs `util/frame_source.py`), which a reader of ADR-005 (where
+  (`demo/seam.py` vs `util/frame_source.py`), which a reader of ADR-026 (where
   they were colocated) must be aware of. This ADR is the pointer that records the
   split and the reason for it.

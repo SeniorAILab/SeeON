@@ -28,7 +28,7 @@ Collectively Exhaustive — with respect to the decisions it records.
   area an existing ADR owns, it must explicitly state what it does **not**
   reopen, and scope itself to the genuinely new decision. (Example: ADR-006
   places the frame-source intake in `ml/util/` and explicitly excludes the
-  model-seam placement and demo-UX, which belong to ADR-005 and the plan
+  model-seam placement and demo-UX, which belong to ADR-026 and the plan
   respectively.)
 - **Collectively Exhaustive.** Within an ADR, the decision is recorded in full:
   the context that forced it, the option chosen, the alternatives weighed and
