@@ -1,6 +1,6 @@
 # Recording Runbook — Director Showcase (4 clips)
 
-Goal: produce four screen recordings (`~/Downloads/<clip>_fall.mp4`) of the
+Goal: for operator-only archival replay, produce four screen recordings (`~/Downloads/<clip>_fall.mp4`) of the
 Streamlit demo where the real 🔴 낙상 status + 🚨 낙상 감지 badge fire on
 genuine nursing-home footage. For hospital directors (원장님) verifying that
 falls are actually detected and shown in red.
@@ -63,7 +63,7 @@ For each clip:
 1. Set the controls per the row below.
 2. Select the clip in **영상**.
 3. In terminal **B**, start capture: `./record.sh <slug> <max-sec>`
-   (run it from this folder: `docs/exec-plan/active/streamlit-demo-director-showcase/`).
+   (run it from this archived folder: `docs/exec-plan/archive/streamlit-demo-director-showcase/`, or simply from this folder after checkout).
 4. Switch to the browser, press **▶︎ 재생**.
 5. Watch for the red **🔴 낙상** status and the **🚨 낙상 감지** badge.
 6. Once it fires (let it hold a few seconds), switch to terminal B and press **`q`** to stop.
