@@ -11,7 +11,7 @@
 which maps to a branch, which maps to a worktree.
 
 ```
-GitHub Issue  →  branch <type>/<issue#>-<slug>  →  worktree at $WORKTREE_ROOT/<branch>
+GitHub Issue  →  branch <type>/<issue#>-<slice-slug>  →  worktree at $WORKTREE_ROOT/<branch>
 ```
 
 ## Creating a worktree
@@ -38,9 +38,13 @@ git wt 17 --type fix
 
 - `<type>`: from the issue's `type: feat|fix|chore|docs|refactor|test` label; falls back to `feat`
 - `<issue#>`: the GitHub issue number
-- `<slug>`: issue title lowercased, non-alnum → `-`, capped at 50 chars
+- `<slug>`: issue title lowercased, non-alnum → `-`, capped at 50 chars for a 1-PR issue; for fan-out work, replace it with a slice-specific slug while keeping the same issue number
 
 Examples: `feat/17-fall-webhook`, `fix/23-rtsp-timeout`, `chore/31-update-deps`
+
+Fan-out note: when one issue must be split into multiple PRs, keep one branch and one
+worktree per PR, keep the same issue number, and use a distinct slice slug. Record
+the slice boundary in the PR body.
 
 ## Listing worktrees
 

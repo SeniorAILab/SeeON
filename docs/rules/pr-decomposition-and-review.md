@@ -16,7 +16,9 @@ working state after merge.
 ## Issue to PR mapping
 
 One issue may fan out into multiple PRs when the issue is larger than one
-reviewable unit.
+reviewable unit. Each PR still gets its own branch/worktree; keep the issue
+number in the branch and use a slice-specific slug, for example
+`docs/97-archive-showcase-records` and `test/97-demo-apptest-controls`.
 
 Use this pattern:
 
@@ -51,8 +53,8 @@ Split before merge when any of these are true:
 
 Do not bypass the gate by hiding generated files, weakening tests, or moving
 large unrelated changes into the same PR. If an exceptional large PR is truly
-required, document the reason in the PR body and use an explicit reviewer-owned
-exception label only after human approval.
+required, stop and get a deliberate human/repository-admin decision before
+changing the workflow policy.
 
 ## Recommended split shapes
 
