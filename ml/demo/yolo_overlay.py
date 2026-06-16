@@ -10,6 +10,9 @@ from demo.seam import BoundingBox, DetectionLabel, DetectionResult
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)
+BED_EMPTY_COLOR: Final = (180, 180, 180)
+BED_OCCUPIED_COLOR: Final = (80, 160, 255)
+BED_EXIT_COLOR: Final = (255, 180, 32)
 CAPTION_TEXT_COLOR: Final = (16, 16, 16)
 CAPTION_FONT_SCALE: Final = 0.5
 CAPTION_THICKNESS: Final = 1
@@ -51,6 +54,8 @@ def render_yolo_overlay(
     if show_boxes:
         for box, label in zip(result.boxes, result.labels, strict=True):
             _draw_detection_box(overlay=overlay, box=box, label=label)
+        for status in result.bed_exit_statuses:
+            _draw_bed_status(overlay=overlay, status=status)
     if show_pose:
         for pose in result.keypoints:
             _draw_pose(overlay=overlay, keypoints=pose)
@@ -69,6 +74,28 @@ def _draw_detection_box(
         text=f"{label.text} {label.confidence:.0%}",
         x=box.x1,
         y=box.y1,
+        color=color,
+    )
+
+def _draw_bed_status(overlay: NDArray[np.uint8], status: object) -> None:
+    box = getattr(status, "box")
+    occupancy = getattr(status, "occupancy")
+    bed_id = getattr(status, "bed_id")
+    person_id = getattr(status, "person_id", None)
+    color = (
+        BED_EXIT_COLOR
+        if occupancy == "exit"
+        else BED_OCCUPIED_COLOR
+        if occupancy == "occupied"
+        else BED_EMPTY_COLOR
+    )
+    cv2.rectangle(overlay, (box.x1, box.y1), (box.x2, box.y2), color, 2)
+    suffix = f" P{person_id}" if person_id is not None else ""
+    _draw_caption(
+        overlay=overlay,
+        text=f"BED {bed_id} {occupancy}{suffix}",
+        x=box.x1,
+        y=box.y2,
         color=color,
     )
 
