@@ -28,6 +28,9 @@ Override the type if the label is missing or wrong:
 
 ```bash
 git wt 17 --type fix
+
+# Fan-out slice for the same issue
+git wt 17 --slug webhook-contract
 ```
 
 ## Branch naming
@@ -43,8 +46,8 @@ git wt 17 --type fix
 Examples: `feat/17-fall-webhook`, `fix/23-rtsp-timeout`, `chore/31-update-deps`
 
 Fan-out note: when one issue must be split into multiple PRs, keep one branch and one
-worktree per PR, keep the same issue number, and use a distinct slice slug. Record
-the slice boundary in the PR body.
+worktree per PR, keep the same issue number, and use a distinct slice slug via
+`git wt <issue#> --slug <slice-slug>`. Record the slice boundary in the PR body.
 
 ## Listing worktrees
 
