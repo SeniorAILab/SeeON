@@ -31,11 +31,16 @@ pnpm dev:demo    # Streamlit demo
 Or directly:
 
 ```bash
-uv sync                         # install serving deps
-uv sync --group demo            # + demo deps
-uv run uvicorn serving.main:app --reload --port 8000
+uv sync                                      # install slim serving deps
+uv sync --group demo --group training        # full serving: cv2 + ultralytics + sklearn/joblib for pose→RF inference
+uv run --group demo --group training uvicorn serving.main:app --reload --port 8000
 uv run --group demo streamlit run demo/app.py
 ```
+
+`serving.main:/predict` runs the full stored-source pipeline
+(FrameSource → YOLO pose → keypoint-window normalizer → random-forest). That
+path requires `opencv-python-headless`, `ultralytics`, `scikit-learn`, and
+`joblib`; missing weights/artifacts fail explicitly rather than falling back.
 
 ## Boundaries
 
