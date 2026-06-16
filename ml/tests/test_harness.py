@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -28,16 +26,15 @@ from experiments.harness import (
     sample_hp_from_trial,
 )
 from experiments.loop_state import (
-    _check_fail_fast_reason,
     _CONSECUTIVE_FAILURE_LIMIT,
     _DISK_FREE_THRESHOLD_GB,
+    _check_fail_fast_reason,
     is_paused,
     list_completed_run_ids,
     load_loop_status,
     update_loop_status,
     write_pause_report,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
