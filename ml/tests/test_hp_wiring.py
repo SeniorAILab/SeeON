@@ -165,7 +165,7 @@ class TestArchRoundTrip:
         assert len(loaded._net.blocks) == 3
         assert loaded._net.head.in_features == 16
         # weights must be identical after the round trip
-        for p0, p1 in zip(clf._net.parameters(), loaded._net.parameters()):
+        for p0, p1 in zip(clf._net.parameters(), loaded._net.parameters(), strict=True):
             assert torch.equal(p0.cpu(), p1.cpu())
 
     def test_scaled_variants(self, monkeypatch, tmp_path):
