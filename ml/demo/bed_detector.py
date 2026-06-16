@@ -32,29 +32,34 @@ def bed_weight_path() -> Path:
 
 
 class BedRunner(Protocol):
-    """Minimal inference seam: one frame in → highest-conf bed box or None."""
+    """Minimal inference seam: one frame in → bed boxes."""
 
-    def detect_bed(
+    def detect_beds(
         self, frame: NDArray
-    ) -> tuple[int, int, int, int, float] | None: ...
+    ) -> tuple[tuple[int, int, int, int, float], ...]: ...
 
 
 class BedDetector:
-    """Detect the static bed ROI from a single seed frame.
+    """Detect the static bed ROIs from a single seed frame.
 
-    Returns ``None`` when no bed is present (or the weight exposes no "bed"
-    class) — the graceful "침대 없음" state, never an exception.
+    Returns an empty tuple when no bed is present (or the weight exposes no
+    "bed" class) — the graceful "침대 없음" state, never an exception.
     """
 
     def __init__(self, runner: BedRunner | None = None) -> None:
         self._runner = runner if runner is not None else _default_runner()
 
-    def detect(self, frame: Frame) -> BoundingBox | None:
-        raw = self._runner.detect_bed(frame.image)
-        if raw is None:
-            return None
-        x1, y1, x2, y2, conf = raw
-        return BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
+    def detect(self, frame: Frame) -> tuple[BoundingBox, ...]:
+        from demo.yolo_runtime import BED_MAX_DETECTIONS, dedupe_bed_boxes
+
+        deduped = dedupe_bed_boxes(
+            self._runner.detect_beds(frame.image),
+            max_beds=BED_MAX_DETECTIONS,
+        )
+        return tuple(
+            BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
+            for x1, y1, x2, y2, conf in deduped
+        )
 
 
 def _default_runner() -> BedRunner:

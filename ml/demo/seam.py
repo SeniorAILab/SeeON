@@ -48,9 +48,9 @@ class DetectionResult:
     labels: tuple[DetectionLabel, ...] = field(default_factory=tuple)
     # per-person COCO-17 keypoints; each kpt = (x:int, y:int, conf:float)
     keypoints: tuple[tuple[tuple[int, int, float], ...], ...] = field(default_factory=tuple)
-    # static bed ROI from a one-shot COCO detection at stream start (None = no bed);
+    # static bed ROIs from a one-shot COCO detection at stream start;
     # cached once and carried per-frame so the per-frame path stays a single pose pass.
-    bed_box: BoundingBox | None = None
+    bed_boxes: tuple[BoundingBox, ...] = field(default_factory=tuple)
 
 
 @runtime_checkable
