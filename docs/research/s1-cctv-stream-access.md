@@ -4,8 +4,7 @@
 > 보존 불가하여 핵심 사실만 요약). 결정은 하지 않음 — Approach A의 Go/No-Go
 > 게이트 판단 입력 자료.
 >
-> 맥락: 준호형 시설의 CCTV가 에스원 관리형 서비스로 확인됨. 야간 낙상 파일럿
-> (design doc: `~/.gstack/projects/GoBeromsu-eldercare-fall-ai/beomsu-main-design-20260612-151823.md`)의
+> 맥락: 준호형 시설의 CCTV가 에스원 관리형 서비스로 확인됨. 야간 낙상 파일럿의
 > 영상 입력 경로 결정에 직결.
 
 ## 핵심 판정
