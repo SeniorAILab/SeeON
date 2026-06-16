@@ -6,8 +6,12 @@
 
 ## Rule
 
-Every PR must be one reviewable change. If the size gate reports `size/L` or
-`size/XL`, split before merge. The target is `size/M` or smaller.
+Every PR must be one reviewable change. The size gate scores **logic churn only** —
+markdown/docs (`docs/`, `*.md`), tests, Prisma migrations, and `pnpm-lock.yaml` are
+non-logic and never count toward it (markdown is free from the pre-check by design).
+`size/XL` (logic churn > 1000) is a **hard block** without a `size/override` label;
+`size/L` (501–1000) is a **recommended split**, not a hard block. The target is
+`size/M` or smaller.
 
 The split unit is conceptual scope, not line count alone: a PR should have one
 clear title without "and", be independently reviewable, and leave `main` in a
@@ -45,7 +49,7 @@ slice lands.
 
 Split before merge when any of these are true:
 
-- Size Check labels the PR `size/L` or `size/XL`;
+- Size Check hard-blocks `size/XL` (logic churn > 1000); `size/L` is flagged for a recommended split;
 - the PR mixes behavior, refactor, tests, docs, and CI in ways that can be
   reviewed separately;
 - reviewers need different expertise for different file groups;
