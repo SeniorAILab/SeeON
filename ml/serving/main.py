@@ -31,7 +31,13 @@ class PredictResponse(BaseModel):
 @app.get("/health")
 def health() -> dict:
     model = get_model()
-    return {"status": "ok", "model": model.name, "version": model.model_type}
+    return {
+        "status": "ok",
+        "model": model.name,
+        "version": model.metadata.version,
+        "model_type": model.model_type,
+        "metadata": model.metadata_dict(),
+    }
 
 
 @app.post("/predict", response_model=PredictResponse)
@@ -40,6 +46,6 @@ def predict(req: PredictRequest) -> PredictResponse:
     prob = model.predict(req.window)
     return PredictResponse(
         model=model.name,
-        version=model.model_type,
+        version=model.metadata.version,
         fall_probability=prob,
     )
