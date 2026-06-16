@@ -40,9 +40,16 @@ from demo.demo_ui import (  # noqa: E402
 from demo.live_view import FallEventLatch, iter_live_frames, render_due  # noqa: E402
 from demo.model_bootstrap import ensure_fall_models  # noqa: E402
 from demo.seam import VideoFileSource  # noqa: E402
+from demo.ui_labels import (  # noqa: E402
+    DOMAIN_SELECT_LABEL,
+    ROLE_SELECT_LABEL,
+    VIDEO_SELECT_LABEL,
+)
 from demo.video_playback import read_video_playback_info  # noqa: E402
 
-st.set_page_config(page_title="Fall Detector Demo", layout="wide")
+APP_PAGE_TITLE: Final = "eldercare-fall-ai"
+
+st.set_page_config(page_title=APP_PAGE_TITLE, layout="wide")
 
 # Cloud deploys build from the weight-less GitHub repo; reacquire fall weights
 # before any classifier load. No-op when ml/models/fall/ is already populated.
@@ -55,10 +62,19 @@ PLAYING_KEY: Final = "live_playing"
 
 
 def main() -> None:
-    st.title("Fall Detector Demo")
+    brand_html = (
+        '<div style="background:#4A90E2;padding:0.5rem 1.25rem;'
+        'border-radius:6px;margin-bottom:0.5rem;">'
+        '<span style="color:#fff;font-size:1.4rem;font-weight:700;'
+        f'letter-spacing:0.03em;">{APP_PAGE_TITLE}</span>'
+        '<span style="color:rgba(255,255,255,0.75);font-size:0.9rem;'
+        'font-weight:400;margin-left:0.75rem;">낙상 감지 AI 데모</span>'
+        "</div>"
+    )
+    st.markdown(brand_html, unsafe_allow_html=True)
     st.caption(
-        "Local ML demo only — real-time per-frame live inference (ADR-010). "
-        "This is not a clinical prediction or backend alert flow."
+        "로컬 ML 데모 전용 — 실시간 프레임 단위 추론 (ADR-010). "
+        "임상 진단 또는 백엔드 알림 서비스가 아닙니다."
     )
 
     app_assets.handle_upload()
@@ -68,7 +84,7 @@ def main() -> None:
         return
 
     selected_video = st.selectbox(
-        "Video",
+        VIDEO_SELECT_LABEL,
         options=registered_videos,
         format_func=lambda video: video.display_name,
     )
@@ -98,7 +114,7 @@ def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
         domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
         col_domain, col_role = st.columns(2)
         selected_domain = col_domain.segmented_control(
-            "도메인",
+            DOMAIN_SELECT_LABEL,
             options=domain_options,
             default=domain_options[0] if domain_options else None,
         )
@@ -110,7 +126,7 @@ def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
         if not role_options:
             return []
         selected_role = col_role.segmented_control(
-            "종류",
+            ROLE_SELECT_LABEL,
             options=role_options,
             format_func=lambda r: r.value,
             default=role_options[0],
@@ -135,7 +151,7 @@ def _render_live_viewer(
     classifier_params: ClassifierParams,
     decision_threshold: float | None = None,
 ) -> None:
-    st.subheader("Live Playback")
+    st.subheader("실시간 재생")
     st.caption(str(selected_video.path))
 
     size, show_boxes, show_pose = render_live_controls(
