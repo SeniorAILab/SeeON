@@ -1,0 +1,24 @@
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+.env
+.env.*
+
+# Large/local ML artifacts not needed for serving images.
+data
+models
+experiments
+
+# Non-serving lifecycle code and tests.
+tests
+demo
+training
+util
+
+README.md
