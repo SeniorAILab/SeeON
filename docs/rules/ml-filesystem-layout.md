@@ -62,7 +62,7 @@ four role folders you need. Point the relevant config constant
   — that drift is exactly what ADR-012 removed.
 - **`nursing-home/` is operator-only.** It must never be listed or served by
   an externally deployed demo; `uploads/` is the only externally reachable
-  input surface (ADR-012 Access Boundary; mechanism in
+  input surface (ADR-028 Demo Access Boundary; mechanism in
   [streamlit-demo.md](./streamlit-demo.md)).
 - **The canonical physical store is the MAIN checkout's `ml/data/`.** Because
   `ml/data/` is gitignored, each worktree has its own (empty) copy by default.

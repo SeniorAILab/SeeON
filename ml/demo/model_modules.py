@@ -22,7 +22,7 @@ POSE_MODEL_SIZE_LABELS: Final[dict[str, str]] = {
 # curated comparison checkpoints under ml/models/fall/pretrained/. They live
 # under ml/models/pose/ so Ultralytics neither pollutes the project root nor the
 # fall model tree. Metadata for the pose cache lives at ml/models/pose/metadata.json.
-# See ADR-007 and ADR-015.
+# See ADR-015.
 WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "pose"
 
 

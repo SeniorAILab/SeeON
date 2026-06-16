@@ -74,7 +74,7 @@ find ml/models -name metadata.json | wc -l        # model artifacts (ADR-015 con
 
 - **Footage never transits a third party.** No cloud bucket, no git remote, no
   LFS — the privacy perimeter is exactly the two operator machines (ADR-018,
-  ADR-012 Access Boundary).
+  ADR-028 Demo Access Boundary).
 - **The only git-trackable files under `ml/data/` are
   `eval/nursing-home-gold.csv` and `eval/raw-processed-mapping.csv`**
   (`.gitignore` negation chain). Everything else under `ml/data/` and all of

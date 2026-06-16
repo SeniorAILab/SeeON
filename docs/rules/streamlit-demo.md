@@ -89,7 +89,7 @@ The demo defaults to `FALL_DEMO_MODE=public` (fail-safe):
 
 - **The default is `public` on purpose.** A deployment that forgets to set
   `FALL_DEMO_MODE` must **never** expose nursing-home footage
-  (ADR-012 Access Boundary). Never flip the default to `operator`.
+  (ADR-028 Demo Access Boundary). Never flip the default to `operator`.
 - **Public-mode invariants:** internal domain sources are not listed, not
   reachable by any widget, and uploads outside the current session's
   `st.session_state["session_upload_ids"]` set are not shown. Session

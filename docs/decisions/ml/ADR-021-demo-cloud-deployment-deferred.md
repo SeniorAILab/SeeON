@@ -45,7 +45,7 @@ The blocker is **hardware (no GPU), not code**.
 ## Decision
 
 CPU-only cloud hosting is **rejected as a demo deployment target**. The demo
-remains local-first (operator machine, per ADR-012's access model); a hosted
+remains local-first (operator machine, per ADR-028's demo access boundary); a hosted
 demo is **deferred until GPU hardware** (paid GPU Space tier or another GPU
 host) is justified.
 

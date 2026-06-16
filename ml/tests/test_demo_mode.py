@@ -1,4 +1,4 @@
-"""Contract tests for the FALL_DEMO_MODE access boundary (ADR-012).
+"""Contract tests for the FALL_DEMO_MODE access boundary (ADR-028).
 
 The fail-safe default and the session-upload filter are the privacy
 perimeter for deployed demos — these tests pin that behaviour.

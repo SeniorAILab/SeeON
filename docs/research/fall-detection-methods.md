@@ -72,7 +72,7 @@ D [NLM: Multimodal GSTCAN+Bi-LSTM], [NLM: Dual-Channel Feature Integration].
 | 옵션 | 내용 | 평가 |
 |------|------|------|
 | **R1. pretrained 3종 그대로** | per-frame best.pt 재사용 | ❌ 붕괴 확인됨. 폐기 권고 |
-| **R2. pose 백본만 재사용 + 시계열 헤드 신규** | YOLO26-pose(ADR-005)로 keypoint 추출 → LSTM/TCN/Transformer 헤드 학습 | ⭐ 시임(`ModelModule.predict`) 그대로 활용. 가장 현실적 |
+| **R2. pose 백본만 재사용 + 시계열 헤드 신규** | YOLO26-pose(ADR-025)로 keypoint 추출 → LSTM/TCN/Transformer 헤드 학습 | ⭐ 시임(`ModelModule.predict`) 그대로 활용. 가장 현실적 |
 | **R3. 비디오 파운데이션 모델 fine-tune** | VideoMAE 등 자체 클립으로 미세조정 | △ "소량(3~4k clip) fine-tune 가능" 주장은 **0-3 기각** → 데이터 요구량 미지수 [Web: 2203.12602] |
 
 ## 4. 추천 (research 추천 — 결정 아님)
@@ -106,7 +106,7 @@ D [NLM: Multimodal GSTCAN+Bi-LSTM], [NLM: Dual-Channel Feature Integration].
 
 ## 6. ADR 후보 (사용자가 직접 결정 — cross-cutting)
 
-- **ADR 후보 M1 — 1차 모델 계열 선택:** per-frame 폐기, **pose→시계열 채택 여부**. (기존 ADR-005 YOLO26-pose 시임 위에 시계열 헤드 추가하는 형태) → cross-cutting, 모든 후속 학습/서빙에 영향.
+- **ADR 후보 M1 — 1차 모델 계열 선택:** per-frame 폐기, **pose→시계열 채택 여부**. (기존 ADR-025 YOLO26-pose 시임 위에 시계열 헤드 추가하는 형태) → cross-cutting, 모든 후속 학습/서빙에 영향.
 - **ADR 후보 M2 — "탑다운 keypoint 검증"을 모델 채택의 게이트로 삼을지.** 검증 실패 시 대체 경로(실루엣/depth/액션인식)로 분기하는 결정 규칙.
 - **ADR 후보 M3 — pretrained 3종 폐기 공식화.** `ml/artifacts/pretrained/*`의 위상(폐기/baseline 보존).
 

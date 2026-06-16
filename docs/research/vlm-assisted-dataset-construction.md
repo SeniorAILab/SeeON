@@ -176,7 +176,7 @@ BGR→RGB 변환을 수행한 `Frame.image`를 제공하므로 그대로 API에 
 - **병렬 팬아웃(dynamic fan-out):** 클립 단위 VLM 판정·R 판정 작업은 클립 간 독립적이므로
   서브에이전트 병렬 처리가 가능하다. autoresearch 워크플로우의 동적 분기와 결합 시 확장성 있음.
 - **경량 모델 우선:** RF·단순 LSTM 등 소량 데이터에 강한 모델이 초기 루프에 적합.
-  gold 앵커가 충분히 쌓인 뒤 pose→Transformer 계열(ADR-005 YOLO26-pose 시임, `seam.py:46-48`)으로
+  gold 앵커가 충분히 쌓인 뒤 pose→Transformer 계열(ADR-025 YOLO26-pose 시임, `seam.py:46-48`)으로
   업그레이드.
 
 ## 5. 트레이드오프 & 리스크 (정직하게)
