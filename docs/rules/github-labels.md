@@ -28,29 +28,3 @@ missing, but the label should always be set explicitly.
 | `domain: frontend` | Next.js dashboard |
 | `domain: infra` | Deployment, CI/CD, Docker |
 | `domain: data` | Data pipeline, preprocessing, labeling |
-
-### Priority
-
-| Label | Meaning |
-|-------|---------|
-| `priority: high` | Blocks production, blocks other in-progress work, or is a user-impacting defect on the deploy path — handle next |
-| `priority: medium` | Important to the current milestone but not blocking — default for planned feature work |
-| `priority: low` | Nice-to-have; can be deferred indefinitely without milestone impact |
-
-## Priority criteria
-
-**high** — apply when ANY of the following hold:
-- The issue is on the critical path to the next production deploy
-- It blocks another issue that is already in progress
-- It is a user-impacting defect (data loss, crash, wrong output) on a deployed path
-- It has a hard external deadline (demo, partner review) within 48 h
-
-**medium** — default for planned work:
-- Feature is part of the current milestone but is not a blocker
-- Refactor or infra work that improves quality without urgency
-- Documentation that should ship alongside a feature
-
-**low** — apply when:
-- Nice-to-have improvement with no milestone dependency
-- Work that can be deferred to a future milestone without impact
-- Exploratory / spike work with no committed outcome
