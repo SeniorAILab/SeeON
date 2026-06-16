@@ -2,7 +2,7 @@
 
 CLI::
 
-    python -m training.evaluate_nh --model-key <key> [--artifact-base P]
+    python -m training.evaluate_nh --model-key <key> --pose-size {n,s,m} [--artifact-base P]
 
 Loads a saved fall-classifier artifact, runs frame-by-frame YOLO pose
 extraction + greedy-IoU multi-person tracking on every confirmed fall clip
@@ -17,7 +17,7 @@ Per-track npz cache
 -------------------
 YOLO inference is skipped on subsequent runs.  Cache files are named::
 
-    {video_stem}__track{track_id:04d}.npz
+    {pose_size}/{video_stem}__track{track_id:04d}.npz
 
 Each holds a dense ``float32[N_frames, 17, 3]`` ``poses`` array
 (zeros where the tracker had no detection for that track on a given frame).
@@ -33,9 +33,12 @@ in production path).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
+import sys
 from pathlib import Path
+from typing import Final, Sequence
 
 import numpy as np
 
@@ -58,6 +61,8 @@ from training.data.nursing_home import (
 )
 from training.metadata import artifact_dir, load_metadata
 from training.models import REGISTRY
+
+POSE_SIZE_CHOICES: Final[tuple[str, ...]] = ("n", "s", "m")
 
 log = logging.getLogger(__name__)
 
@@ -297,14 +302,52 @@ def _extract_track_poses(
     return sorted(npz_paths)
 
 
+def _pose_size_cache_dir(poses_cache_dir: Path, pose_size: str) -> Path:
+    """Return the cache namespace for a supported pose size."""
+    if pose_size not in POSE_SIZE_CHOICES:
+        raise ValueError(
+            f"Unsupported pose size {pose_size!r}; expected one of {POSE_SIZE_CHOICES}"
+        )
+    return poses_cache_dir / pose_size
+
+
+def _sha256_file(path: Path) -> str:
+    """Return the SHA256 hex digest for *path*."""
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _resolve_pose_weight(pose_size: str) -> tuple[Path, str, str]:
+    """Resolve and hash the configured YOLO pose weight for *pose_size*."""
+    from demo.model_modules import pose_weight_filename, pose_weight_path
+
+    if pose_size not in POSE_SIZE_CHOICES:
+        raise ValueError(
+            f"Unsupported pose size {pose_size!r}; expected one of {POSE_SIZE_CHOICES}"
+        )
+    weight_path = pose_weight_path(pose_size)
+    if not weight_path.exists():
+        raise FileNotFoundError(
+            f"Pose weight for size {pose_size!r} not found at {weight_path}"
+        )
+    return weight_path, pose_weight_filename(pose_size), _sha256_file(weight_path)
+
+
 def _ensure_track_poses(
     video_path: Path,
     poses_cache_dir: Path,
     video_stem: str,
+    pose_size: str,
+    *,
+    refresh_cache: bool = False,
 ) -> list[Path]:
     """Return per-track npz paths, running YOLO extraction if not cached.
 
-    Cache hit: any ``{video_stem}__track*.npz`` glob match in *poses_cache_dir*.
+    Cache hit: any ``{video_stem}__track*.npz`` glob match in the
+    pose-size-specific cache directory.
     The YOLO runner is initialised lazily here (import stays out of module scope).
 
     Raises
@@ -312,25 +355,39 @@ def _ensure_track_poses(
     RuntimeError
         When YOLO weights cannot be initialised.
     """
-    existing = sorted(poses_cache_dir.glob(f"{video_stem}__track*.npz"))
-    if existing:
+    size_cache_dir = _pose_size_cache_dir(poses_cache_dir, pose_size)
+    existing = sorted(size_cache_dir.glob(f"{video_stem}__track*.npz"))
+    if existing and not refresh_cache:
         log.info(
-            "Using %d cached track npz(s) for %s", len(existing), video_stem
+            "Using %d cached track npz(s) for pose_size=%s video=%s in %s",
+            len(existing),
+            pose_size,
+            video_stem,
+            size_cache_dir,
         )
         return existing
+    if existing and refresh_cache:
+        for path in existing:
+            path.unlink()
+        log.info(
+            "Refreshing %d cached track npz(s) for pose_size=%s video=%s",
+            len(existing),
+            pose_size,
+            video_stem,
+        )
 
     try:
-        from demo.model_modules import pose_weight_path
         from demo.yolo_runtime import YoloPoseRunner
 
-        runner = YoloPoseRunner(model_path=str(pose_weight_path("n")))
+        weight_path, _weight_filename, _weight_sha256 = _resolve_pose_weight(pose_size)
+        runner = YoloPoseRunner(model_path=str(weight_path))
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(
-            f"Cannot initialise YOLO runner for NH evaluation: {exc}"
+            f"Cannot initialise YOLO runner for NH evaluation with pose_size={pose_size!r}: {exc}"
         ) from exc
 
-    poses_cache_dir.mkdir(parents=True, exist_ok=True)
-    return _extract_track_poses(video_path, poses_cache_dir, video_stem, runner)
+    size_cache_dir.mkdir(parents=True, exist_ok=True)
+    return _extract_track_poses(video_path, size_cache_dir, video_stem, runner)
 
 
 # ---------------------------------------------------------------------------
@@ -342,40 +399,15 @@ def evaluate_nh(
     model_key: str,
     artifact_base: Path,
     *,
+    pose_size: str,
     gold_csv: Path = NH_GOLD_CSV,
     poses_cache_dir: Path = NH_POSES_DIR,
     processed_dir: Path = NH_PROCESSED_DIR,
     mask_path: Path = _DEFAULT_MASK_PATH,
+    refresh_cache: bool = False,
+    command_args: Sequence[str] | None = None,
 ) -> dict[str, object]:
-    """Run deployment-equivalent multi-person NH evaluation for *model_key*.
-
-    Parameters
-    ----------
-    model_key:
-        One of ``REGISTRY`` keys (``"random-forest"``, ``"lstm"``, etc.).
-    artifact_base:
-        Artifact root; model files live at ``artifact_base / model_key /``.
-    gold_csv:
-        Path to ``nursing-home-gold.csv``.
-    poses_cache_dir:
-        Directory for per-track npz pose caches.
-    processed_dir:
-        NH processed video directory.
-    mask_path:
-        Path to ``nh_reference_mask.json``; permissive gate when absent.
-
-    Returns
-    -------
-    dict[str, object]
-        ``{"missed_fall_ids": list[str], "gate_passed": bool}``
-
-    Raises
-    ------
-    ValueError
-        On unknown model key, empty confirmed set, or invalid JSON mask.
-    FileNotFoundError
-        When the model artifact or processed-video directory is missing.
-    """
+    """Run deployment-equivalent multi-person NH evaluation for *model_key*."""
     if model_key not in REGISTRY:
         raise ValueError(
             f"Unknown model key {model_key!r}. "
@@ -390,6 +422,9 @@ def evaluate_nh(
             "Run train.py first."
         )
 
+    _weight_path, weight_filename, weight_sha256 = _resolve_pose_weight(pose_size)
+    size_cache_dir = _pose_size_cache_dir(poses_cache_dir, pose_size)
+
     clf = REGISTRY[model_key]["factory"].load(out_dir)
     meta = load_metadata(out_dir)
     mode: str = REGISTRY[model_key]["mode"]
@@ -397,7 +432,6 @@ def evaluate_nh(
     win: int = meta.window
     stride: int = meta.stride
 
-    # Load confirmed NH gold rows
     confirmed_rows, proposed_rows = parse_gold_csv(gold_csv)
     if not confirmed_rows:
         raise ValueError(
@@ -412,7 +446,6 @@ def evaluate_nh(
 
     gold_by_id: dict[str, NHGoldRow] = {r.fall_id: r for r in confirmed_rows}
 
-    # Index processed videos by stem
     video_paths = enumerate_processed_videos(processed_dir)
     if not video_paths:
         raise FileNotFoundError(
@@ -420,31 +453,53 @@ def evaluate_nh(
         )
     video_by_stem: dict[str, Path] = {v.stem: v for v in video_paths}
 
-    # Evaluate each confirmed fall
     caught_fall_ids: set[str] = set()
+    cache_paths_by_clip: dict[str, list[str]] = {}
+    missing_clips: list[dict[str, str]] = []
+    failed_clips: list[dict[str, str]] = []
+    clip_list: list[dict[str, str]] = []
     for fall_id, row in gold_by_id.items():
         video_path = video_by_stem.get(fall_id)
         if video_path is None:
             log.warning(
-                "Video for fall_id %r not found in %s — skipping",
+                "Video for fall_id %r not found in %s — reporting missing",
                 fall_id,
                 processed_dir,
             )
+            missing_clips.append(
+                {"clip_id": fall_id, "reason": "processed video not found"}
+            )
             continue
 
-        track_npz_paths = _ensure_track_poses(
-            video_path, poses_cache_dir, fall_id
-        )
-        caught = _any_track_catches_fall(
-            track_npz_paths,
-            row.fall_start_frame,
-            row.fall_end_frame,
-            clf,
-            mode,
-            threshold,
-            window_size=win,
-            stride=stride,
-        )
+        clip_list.append({"clip_id": fall_id, "path": str(video_path)})
+        try:
+            track_npz_paths = _ensure_track_poses(
+                video_path,
+                poses_cache_dir,
+                fall_id,
+                pose_size,
+                refresh_cache=refresh_cache,
+            )
+            cache_paths_by_clip[fall_id] = [str(path) for path in track_npz_paths]
+            caught = _any_track_catches_fall(
+                track_npz_paths,
+                row.fall_start_frame,
+                row.fall_end_frame,
+                clf,
+                mode,
+                threshold,
+                window_size=win,
+                stride=stride,
+            )
+        except Exception as exc:  # noqa: BLE001
+            failed_clips.append(
+                {"clip_id": fall_id, "path": str(video_path), "error": str(exc)}
+            )
+            log.exception(
+                "Failed evaluating clip %r with pose_size=%s", fall_id, pose_size
+            )
+            continue
+
         if caught:
             caught_fall_ids.add(fall_id)
         else:
@@ -457,7 +512,6 @@ def evaluate_nh(
         len(gold_by_id),
     )
 
-    # Load reference mask (permissive when file is absent)
     reference_mask: dict[str, list[str]] | None = None
     if mask_path.exists():
         try:
@@ -473,7 +527,34 @@ def evaluate_nh(
         )
 
     gate_passed, missed = check_gate(model_key, caught_fall_ids, reference_mask)
-    return {"missed_fall_ids": missed, "gate_passed": gate_passed}
+    denominator = len(gold_by_id)
+    numerator = len(caught_fall_ids)
+    detection_rate = (numerator / denominator) if denominator else 0.0
+    return {
+        "missed_fall_ids": missed,
+        "gate_passed": gate_passed,
+        "provenance": {
+            "command_args": list(command_args) if command_args is not None else None,
+            "pose_size": pose_size,
+            "pose_weight_filename": weight_filename,
+            "pose_weight_sha256": weight_sha256,
+            "clip_list": clip_list,
+            "processed_dir": str(processed_dir),
+            "gold_csv": str(gold_csv),
+            "cache_root": str(poses_cache_dir),
+            "pose_size_cache_dir": str(size_cache_dir),
+            "cache_paths": cache_paths_by_clip,
+            "detection_rate": {
+                "numerator": numerator,
+                "denominator": denominator,
+                "formula": "caught_confirmed_falls / confirmed_gold_falls",
+                "value": detection_rate,
+            },
+            "missing_clips": missing_clips,
+            "failed_clips": failed_clips,
+            "model_artifact_key": model_key,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -481,15 +562,8 @@ def evaluate_nh(
 # ---------------------------------------------------------------------------
 
 
-def main(argv: list[str] | None = None) -> None:
-    """CLI entry point for NH multi-person evaluation.
-
-    Example::
-
-        uv run python -m training.evaluate_nh \\
-            --model-key random-forest \\
-            --artifact-base artifacts/fall-detector
-    """
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the NH evaluation CLI parser."""
     parser = argparse.ArgumentParser(
         description="Deployment-equivalent NH multi-person fall evaluation.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -499,6 +573,12 @@ def main(argv: list[str] | None = None) -> None:
         required=True,
         choices=list(REGISTRY.keys()),
         help="Registry key of the model to evaluate.",
+    )
+    parser.add_argument(
+        "--pose-size",
+        required=True,
+        choices=POSE_SIZE_CHOICES,
+        help="YOLO26-pose size to evaluate.",
     )
     parser.add_argument(
         "--artifact-base",
@@ -513,24 +593,61 @@ def main(argv: list[str] | None = None) -> None:
         help="Path to nursing-home-gold.csv.",
     )
     parser.add_argument(
+        "--poses-cache-dir",
+        type=Path,
+        default=NH_POSES_DIR,
+        help="Root directory for pose caches; size-specific subdirectories are used.",
+    )
+    parser.add_argument(
+        "--processed-dir",
+        type=Path,
+        default=NH_PROCESSED_DIR,
+        help="Directory containing processed NH evaluation videos.",
+    )
+    parser.add_argument(
         "--mask-path",
         type=Path,
         default=_DEFAULT_MASK_PATH,
         help="Path to nh_reference_mask.json (permissive gate when absent).",
     )
+    parser.add_argument(
+        "--refresh-cache",
+        action="store_true",
+        help="Recompute pose caches for this pose size instead of reusing existing files.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    """CLI entry point for NH multi-person evaluation.
+
+    Example::
+
+        uv run python -m training.evaluate_nh \
+            --model-key random-forest \
+            --pose-size n \
+            --artifact-base artifacts/fall-detector
+    """
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
     logging.basicConfig(
         level=logging.INFO, format="%(levelname)s %(name)s %(message)s"
     )
 
+    command_args = list(sys.argv[1:] if argv is None else argv)
     result = evaluate_nh(
         model_key=args.model_key,
         artifact_base=args.artifact_base,
+        pose_size=args.pose_size,
         gold_csv=args.gold_csv,
+        poses_cache_dir=args.poses_cache_dir,
+        processed_dir=args.processed_dir,
         mask_path=args.mask_path,
+        refresh_cache=args.refresh_cache,
+        command_args=command_args,
     )
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
