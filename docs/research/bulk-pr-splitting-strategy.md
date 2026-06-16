@@ -194,10 +194,10 @@ adversarial verify에서 0-3 등급으로 죽은 주장 — "이렇게 하지 �
 
 | 순서 | 내용 | 포함 ADR 후보 |
 |------|------|--------------|
-| PR-1 | Prisma schema / migration / seed | ADR-024 |
-| PR-2 | auth + hmac.guard | ADR-023 |
-| PR-3 | RLS + red-team 테스트 | ADR-022 |
-| PR-4 | SSE 전송 | ADR-025 |
+| PR-1 | Prisma schema / migration / seed | ADR-031 |
+| PR-2 | auth + hmac.guard | ADR-032 |
+| PR-3 | RLS + red-team 테스트 | ADR-033 |
+| PR-4 | SSE 전송 | ADR-034 |
 | PR-5 | admin UI + alerts 페이지 | — |
 
 ### 7.3 머지 전 리뷰 체크리스트 (참고용)

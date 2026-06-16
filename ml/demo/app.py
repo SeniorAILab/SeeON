@@ -2,7 +2,7 @@
 
 This is an ML demo surface, NOT the product frontend.  The product frontend is
 ``front/`` (Next.js); product-level alerts and webhooks live in ``backend/``
-(NestJS).  See ADR-003 for the lifecycle boundary and ADR-010 for the live
+(NestJS).  See ADR-024 for the demo/product surface boundary and ADR-010 for the live
 per-frame inference mode decision.
 """
 from __future__ import annotations
@@ -107,7 +107,7 @@ def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
 
     operator — domain selector over ml/data/{domain}/{processed,raw} plus
     uploads. public (fail-safe default) — only clips uploaded in the current
-    browser session; internal domain sources are never listed (ADR-012 Access
+    browser session; internal domain sources are never listed (ADR-028 Demo Access
     Boundary; session filter lives here in the app layer, not the registry).
     """
     if mode == OPERATOR_MODE:
@@ -188,7 +188,7 @@ def _render_live_viewer(
     ):
         processed += 1
         # Latched event badge: repainted only on a rising edge (정상→낙상);
-        # the raw per-frame status below stays untouched (ADR-005 §5 — the
+        # the raw per-frame status below stays untouched (ADR-027 — the
         # badge aggregates real inference, it never invents state).
         if latch.update(status.is_fall, processed * frame_interval):
             event_ph.error(

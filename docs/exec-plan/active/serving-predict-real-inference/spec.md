@@ -6,14 +6,14 @@ author: deep-interview (di-serving-predict-adr-2026-06-12)
 rounds: 9
 final-ambiguity: ~4.5% (threshold 5%)
 issues: [23, 9]
-related-adrs: [ADR-003, ADR-005, ADR-006, ADR-013, ADR-014, ADR-015]
+related-adrs: [ADR-023, ADR-025, ADR-006, ADR-013, ADR-014, ADR-015]
 status: active
 ---
 
 # Spec — /predict 실추론: API 계약 + 책임 분리의 의도적 강제
 
 > Authority boundary: this spec captures the interviewed implementation target.
-> Cross-cutting API/layer decisions become canonical only when ADR-022, ADR-023,
+> Cross-cutting API/layer decisions become canonical only when ADR-029, ADR-030,
 > and `docs/rules/layer-boundaries.md` are written in the implementation work.
 
 ## What (한 문장)
@@ -40,7 +40,7 @@ POST /predict
   - 불투명의 범위는 "이름 비노출"까지. 입력 형상(윈도우 규격)은 계약의 일부로 공개
 - **`threshold_override` 제거**: 임계값 단일 출처는 metadata.json. 임계값 변경 = 모델 재배포.
   backend가 다른 컷을 원하면 `fall_probability`에 자체 제품 정책 적용(그건 backend 소유 판정).
-- **두 층 판정 경계** (ADR-003 §4 정련): 모델 수준 판정(`is_fall`)은 ML 소유,
+- **두 층 판정 경계** (ADR-023 정련): 모델 수준 판정(`is_fall`)은 ML 소유,
   제품 수준 판정(이벤트 래치·dedup·알림 정책)은 backend 소유.
 - **호출자**: backend (#28 구도 유지). 프레임/비디오는 serving에 들어오지 않는다.
 
@@ -58,7 +58,7 @@ ml/
 └─ training/           ← features 원본은 inference로 이동, training이 역으로 import
 ```
 
-- "demo를 얇게"의 **전면 추출은 후속 작업으로 분리** — ADR-023이 점진 추출 경로를 명문화.
+- "demo를 얇게"의 **전면 추출은 후속 작업으로 분리** — ADR-030이 점진 추출 경로를 명문화.
 - 이번 PR은 `/predict`에 필요한 3파일만 이동 (작고 검증 쉬운 단위).
 
 ### D3. 강제 — git-guard hook 전용 (R5–R6)
@@ -83,8 +83,8 @@ ml/
 
 | 산출물 | 내용 |
 |---|---|
-| `docs/decisions/ADR-022-predict-contract.md` | D1 — 입력/응답 스키마, 불투명 원칙, 두 층 판정 경계 |
-| `docs/decisions/ADR-023-inference-layer.md` | D2+D3 — inference 레이어 신설, 방향 불변식, hook 강제 위치 |
+| `docs/decisions/ADR-029-predict-contract.md` | D1 — 입력/응답 스키마, 불투명 원칙, 두 층 판정 경계 |
+| `docs/decisions/ADR-030-inference-layer.md` | D2+D3 — inference 레이어 신설, 방향 불변식, hook 강제 위치 |
 | `docs/rules/layer-boundaries.md` | 허용/금지 import 매트릭스 상세 (ADR-015+rules 짝 패턴) |
 | `plan.md` 재작성 | 기존 초안(전면 추출 7단계)은 미커밋 → 최소 범위로 축소 재작성 |
 | 이슈 #23 갱신 | D4 |
@@ -105,7 +105,7 @@ ml/
 - [ ] 응답/요청 표면에 모델 이름·종류·선택권 부재
 - [ ] `uv sync --no-default-groups` 환경에서 serving import 가능 (ultralytics/torch 미설치)
 - [ ] 불변식 위반 커밋이 pre-commit에서 차단됨 (가드 스크립트 동작 확인)
-- [ ] ADR-022/023 + rules/layer-boundaries.md 작성, #23 본문 갱신
+- [ ] ADR-029/030 + rules/layer-boundaries.md 작성, #23 본문 갱신
 
 ## 범위 제외 (의도적)
 

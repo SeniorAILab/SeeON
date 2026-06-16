@@ -23,7 +23,7 @@ related: [fall-detection-methods, fall-detection-datasets, fall-state-taxonomy, 
 ## 0. 한 줄 요약 (적대 리뷰의 핵심 발견)
 
 **가장 큰 미탐(missed-fall) 리스크는 분류기가 아니라 그 위아래에 있다.** 위로는 pose detector가
-낙상 직후의 "바닥에 누운 사람"을 구조적으로 놓치고(ADR-005: Room 502 검출률 25%, ADR-009: 낙상 후
+낙상 직후의 "바닥에 누운 사람"을 구조적으로 놓치고(ADR-025: Room 502 검출률 25%, ADR-009: 낙상 후
 무검출 113프레임), 그 실패가 zero-frame으로 변환되어 분류기에 **무음으로** 흘러든다. 아래로는
 serving이 스텁이고 알림 경로가 미구현이라 end-to-end "낙상 → 사람에게 통지"가 한 번도 검증된 적이
 없다. 분류기 leaderboard(LE2I P@R90)는 이 두 리스크를 **측정 자체를 못 한다** — repo 스스로
@@ -58,8 +58,8 @@ serving이 스텁이고 알림 경로가 미구현이라 end-to-end "낙상 → 
 
 | # | 공격 | 심각도 | 근거 |
 |---|------|--------|------|
-| 1 | **낙상 직후 YOLO dropout → zero-buffer 범람**: 바닥에 누운 사람을 detector가 놓치면 버퍼가 zeros로 차고, LE2I에서 zero-프레임이 희소했던 분류기는 OOD 입력을 non-fall로 처리. 미탐이 **무신호**로 발생 | 미탐·체계적 | ADR-009 (305호 113·506호 53 무검출 프레임), ADR-005 (Room 502 25%), `temporal_module.py:228-233` |
-| 2 | **와상(bedridden) 환자는 낙상 전부터 구조적으로 비가시**: track 자체가 없으면 빈 `DetectionResult()` 반환 — "고위험자 track 소실"이라는 개념이 없음 | 미탐·체계적 | ADR-005 (Room 301 51.3%, 502 25%), `temporal_module.py:277` |
+| 1 | **낙상 직후 YOLO dropout → zero-buffer 범람**: 바닥에 누운 사람을 detector가 놓치면 버퍼가 zeros로 차고, LE2I에서 zero-프레임이 희소했던 분류기는 OOD 입력을 non-fall로 처리. 미탐이 **무신호**로 발생 | 미탐·체계적 | ADR-009 (305호 113·506호 53 무검출 프레임), ADR-025 (Room 502 25%), `temporal_module.py:228-233` |
+| 2 | **와상(bedridden) 환자는 낙상 전부터 구조적으로 비가시**: track 자체가 없으면 빈 `DetectionResult()` 반환 — "고위험자 track 소실"이라는 개념이 없음 | 미탐·체계적 | ADR-025 (Room 301 51.3%, 502 25%), `temporal_module.py:277` |
 | 3 | **LE2I threshold가 NH로 전이 안 됨**: 출하 기본값 = LE2I 보정값. logreg 0.983 → NH 6/19. NH 재보정 메커니즘이 아키텍처에 없음 | 미탐·운영 | `evaluate.py:287`, phase3-step2 |
 | 4 | **알림 체인이 스텁**: serving dummy + backend 알림 미구현 — 실배포 시 알림 0건. Streamlit 데모는 사람이 화면을 봐야 하는 경로 | 미탐·배포 | `serving/model.py:32-41` |
 | 5 | **LE2I P@R90이 NH catch와 역상관**: 40회 실험의 최적화 압력 전부가 "side-view 배우 영상의 FP 윈도우 수 줄이기"에 소비 (top-3 모두 LE2I 8/8 이벤트 검출 — 순위차는 FP 수 차이일 뿐) | 모델 선택 오류 | phase3-step1, HUMAN_QUEUE ("LE2I-only adoption would have picked the wrong model") |
@@ -280,7 +280,7 @@ pose 중간 단계를 제거 — overhead에서 "바닥의 사람"은 픽셀 패
 
 ## 6. 출처
 
-repo 내부: ADR-005/009/013/017/019/020, `ml/experiments/leaderboard.md`,
+repo 내부: ADR-025/009/013/017/019/020, `ml/experiments/leaderboard.md`,
 `ml/experiments/analysis/phase3-step{1,2}*.md`, `ml/experiments/HUMAN_QUEUE.md`,
 `ml/demo/temporal_module.py`, `ml/training/{evaluate.py, data/features.py, data/windowing.py}`,
 `ml/serving/model.py`, docs/research/{fall-detection-methods, fall-state-taxonomy,
