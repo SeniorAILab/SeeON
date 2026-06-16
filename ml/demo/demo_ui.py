@@ -14,6 +14,18 @@ from demo.playback_status import CurrentPlaybackStatus
 from demo.seam import ModelModule
 from demo.temporal_module import TEMPORAL_MODEL_KEYS
 from demo.thresholds import default_threshold
+from demo.ui_labels import (
+    BOUNDING_BOXES_LABEL,
+    CLASSIFIER_SELECT_LABEL,
+    CONFIDENCE_THRESHOLD_LABEL,
+    DECISION_THRESHOLD_LABEL,
+    DETECTION_PARAMS_LABEL,
+    POSE_SKELETON_LABEL,
+    STRIDE_FRAMES_LABEL,
+    SUSTAINED_FALL_SECONDS_LABEL,
+    WINDOW_FRAMES_LABEL,
+    YOLO_SIZE_LABEL,
+)
 
 
 def build_model(
@@ -52,13 +64,13 @@ def render_live_controls(
     """
     size_col, boxes_col, pose_col = st.columns([2, 1, 1])
     size = size_col.selectbox(
-        "YOLO26-pose size",
+        YOLO_SIZE_LABEL,
         options=POSE_MODEL_SIZES,
         format_func=lambda s: POSE_MODEL_SIZE_LABELS[s],
         help="사이즈가 클수록 정확도는 높아지고 속도는 느려집니다.",
     )
-    show_boxes = boxes_col.checkbox("Bounding boxes", value=True)
-    show_pose = pose_col.checkbox("Pose skeleton", value=True)
+    show_boxes = boxes_col.checkbox(BOUNDING_BOXES_LABEL, value=True)
+    show_pose = pose_col.checkbox(POSE_SKELETON_LABEL, value=True)
 
     play_col, stop_col = st.columns(2)
     if play_col.button(start_label, use_container_width=True, type="primary"):
@@ -83,7 +95,7 @@ def render_status(
 def select_classifier_spec() -> ClassifierSpec:
     """Render the 분류 모델 selectbox and return the selected ClassifierSpec."""
     selected_spec: ClassifierSpec = st.selectbox(
-        "분류 모델",
+        CLASSIFIER_SELECT_LABEL,
         options=CLASSIFIER_REGISTRY,
         format_func=lambda spec: spec.display_name,
     )
@@ -107,7 +119,7 @@ def select_decision_threshold(spec: ClassifierSpec) -> float | None:
         return None
     return float(
         st.slider(
-            "판정 임계값 (fall probability)",
+            DECISION_THRESHOLD_LABEL,
             min_value=0.0,
             max_value=1.0,
             value=round(default, 3),
@@ -122,15 +134,15 @@ def select_decision_threshold(spec: ClassifierSpec) -> float | None:
 
 def select_classifier_params() -> ClassifierParams:
     """Render the 탐지 파라미터 expander and return the selected ClassifierParams."""
-    with st.expander("탐지 파라미터", expanded=False):
+    with st.expander(DETECTION_PARAMS_LABEL, expanded=False):
         col1, col2 = st.columns(2)
         conf = col1.number_input(
-            "신뢰도 임계값 (conf)", min_value=0.01, max_value=1.0, value=0.05, step=0.01
+            CONFIDENCE_THRESHOLD_LABEL, min_value=0.01, max_value=1.0, value=0.05, step=0.01
         )
-        window = col1.number_input("윈도우 (frames)", min_value=1, value=60, step=1)
-        stride_param = col2.number_input("스트라이드 (frames)", min_value=1, value=15, step=1)
+        window = col1.number_input(WINDOW_FRAMES_LABEL, min_value=1, value=60, step=1)
+        stride_param = col2.number_input(STRIDE_FRAMES_LABEL, min_value=1, value=15, step=1)
         sustained = col2.number_input(
-            "낙상 판단 지속시간 (초)", min_value=0.1, max_value=30.0, value=2.0, step=0.1
+            SUSTAINED_FALL_SECONDS_LABEL, min_value=0.1, max_value=30.0, value=2.0, step=0.1
         )
     return ClassifierParams(
         confidence=float(conf),

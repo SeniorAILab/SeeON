@@ -13,6 +13,7 @@ constraint on *how* we work in a given area.
 | [github-labels.md](./github-labels.md) | repo-wide | Label taxonomy: one required `type:` label per issue/PR drives the `<type>` component of branch names; `type: feat/fix/chore/docs/refactor/test`. |
 | [ml-training.md](./ml-training.md) | `ml/training/` | Locked training parameters (`T_WINDOW`, `STRIDE`, `OVERLAP_THRESHOLD`, etc. — `config.py` is the single source of truth); contracts for window labelling, train/eval split, threshold policy, and gold-clip evaluation. Records ADR-013. |
 | [worktree-workflow.md](./worktree-workflow.md) | repo-wide | Never work directly on a protected branch; every issue maps to a branch `<type>/<issue#>-<slug>` and one worktree; use `git wt <issue#>` to create. Records ADR-008. |
+| [pr-decomposition-and-review.md](./pr-decomposition-and-review.md) | repo-wide | Keep PRs reviewable: split `size/L`/`size/XL` work into `size/M` or smaller issue slices, document stacked/fan-out boundaries, and require a review pass per PR. |
 | [ml-dataset-custody.md](./ml-dataset-custody.md) | fleet-wide (m3-pro ↔ m1-pro) | Who is the authority for each asset class (footage → m3 main checkout; labels → git branch, human-confirmed only; models → m1 until adoption), one-way sync per class, staging-dir transfer procedures (`~/eldercare-staging`, TCC workaround, FILELIST + STAGING_DONE handshake, no `--delete`), domain provenance registry. Records ADR-018. |
 
 ---

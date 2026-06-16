@@ -3,6 +3,7 @@
 #
 #   git wt <issue#>            Create branch <type>/<issue#>-<slug> off origin/<default>
 #                              and a worktree for it; print the worktree path.
+#   git wt <issue#> --slug x   Use a slice-specific slug for fan-out PRs.
 #   git wt rm <issue#|branch>  Remove the worktree (git worktree remove + prune).
 #                              Does NOT delete the branch — use `git branch -d` after merge.
 #   git wt ls                  List worktrees.
@@ -78,9 +79,11 @@ issue_title() { gh issue view "$1" --json title --jq '.title' 2>/dev/null || pri
 cmd_create() {
   num=""
   type_override=""
+  slug_override=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --type) type_override="${2:-}"; shift 2 ;;
+      --slug) slug_override="${2:-}"; shift 2 ;;
       -h|--help) usage 0 ;;
       -*) gg_die "unknown flag: $1" ;;
       *) num="$1"; shift ;;
@@ -101,7 +104,11 @@ cmd_create() {
     *) gg_warn "non-standard type '$type' — proceeding anyway" ;;
   esac
 
-  slug=$(slugify "$title")
+  if [ -n "$slug_override" ]; then
+    slug=$(slugify "$slug_override")
+  else
+    slug=$(slugify "$title")
+  fi
   [ -n "$slug" ] || slug="issue"
   branch="$type/$num-$slug"
 
