@@ -75,6 +75,7 @@ git branch -d <branch>
 
 - **pre-push** blocks the push if the branch is behind `origin` (exit 1).
 - **pre-commit** and **session start** warn if behind but do not block (exit 0).
+- **session start** also fast-forwards local `main` to `origin/main` (ff-only, via `sync-main.sh`) so work always begins from fresh upstream `main`. It never forces, never rebases a feature branch, and is skipped when `main` is dirty or has diverged. From a feature worktree it refreshes `origin/main` and ff's the local `main` ref only when `main` is not checked out elsewhere (the main checkout self-syncs on its own session start).
 
 To sync: `git pull --rebase`.
 
@@ -107,6 +108,7 @@ The hook trust prompt in Codex on first run is expected — approve it.
 | `scripts/git-guard/lib.sh` | Shared helpers (single source of truth for all layers) |
 | `scripts/git-guard/assert-not-main.sh` | Exits 1 when HEAD is on a protected branch |
 | `scripts/git-guard/check-freshness.sh` | Compares HEAD to upstream; block or warn mode |
+| `scripts/git-guard/sync-main.sh` | Fast-forwards local default branch to `origin` (ff-only, safe); run at session start |
 | `scripts/git-guard/wt.sh` | Issue → worktree creator and manager |
 | `scripts/git-guard/setup-hooks.sh` | Post-clone setup (idempotent) |
 | `.githooks/pre-commit` | git hook: assert-not-main + freshness warn |
