@@ -1,9 +1,9 @@
 # Button / Control Verification Report
 
-**Date**: 2026-06-13  
-**Mode**: `FALL_DEMO_MODE=operator`  
-**Test harness**: `streamlit.testing.v1.AppTest`  
-**Test file**: `ml/tests/test_demo_app_controls.py`  
+**Date**: 2026-06-13
+**Mode**: `FALL_DEMO_MODE=operator`
+**Test harness**: `streamlit.testing.v1.AppTest`
+**Test file**: `ml/tests/test_demo_app_controls.py`
 **Streamlit version**: 1.58.0
 
 ---
@@ -71,7 +71,7 @@ computing the selection index on the next `at.run()`. This causes a `KeyError` /
 for any selectbox with a non-identity `format_func` (video, classifier, YOLO size selectboxes).
 
 **Fix applied in tests**: use `selectbox.select(raw_value)` instead of `select_index(i)`, passing the
-actual Python option object (`ClassifierSpec`, `RegisteredVideo`, size string).  
+actual Python option object (`ClassifierSpec`, `RegisteredVideo`, size string).
 **Action for demo code**: none required — this is a test-harness limitation, not a demo bug.
 
 ### Play button (재생) blocking caveat
