@@ -51,6 +51,7 @@ class DetectionResult:
     # static bed ROIs from a one-shot COCO detection at stream start;
     # cached once and carried per-frame so the per-frame path stays a single pose pass.
     bed_boxes: tuple[BoundingBox, ...] = field(default_factory=tuple)
+    bed_exit_statuses: tuple[object, ...] = field(default_factory=tuple)
 
 
 @runtime_checkable

@@ -25,6 +25,7 @@ import streamlit as st  # noqa: E402
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
 from demo.alert_client import AlertClient  # noqa: E402
+from demo.bed_detector import BedDetector  # noqa: E402
 from demo.classifiers import ClassifierParams  # noqa: E402
 from demo.demo_mode import (  # noqa: E402
     OPERATOR_MODE,
@@ -192,9 +193,14 @@ def _render_live_viewer(
     latch = FallEventLatch()
     loss_monitor = DetectionLossMonitor()
     alert_client = AlertClient.from_env(source_id=selected_video.video_id)
+    bed_detector = BedDetector()
     try:
         for overlay, status, confidence in iter_live_frames(
-            source, model, show_boxes=show_boxes, show_pose=show_pose
+            source,
+            model,
+            show_boxes=show_boxes,
+            show_pose=show_pose,
+            bed_detector=bed_detector,
         ):
             processed += 1
             frame_time_sec = processed * frame_interval

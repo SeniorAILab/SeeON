@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
 
 import numpy as np
 from numpy.typing import NDArray
 
+from demo.bed_detector import BedDetector
+from demo.bed_exit import BedExitMonitor
 from demo.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.seam import FrameSource, ModelModule
 from demo.yolo_overlay import render_yolo_overlay
@@ -88,6 +91,7 @@ def iter_live_frames(
     *,
     show_boxes: bool = True,
     show_pose: bool = True,
+    bed_detector: BedDetector | None = None,
 ) -> Iterator[tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]]:
     """Yield ``(overlay, status, confidence)`` per source frame for live rendering.
 
@@ -106,8 +110,22 @@ def iter_live_frames(
     person's classifier ramp once a fall classifier is composed in), surfaced so
     the UI can show how close the fire state is.
     """
+    bed_boxes = None
+    bed_exit_monitor = BedExitMonitor()
+    detector = bed_detector
     for frame in source:
+        if bed_boxes is None:
+            bed_boxes = detector.detect(frame) if detector is not None else ()
         result = model.predict(frame)
+        bed_exit_frame = bed_exit_monitor.update(
+            bed_boxes=bed_boxes,
+            person_boxes=result.boxes,
+        )
+        result = replace(
+            result,
+            bed_boxes=bed_boxes,
+            bed_exit_statuses=bed_exit_frame.statuses,
+        )
         overlay = render_yolo_overlay(
             frame=frame.image,
             result=result,
