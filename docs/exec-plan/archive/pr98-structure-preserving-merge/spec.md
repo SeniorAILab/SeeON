@@ -120,4 +120,3 @@ Recommended next step: `$ralplan` or `$ultragoal` using this spec.
 - Use `$ultragoal` if you want durable goal tracking through cleanup, verification, and merge-readiness.
 - Use `$team` only if parallel review/implementation lanes are warranted.
 - Use `$ralph` only as an explicit fallback for single-owner persistence.
-
