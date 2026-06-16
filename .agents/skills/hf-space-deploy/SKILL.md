@@ -120,18 +120,18 @@ streamlit's startup banner.
 
 ## Verify live inference (browser)
 
-Stage check is not enough — verify inference end-to-end with gstack-browse
-(`$B = ~/.claude/skills/gstack/browse/dist/browse`):
+Stage check is not enough — verify inference end-to-end in a browser (use any
+browser-automation tool that can navigate, upload, snapshot, and click):
 
-1. `$B goto https://berom0227-eldercare-fall-demo.hf.space/` and wait for
+1. Go to https://berom0227-eldercare-fall-demo.hf.space/ and wait for
    `input[type=file]`.
-2. `$B upload 'input[type="file"]' "ml/data/le2i/raw/Home/video (37).avi"`
-   (55MB upload takes ~30s).
+2. Upload a clip into `input[type="file"]` (e.g.
+   `ml/data/le2i/raw/Home/video (37).avi`; a 55MB upload takes ~30s).
 3. Pick the classifier via the 분류 모델 combobox if needed. **Re-snapshot and
-   re-grep `@eN` ids immediately before every click** — ids shift between
+   re-grep element ids immediately before every click** — ids shift between
    Streamlit reruns, and clicks can be swallowed by a rerun (verify state after
    clicking, re-click if the page is still idle).
-4. Click 재생, then poll `$B snapshot -i` every ~12s for the status line
+4. Click 재생, then poll a fresh snapshot every ~12s for the status line
    (`정상 · {t}s / … · 낙상도 {p}% · 포즈 감지: {n}명`) or the
    `낙상 감지 N회` badge. Playback is ~7.5× slower than realtime
    (10s clip ≈ 3.5 min).
@@ -139,8 +139,7 @@ Stage check is not enough — verify inference end-to-end with gstack-browse
    `재생 완료 — 240 프레임 처리됨` (or a screenshot of frame overlays).
 
 Known quirks: websocket sessions drop after clip completion and reset the page
-(server stays healthy — re-upload per session); `$B js "<expr>"` for inline JS
-(`eval` takes a file path).
+(server stays healthy — re-upload per session).
 
 ## Known findings (context, not defects)
 
