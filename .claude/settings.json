@@ -5,6 +5,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/sync-main.sh\""
+          },
+          {
+            "type": "command",
             "command": "sh \"$(git rev-parse --show-toplevel)/scripts/git-guard/check-freshness.sh\" warn"
           }
         ]
