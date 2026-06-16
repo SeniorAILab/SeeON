@@ -36,7 +36,11 @@ class RandomForestFallClassifier:
         self._clf = RandomForestClassifier(
             n_estimators=hp_int("n_estimators", 200) if n_estimators is None else int(n_estimators),
             max_depth=hp_opt_int("max_depth") if max_depth is None else int(max_depth),
-            min_samples_leaf=hp_int("min_samples_leaf", 1) if min_samples_leaf is None else int(min_samples_leaf),
+            min_samples_leaf=(
+                hp_int("min_samples_leaf", 1)
+                if min_samples_leaf is None
+                else int(min_samples_leaf)
+            ),
             class_weight="balanced",
             random_state=SEED,
             n_jobs=-1,

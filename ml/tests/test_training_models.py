@@ -14,7 +14,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from training.config import FEATURE_DIM, KPT_VECTOR_DIM, T_WINDOW
 from training.models.base import FallClassifier, TorchFallClassifier
