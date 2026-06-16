@@ -12,6 +12,10 @@ status: active
 
 # Spec — /predict 실추론: API 계약 + 책임 분리의 의도적 강제
 
+> Authority boundary: this spec captures the interviewed implementation target.
+> Cross-cutting API/layer decisions become canonical only when ADR-022, ADR-023,
+> and `docs/rules/layer-boundaries.md` are written in the implementation work.
+
 ## What (한 문장)
 
 `/predict`를 실추론으로 교체하되, API 계약(무엇을 주고받는가)과 폴더/파일 레벨

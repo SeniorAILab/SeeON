@@ -2,7 +2,7 @@
 slug: serving-predict-real-inference
 date: 2026-06-13
 author: gobeumsu
-status: draft (pending approval)
+status: active
 issues: [23, 9]
 related-adrs: [ADR-003, ADR-005, ADR-006, ADR-013, ADR-014, ADR-015]
 spec: ./spec.md
@@ -15,6 +15,14 @@ spec: ./spec.md
 >
 > 세 축: (1) `/predict` 실추론 — 더미(`len(window)/100`) 교체 + 모델 이름 불투명 계약,
 > (2) `ml/inference/` flat 3파일 최소 추출, (3) git-guard hook으로 import 방향 강제.
+
+## Authority Boundary
+
+This plan is the work queue for #23, not the final architectural record. The
+cross-cutting choices named here must be distilled into ADR-022/ADR-023 and
+`docs/rules/layer-boundaries.md` before implementation code starts; until those
+artifacts land, this document is a scoped plan/spec record rather than the source
+of architectural authority.
 
 ## Requirements Summary (spec.md 확정 결정의 구현 번역)
 
