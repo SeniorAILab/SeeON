@@ -11,7 +11,7 @@ export type FrontSession = {
   user: FrontSessionUser;
 };
 
-const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:3000";
+const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
 export async function getFrontSession(): Promise<FrontSession | null> {
   const cookieHeader = (await cookies()).toString();

@@ -1,4 +1,4 @@
-const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:3000";
+const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
