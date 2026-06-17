@@ -1,4 +1,4 @@
-const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
+import { BACKEND_ORIGIN as backendOrigin } from "../../../lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

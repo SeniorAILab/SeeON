@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { BACKEND_ORIGIN as backendOrigin } from "./config";
 
 export type FrontSessionUser = {
   id: string;
@@ -10,8 +11,6 @@ export type FrontSessionUser = {
 export type FrontSession = {
   user: FrontSessionUser;
 };
-
-const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
 export async function getFrontSession(): Promise<FrontSession | null> {
   const cookieHeader = (await cookies()).toString();
