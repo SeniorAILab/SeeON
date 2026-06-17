@@ -43,7 +43,7 @@ def test_real_random_forest_artifact_loads_and_predicts() -> None:
     assert detector.metadata.window == 30
     assert detector.metadata.stride == 5
 
-    prob = detector.predict(np.zeros((30, 51), dtype=np.float32).tolist())
+    prob = detector.predict([0.0] * detector.metadata.feature_dim)
 
     assert 0.0 <= prob <= 1.0
     assert prob != 0.3  # removed len(window) / 100 dummy probability
@@ -55,7 +55,7 @@ def test_missing_model_fails_explicitly(tmp_path: Path, monkeypatch: pytest.Monk
     (artifact_dir / "model.pkl").unlink()
     monkeypatch.setattr(serving_model, "MODELS_DIR", tmp_path)
 
-    with pytest.raises(ModelLoadError, match="model.pkl missing"):
+    with pytest.raises(ModelLoadError, match="missing model.pkl"):
         FallDetector()
 
 
@@ -64,12 +64,12 @@ def test_missing_metadata_fails_explicitly(tmp_path: Path, monkeypatch: pytest.M
     (artifact_dir / "metadata.json").unlink()
     monkeypatch.setattr(serving_model, "MODELS_DIR", tmp_path)
 
-    with pytest.raises(ModelLoadError, match="metadata.json missing"):
+    with pytest.raises(ModelLoadError, match="missing metadata.json"):
         FallDetector()
 
 
 def test_invalid_metadata_shape_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_artifact(tmp_path, _metadata(feature_dim="45"))
+    _write_artifact(tmp_path, _metadata(feature_dim="forty-five"))
     monkeypatch.setattr(serving_model, "MODELS_DIR", tmp_path)
 
     with pytest.raises(ModelLoadError, match="feature_dim"):
@@ -111,7 +111,7 @@ def test_predict_rejects_wrong_window_shape(
     detector = FallDetector()
 
     with pytest.raises(ModelInputError, match="window shape"):
-        detector.predict(np.zeros((10, 51), dtype=np.float32).tolist())
+        detector.predict([0.0] * 44)
 
 
 def test_no_fake_empty_window_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

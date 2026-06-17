@@ -68,7 +68,7 @@ def _pipeline(request: Request) -> FallPipeline:
 def health() -> dict[str, Any]:
     try:
         model = get_model()
-        metadata = model.metadata.asdict()
+        metadata = model.metadata_dict()
         artifact_available = model.model_path.exists()
         model_status = "ok"
         model_error = None
@@ -80,6 +80,8 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok" if model_status == "ok" else "degraded",
         "model": metadata,
+        "metadata": metadata,
+        "model_type": None if metadata is None else metadata.get("model_type"),
         "model_status": model_status,
         "model_error": model_error,
         "pose": {
