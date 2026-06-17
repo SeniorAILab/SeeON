@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { api } from "../../../lib/api";
+import { useCrud } from "../../../lib/useCrud";
 import { maskPhone, residentName } from "../../../lib/sse-utils";
 import { EmptyState } from "../../../components/EmptyState";
 
@@ -22,137 +22,59 @@ interface Resident {
 }
 
 export default function GuardiansPage() {
-  const [guardians, setGuardians] = useState<Guardian[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const gd = useCrud<Guardian>("/api/guardians");
+  const res = useCrud<Resident>("/api/residents");
+  const loading = gd.loading || res.loading;
+  const error = gd.error || res.error;
 
-  const [creating, setCreating] = useState(false);
+  // Create form
   const [createResidentId, setCreateResidentId] = useState("");
   const [createName, setCreateName] = useState("");
   const [createPhone, setCreatePhone] = useState("");
   const [createRelation, setCreateRelation] = useState("");
-  const [createError, setCreateError] = useState<string | null>(null);
 
-  const [editId, setEditId] = useState<string | null>(null);
+  // Edit form
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editRelation, setEditRelation] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      api.get<Guardian[]>("/api/guardians"),
-      api.get<Resident[]>("/api/residents"),
-    ])
-      .then(([gds, res]) => {
-        setGuardians(gds);
-        setResidents(res);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      api.get<Guardian[]>("/api/guardians"),
-      api.get<Resident[]>("/api/residents"),
-    ])
-      .then(([gds, res]) => {
-        if (cancelled) return;
-        setGuardians(gds);
-        setResidents(res);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!createResidentId || !createName.trim() || !createPhone.trim()) return;
-    setCreating(true);
-    setCreateError(null);
-    try {
-      await api.post<Guardian>("/api/guardians", {
-        residentId: createResidentId,
-        name: createName.trim(),
-        phone: createPhone.trim(),
-        relation: createRelation.trim() || undefined,
-      });
+    const ok = await gd.create({
+      residentId: createResidentId,
+      name: createName.trim(),
+      phone: createPhone.trim(),
+      relation: createRelation.trim() || undefined,
+    });
+    if (ok) {
       setCreateResidentId("");
       setCreateName("");
       setCreatePhone("");
       setCreateRelation("");
-      load();
-    } catch (err: Error | unknown) {
-      setCreateError(
-        err instanceof Error ? err.message : "생성에 실패했습니다",
-      );
-    } finally {
-      setCreating(false);
     }
   }
 
   function startEdit(g: Guardian) {
-    setEditId(g.id);
     setEditName(g.name);
     setEditPhone(g.phone);
     setEditRelation(g.relation ?? "");
-    setEditError(null);
+    gd.startEdit(g.id);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editId) return;
-    setSaving(true);
-    setEditError(null);
-    try {
-      await api.patch<Guardian>(`/api/guardians/${editId}`, {
-        name: editName.trim(),
-        phone: editPhone.trim(),
-        relation: editRelation.trim() || null,
-      });
-      setEditId(null);
-      load();
-    } catch (err: Error | unknown) {
-      setEditError(
-        err instanceof Error ? err.message : "저장에 실패했습니다",
-      );
-    } finally {
-      setSaving(false);
-    }
+    if (!gd.editId) return;
+    await gd.save(gd.editId, {
+      name: editName.trim(),
+      phone: editPhone.trim(),
+      relation: editRelation.trim() || null,
+    });
   }
 
   async function handleDelete(g: Guardian) {
     if (!window.confirm(`${g.name} 보호자를 삭제할까요?`)) return;
-    setDeletingId(g.id);
-    setDeleteError(null);
-    try {
-      await api.delete<Guardian>(`/api/guardians/${g.id}`);
-      setGuardians((current) => current.filter((item) => item.id !== g.id));
-    } catch (err: Error | unknown) {
-      setDeleteError(
-        err instanceof Error ? err.message : "삭제에 실패했습니다",
-      );
-    } finally {
-      setDeletingId(null);
-    }
+    await gd.remove(g.id);
   }
 
   return (
@@ -203,7 +125,7 @@ export default function GuardiansPage() {
               className="col-span-2 rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
             >
               <option value="">대상자 선택 *</option>
-              {residents.map((r) => (
+              {res.items.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                   {r.room ? ` (${r.room}호)` : ""}
@@ -232,14 +154,14 @@ export default function GuardiansPage() {
             />
             <button
               type="submit"
-              disabled={creating}
+              disabled={gd.creating}
               className="rounded-xl bg-cyan-700 px-5 py-2 text-sm font-semibold transition hover:bg-cyan-600 disabled:opacity-60"
             >
-              {creating ? "추가 중..." : "추가"}
+              {gd.creating ? "추가 중..." : "추가"}
             </button>
           </div>
-          {createError && (
-            <p className="mt-3 text-sm text-red-400">{createError}</p>
+          {gd.createError && (
+            <p className="mt-3 text-sm text-red-400">{gd.createError}</p>
           )}
         </form>
 
@@ -254,18 +176,18 @@ export default function GuardiansPage() {
             {error}
           </div>
         )}
-        {deleteError && !loading && (
+        {gd.deleteError && !loading && (
           <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
-            {deleteError}
+            {gd.deleteError}
           </div>
         )}
         {!loading && !error && (
           <div className="flex flex-col gap-2">
-            {guardians.length === 0 && (
+            {gd.items.length === 0 && (
               <EmptyState message="등록된 보호자가 없습니다" />
             )}
-            {guardians.map((g) =>
-              editId === g.id ? (
+            {gd.items.map((g) =>
+              gd.editId === g.id ? (
                 <form
                   key={g.id}
                   onSubmit={handleSave}
@@ -294,22 +216,22 @@ export default function GuardiansPage() {
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      disabled={saving}
+                      disabled={gd.saving}
                       className="flex-1 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold transition hover:bg-emerald-600 disabled:opacity-60"
                     >
-                      {saving ? "저장 중..." : "저장"}
+                      {gd.saving ? "저장 중..." : "저장"}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setEditId(null)}
+                      onClick={gd.cancelEdit}
                       className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:text-white"
                     >
                       취소
                     </button>
                   </div>
-                  {editError && (
+                  {gd.editError && (
                     <p className="col-span-2 text-sm text-red-400">
-                      {editError}
+                      {gd.editError}
                     </p>
                   )}
                 </form>
@@ -332,7 +254,7 @@ export default function GuardiansPage() {
                       {maskPhone(g.phone)}
                     </p>
                     <p className="text-xs text-slate-500">
-                      대상자: {residentName(residents, g.residentId)}
+                      대상자: {residentName(res.items, g.residentId)}
                     </p>
                   </div>
                   <button
@@ -344,10 +266,10 @@ export default function GuardiansPage() {
                   <button
                     type="button"
                     onClick={() => void handleDelete(g)}
-                    disabled={deletingId === g.id}
+                    disabled={gd.deletingId === g.id}
                     className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 transition hover:border-red-400/40 hover:text-red-200 disabled:opacity-60"
                   >
-                    {deletingId === g.id ? "삭제 중..." : "삭제"}
+                    {gd.deletingId === g.id ? "삭제 중..." : "삭제"}
                   </button>
                 </div>
               ),
