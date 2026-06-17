@@ -1,10 +1,9 @@
 import { defineConfig } from "vitest/config";
 
-// sse-utils are pure functions (no DOM/React), so the default node environment
-// is enough. Add jsdom + @testing-library/react here when component/hook tests
-// are introduced.
+// jsdom for hook/component tests (useCrud); sse-utils pure tests run fine under it too.
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts"],
+    environment: "jsdom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 });
