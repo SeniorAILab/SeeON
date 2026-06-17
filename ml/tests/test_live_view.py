@@ -140,5 +140,5 @@ def test_app_live_source_is_not_strided() -> None:
 
     app_src = (Path(__file__).parent.parent / "demo" / "app.py").read_text()
     assert "PLAYBACK_FRAME_STRIDE" not in app_src
-    assert "VideoFileSource(selected_video.path)" in app_src
+    assert "VideoFileSource(selected_source.video.path)" in app_src
     assert "RENDER_FRAME_STRIDE" in app_src

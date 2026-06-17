@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Literal
+
 import streamlit as st
 
 from demo.classifier_module import FallClassifierModule
@@ -26,6 +29,59 @@ from demo.ui_labels import (
     WINDOW_FRAMES_LABEL,
     YOLO_SIZE_LABEL,
 )
+from demo.video_registry import RegisteredVideo
+
+CAMERA_SOURCE_LABEL = "노트북 카메라(index)"
+CAMERA_INDEX_LABEL = "카메라 index"
+
+
+@dataclass(frozen=True, slots=True)
+class LiveSourceOption:
+    kind: Literal["camera", "video"]
+    label: str
+    video: RegisteredVideo | None = None
+
+
+def build_live_source_options(
+    *,
+    operator_mode: bool,
+    registered_videos: list[RegisteredVideo],
+) -> list[LiveSourceOption]:
+    """Build live-source choices without leaking camera access into public mode."""
+    options: list[LiveSourceOption] = []
+    if operator_mode:
+        options.append(LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL))
+    options.extend(
+        LiveSourceOption(kind="video", label=video.display_name, video=video)
+        for video in registered_videos
+    )
+    return options
+
+
+def render_live_source_selection(
+    *,
+    operator_mode: bool,
+    registered_videos: list[RegisteredVideo],
+    label: str,
+) -> tuple[LiveSourceOption, int]:
+    """Render the operator/public live-source selector.
+
+    Camera is operator-only and uses an explicit integer device index so demos can
+    switch from the built-in webcam (0) to another local capture device.
+    """
+    source_options = build_live_source_options(
+        operator_mode=operator_mode,
+        registered_videos=registered_videos,
+    )
+    selected_source: LiveSourceOption = st.selectbox(
+        label,
+        options=source_options,
+        format_func=lambda option: option.label,
+    )
+    camera_index = 0
+    if selected_source.kind == "camera":
+        camera_index = int(st.number_input(CAMERA_INDEX_LABEL, min_value=0, value=0, step=1))
+    return selected_source, camera_index
 
 
 def build_model(

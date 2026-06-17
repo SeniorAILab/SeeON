@@ -74,7 +74,6 @@ class BedExitMonitor:
         person_boxes: tuple[BoundingBox, ...],
     ) -> BedExitFrame:
         person_ids = self._tracker.update(person_boxes)
-        live_ids = set(person_ids)
         for stale_id in set(self._assignments) - self._tracker.live_ids:
             self._assignments.pop(stale_id, None)
 

@@ -33,8 +33,10 @@ from demo.demo_mode import (  # noqa: E402
     filter_videos_for_public_mode,
 )
 from demo.demo_ui import (  # noqa: E402
+    LiveSourceOption,
     build_model,
     render_live_controls,
+    render_live_source_selection,
     render_status,
     select_classifier_params,
     select_classifier_spec,
@@ -47,7 +49,7 @@ from demo.live_view import (  # noqa: E402
     render_due,
 )
 from demo.model_bootstrap import ensure_fall_models  # noqa: E402
-from demo.seam import VideoFileSource  # noqa: E402
+from demo.seam import CameraSource, FrameSource, VideoFileSource  # noqa: E402
 from demo.ui_labels import (  # noqa: E402
     DOMAIN_SELECT_LABEL,
     ROLE_SELECT_LABEL,
@@ -86,16 +88,19 @@ def main() -> None:
     )
 
     app_assets.handle_upload()
-    registered_videos = _list_videos_for_mode(demo_mode())
-    if not registered_videos:
+    mode = demo_mode()
+    registered_videos = _list_videos_for_mode(mode)
+    operator_mode = mode == OPERATOR_MODE
+    if not operator_mode and not registered_videos:
         st.info("재생할 영상이 없습니다 — 위에서 영상을 업로드하세요.")
         return
 
-    selected_video = st.selectbox(
-        VIDEO_SELECT_LABEL,
-        options=registered_videos,
-        format_func=lambda video: video.display_name,
+    source_options = render_live_source_selection(
+        operator_mode=operator_mode,
+        registered_videos=registered_videos,
+        label=VIDEO_SELECT_LABEL,
     )
+    selected_source, camera_index = source_options
 
     selected_spec = select_classifier_spec()
     classifier_key: str | None = selected_spec.key if selected_spec.available else None
@@ -103,7 +108,8 @@ def main() -> None:
     classifier_params = select_classifier_params()
 
     _render_live_viewer(
-        selected_video=selected_video,
+        selected_source=selected_source,
+        camera_index=camera_index,
         classifier_key=classifier_key,
         classifier_params=classifier_params,
         decision_threshold=decision_threshold,
@@ -153,14 +159,47 @@ def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
     return filter_videos_for_public_mode(uploads, session_upload_ids)
 
 
+def _source_caption(selected_source: LiveSourceOption, camera_index: int) -> str:
+    if selected_source.kind == "camera":
+        return f"노트북 카메라 index {camera_index}"
+    assert selected_source.video is not None
+    return str(selected_source.video.path)
+
+
+def _source_id_for_selection(selected_source: LiveSourceOption, camera_index: int) -> str:
+    if selected_source.kind == "camera":
+        return f"camera:{camera_index}"
+    assert selected_source.video is not None
+    return selected_source.video.video_id
+
+
+def _frame_source_for_selection(
+    selected_source: LiveSourceOption,
+    camera_index: int,
+) -> FrameSource:
+    if selected_source.kind == "camera":
+        return CameraSource(camera_index)
+    assert selected_source.video is not None
+    return VideoFileSource(selected_source.video.path)
+
+
+def _frame_interval_for_selection(selected_source: LiveSourceOption) -> float:
+    if selected_source.kind == "camera":
+        return 0.0
+    assert selected_source.video is not None
+    info = read_video_playback_info(selected_source.video.path)
+    return 1.0 / max(info.fps, 1.0)
+
+
 def _render_live_viewer(
-    selected_video: videos.RegisteredVideo,
+    selected_source: LiveSourceOption,
+    camera_index: int,
     classifier_key: str | None,
     classifier_params: ClassifierParams,
     decision_threshold: float | None = None,
 ) -> None:
     st.subheader("실시간 재생")
-    st.caption(str(selected_video.path))
+    st.caption(_source_caption(selected_source, camera_index))
 
     size, show_boxes, show_pose = render_live_controls(
         PLAYING_KEY, start_label="재생", stop_label="정지"
@@ -183,16 +222,17 @@ def _render_live_viewer(
     # and degrades to slower-than-real-time when pose can't keep up — frames
     # are never skipped to catch up.
     model = build_model(size, classifier_key, classifier_params, decision_threshold)
-    source = VideoFileSource(selected_video.path)
-    info = read_video_playback_info(selected_video.path)
-    frame_interval = 1.0 / max(info.fps, 1.0)
+    source = _frame_source_for_selection(selected_source, camera_index)
+    frame_interval = _frame_interval_for_selection(selected_source)
 
     target = time.perf_counter()
+    stream_started = target
     processed = 0
     last_painted_fall = False
     latch = FallEventLatch()
     loss_monitor = DetectionLossMonitor()
-    alert_client = AlertClient.from_env(source_id=selected_video.video_id)
+    source_id = _source_id_for_selection(selected_source, camera_index)
+    alert_client = AlertClient.from_env(source_id=source_id)
     bed_detector = BedDetector()
     try:
         for overlay, status, confidence in iter_live_frames(
@@ -203,7 +243,11 @@ def _render_live_viewer(
             bed_detector=bed_detector,
         ):
             processed += 1
-            frame_time_sec = processed * frame_interval
+            frame_time_sec = (
+                processed * frame_interval
+                if frame_interval > 0.0
+                else time.perf_counter() - stream_started
+            )
             detected_at = _utc_now_iso()
             # Latched event badge: repainted only on a rising edge (정상→낙상);
             # the raw per-frame status below stays untouched (ADR-027 — the
@@ -241,13 +285,22 @@ def _render_live_viewer(
                     else None,
                 )
                 last_painted_fall = status.is_fall
-            target += frame_interval
-            delay = target - time.perf_counter()
-            if delay > 0:
-                time.sleep(delay)
+            if frame_interval > 0.0:
+                target += frame_interval
+                delay = target - time.perf_counter()
+                if delay > 0:
+                    time.sleep(delay)
     finally:
         if alert_client is not None:
             alert_client.close()
+
+    if selected_source.kind == "camera" and processed == 0:
+        st.session_state[PLAYING_KEY] = False
+        status_ph.error(
+            f"카메라 index {camera_index}에서 프레임을 읽지 못했습니다. "
+            "카메라 연결/권한 또는 다른 앱의 점유 상태를 확인하세요."
+        )
+        return
 
     st.session_state[PLAYING_KEY] = False
     status_ph.info(f"재생 완료 — {processed} 프레임 처리됨. 다시 재생하려면 ▶︎ 재생.")

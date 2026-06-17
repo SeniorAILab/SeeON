@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 export interface KakaoTokenResponse {
   access_token: string;
   expires_in?: number;
+  scope?: string;
 }
 
 export interface KakaoProfile {
@@ -33,6 +34,7 @@ export class KakaoClient implements OnModuleInit {
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('state', state);
+    url.searchParams.set('scope', 'talk_message profile_nickname');
     return url.toString();
   }
 

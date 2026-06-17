@@ -63,7 +63,11 @@ class SourceRegistry:
                 source_id=key,
                 path=Path(str(value["path"])),
                 duration_sec=float(value["duration_sec"]),
-                mime_type=str(value.get("mime_type") or mimetypes.guess_type(str(value["path"]))[0] or ""),
+                mime_type=str(
+                    value.get("mime_type")
+                    or mimetypes.guess_type(str(value["path"]))[0]
+                    or ""
+                ),
                 kind="live" if value.get("kind") == "live" else "stored",
                 trusted_live=bool(value.get("trusted_live", False)),
             )
@@ -75,13 +79,17 @@ class SourceRegistry:
         mapping: dict[str, dict[str, Any]],
         base_dir: Path = DEFAULT_SOURCE_BASE_DIR,
         max_duration_sec: float = DEFAULT_MAX_DURATION_SEC,
-    ) -> "SourceRegistry":
+    ) -> SourceRegistry:
         records = {
             key: SourceRecord(
                 source_id=key,
                 path=Path(str(value["path"])),
                 duration_sec=float(value["duration_sec"]),
-                mime_type=str(value.get("mime_type") or mimetypes.guess_type(str(value["path"]))[0] or ""),
+                mime_type=str(
+                    value.get("mime_type")
+                    or mimetypes.guess_type(str(value["path"]))[0]
+                    or ""
+                ),
                 kind="live" if value.get("kind") == "live" else "stored",
                 trusted_live=bool(value.get("trusted_live", False)),
             )
@@ -135,7 +143,9 @@ class SourceRegistry:
             raise SourceRegistryError("source duration metadata must be positive")
         if record.duration_sec > self.max_duration_sec:
             raise SourceRegistryError(
-                f"source duration {record.duration_sec:.3f}s exceeds registry maximum {self.max_duration_sec:.3f}s"
+                "source duration "
+                f"{record.duration_sec:.3f}s exceeds registry maximum "
+                f"{self.max_duration_sec:.3f}s"
             )
 
 
