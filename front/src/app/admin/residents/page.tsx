@@ -3,20 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "../../../lib/api";
+import { EmptyState } from "../../../components/EmptyState";
 
 interface Resident {
   id: string;
   name: string;
   room: string | null;
   createdAt: string;
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-500">
-      등록된 대상자가 없습니다
-    </div>
-  );
 }
 
 export default function ResidentsPage() {
@@ -224,7 +217,7 @@ export default function ResidentsPage() {
         )}
         {!loading && !error && (
           <div className="flex flex-col gap-2">
-            {residents.length === 0 && <EmptyState />}
+            {residents.length === 0 && <EmptyState message="등록된 대상자가 없습니다" />}
             {residents.map((r) =>
               editId === r.id ? (
                 <form
