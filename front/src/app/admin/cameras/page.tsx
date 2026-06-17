@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { api } from "../../../lib/api";
+import { useCrud } from "../../../lib/useCrud";
 import { residentName, formatTime } from "../../../lib/sse-utils";
 import { EmptyState } from "../../../components/EmptyState";
 
@@ -23,128 +23,50 @@ interface Resident {
 }
 
 export default function CamerasPage() {
-  const [cameras, setCameras] = useState<Camera[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cam = useCrud<Camera>("/api/cameras");
+  const res = useCrud<Resident>("/api/residents");
+  const loading = cam.loading || res.loading;
+  const error = cam.error || res.error;
 
-  const [creating, setCreating] = useState(false);
+  // Create form
   const [createLabel, setCreateLabel] = useState("");
   const [createResidentId, setCreateResidentId] = useState("");
-  const [createError, setCreateError] = useState<string | null>(null);
 
-  const [editId, setEditId] = useState<string | null>(null);
+  // Edit form
   const [editLabel, setEditLabel] = useState("");
   const [editResidentId, setEditResidentId] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      api.get<Camera[]>("/api/cameras"),
-      api.get<Resident[]>("/api/residents"),
-    ])
-      .then(([cams, res]) => {
-        setCameras(cams);
-        setResidents(res);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      api.get<Camera[]>("/api/cameras"),
-      api.get<Resident[]>("/api/residents"),
-    ])
-      .then(([cams, res]) => {
-        if (cancelled) return;
-        setCameras(cams);
-        setResidents(res);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!createLabel.trim()) return;
-    setCreating(true);
-    setCreateError(null);
-    try {
-      await api.post<Camera>("/api/cameras", {
-        label: createLabel.trim(),
-        residentId: createResidentId || undefined,
-      });
+    const ok = await cam.create({
+      label: createLabel.trim(),
+      residentId: createResidentId || undefined,
+    });
+    if (ok) {
       setCreateLabel("");
       setCreateResidentId("");
-      load();
-    } catch (err: Error | unknown) {
-      setCreateError(
-        err instanceof Error ? err.message : "생성에 실패했습니다",
-      );
-    } finally {
-      setCreating(false);
     }
   }
 
   function startEdit(c: Camera) {
-    setEditId(c.id);
     setEditLabel(c.label);
     setEditResidentId(c.residentId ?? "");
-    setEditError(null);
+    cam.startEdit(c.id);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editId) return;
-    setSaving(true);
-    setEditError(null);
-    try {
-      await api.patch<Camera>(`/api/cameras/${editId}`, {
-        label: editLabel.trim(),
-        residentId: editResidentId || null,
-      });
-      setEditId(null);
-      load();
-    } catch (err: Error | unknown) {
-      setEditError(
-        err instanceof Error ? err.message : "저장에 실패했습니다",
-      );
-    } finally {
-      setSaving(false);
-    }
+    if (!cam.editId) return;
+    await cam.save(cam.editId, {
+      label: editLabel.trim(),
+      residentId: editResidentId || null,
+    });
   }
 
   async function handleDelete(c: Camera) {
     if (!window.confirm(`${c.label} 카메라를 삭제할까요?`)) return;
-    setDeletingId(c.id);
-    setDeleteError(null);
-    try {
-      await api.delete<Camera>(`/api/cameras/${c.id}`);
-      setCameras((current) => current.filter((item) => item.id !== c.id));
-    } catch (err: Error | unknown) {
-      setDeleteError(
-        err instanceof Error ? err.message : "삭제에 실패했습니다",
-      );
-    } finally {
-      setDeletingId(null);
-    }
+    await cam.remove(c.id);
   }
 
   return (
@@ -201,7 +123,7 @@ export default function CamerasPage() {
               className="w-40 rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
             >
               <option value="">대상자 미지정</option>
-              {residents.map((r) => (
+              {res.items.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                   {r.room ? ` (${r.room}호)` : ""}
@@ -210,14 +132,14 @@ export default function CamerasPage() {
             </select>
             <button
               type="submit"
-              disabled={creating}
+              disabled={cam.creating}
               className="rounded-xl bg-cyan-700 px-5 py-2 text-sm font-semibold transition hover:bg-cyan-600 disabled:opacity-60"
             >
-              {creating ? "추가 중..." : "추가"}
+              {cam.creating ? "추가 중..." : "추가"}
             </button>
           </div>
-          {createError && (
-            <p className="mt-3 text-sm text-red-400">{createError}</p>
+          {cam.createError && (
+            <p className="mt-3 text-sm text-red-400">{cam.createError}</p>
           )}
         </form>
 
@@ -232,18 +154,18 @@ export default function CamerasPage() {
             {error}
           </div>
         )}
-        {deleteError && !loading && (
+        {cam.deleteError && !loading && (
           <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
-            {deleteError}
+            {cam.deleteError}
           </div>
         )}
         {!loading && !error && (
           <div className="flex flex-col gap-2">
-            {cameras.length === 0 && (
+            {cam.items.length === 0 && (
               <EmptyState message="등록된 카메라가 없습니다" />
             )}
-            {cameras.map((c) =>
-              editId === c.id ? (
+            {cam.items.map((c) =>
+              cam.editId === c.id ? (
                 <form
                   key={c.id}
                   onSubmit={handleSave}
@@ -261,7 +183,7 @@ export default function CamerasPage() {
                     className="w-40 rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
                   >
                     <option value="">대상자 미지정</option>
-                    {residents.map((r) => (
+                    {res.items.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
                         {r.room ? ` (${r.room}호)` : ""}
@@ -270,20 +192,20 @@ export default function CamerasPage() {
                   </select>
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={cam.saving}
                     className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold transition hover:bg-emerald-600 disabled:opacity-60"
                   >
-                    {saving ? "저장 중..." : "저장"}
+                    {cam.saving ? "저장 중..." : "저장"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditId(null)}
+                    onClick={cam.cancelEdit}
                     className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:text-white"
                   >
                     취소
                   </button>
-                  {editError && (
-                    <p className="w-full text-sm text-red-400">{editError}</p>
+                  {cam.editError && (
+                    <p className="w-full text-sm text-red-400">{cam.editError}</p>
                   )}
                 </form>
               ) : (
@@ -302,7 +224,7 @@ export default function CamerasPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500">
-                      대상자: {residentName(residents, c.residentId)} ·{" "}
+                      대상자: {residentName(res.items, c.residentId)} ·{" "}
                       <span className="font-mono">keyId:{c.ingestKeyId}</span>
                     </p>
                     {c.lastSeenAt && (
@@ -321,10 +243,10 @@ export default function CamerasPage() {
                   <button
                     type="button"
                     onClick={() => void handleDelete(c)}
-                    disabled={deletingId === c.id}
+                    disabled={cam.deletingId === c.id}
                     className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 transition hover:border-red-400/40 hover:text-red-200 disabled:opacity-60"
                   >
-                    {deletingId === c.id ? "삭제 중..." : "삭제"}
+                    {cam.deletingId === c.id ? "삭제 중..." : "삭제"}
                   </button>
                 </div>
               ),
