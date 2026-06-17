@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { getFrontSession } from "../../../lib/session";
 import { AlertFeed } from "../../../components/AlertFeed";
 import type { SseAlert, ResidentStatus } from "../../../lib/sse-utils";
-
-const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:3000";
+import { BACKEND_ORIGIN as backendOrigin } from "../../../lib/config";
 
 async function fetchJson<T>(url: string, cookieHeader: string): Promise<T | null> {
   try {
