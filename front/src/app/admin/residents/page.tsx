@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { api } from "../../../lib/api";
 import { EmptyState } from "../../../components/EmptyState";
+import { useCrud } from "../../../lib/useCrud";
 
 interface Resident {
   id: string;
@@ -13,123 +13,47 @@ interface Resident {
 }
 
 export default function ResidentsPage() {
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const c = useCrud<Resident>("/api/residents");
 
   // Create form
-  const [creating, setCreating] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createRoom, setCreateRoom] = useState("");
-  const [createError, setCreateError] = useState<string | null>(null);
 
   // Edit state
-  const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editRoom, setEditRoom] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    api
-      .get<Resident[]>("/api/residents")
-      .then((data) => {
-        setResidents(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<Resident[]>("/api/residents")
-      .then((data) => {
-        if (cancelled) return;
-        setResidents(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!createName.trim()) return;
-    setCreating(true);
-    setCreateError(null);
-    try {
-      await api.post<Resident>("/api/residents", {
-        name: createName.trim(),
-        room: createRoom.trim() || undefined,
-      });
+    const ok = await c.create({
+      name: createName.trim(),
+      room: createRoom.trim() || undefined,
+    });
+    if (ok) {
       setCreateName("");
       setCreateRoom("");
-      load();
-    } catch (err: Error | unknown) {
-      setCreateError(
-        err instanceof Error ? err.message : "생성에 실패했습니다",
-      );
-    } finally {
-      setCreating(false);
     }
   }
 
   function startEdit(r: Resident) {
-    setEditId(r.id);
     setEditName(r.name);
     setEditRoom(r.room ?? "");
-    setEditError(null);
+    c.startEdit(r.id);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editId) return;
-    setSaving(true);
-    setEditError(null);
-    try {
-      await api.patch<Resident>(`/api/residents/${editId}`, {
-        name: editName.trim(),
-        room: editRoom.trim() || null,
-      });
-      setEditId(null);
-      load();
-    } catch (err: Error | unknown) {
-      setEditError(
-        err instanceof Error ? err.message : "저장에 실패했습니다",
-      );
-    } finally {
-      setSaving(false);
-    }
+    if (!c.editId) return;
+    await c.save(c.editId, {
+      name: editName.trim(),
+      room: editRoom.trim() || null,
+    });
   }
 
   async function handleDelete(r: Resident) {
     if (!window.confirm(`${r.name} 대상자를 삭제할까요?`)) return;
-    setDeletingId(r.id);
-    setDeleteError(null);
-    try {
-      await api.delete<Resident>(`/api/residents/${r.id}`);
-      setResidents((current) => current.filter((item) => item.id !== r.id));
-    } catch (err: Error | unknown) {
-      setDeleteError(
-        err instanceof Error ? err.message : "삭제에 실패했습니다",
-      );
-    } finally {
-      setDeletingId(null);
-    }
+    await c.remove(r.id);
   }
 
   return (
@@ -188,38 +112,38 @@ export default function ResidentsPage() {
             />
             <button
               type="submit"
-              disabled={creating}
+              disabled={c.creating}
               className="rounded-xl bg-cyan-700 px-5 py-2 text-sm font-semibold transition hover:bg-cyan-600 disabled:opacity-60"
             >
-              {creating ? "추가 중..." : "추가"}
+              {c.creating ? "추가 중..." : "추가"}
             </button>
           </div>
-          {createError && (
-            <p className="mt-3 text-sm text-red-400">{createError}</p>
+          {c.createError && (
+            <p className="mt-3 text-sm text-red-400">{c.createError}</p>
           )}
         </form>
 
         {/* List */}
-        {loading && (
+        {c.loading && (
           <div className="flex justify-center py-16">
             <span className="text-sm text-slate-500">로딩 중...</span>
           </div>
         )}
-        {error && !loading && (
+        {c.error && !c.loading && (
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
-            {error}
+            {c.error}
           </div>
         )}
-        {deleteError && !loading && (
+        {c.deleteError && !c.loading && (
           <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
-            {deleteError}
+            {c.deleteError}
           </div>
         )}
-        {!loading && !error && (
+        {!c.loading && !c.error && (
           <div className="flex flex-col gap-2">
-            {residents.length === 0 && <EmptyState message="등록된 대상자가 없습니다" />}
-            {residents.map((r) =>
-              editId === r.id ? (
+            {c.items.length === 0 && <EmptyState message="등록된 대상자가 없습니다" />}
+            {c.items.map((r) =>
+              c.editId === r.id ? (
                 <form
                   key={r.id}
                   onSubmit={handleSave}
@@ -239,21 +163,21 @@ export default function ResidentsPage() {
                   />
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={c.saving}
                     className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold transition hover:bg-emerald-600 disabled:opacity-60"
                   >
-                    {saving ? "저장 중..." : "저장"}
+                    {c.saving ? "저장 중..." : "저장"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditId(null)}
+                    onClick={c.cancelEdit}
                     className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:text-white"
                   >
                     취소
                   </button>
-                  {editError && (
+                  {c.editError && (
                     <p className="self-center text-sm text-red-400">
-                      {editError}
+                      {c.editError}
                     </p>
                   )}
                 </form>
@@ -278,10 +202,10 @@ export default function ResidentsPage() {
                   <button
                     type="button"
                     onClick={() => void handleDelete(r)}
-                    disabled={deletingId === r.id}
+                    disabled={c.deletingId === r.id}
                     className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-300 transition hover:border-red-400/40 hover:text-red-200 disabled:opacity-60"
                   >
-                    {deletingId === r.id ? "삭제 중..." : "삭제"}
+                    {c.deletingId === r.id ? "삭제 중..." : "삭제"}
                   </button>
                 </div>
               ),
