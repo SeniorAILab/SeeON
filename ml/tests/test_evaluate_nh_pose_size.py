@@ -79,7 +79,9 @@ def test_evaluate_nh_provenance_fields(monkeypatch: pytest.MonkeyPatch, tmp_path
     monkeypatch.setattr(
         evaluate_nh,
         "_ensure_track_poses",
-        lambda video_path, poses_cache_dir, video_stem, pose_size, refresh_cache=False: [cache_file],
+        lambda video_path, poses_cache_dir, video_stem, pose_size, refresh_cache=False: [
+            cache_file
+        ],
     )
     monkeypatch.setattr(evaluate_nh, "_any_track_catches_fall", lambda *args, **kwargs: True)
     monkeypatch.setattr(evaluate_nh, "check_gate", lambda model_key, caught, mask: (True, []))

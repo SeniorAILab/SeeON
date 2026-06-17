@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
@@ -23,8 +22,16 @@ export class KakaoSendToMeChannelAdapter implements ChannelPort {
   constructor(private readonly configService: ConfigService) {}
 
   async send(message: AlertDeliveryMessage): Promise<DeliveryResult> {
+    if (
+      message.recipient_access_token === undefined ||
+      message.recipient_access_token.length === 0
+    ) {
+      return classifyKakaoDeliveryFailure(
+        new KakaoConfigError('recipient_access_token'),
+      );
+    }
     try {
-      const token = await this.readAccessToken();
+      const token = message.recipient_access_token;
       await postSendToMe(
         this.messageEndpoint(),
         token,
@@ -39,37 +46,6 @@ export class KakaoSendToMeChannelAdapter implements ChannelPort {
       };
     } catch (error) {
       return classifyKakaoDeliveryFailure(error);
-    }
-  }
-
-  private async readAccessToken(): Promise<string> {
-    const tokenPath = this.configService.get<string>('KAKAO_TOKEN_PATH');
-    if (tokenPath === undefined || tokenPath.length === 0) {
-      throw new KakaoConfigError('KAKAO_TOKEN_PATH');
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(await readFile(tokenPath, 'utf8'));
-      if (
-        typeof parsed !== 'object' ||
-        parsed === null ||
-        Array.isArray(parsed)
-      ) {
-        throw new KakaoTokenFileError('body');
-      }
-      const accessToken: unknown = Reflect.get(parsed, 'access_token');
-      if (typeof accessToken !== 'string' || accessToken.length === 0) {
-        throw new KakaoTokenFileError('access_token');
-      }
-      return accessToken;
-    } catch (error) {
-      if (
-        error instanceof KakaoTokenFileError ||
-        error instanceof SyntaxError
-      ) {
-        throw new KakaoTokenFileError('json');
-      }
-      throw new KakaoTokenFileError('read');
     }
   }
 
@@ -175,7 +151,7 @@ export function classifyKakaoDeliveryFailure(error: unknown): DeliveryResult {
       'terminal_operator_action',
       error.message,
       undefined,
-      'Provide a valid KAKAO_TOKEN_PATH token file before retrying delivery.',
+      'Refresh the recipient Kakao OAuth access token before retrying delivery.',
     );
   }
 

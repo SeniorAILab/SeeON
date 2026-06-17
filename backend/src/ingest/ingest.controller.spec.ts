@@ -4,24 +4,51 @@ import {
   MissingFieldException,
   TenantMismatchException,
 } from '../common/domain-errors';
-import { AlertWriterService } from '../alerts/alert-writer.service';
+import {
+  AlertWriterService,
+  type WriteAlertInput,
+} from '../alerts/alert-writer.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CamerasService } from '../cameras/cameras.service';
 import { StatusService } from '../status/status.service';
+import { AlertEventsService } from '../alerts/services/alert-events.service';
 import { IngestController } from './ingest.controller';
 import type { RequestWithIngestCamera } from './hmac.guard';
 
 function setup() {
-  const writer = { writeAlert: jest.fn() } as unknown as AlertWriterService;
-  const prisma = { withOrgContext: jest.fn() } as unknown as PrismaService;
-  const cameras = { recordHeartbeat: jest.fn() } as unknown as CamerasService;
-  const status = {
-    recordCameraHeartbeat: jest.fn(),
-  } as unknown as StatusService;
+  const writeAlert = jest.fn<
+    Promise<{ alertSeq: bigint; id: string }>,
+    [WriteAlertInput]
+  >();
+  const withOrgContext = jest.fn() as jest.MockedFunction<
+    PrismaService['withOrgContext']
+  >;
+  const recordHeartbeat = jest.fn();
+  const recordCameraHeartbeat = jest.fn();
+  const ensureOutboxForIngest = jest.fn() as jest.MockedFunction<
+    AlertEventsService['ensureOutboxForIngest']
+  >;
+  const writer = { writeAlert } as unknown as AlertWriterService;
+  const prisma = { withOrgContext } as unknown as PrismaService;
+  const cameras = { recordHeartbeat } as unknown as CamerasService;
+  const status = { recordCameraHeartbeat } as unknown as StatusService;
+  const alertEventsService = {
+    ensureOutboxForIngest,
+  } as unknown as AlertEventsService;
   return {
-    controller: new IngestController(writer, prisma, cameras, status),
+    controller: new IngestController(
+      writer,
+      prisma,
+      cameras,
+      status,
+      alertEventsService,
+    ),
     writer,
     prisma,
+    alertEventsService,
+    writeAlert,
+    withOrgContext,
+    ensureOutboxForIngest,
   };
 }
 
@@ -70,28 +97,43 @@ describe('IngestController', () => {
   });
 
   it('writes the alert with a server-derived idempotency key', async () => {
-    const { controller, writer } = setup();
-    (writer.writeAlert as jest.Mock).mockResolvedValue({
+    const { controller, writeAlert, ensureOutboxForIngest } = setup();
+    writeAlert.mockResolvedValue({
       alertSeq: 7n,
       id: 'a1',
     });
     const result = await controller.ingestAlert(req(), body());
     expect(result).toEqual({ alertSeq: '7', id: 'a1', status: 'created' });
-    const arg = (writer.writeAlert as jest.Mock).mock.calls[0][0];
+    const arg = writeAlert.mock.calls[0][0];
     expect(arg.idempotencyKey).toMatch(/^[0-9a-f]{64}$/);
     expect(arg.snapshotKey).toBeNull();
+    expect(ensureOutboxForIngest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        sourceId: 'cam-1',
+        externalEventId: arg.idempotencyKey,
+        confidence: 0.9,
+      }),
+    );
   });
 
   it('returns duplicate status on a unique-constraint collision', async () => {
-    const { controller, writer, prisma } = setup();
-    (writer.writeAlert as jest.Mock).mockRejectedValue({ code: 'P2002' });
-    (prisma.withOrgContext as jest.Mock).mockImplementation(
-      (_o: string, cb: (tx: unknown) => unknown) =>
-        cb({
-          alert: { findFirst: () => ({ alertSeq: 3n, id: 'a-dup' }) },
-        }),
+    const { controller, writeAlert, withOrgContext, ensureOutboxForIngest } =
+      setup();
+    writeAlert.mockRejectedValue({ code: 'P2002' });
+    withOrgContext.mockImplementation((_o: string, cb) =>
+      cb({
+        alert: { findFirst: () => ({ alertSeq: 3n, id: 'a-dup' }) },
+      } as unknown as Parameters<typeof cb>[0]),
     );
     const result = await controller.ingestAlert(req(), body());
     expect(result).toEqual({ alertSeq: '3', id: 'a-dup', status: 'duplicate' });
+    expect(ensureOutboxForIngest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        sourceId: 'cam-1',
+        confidence: 0.9,
+      }),
+    );
   });
 });

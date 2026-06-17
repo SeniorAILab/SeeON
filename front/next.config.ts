@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       afterFiles: [
         { source: "/api/:path*", destination: `${backendOrigin}/api/:path*` },
         { source: "/auth/:path*", destination: `${backendOrigin}/auth/:path*` },
+        { source: "/orgs", destination: `${backendOrigin}/orgs` },
       ],
       fallback: [],
     };

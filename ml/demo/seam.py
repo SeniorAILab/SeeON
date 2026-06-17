@@ -3,14 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final, Protocol, runtime_checkable
 
-from util.frame_source import Frame, FrameSource, VideoFileSource
+from util.frame_source import CameraSource, Frame, FrameSource, VideoFileSource
 
-# Frame / FrameSource / VideoFileSource are the cross-cutting frame-intake seam
-# and live in ml/util/ (ADR-006). They are re-exported here so demo modules can
-# keep importing the seam types from one place.
+# Frame / FrameSource / VideoFileSource / CameraSource are the cross-cutting
+# frame-intake seam and live in ml/util/ (ADR-006). They are re-exported here
+# so demo modules can keep importing the seam types from one place.
 __all__ = [
     "Frame",
     "FrameSource",
+    "CameraSource",
     "VideoFileSource",
     "BoundingBox",
     "DetectionLabel",

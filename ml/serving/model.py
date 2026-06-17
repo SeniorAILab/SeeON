@@ -28,7 +28,7 @@ class ModelMetadata:
     operating_threshold: float | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ModelMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> ModelMetadata:
         required = ("model_type", "framework", "window", "stride", "feature_dim", "name", "version")
         missing = [key for key in required if key not in data]
         if missing:
@@ -42,7 +42,9 @@ class ModelMetadata:
             stride = int(data["stride"])
             feature_dim = int(data["feature_dim"])
         except (TypeError, ValueError) as exc:
-            raise ModelLoadError("metadata window, stride, and feature_dim must be integers") from exc
+            raise ModelLoadError(
+                "metadata window, stride, and feature_dim must be integers"
+            ) from exc
         if window <= 0 or stride <= 0 or feature_dim <= 0:
             raise ModelLoadError("metadata window, stride, and feature_dim must be positive")
         threshold = data.get("operating_threshold")
@@ -115,7 +117,8 @@ class FallDetector:
         n_features = getattr(self.model, "n_features_in_", None)
         if n_features is not None and int(n_features) != self.metadata.feature_dim:
             raise ModelLoadError(
-                f"model feature_dim mismatch: metadata={self.metadata.feature_dim} artifact={n_features}"
+                "model feature_dim mismatch: "
+                f"metadata={self.metadata.feature_dim} artifact={n_features}"
             )
         if not hasattr(self.model, "predict_proba"):
             raise ModelLoadError("model.pkl must expose predict_proba")

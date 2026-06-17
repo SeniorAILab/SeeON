@@ -78,9 +78,9 @@ def _draw_detection_box(
     )
 
 def _draw_bed_status(overlay: NDArray[np.uint8], status: object) -> None:
-    box = getattr(status, "box")
-    occupancy = getattr(status, "occupancy")
-    bed_id = getattr(status, "bed_id")
+    box = status.box
+    occupancy = status.occupancy
+    bed_id = status.bed_id
     person_id = getattr(status, "person_id", None)
     color = (
         BED_EXIT_COLOR
