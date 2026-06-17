@@ -2,22 +2,11 @@
 
 import { useAlertStream, type SseAlert } from "../lib/sse";
 import type { ResidentStatus } from "../lib/sse-utils";
+import { formatTime } from "../lib/sse-utils";
 import { StatusBadge } from "./StatusBadge";
 import { SnapshotThumb } from "./SnapshotThumb";
+import { EmptyState } from "./EmptyState";
 import Link from "next/link";
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
 function AlertCard({ alert }: { alert: SseAlert }) {
   const isNew = alert.status === "NEW";
@@ -59,7 +48,7 @@ function AlertCard({ alert }: { alert: SseAlert }) {
             {Math.round(alert.probability * 100)}%
           </span>
         </p>
-        <p className="text-xs text-slate-500">{formatTime(alert.detectedAt)}</p>
+        <p className="text-xs text-slate-500">{formatTime(alert.detectedAt, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</p>
       </div>
     </Link>
   );
@@ -67,11 +56,7 @@ function AlertCard({ alert }: { alert: SseAlert }) {
 
 function StatusGrid({ statuses }: { statuses: ResidentStatus[] }) {
   if (statuses.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
-        등록된 대상자가 없습니다
-      </div>
-    );
+    return <EmptyState message="등록된 대상자가 없습니다" className="p-6" />;
   }
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -145,9 +130,7 @@ export function AlertFeed({ initialAlerts, initialStatuses }: AlertFeedProps) {
             <AlertCard key={alert.id} alert={alert} />
           ))}
           {alerts.length === 0 && (
-            <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-500">
-              감지된 낙상 이력이 없습니다
-            </div>
+            <EmptyState message="감지된 낙상 이력이 없습니다" className="p-8" />
           )}
         </div>
       </section>

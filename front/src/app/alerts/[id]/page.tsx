@@ -4,13 +4,8 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api, ApiError } from "../../../lib/api";
 import type { SseAlert } from "../../../lib/sse-utils";
+import { ALERT_STATUS_LABELS, formatTime } from "../../../lib/sse-utils";
 import { SnapshotThumb } from "../../../components/SnapshotThumb";
-
-const STATUS_LABELS: Record<string, string> = {
-  NEW: "신규",
-  ACKED: "확인됨",
-  RESOLVED: "해결됨",
-};
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -109,7 +104,7 @@ export default function AlertDetailPage({
                     : "bg-slate-700 text-slate-300"
                 }`}
               >
-                {STATUS_LABELS[alert.status] ?? alert.status}
+                {ALERT_STATUS_LABELS[alert.status] ?? alert.status}
               </span>
             </div>
 
@@ -140,10 +135,7 @@ export default function AlertDetailPage({
               <Field label="유형" value={alert.type} />
               <Field
                 label="감지 시각"
-                value={new Intl.DateTimeFormat("ko-KR", {
-                  dateStyle: "long",
-                  timeStyle: "medium",
-                }).format(new Date(alert.detectedAt))}
+                value={formatTime(alert.detectedAt, { dateStyle: "long", timeStyle: "medium" })}
               />
               <Field
                 label="alertSeq"

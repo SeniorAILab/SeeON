@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "../../../lib/api";
+import { residentName, formatTime } from "../../../lib/sse-utils";
+import { EmptyState } from "../../../components/EmptyState";
 
 interface Camera {
   id: string;
@@ -145,11 +147,6 @@ export default function CamerasPage() {
     }
   }
 
-  function residentName(id: string | null): string {
-    if (!id) return "미지정";
-    return residents.find((r) => r.id === id)?.name ?? id.slice(0, 8);
-  }
-
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
       <div className="mx-auto max-w-3xl">
@@ -243,9 +240,7 @@ export default function CamerasPage() {
         {!loading && !error && (
           <div className="flex flex-col gap-2">
             {cameras.length === 0 && (
-              <div className="rounded-xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-500">
-                등록된 카메라가 없습니다
-              </div>
+              <EmptyState message="등록된 카메라가 없습니다" />
             )}
             {cameras.map((c) =>
               editId === c.id ? (
@@ -307,16 +302,13 @@ export default function CamerasPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500">
-                      대상자: {residentName(c.residentId)} ·{" "}
+                      대상자: {residentName(residents, c.residentId)} ·{" "}
                       <span className="font-mono">keyId:{c.ingestKeyId}</span>
                     </p>
                     {c.lastSeenAt && (
                       <p className="text-xs text-slate-600">
                         마지막 확인:{" "}
-                        {new Intl.DateTimeFormat("ko-KR", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        }).format(new Date(c.lastSeenAt))}
+                        {formatTime(c.lastSeenAt, { dateStyle: "short", timeStyle: "short" })}
                       </p>
                     )}
                   </div>
