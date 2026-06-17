@@ -71,12 +71,14 @@ model User {
   sessions      ServerSession[]
 }
 
-/// Kakao OAuth identity. Access/refresh tokens are NOT stored (this build).
+/// Kakao OAuth identity. Access token encrypted at rest (AES-256-GCM); refresh token not stored (this build).
 model KakaoIdentity {
   id             String    @id @default(cuid())
   userId         String    @unique
   orgId          String?
   kakaoId        String
+  accessTokenCipher String?
+  tokenScope        String?
   tokenExpiresAt DateTime?
   createdAt      DateTime  @default(now())
 

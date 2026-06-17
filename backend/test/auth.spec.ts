@@ -117,6 +117,8 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
     process.env.KAKAO_REST_API_KEY = 'test-rest-api-key';
     process.env.KAKAO_REDIRECT_URI =
       'http://localhost:3001/auth/kakao/callback';
+    process.env.KAKAO_TOKEN_ENC_KEY =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
     direct = new PrismaClient({
       datasources: { db: { url: process.env.DIRECT_URL } },
