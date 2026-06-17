@@ -5,7 +5,7 @@ type: plan
 date: 2026-06-17
 owner: gobeumsu
 issue: 202
-status: in-progress
+status: done
 ---
 <!-- NOTE: plan body is immutable after finalize (first commit including this file).
      Scope change -> new slug + status: superseded-by. -->
