@@ -26,6 +26,8 @@ import type {
   RequestWithIngestCamera,
 } from './hmac.guard.js';
 import { AlertWriterService } from '../alerts/alert-writer.service.js';
+import { AlertEventsService } from '../alerts/services/alert-events.service.js';
+import type { AlertEventIngressDto } from '../alerts/dto/alert-events.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CamerasService } from '../cameras/cameras.service.js';
 import { StatusService } from '../status/status.service.js';
@@ -53,6 +55,7 @@ export class IngestController {
     private readonly prisma: PrismaService,
     private readonly cameras: CamerasService,
     private readonly status: StatusService,
+    private readonly alertEventsService: AlertEventsService,
   ) {}
 
   @Post('alerts')
@@ -134,6 +137,12 @@ export class IngestController {
         detectedAt,
         idempotencyKey,
       });
+      await this.ensureOutboxForIngest(camera, {
+        idempotencyKey,
+        type,
+        detectedAt,
+        probability,
+      });
       return {
         alertSeq: alert.alertSeq.toString(),
         id: alert.id,
@@ -155,6 +164,12 @@ export class IngestController {
               where: { orgId: camera.orgId, idempotencyKey },
             }),
         );
+        await this.ensureOutboxForIngest(camera, {
+          idempotencyKey,
+          type,
+          detectedAt,
+          probability,
+        });
         return {
           alertSeq: existing?.alertSeq?.toString() ?? '0',
           id: existing?.id ?? '',
@@ -163,6 +178,24 @@ export class IngestController {
       }
       throw err;
     }
+  }
+  private async ensureOutboxForIngest(
+    camera: IngestCameraInfo,
+    input: {
+      readonly idempotencyKey: string;
+      readonly type: string;
+      readonly detectedAt: Date;
+      readonly probability: number;
+    },
+  ): Promise<void> {
+    await this.alertEventsService.ensureOutboxForIngest({
+      orgId: camera.orgId,
+      sourceId: camera.id,
+      externalEventId: input.idempotencyKey,
+      type: input.type as AlertEventIngressDto['type'],
+      detectedAt: input.detectedAt,
+      confidence: input.probability,
+    });
   }
   /**
    * POST /ingest/heartbeat — HMAC-authenticated camera heartbeat (F6).
