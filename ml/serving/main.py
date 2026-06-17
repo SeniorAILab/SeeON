@@ -41,7 +41,7 @@ class PredictRequest(BaseModel):
     timeout_sec: Annotated[float, Field(gt=0, le=MAX_TIMEOUT_SEC)] = DEFAULT_TIMEOUT_SEC
 
     @model_validator(mode="after")
-    def exactly_one_source(self) -> "PredictRequest":
+    def exactly_one_source(self) -> PredictRequest:
         if bool(self.source_id) == bool(self.upload_id):
             raise ValueError("exactly one of source_id or upload_id is required")
         return self
@@ -90,6 +90,10 @@ def health() -> dict[str, Any]:
     }
 
 
+def _raise_missing_live_source() -> None:
+    raise SourceRegistryError("trusted live source has no bounded server-side FrameSource")
+
+
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest, request: Request) -> PredictResponse:
     try:
@@ -98,7 +102,7 @@ def predict(req: PredictRequest, request: Request) -> PredictResponse:
             live_sources = getattr(request.app.state, "live_sources", {})
             source = live_sources.get(resolved.record.source_id)
             if source is None:
-                raise SourceRegistryError("trusted live source has no bounded server-side FrameSource")
+                _raise_missing_live_source()
             controls = PipelineControls(
                 start_sec=0.0,
                 duration_sec=req.duration_sec,

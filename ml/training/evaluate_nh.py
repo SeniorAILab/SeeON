@@ -37,8 +37,9 @@ import hashlib
 import json
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Final, Sequence
+from typing import Final
 
 import numpy as np
 

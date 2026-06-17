@@ -12,7 +12,6 @@ from sklearn.ensemble import RandomForestClassifier
 from serving import model as serving_model
 from serving.model import FallDetector, ModelInputError, ModelLoadError
 
-
 REAL_ARTIFACT_DIR = Path(__file__).resolve().parents[1] / "models" / "fall" / "random-forest"
 
 
@@ -104,7 +103,9 @@ def test_metadata_contract_mismatch_fails(
         FallDetector()
 
 
-def test_predict_rejects_wrong_window_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_predict_rejects_wrong_window_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_artifact(tmp_path)
     monkeypatch.setattr(serving_model, "MODELS_DIR", tmp_path)
     detector = FallDetector()

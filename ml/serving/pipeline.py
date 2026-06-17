@@ -75,9 +75,13 @@ class FallPipeline:
         self.pose_size = pose_size
         self._pose_factory = pose_factory or (lambda: YoloPoseModule(size=pose_size))
 
-    def predict_path(self, path: Path, controls: PipelineControls, source_duration_sec: float) -> float:
+    def predict_path(
+        self, path: Path, controls: PipelineControls, source_duration_sec: float
+    ) -> float:
         controls.validate(source_duration_sec)
-        source = VideoFileSource(path, start_sec=controls.start_sec, frame_stride=controls.frame_stride)
+        source = VideoFileSource(
+            path, start_sec=controls.start_sec, frame_stride=controls.frame_stride
+        )
         return self.predict_source(source, controls)
 
     def predict_source(self, source: FrameSource, controls: PipelineControls) -> float:
@@ -93,7 +97,9 @@ class FallPipeline:
             if frame.time_sec >= controls.start_sec + controls.duration_sec:
                 break
             result = pose.predict(frame)
-            normalised = normalize_primary_person(result, frame.image.shape[1], frame.image.shape[0])
+            normalised = normalize_primary_person(
+                result, frame.image.shape[1], frame.image.shape[0]
+            )
             if normalised is not None:
                 window.append(normalised)
             frames_seen += 1
@@ -103,11 +109,14 @@ class FallPipeline:
         if not window:
             raise PipelineError("no person detected in requested source window")
         raise PipelineError(
-            f"insufficient person keypoint window: got {len(window)}, need {self._model.metadata.window}"
+            "insufficient person keypoint window: "
+            f"got {len(window)}, need {self._model.metadata.window}"
         )
 
 
-def normalize_primary_person(result: DetectionResult, frame_w: int, frame_h: int) -> np.ndarray | None:
+def normalize_primary_person(
+    result: DetectionResult, frame_w: int, frame_h: int
+) -> np.ndarray | None:
     if not result.boxes or not result.keypoints:
         return None
     best_idx = max(range(len(result.boxes)), key=lambda idx: _box_area(result.boxes[idx]))
@@ -116,7 +125,9 @@ def normalize_primary_person(result: DetectionResult, frame_w: int, frame_h: int
     from training import config
     from training.extract_poses import normalize_person_keypoints
 
-    arr = normalize_person_keypoints((result.keypoints[best_idx],), frame_w, frame_h, config.CONF_THRESHOLD)
+    arr = normalize_person_keypoints(
+        (result.keypoints[best_idx],), frame_w, frame_h, config.CONF_THRESHOLD
+    )
     if not np.asarray(arr).any():
         return None
     return np.asarray(arr, dtype=np.float32)
@@ -130,6 +141,6 @@ def window_to_features(window: list[np.ndarray]) -> np.ndarray:
 
 
 def _box_area(box: object) -> int:
-    return max(0, int(getattr(box, "x2")) - int(getattr(box, "x1"))) * max(
-        0, int(getattr(box, "y2")) - int(getattr(box, "y1"))
+    return max(0, int(box.x2) - int(box.x1)) * max(
+        0, int(box.y2) - int(box.y1)
     )

@@ -35,7 +35,9 @@ class StubPipeline:
         self.error = error
         self.calls = []
 
-    def predict_path(self, path: Path, controls: PipelineControls, source_duration_sec: float) -> float:
+    def predict_path(
+        self, path: Path, controls: PipelineControls, source_duration_sec: float
+    ) -> float:
         self.calls.append(("path", path, controls, source_duration_sec))
         controls.validate(source_duration_sec)
         if self.error:
@@ -94,7 +96,11 @@ def test_valid_allowlisted_source_positive(tmp_path: Path):
 
     res = _predict({"source_id": "safe", "duration_sec": 2, "max_frames": 5}, request)
 
-    assert res.model_dump() == {"model": "fall-detector", "version": "test", "fall_probability": 0.73}
+    assert res.model_dump() == {
+        "model": "fall-detector",
+        "version": "test",
+        "fall_probability": 0.73,
+    }
     assert pipeline.calls[0][0] == "path"
 
 
@@ -111,7 +117,9 @@ def test_traversal_and_raw_paths_rejected(tmp_path: Path, source_id: str):
     assert "path" in exc.detail or "traversal" in exc.detail
 
 
-@pytest.mark.parametrize("payload", [{"path": "/tmp/x.mp4"}, {"source_id": "safe", "path": "x.mp4"}])
+@pytest.mark.parametrize(
+    "payload", [{"path": "/tmp/x.mp4"}, {"source_id": "safe", "path": "x.mp4"}]
+)
 def test_abs_raw_path_field_rejected(payload: dict):
     with pytest.raises(ValidationError):
         PredictRequest.model_validate(payload)
@@ -132,7 +140,10 @@ def test_live_descriptor_rejected(tmp_path: Path, source_id: str):
 
 def test_invalid_ext_mime_rejected(tmp_path: Path):
     _video(tmp_path, "clip.txt")
-    request = _request(tmp_path, {"bad": {"path": "clip.txt", "duration_sec": 5, "mime_type": "text/plain"}})
+    request = _request(
+        tmp_path,
+        {"bad": {"path": "clip.txt", "duration_sec": 5, "mime_type": "text/plain"}},
+    )
     exc = _raises_http({"source_id": "bad"}, request)
     assert exc.status_code == 400
     assert "extension" in exc.detail
@@ -169,7 +180,13 @@ def test_timeout_returns_408(tmp_path: Path):
     assert exc.status_code == 408
 
 
-@pytest.mark.parametrize("message", ["no person detected in requested source window", "insufficient person keypoint window: got 1, need 2"])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "no person detected in requested source window",
+        "insufficient person keypoint window: got 1, need 2",
+    ],
+)
 def test_no_person_no_window_are_explicit_errors(tmp_path: Path, message: str):
     _video(tmp_path)
     request = _request(
