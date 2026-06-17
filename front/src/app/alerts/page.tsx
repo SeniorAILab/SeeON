@@ -4,25 +4,10 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
 import type { AlertStatus, SseAlert } from "../../lib/sse-utils";
+import { ALERT_STATUS_LABELS, formatTime } from "../../lib/sse-utils";
+import { EmptyState } from "../../components/EmptyState";
 
 const PAGE_SIZE = 50;
-
-const STATUS_LABELS: Record<string, string> = {
-  NEW: "신규",
-  ACKED: "확인됨",
-  RESOLVED: "해결됨",
-};
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("ko-KR", {
-      dateStyle: "short",
-      timeStyle: "medium",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
 function buildAlertsPath(filters: {
   residentId: string;
@@ -215,7 +200,7 @@ export default function AlertsPage({
                           : "bg-slate-700 text-slate-400"
                       }`}
                     >
-                      {STATUS_LABELS[alert.status] ?? alert.status}
+                      {ALERT_STATUS_LABELS[alert.status] ?? alert.status}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-300">
@@ -229,9 +214,7 @@ export default function AlertsPage({
               </Link>
             ))}
             {alerts.length === 0 && (
-              <div className="rounded-xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-500">
-                {filtering ? "조건에 맞는 알림 이력이 없습니다" : "알림 이력이 없습니다"}
-              </div>
+              <EmptyState message={filtering ? "조건에 맞는 알림 이력이 없습니다" : "알림 이력이 없습니다"} />
             )}
             {alerts.length > 0 && hasMore && (
               <button

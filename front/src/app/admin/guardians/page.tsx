@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "../../../lib/api";
-import { maskPhone } from "../../../lib/sse-utils";
+import { maskPhone, residentName } from "../../../lib/sse-utils";
+import { EmptyState } from "../../../components/EmptyState";
 
 interface Guardian {
   id: string;
@@ -154,10 +155,6 @@ export default function GuardiansPage() {
     }
   }
 
-  function residentName(id: string): string {
-    return residents.find((r) => r.id === id)?.name ?? id.slice(0, 8);
-  }
-
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
       <div className="mx-auto max-w-3xl">
@@ -265,9 +262,7 @@ export default function GuardiansPage() {
         {!loading && !error && (
           <div className="flex flex-col gap-2">
             {guardians.length === 0 && (
-              <div className="rounded-xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-500">
-                등록된 보호자가 없습니다
-              </div>
+              <EmptyState message="등록된 보호자가 없습니다" />
             )}
             {guardians.map((g) =>
               editId === g.id ? (
@@ -337,7 +332,7 @@ export default function GuardiansPage() {
                       {maskPhone(g.phone)}
                     </p>
                     <p className="text-xs text-slate-500">
-                      대상자: {residentName(g.residentId)}
+                      대상자: {residentName(residents, g.residentId)}
                     </p>
                   </div>
                   <button

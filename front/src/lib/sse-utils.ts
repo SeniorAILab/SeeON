@@ -123,3 +123,31 @@ export function maskPhone(phone: string): string {
   const suffix = digits.slice(-4);
   return `${prefix}-****-${suffix}`;
 }
+
+/** Alert status → Korean label. */
+export const ALERT_STATUS_LABELS: Record<string, string> = {
+  NEW: "신규",
+  ACKED: "확인됨",
+  RESOLVED: "해결됨",
+};
+
+/** Format an ISO timestamp for ko-KR display; falls back to the raw string. */
+export function formatTime(
+  iso: string,
+  opts: Intl.DateTimeFormatOptions = { dateStyle: "short", timeStyle: "medium" },
+): string {
+  try {
+    return new Intl.DateTimeFormat("ko-KR", opts).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+/** Resolve a resident's display name; "미지정" for null, id-prefix fallback. */
+export function residentName(
+  residents: { id: string; name: string }[],
+  id: string | null,
+): string {
+  if (!id) return "미지정";
+  return residents.find((r) => r.id === id)?.name ?? id.slice(0, 8);
+}
