@@ -7,10 +7,17 @@
         "ref": "main",
         "sha": "45f7d2f83fb430a65fd512a98ad7b14d79e06636"
       }
+    },
+    "craft-skills": {
+      "source": {
+        "source": "github",
+        "repo": "GoBeromsu/craft-skills"
+      }
     }
   },
   "enabledPlugins": {
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "craft-skills@craft-skills": true
   },
   "hooks": {
     "SessionStart": [
