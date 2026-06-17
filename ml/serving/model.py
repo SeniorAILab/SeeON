@@ -16,6 +16,14 @@ class ModelLoadError(RuntimeError):
     """Raised when the serving model artifact is absent or invalid."""
 
 
+class ModelInputError(ValueError):
+    """Raised when prediction input does not match the trained feature contract."""
+
+
+EXPECTED_WINDOW = 30
+EXPECTED_STRIDE = 5
+EXPECTED_FEATURE_DIM = 45
+
 @dataclass(frozen=True, slots=True)
 class ModelMetadata:
     model_type: str
@@ -37,16 +45,27 @@ class ModelMetadata:
             raise ModelLoadError(f"unsupported model_type {data['model_type']!r}")
         if data["framework"] != "sklearn":
             raise ModelLoadError(f"unsupported framework {data['framework']!r}")
-        try:
-            window = int(data["window"])
-            stride = int(data["stride"])
-            feature_dim = int(data["feature_dim"])
-        except (TypeError, ValueError) as exc:
-            raise ModelLoadError(
-                "metadata window, stride, and feature_dim must be integers"
-            ) from exc
+        for key in ("window", "stride", "feature_dim"):
+            value = data[key]
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ModelLoadError(f"metadata {key} must be an integer")
+        window = data["window"]
+        stride = data["stride"]
+        feature_dim = data["feature_dim"]
         if window <= 0 or stride <= 0 or feature_dim <= 0:
             raise ModelLoadError("metadata window, stride, and feature_dim must be positive")
+        if window != EXPECTED_WINDOW:
+            raise ModelLoadError(
+                f"metadata window must be {EXPECTED_WINDOW}, received {window}"
+            )
+        if stride != EXPECTED_STRIDE:
+            raise ModelLoadError(
+                f"metadata stride must be {EXPECTED_STRIDE}, received {stride}"
+            )
+        if feature_dim != EXPECTED_FEATURE_DIM:
+            raise ModelLoadError(
+                f"metadata feature_dim must be {EXPECTED_FEATURE_DIM}, received {feature_dim}"
+            )
         threshold = data.get("operating_threshold")
         return cls(
             model_type=data["model_type"],
@@ -73,11 +92,12 @@ class ModelMetadata:
 
 
 class FallDetector:
-    def __init__(self, model_type: str = "random-forest", models_dir: Path = MODELS_DIR) -> None:
+    def __init__(self, model_type: str = "random-forest", models_dir: Path | None = None) -> None:
         if model_type != "random-forest":
             raise ModelLoadError(f"unsupported model_type {model_type!r}")
         self.model_type = model_type
-        self.artifact_dir = models_dir / "fall" / model_type
+        root = MODELS_DIR if models_dir is None else models_dir
+        self.artifact_dir = root / "fall" / model_type
         self.model_path = self.artifact_dir / "model.pkl"
         self.metadata_path = self.artifact_dir / "metadata.json"
         self.metadata = self._load_metadata()
@@ -91,6 +111,11 @@ class FallDetector:
     @property
     def version(self) -> str:
         return self.metadata.version
+
+    def metadata_dict(self) -> dict[str, Any]:
+        metadata = self.metadata.asdict()
+        metadata["source"] = "trained"
+        return metadata
 
     def _load_metadata(self) -> ModelMetadata:
         if not self.metadata_path.exists():
@@ -124,9 +149,13 @@ class FallDetector:
             raise ModelLoadError("model.pkl must expose predict_proba")
 
     def predict(self, features: list[float] | np.ndarray) -> float:
-        arr = np.asarray(features, dtype=np.float32).reshape(1, -1)
+        arr = np.asarray(features, dtype=np.float32)
+        if arr.size == 0:
+            raise ModelInputError("window must be non-empty")
+        arr = arr.reshape(1, -1)
         if arr.shape[1] != self.metadata.feature_dim:
-            raise ValueError(
+            raise ModelInputError(
+                "unexpected window shape: "
                 f"expected {self.metadata.feature_dim} features, received {arr.shape[1]}"
             )
         proba = self.model.predict_proba(arr)
