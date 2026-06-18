@@ -71,3 +71,17 @@ DEMO_FACILITY_ID=demo-org-01
 
 ## 7. 미검증(라이브 의존) — 정직 고지
 - 실제 카카오 발송, 실제 노트북 카메라 라이브 캡처, 브라우저 로그인→대시보드 E2E는 Phase 0(실 콘솔/키) + 카메라 하드웨어가 있어야 검증된다. 코드/통합 경로는 단위·서비스 테스트로 검증됨(G001–G005). 이 런북대로 리허설에서 최종 확인할 것.
+
+## 8. #226 업데이트 — Kakao scope env화 + 한글 리치 메시지
+
+이 브랜치(`feat/226`)가 위 절차에 더하는 델타. 관련: ADR-051(scope), ADR-052(메시지 DTO/포맷), ADR-053(수신자 모델).
+
+- **콘솔 동의항목 부담 감소**: scope 기본값이 이제 `talk_message`만이다(`KakaoClient.resolveScopes`). **`profile_nickname` 동의항목은 더 이상 필수가 아니다** — 닉네임이 필요해 일부러 켤 때만 `KAKAO_SCOPES="talk_message profile_nickname"`로 opt-in. profile_nickname 미동의로 인한 `invalid_scope`가 사라진다. (닉네임 미수집 시 `Kakao User`로 폴백.)
+- **env 추가**(`backend/.env.development`):
+  - `# KAKAO_SCOPES=talk_message` (생략 시 기본 talk_message)
+  - `ALERT_DASHBOARD_URL=http://localhost:3000` — 카카오 메시지의 대시보드 링크. **카카오 앱 Web 플랫폼에 이 도메인을 등록**해야 text 템플릿 link가 렌더된다(로컬은 등록 도메인/터널 필요). 미등록 시 발송 4xx 또는 링크 미작동.
+  - (선택) `KAKAO_MESSAGE_LINK_URL`(링크 우선순위 > ALERT_DASHBOARD_URL), `KAKAO_MESSAGE_ENDPOINT`.
+- **메시지 포맷 변경(5번 시퀀스 4단계 확인 포인트)**: 도착하는 카톡이 이제 디버그 문자열이 아니라 한글 리치 text다 — `🚨 낙상 감지 / 👤 {거주자명}님 · 🏠 {호실} / 🕐 {KST} / 📊 확신도 {n}% / 👉 대시보드에서 상태 확인`. 거주자명·호실은 백엔드 DB(alert-writer resident join)에서 채워지고(ml 무변경), 디버그/DB ID는 노출되지 않으며 ≤180자.
+- **사전 점검 추가**: 카톡은 도착하나 링크가 안 열림 → `ALERT_DASHBOARD_URL` 도메인이 카카오 콘솔 Web 플랫폼에 등록됐는지 먼저 확인.
+
+> 코드/테스트: G001(scope env+tokenScope), G002(메시지 DTO+어댑터+거주자 seam), G003(fan-out·수신자정책·decrypt-no-send·중복/재시도 no-double-send)은 단위·서비스 테스트로 검증됨. 실제 폰 도착(AC11)은 Phase 0(실 콘솔/키/도메인 등록) + 1회 OAuth 동의 후 이 런북대로 라이브 확인.
