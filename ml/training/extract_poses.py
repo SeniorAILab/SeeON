@@ -41,8 +41,8 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from demo.model_modules import pose_weight_path
-from demo.yolo_runtime import YoloPoseRunner
+from core.model_modules import pose_weight_path
+from core.yolo_runtime import YoloPoseRunner
 from training import config
 
 log = logging.getLogger(__name__)
@@ -233,9 +233,7 @@ def _extract_clip(clip: ClipRef, output_dir: Path, runner: YoloPoseRunner) -> No
 def main(argv: list[str] | None = None) -> None:
     """Parse arguments and run the extraction loop."""
     parser = argparse.ArgumentParser(
-        description=(
-            "Extract COCO-17 pose keypoints from Le2i .avi/.mp4 clips into .npz caches."
-        )
+        description=("Extract COCO-17 pose keypoints from Le2i .avi/.mp4 clips into .npz caches.")
     )
     parser.add_argument(
         "--input-dir",

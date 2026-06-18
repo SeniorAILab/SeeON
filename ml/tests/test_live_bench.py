@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
+from core.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 from demo.live_bench import measure_pipeline
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 
 # ---------------------------------------------------------------------------
 # Fakes

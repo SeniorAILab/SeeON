@@ -9,6 +9,7 @@ Output (--json): one JSON line to stdout:
 All diagnostic output goes to stderr.
 Pass criterion (evaluator): fps >= 10 AND latency_ms <= 500.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -99,7 +100,7 @@ def main(argv: list[str] | None = None) -> None:
     # pythonpath=["."]] in pyproject.toml covers pytest; this covers __main__.
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-    from demo.classifiers import ClassifierParams
+    from core.classifiers import ClassifierParams
     from demo.demo_ui import build_model
     from util.frame_source import VideoFileSource
 

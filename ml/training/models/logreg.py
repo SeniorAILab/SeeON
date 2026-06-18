@@ -46,9 +46,7 @@ class LogisticRegressionFallClassifier:
             max_iter=1000,
         )
         scaled = hp_bool("scaled", False) if scaled is None else bool(scaled)
-        self._clf = (
-            Pipeline([("scaler", StandardScaler()), ("clf", est)]) if scaled else est
-        )
+        self._clf = Pipeline([("scaler", StandardScaler()), ("clf", est)]) if scaled else est
 
     # ------------------------------------------------------------------
     # FallClassifier Protocol

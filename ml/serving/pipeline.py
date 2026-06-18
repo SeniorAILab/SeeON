@@ -9,8 +9,8 @@ from typing import Protocol
 
 import numpy as np
 
-from demo.model_modules import YoloPoseModule, pose_weight_path
-from demo.seam import DetectionResult, ModelModule
+from core.model_modules import YoloPoseModule, pose_weight_path
+from core.seam import DetectionResult, ModelModule
 from serving.model import FallDetector
 from util.frame_source import FrameSource, VideoFileSource
 
@@ -141,6 +141,4 @@ def window_to_features(window: list[np.ndarray]) -> np.ndarray:
 
 
 def _box_area(box: object) -> int:
-    return max(0, int(box.x2) - int(box.x1)) * max(
-        0, int(box.y2) - int(box.y1)
-    )
+    return max(0, int(box.x2) - int(box.x1)) * max(0, int(box.y2) - int(box.y1))

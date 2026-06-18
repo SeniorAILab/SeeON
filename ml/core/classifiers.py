@@ -4,8 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from demo.features import FrameFeatures
-from demo.temporal_module import TEMPORAL_MODEL_KEYS, temporal_artifact_available
+from core.features import FrameFeatures
+from core.temporal_module import TEMPORAL_MODEL_KEYS, temporal_artifact_available
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,7 +142,7 @@ def build_classifier(key: str, params: ClassifierParams) -> Classifier:
     Raises ValueError for unknown keys or keys whose ``available`` is False
     (준비중 / not yet implemented).  Temporal model keys (random_forest, lstm,
     transformer) are not built here — use
-    ``demo.temporal_module.build_temporal_model`` instead; app._build_model
+    ``core.temporal_module.build_temporal_model`` instead; app._build_model
     routes to that path automatically.
     """
     for spec in CLASSIFIER_REGISTRY:
@@ -151,7 +151,7 @@ def build_classifier(key: str, params: ClassifierParams) -> Classifier:
                 if key in TEMPORAL_MODEL_KEYS:
                     raise ValueError(
                         f"Classifier {key!r} is a temporal ModelModule and cannot be built via "
-                        "build_classifier(). Use demo.temporal_module.build_temporal_model() "
+                        "build_classifier(). Use core.temporal_module.build_temporal_model() "
                         "instead (app._build_model does this automatically)."
                     )
                 raise ValueError(

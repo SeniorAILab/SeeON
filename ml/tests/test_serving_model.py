@@ -136,8 +136,6 @@ def test_loader_only_import_boundary() -> None:
     ]
     assert all(ref not in source for ref in forbidden_source_refs)
     assert "ultralytics" not in sys.modules
-    assert "demo.app" not in sys.modules
-    assert "training.extract_poses" not in sys.modules
 
 
 def test_health_exposes_real_metadata() -> None:

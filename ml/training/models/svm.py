@@ -50,9 +50,7 @@ class SvmFallClassifier:
         # scaled=True (env HARNESS_HP_SCALED): StandardScaler Pipeline —
         # phase-3 Step 3 (fall-loop-phase3-linear-calibration).
         scaled = hp_bool("scaled", False) if scaled is None else bool(scaled)
-        self._clf = (
-            Pipeline([("scaler", StandardScaler()), ("clf", est)]) if scaled else est
-        )
+        self._clf = Pipeline([("scaler", StandardScaler()), ("clf", est)]) if scaled else est
 
     # ------------------------------------------------------------------
     # FallClassifier Protocol

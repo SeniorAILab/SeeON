@@ -5,7 +5,6 @@ belong here. Page-specific prose, status messages, and one-off copy stay with
 the rendering code that owns them.
 """
 
-
 UPLOAD_VIDEO_LABEL = "영상 추가 업로드"
 VIDEO_SELECT_LABEL = "영상"
 DOMAIN_SELECT_LABEL = "도메인"

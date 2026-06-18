@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 try:
-    from demo.seam import DetectionResult
+    from core.seam import DetectionResult
 except ModuleNotFoundError:
     from seam import DetectionResult  # type: ignore[no-redef]
 
