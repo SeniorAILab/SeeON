@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from demo.temporal_module import _KEY_TO_ARTIFACT
+from core.temporal_module import _KEY_TO_ARTIFACT
 from training.metadata import artifact_dir, load_metadata
 
 NH_RECOMMENDED_THRESHOLDS: Final[dict[str, float]] = {

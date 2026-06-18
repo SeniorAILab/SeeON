@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
-from demo.yolo_runtime import YoloPoseRunner
+from core.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.yolo_runtime import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
 

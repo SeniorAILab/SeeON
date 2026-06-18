@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult
+from core.seam import BoundingBox, DetectionLabel, DetectionResult
 from demo.yolo_overlay import render_yolo_overlay
 
 # ---------------------------------------------------------------------------
@@ -116,9 +116,7 @@ def test_live_path_is_wired_through_the_seam() -> None:
 def _imported_modules(source_path: Path) -> set[str]:
     tree = ast.parse(source_path.read_text())
     return {
-        node.module
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module
+        node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module
     }
 
 

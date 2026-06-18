@@ -25,10 +25,20 @@ from training.models.svm import SvmFallClassifier
 from training.models.transformer import TransformerFallClassifier
 
 _ALL_HP_NAMES = [
-    "N_ESTIMATORS", "MAX_DEPTH", "MIN_SAMPLES_LEAF",
-    "C", "GAMMA", "KERNEL", "SCALED",
-    "HIDDEN", "LAYERS", "LR", "DROPOUT",
-    "D_MODEL", "HEADS", "BLOCKS",
+    "N_ESTIMATORS",
+    "MAX_DEPTH",
+    "MIN_SAMPLES_LEAF",
+    "C",
+    "GAMMA",
+    "KERNEL",
+    "SCALED",
+    "HIDDEN",
+    "LAYERS",
+    "LR",
+    "DROPOUT",
+    "D_MODEL",
+    "HEADS",
+    "BLOCKS",
 ]
 
 

@@ -43,7 +43,10 @@ def test_camera_selection_creates_camera_source_without_video_path(monkeypatch) 
     )
 
     assert isinstance(source, CameraSource)
-    assert app._source_id_for_selection(
-        LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL),
-        camera_index=2,
-    ) == "camera:2"
+    assert (
+        app._source_id_for_selection(
+            LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL),
+            camera_index=2,
+        )
+        == "camera:2"
+    )

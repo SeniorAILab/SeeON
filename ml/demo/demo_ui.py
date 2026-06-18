@@ -5,18 +5,18 @@ from typing import Literal
 
 import streamlit as st
 
-from demo.classifier_module import FallClassifierModule
-from demo.classifiers import (
+from core.classifier_module import FallClassifierModule
+from core.classifiers import (
     CLASSIFIER_REGISTRY,
     ClassifierParams,
     ClassifierSpec,
     build_classifier,
 )
-from demo.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPoseModule
-from demo.playback_status import CurrentPlaybackStatus
-from demo.seam import ModelModule
-from demo.temporal_module import TEMPORAL_MODEL_KEYS
-from demo.thresholds import default_threshold
+from core.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPoseModule
+from core.playback_status import CurrentPlaybackStatus
+from core.seam import ModelModule
+from core.temporal_module import TEMPORAL_MODEL_KEYS
+from core.thresholds import default_threshold
 from demo.ui_labels import (
     BOUNDING_BOXES_LABEL,
     CLASSIFIER_SELECT_LABEL,
@@ -47,9 +47,7 @@ def build_live_source_options(
     registered_videos: list[RegisteredVideo],
 ) -> list[LiveSourceOption]:
     """Build live-source choices: laptop camera plus registered clips."""
-    options: list[LiveSourceOption] = [
-        LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL)
-    ]
+    options: list[LiveSourceOption] = [LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL)]
     options.extend(
         LiveSourceOption(kind="video", label=video.display_name, video=video)
         for video in registered_videos
@@ -97,7 +95,7 @@ def build_model(
     if classifier_key is None:
         return pose
     if classifier_key in TEMPORAL_MODEL_KEYS:
-        from demo.temporal_module import build_temporal_model
+        from core.temporal_module import build_temporal_model
 
         return build_temporal_model(classifier_key, pose, threshold_override=decision_threshold)
     classifier = build_classifier(classifier_key, classifier_params)
@@ -164,7 +162,7 @@ def select_decision_threshold(spec: ClassifierSpec) -> float | None:
     """Render the 판정 임계값 slider for an available temporal model.
 
     The default is the model's recommended operating point — the NH-measured
-    value where one exists (demo.thresholds.NH_RECOMMENDED_THRESHOLDS), else
+    value where one exists (core.thresholds.NH_RECOMMENDED_THRESHOLDS), else
     the artifact's LE2I operating_threshold. Returns None for non-temporal or
     unavailable specs (no slider rendered).
     """

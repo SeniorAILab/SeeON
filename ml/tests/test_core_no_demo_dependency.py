@@ -4,13 +4,13 @@ import ast
 from pathlib import Path
 
 
-def _util_python_files() -> list[Path]:
-    util_dir = Path(__file__).parent.parent / "util"
-    return list(util_dir.rglob("*.py"))
+def _python_files(package: str) -> list[Path]:
+    package_dir = Path(__file__).parent.parent / package
+    return list(package_dir.rglob("*.py"))
 
 
 def _imports_demo(source: str) -> list[str]:
-    """Return a list of import statements that reference the 'demo' package."""
+    """Return import statements that reference the 'demo' package."""
     tree = ast.parse(source)
     violations: list[str] = []
     for node in ast.walk(tree):
@@ -25,17 +25,24 @@ def _imports_demo(source: str) -> list[str]:
     return violations
 
 
-def test_util_has_no_demo_imports() -> None:
-    files = _util_python_files()
-    assert files, "Expected at least one .py file under ml/util/"
+def _assert_no_demo_imports(package: str) -> None:
+    files = _python_files(package)
+    assert files, f"Expected at least one .py file under ml/{package}/"
 
     all_violations: dict[str, list[str]] = {}
     for path in files:
-        source = path.read_text(encoding="utf-8")
-        hits = _imports_demo(source)
+        hits = _imports_demo(path.read_text(encoding="utf-8"))
         if hits:
             all_violations[str(path)] = hits
 
-    assert not all_violations, "ml/util/ must not import from demo/. Found:\n" + "\n".join(
+    assert not all_violations, f"ml/{package}/ must not import from demo/. Found:\n" + "\n".join(
         f"  {f}: {vs}" for f, vs in all_violations.items()
     )
+
+
+def test_core_has_no_demo_imports() -> None:
+    _assert_no_demo_imports("core")
+
+
+def test_serving_has_no_demo_imports() -> None:
+    _assert_no_demo_imports("serving")

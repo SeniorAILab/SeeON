@@ -242,9 +242,7 @@ def enumerate_processed_videos(
         log.warning("NH processed directory not found: %s", processed_dir)
         return []
 
-    videos = sorted(
-        list(processed_dir.glob("*.mp4")) + list(processed_dir.glob("*.avi"))
-    )
+    videos = sorted(list(processed_dir.glob("*.mp4")) + list(processed_dir.glob("*.avi")))
     if not videos:
         log.warning("No .mp4/.avi files found in %s", processed_dir)
     return videos

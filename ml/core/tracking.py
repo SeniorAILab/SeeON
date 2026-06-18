@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from demo.seam import BoundingBox
+from core.seam import BoundingBox
 
 
 def iou(a: BoundingBox, b: BoundingBox) -> float:

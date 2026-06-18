@@ -64,9 +64,7 @@ class SourceRegistry:
                 path=Path(str(value["path"])),
                 duration_sec=float(value["duration_sec"]),
                 mime_type=str(
-                    value.get("mime_type")
-                    or mimetypes.guess_type(str(value["path"]))[0]
-                    or ""
+                    value.get("mime_type") or mimetypes.guess_type(str(value["path"]))[0] or ""
                 ),
                 kind="live" if value.get("kind") == "live" else "stored",
                 trusted_live=bool(value.get("trusted_live", False)),
@@ -86,9 +84,7 @@ class SourceRegistry:
                 path=Path(str(value["path"])),
                 duration_sec=float(value["duration_sec"]),
                 mime_type=str(
-                    value.get("mime_type")
-                    or mimetypes.guess_type(str(value["path"]))[0]
-                    or ""
+                    value.get("mime_type") or mimetypes.guess_type(str(value["path"]))[0] or ""
                 ),
                 kind="live" if value.get("kind") == "live" else "stored",
                 trusted_live=bool(value.get("trusted_live", False)),

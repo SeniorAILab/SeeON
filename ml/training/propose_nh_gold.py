@@ -102,9 +102,7 @@ def _dedupe_events(events: list[dict]) -> list[dict]:
     events = sorted(events, key=lambda e: e["rise"], reverse=True)
     kept: list[dict] = []
     for ev in events:
-        if all(
-            ev["end"] < k["start"] or ev["start"] > k["end"] for k in kept
-        ):
+        if all(ev["end"] < k["start"] or ev["start"] > k["end"] for k in kept):
             kept.append(ev)
     return kept
 
@@ -238,9 +236,7 @@ def _tile(frame: NDArray[np.uint8], label: str) -> NDArray[np.uint8]:
     scale = _STRIP_TILE_H / h
     tile = cv2.resize(frame, (int(w * scale), _STRIP_TILE_H))
     cv2.rectangle(tile, (0, 0), (130, 28), (0, 0, 0), -1)
-    cv2.putText(
-        tile, label, (6, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2
-    )
+    cv2.putText(tile, label, (6, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
     return tile
 
 
@@ -249,9 +245,7 @@ def render_strip(
 ) -> None:
     """Lay the labelled frames out as one jpg — a row, or a grid of *cols*."""
     frames = _grab_frames(video_path, frame_indices)
-    tiles = [
-        _tile(frames[i], f"f{i}") for i in frame_indices if i in frames
-    ]
+    tiles = [_tile(frames[i], f"f{i}") for i in frame_indices if i in frames]
     if not tiles:
         log.warning("No frames decodable for %s — strip skipped", out_path.name)
         return
@@ -332,7 +326,9 @@ def propose_for_video(video_path: Path, poses_dir: Path, runner: object) -> dict
         set(int(i) for i in np.linspace(0, max(n_frames - 1, 0), _OVERVIEW_TILES))
     )
     render_strip(
-        video_path, review_dir / "overview-strip.jpg", overview_idx,
+        video_path,
+        review_dir / "overview-strip.jpg",
+        overview_idx,
         cols=_OVERVIEW_COLS,
     )
 
@@ -354,12 +350,10 @@ def main(argv: list[str] | None = None) -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    from demo.model_modules import pose_weight_path
-    from demo.yolo_runtime import YoloPoseRunner
+    from core.model_modules import pose_weight_path
+    from core.yolo_runtime import YoloPoseRunner
 
-    videos = sorted(NH_PROCESSED_DIR.glob("*.mp4")) + sorted(
-        NH_PROCESSED_DIR.glob("*.avi")
-    )
+    videos = sorted(NH_PROCESSED_DIR.glob("*.mp4")) + sorted(NH_PROCESSED_DIR.glob("*.avi"))
     if args.stems:
         videos = [v for v in videos if v.stem in set(args.stems)]
     if args.limit:
@@ -376,13 +370,13 @@ def main(argv: list[str] | None = None) -> None:
 
     GOLD_REVIEW_DIR.mkdir(parents=True, exist_ok=True)
     out_json = GOLD_REVIEW_DIR / "candidates.json"
-    out_json.write_text(
-        json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    out_json.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
     n_with_event = sum(1 for r in results if r["top_event"] is not None)
     log.info(
         "Done: %d/%d videos with a candidate event — %s",
-        n_with_event, len(results), out_json,
+        n_with_event,
+        len(results),
+        out_json,
     )
 
 

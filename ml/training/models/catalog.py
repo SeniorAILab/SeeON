@@ -7,7 +7,7 @@ families and probe artifact availability before torch/sklearn are loaded.
 
 Consumers:
 - ``training.models.REGISTRY`` is built from CATALOG (imports the classes).
-- ``demo.temporal_module`` derives its key set / modes from CATALOG and
+- ``core.temporal_module`` derives its key set / modes from CATALOG and
   imports a class lazily only when a model is actually built.
 
 Adding a new model family = one CATALOG entry (plus the factory module).

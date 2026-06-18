@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult
+from core.seam import BoundingBox, DetectionLabel, DetectionResult
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)
@@ -77,6 +77,7 @@ def _draw_detection_box(
         color=color,
     )
 
+
 def _draw_bed_status(overlay: NDArray[np.uint8], status: object) -> None:
     box = status.box
     occupancy = status.occupancy
@@ -141,10 +142,7 @@ def _draw_pose(
             continue
         start_point = keypoints[start]
         end_point = keypoints[end]
-        if (
-            start_point[2] < MIN_KEYPOINT_CONFIDENCE
-            or end_point[2] < MIN_KEYPOINT_CONFIDENCE
-        ):
+        if start_point[2] < MIN_KEYPOINT_CONFIDENCE or end_point[2] < MIN_KEYPOINT_CONFIDENCE:
             continue
         cv2.line(overlay, start_point[:2], end_point[:2], color, 2)
     for x, y, confidence in keypoints:

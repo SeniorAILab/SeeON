@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from demo.model_modules import (
+from core.model_modules import (
     POSE_MODEL_SIZE_LABELS,
     POSE_MODEL_SIZES,
     WEIGHTS_DIR,

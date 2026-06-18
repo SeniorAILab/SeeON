@@ -82,9 +82,7 @@ def _find_optimal_f1_threshold(y_true: np.ndarray, y_prob: np.ndarray) -> float:
     if len(thresholds) == 0:
         return 0.5
     with np.errstate(invalid="ignore"):
-        f1s = (
-            2.0 * precision[:-1] * recall[:-1] / (precision[:-1] + recall[:-1] + 1e-9)
-        )
+        f1s = 2.0 * precision[:-1] * recall[:-1] / (precision[:-1] + recall[:-1] + 1e-9)
     return float(thresholds[int(np.argmax(f1s))])
 
 
@@ -121,9 +119,7 @@ def _find_recall90_threshold(
 # ---------------------------------------------------------------------------
 
 
-def _metrics_at(
-    y_true: np.ndarray, y_prob: np.ndarray, threshold: float
-) -> dict[str, float]:
+def _metrics_at(y_true: np.ndarray, y_prob: np.ndarray, threshold: float) -> dict[str, float]:
     """Compute fall-class F1, Recall, Precision, and AUC-PR at *threshold*."""
     y_pred = (y_prob >= threshold).astype(int)
     return {
@@ -325,8 +321,8 @@ def _run_gold8_eval(
         return
 
     try:
-        from demo.model_modules import pose_weight_path
-        from demo.yolo_runtime import YoloPoseRunner
+        from core.model_modules import pose_weight_path
+        from core.yolo_runtime import YoloPoseRunner
 
         weight_path = pose_weight_path("n")
         runner = YoloPoseRunner(model_path=str(weight_path))

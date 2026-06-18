@@ -4,10 +4,10 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from demo.bed_exit import BedExitEvent
+from core.bed_exit import BedExitEvent
+from core.playback_status import CurrentPlaybackStatus
+from core.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 from demo.live_view import BedExitLatch, FallEventLatch, iter_live_frames, render_due
-from demo.playback_status import CurrentPlaybackStatus
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 
 
 class _FakeSource:

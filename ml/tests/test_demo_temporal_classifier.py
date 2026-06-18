@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from demo.classifiers import CLASSIFIER_REGISTRY
-from demo.seam import (
+from core.classifiers import CLASSIFIER_REGISTRY
+from core.seam import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,
@@ -25,7 +25,7 @@ from demo.seam import (
     DetectionResult,
     Frame,
 )
-from demo.temporal_module import (
+from core.temporal_module import (
     TEMPORAL_MODEL_KEYS,
     TemporalFallClassifierModule,
     temporal_artifact_available,
@@ -102,13 +102,15 @@ def _build_rf_artifact(tmp_path: Path, window: int = 30, stride: int = 5) -> Pat
     normal_window = np.full((window, 17, 3), 0.5, dtype=np.float32)
     normal_window[:, :, 2] = 0.9
 
-    fall_feat = extract_window_features(fall_window)    # [45]
+    fall_feat = extract_window_features(fall_window)  # [45]
     normal_feat = extract_window_features(normal_window)  # [45]
 
-    X = np.vstack([
-        np.tile(normal_feat, (50, 1)),  # 50 normal samples
-        np.tile(fall_feat, (50, 1)),    # 50 fall  samples
-    ])
+    X = np.vstack(
+        [
+            np.tile(normal_feat, (50, 1)),  # 50 normal samples
+            np.tile(fall_feat, (50, 1)),  # 50 fall  samples
+        ]
+    )
     y = np.array([0] * 50 + [1] * 50, dtype=np.int64)
 
     rf = RandomForestFallClassifier()
@@ -212,7 +214,7 @@ class TestTemporalFallClassifierModule:
         assert result.keypoints == ()
 
     def test_satisfies_model_module_protocol(self, tmp_path: Path) -> None:
-        from demo.seam import ModelModule
+        from core.seam import ModelModule
 
         _build_rf_artifact(tmp_path)
         module = _load_module(tmp_path)
@@ -385,9 +387,7 @@ class TestMultiPersonTemporalModule:
         for i in range(meta.window - 1):
             result = module.predict(_frame(i))
             for j, label in enumerate(result.labels):
-                assert label.is_fall is False, (
-                    f"Warm-up: person {j} must not fall at frame {i}"
-                )
+                assert label.is_fall is False, f"Warm-up: person {j} must not fall at frame {i}"
                 assert label.confidence == pytest.approx(0.0), (
                     f"Warm-up: person {j} confidence must be 0.0 at frame {i}"
                 )
