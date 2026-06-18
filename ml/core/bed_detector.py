@@ -1,14 +1,14 @@
-"""One-shot bed-ROI detector for the bed-exit demo (issue #100).
+"""Multi-frame bed-ROI detector for the bed-exit demo (issue #100/#239).
 
-The bed is static, so its region is detected **once** at stream/playback start
-with a COCO-detection weight (``yolo26n.pt``, class 59 = ``bed``) and the ROI is
-cached by the caller. Every subsequent frame keeps the single YOLO26-pose pass
-(ADR-005 §3) — this detector never runs per frame.
+The bed scene is mostly static, but real nursing-home footage can reveal beds
+only after several frames or after camera/person motion. The caller seeds ROIs
+from a small frame union and re-detects periodically at low frequency. Every
+rendered frame still keeps the single YOLO26-pose pass (ADR-005 §3) — this
+detector is not part of the per-frame pose path.
 
-``BedDetector`` is intentionally stateless per call and owns no frame source:
-the page reads one seed frame, calls :meth:`BedDetector.detect`, then iterates
-the rest. The runner is injectable so unit tests can stub inference without a
-real model (no ultralytics import on the test path).
+``BedDetector`` owns no frame source and the runner is injectable so unit tests
+can stub inference without a real model (no ultralytics import on the test
+path).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from core.contract import BoundingBox, Frame
 # bed-localization weight cache — a function axis under ml/models/ alongside
 # pose/ and fall/ (docs/rules/ml-models.md; gitignored, never committed).
 BED_WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "bed"
-BED_WEIGHT_FILENAME: Final = "yolo26n.pt"
+BED_WEIGHT_FILENAME: Final = "yolo26m.pt"
 
 
 def bed_weight_path() -> Path:
@@ -56,6 +56,19 @@ class BedDetector:
             self._runner.detect_beds(frame.image),
             max_beds=BED_MAX_DETECTIONS,
         )
+        return tuple(
+            BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
+            for x1, y1, x2, y2, conf in deduped
+        )
+
+    def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
+        """Detect beds across multiple frames and return one stable deduped union."""
+        from core.yolo_runtime import BED_MAX_DETECTIONS, dedupe_bed_boxes
+
+        raw_boxes: list[tuple[int, int, int, int, float]] = []
+        for frame in frames:
+            raw_boxes.extend(self._runner.detect_beds(frame.image))
+        deduped = dedupe_bed_boxes(tuple(raw_boxes), max_beds=BED_MAX_DETECTIONS)
         return tuple(
             BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
             for x1, y1, x2, y2, conf in deduped

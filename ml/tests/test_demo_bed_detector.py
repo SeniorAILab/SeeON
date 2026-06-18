@@ -1,8 +1,8 @@
-"""BedDetector multi-bed one-shot bed-localization 계약(contract).
+"""BedDetector multi-bed low-frequency bed-localization 계약(contract).
 
 Stubs inference so these tests carry no ultralytics dependency and no real
 weight. They pin tuple-return semantics, filtering/dedup behavior, deterministic
-ordering, and the caller's detect-once/cache contract.
+ordering, multi-frame union, and caller cache/re-detect contracts.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import numpy as np
 
 from core.bed_detector import BedDetector
 from core.contract import BoundingBox, Frame
-from core.yolo_runtime import YoloBedRunner
+from core.yolo_runtime import YoloBedRunner, dedupe_bed_boxes
 
 
 def _frame() -> Frame:
@@ -28,6 +28,17 @@ class _StubRunner:
     def detect_beds(self, frame):  # noqa: ANN001 - test stub
         self.calls += 1
         return self._result
+
+
+class _SequenceRunner:
+    def __init__(self, results: tuple[tuple[tuple[int, int, int, int, float], ...], ...]) -> None:
+        self._results = results
+        self.calls = 0
+
+    def detect_beds(self, frame):  # noqa: ANN001 - test stub
+        result = self._results[self.calls]
+        self.calls += 1
+        return result
 
 
 class _Array:
@@ -142,6 +153,41 @@ def test_detect_preserves_runner_confidence_and_coords() -> None:
     assert tuple((box.x1, box.y1, box.x2, box.y2, box.confidence) for box in boxes) == raw
 
 
+def test_detect_union_dedupes_across_multiple_frames() -> None:
+    runner = _SequenceRunner(
+        (
+            ((0, 0, 100, 100, 0.8),),
+            ((53, 0, 153, 100, 0.7),),
+            ((200, 0, 300, 100, 0.9),),
+        )
+    )
+    detector = BedDetector(runner=runner)
+
+    boxes = detector.detect_union((_frame(), _frame(), _frame()))
+
+    assert boxes == (
+        BoundingBox(x1=0, y1=0, x2=100, y2=100, confidence=0.8),
+        BoundingBox(x1=53, y1=0, x2=153, y2=100, confidence=0.7),
+        BoundingBox(x1=200, y1=0, x2=300, y2=100, confidence=0.9),
+    )
+    assert runner.calls == 3
+
+
+def test_dedupe_merges_only_high_overlap_beds_at_merge_threshold() -> None:
+    duplicate_boxes = (
+        (0, 0, 100, 100, 0.8),
+        (4, 4, 104, 104, 0.9),
+    )
+    adjacent_boxes = (
+        (0, 0, 100, 100, 0.8),
+        (53, 0, 153, 100, 0.7),
+    )
+
+    assert dedupe_bed_boxes(duplicate_boxes, max_beds=4) == (
+        (4, 4, 104, 104, 0.9),
+    )
+    assert dedupe_bed_boxes(adjacent_boxes, max_beds=4) == adjacent_boxes
+
 def test_yolo_detect_beds_filters_threshold_class_and_caps_deterministically() -> None:
     runner, model = _runner_with_boxes(
         (
@@ -194,14 +240,15 @@ def test_yolo_detect_beds_suppresses_duplicate_nms() -> None:
     )
 
 
-def test_yolo_detect_beds_merges_overlap_but_retains_distinct_beds() -> None:
+def test_yolo_detect_beds_retains_adjacent_beds_after_merge_tuning() -> None:
     runner, _ = _runner_with_boxes(
-        ((0, 0, 100, 100), (60, 0, 160, 100), (260, 0, 360, 100)),
+        ((0, 0, 100, 100), (53, 0, 153, 100), (260, 0, 360, 100)),
         (0.8, 0.7, 0.6),
     )
 
     assert runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8)) == (
-        (0, 0, 160, 100, 0.8),
+        (0, 0, 100, 100, 0.8),
+        (53, 0, 153, 100, 0.7),
         (260, 0, 360, 100, 0.6),
     )
 
