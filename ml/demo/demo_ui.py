@@ -12,9 +12,9 @@ from core.classifiers import (
     ClassifierSpec,
     build_classifier,
 )
+from core.contract import ModelModule
 from core.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPoseModule
 from core.playback_status import CurrentPlaybackStatus
-from core.seam import ModelModule
 from core.temporal_module import TEMPORAL_MODEL_KEYS
 from core.thresholds import default_threshold
 from demo.ui_labels import (

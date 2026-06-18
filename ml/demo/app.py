@@ -26,8 +26,8 @@ import streamlit as st  # noqa: E402
 from core.alert_client import AlertClient  # noqa: E402
 from core.bed_detector import BedDetector  # noqa: E402
 from core.classifiers import ClassifierParams  # noqa: E402
+from core.contract import CameraSource, FrameSource, VideoFileSource  # noqa: E402
 from core.playback_status import CurrentPlaybackStatus  # noqa: E402
-from core.seam import CameraSource, FrameSource, VideoFileSource  # noqa: E402
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
 from demo.demo_ui import (  # noqa: E402

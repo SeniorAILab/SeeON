@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from core.contract import BoundingBox, DetectionResult
 from core.features import FrameFeatures, extract_frame_features
-from core.seam import BoundingBox, DetectionResult
 
 
 def _box(x1: int, y1: int, x2: int, y2: int) -> BoundingBox:

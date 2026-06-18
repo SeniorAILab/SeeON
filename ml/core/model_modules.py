@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
-from core.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
 from core.yolo_runtime import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
@@ -27,7 +27,7 @@ WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "pose"
 
 
 def pose_weight_filename(size: str) -> str:
-    """Map a YOLO26-pose size letter to its weight filename (model-seam swap).
+    """Map a YOLO26-pose size letter to its weight filename (model-contract swap).
 
     The single one-line weight swap that makes the model size selectable.
     """

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
 from demo.live_bench import measure_pipeline
 
 # ---------------------------------------------------------------------------
