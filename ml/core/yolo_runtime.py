@@ -13,7 +13,6 @@ POSE_MODEL_CONFIDENCE: Final = 0.05
 # weight-family rename); a mismatch degrades gracefully to "no bed".
 COCO_BED_CLASS_ID: Final = 59
 BED_MODEL_CONFIDENCE: Final = 0.25
-BED_MAX_DETECTIONS: Final = 4
 BED_NMS_IOU_THRESHOLD: Final = 0.5
 BED_MERGE_IOU_THRESHOLD: Final = 0.5
 
@@ -92,7 +91,7 @@ class YoloBedRunner:
         self,
         model_path: str = "yolo26m.pt",
         confidence: float = BED_MODEL_CONFIDENCE,
-        max_beds: int = BED_MAX_DETECTIONS,
+        max_beds: int | None = None,
     ) -> None:
         self._model = _load_yolo_model(Path(model_path))
         self._confidence = confidence
@@ -128,10 +127,16 @@ class YoloBedRunner:
 def dedupe_bed_boxes(
     boxes: tuple[tuple[int, int, int, int, float], ...],
     *,
-    max_beds: int,
+    max_beds: int | None = None,
 ) -> tuple[tuple[int, int, int, int, float], ...]:
-    """Apply confidence NMS, overlap merge, deterministic ordering, and cap."""
-    if not boxes or max_beds <= 0:
+    """Apply confidence NMS, overlap merge, and deterministic ordering.
+
+    No hard cap by default: every distinct bed survives. Pass ``max_beds`` only
+    to opt into an explicit ceiling (e.g. a test fixture); ``None`` keeps all.
+    """
+    if not boxes:
+        return ()
+    if max_beds is not None and max_beds <= 0:
         return ()
 
     nms_boxes: list[tuple[int, int, int, int, float]] = []
@@ -140,9 +145,8 @@ def dedupe_bed_boxes(
             nms_boxes.append(box)
 
     merged = _merge_overlapping_beds(tuple(nms_boxes))
-    return tuple(
-        sorted(merged, key=lambda b: (b[0], b[1], b[2], b[3], -b[4]))[:max_beds]
-    )
+    ordered = sorted(merged, key=lambda b: (b[0], b[1], b[2], b[3], -b[4]))
+    return tuple(ordered if max_beds is None else ordered[:max_beds])
 
 
 def _merge_overlapping_beds(
