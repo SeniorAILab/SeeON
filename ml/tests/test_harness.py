@@ -54,38 +54,28 @@ def _make_trial(study: optuna.Study | None = None) -> optuna.Trial:
 
 class TestForceScoreGates:
     def test_all_pass_returns_original_score(self) -> None:
-        score, lat_fail = force_score_gates(
-            score=0.75, recall_90_achieved=True, latency_ms=100.0
-        )
+        score, lat_fail = force_score_gates(score=0.75, recall_90_achieved=True, latency_ms=100.0)
         assert score == pytest.approx(0.75)
         assert lat_fail is False
 
     def test_recall_not_achieved_forces_zero(self) -> None:
-        score, lat_fail = force_score_gates(
-            score=0.9, recall_90_achieved=False, latency_ms=50.0
-        )
+        score, lat_fail = force_score_gates(score=0.9, recall_90_achieved=False, latency_ms=50.0)
         assert score == 0.0
         assert lat_fail is False  # latency gate did NOT fail
 
     def test_latency_over_threshold_forces_zero(self) -> None:
-        score, lat_fail = force_score_gates(
-            score=0.8, recall_90_achieved=True, latency_ms=200.0
-        )
+        score, lat_fail = force_score_gates(score=0.8, recall_90_achieved=True, latency_ms=200.0)
         assert score == 0.0
         assert lat_fail is True
 
     def test_both_gates_fail_forces_zero_and_lat_failed_true(self) -> None:
-        score, lat_fail = force_score_gates(
-            score=0.8, recall_90_achieved=False, latency_ms=999.0
-        )
+        score, lat_fail = force_score_gates(score=0.8, recall_90_achieved=False, latency_ms=999.0)
         assert score == 0.0
         assert lat_fail is True
 
     def test_exactly_at_threshold_passes(self) -> None:
         # latency == threshold should pass (strict >)
-        score, lat_fail = force_score_gates(
-            score=0.6, recall_90_achieved=True, latency_ms=167.0
-        )
+        score, lat_fail = force_score_gates(score=0.6, recall_90_achieved=True, latency_ms=167.0)
         assert score == pytest.approx(0.6)
         assert lat_fail is False
 
@@ -100,9 +90,7 @@ class TestForceScoreGates:
         assert lat_fail is True
 
     def test_zero_input_score_stays_zero(self) -> None:
-        score, lat_fail = force_score_gates(
-            score=0.0, recall_90_achieved=True, latency_ms=10.0
-        )
+        score, lat_fail = force_score_gates(score=0.0, recall_90_achieved=True, latency_ms=10.0)
         assert score == 0.0
         assert lat_fail is False
 
@@ -465,18 +453,14 @@ class TestSearchSpacesContract:
         )
 
     def test_known_families_present(self) -> None:
-        for family in (
-            "random-forest", "svm", "logistic-regression", "lstm", "transformer", "gcn"
-        ):
+        for family in ("random-forest", "svm", "logistic-regression", "lstm", "transformer", "gcn"):
             assert family in SEARCH_SPACES, f"Missing search space for {family!r}"
 
     def test_all_entries_have_valid_spec_kinds(self) -> None:
         valid_kinds = {"int", "float", "float_log", "categorical"}
         for family, space in SEARCH_SPACES.items():
             for param, spec in space.items():
-                assert spec[0] in valid_kinds, (
-                    f"{family}.{param}: unknown kind {spec[0]!r}"
-                )
+                assert spec[0] in valid_kinds, f"{family}.{param}: unknown kind {spec[0]!r}"
 
     def test_categorical_specs_have_list(self) -> None:
         for family, space in SEARCH_SPACES.items():

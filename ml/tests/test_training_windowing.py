@@ -248,9 +248,7 @@ class TestWindowDatasetIntegration:
         assert len(train_ids) > 0, "Train set must be non-empty"
         assert len(test_ids) > 0, "Test set must be non-empty"
         intersection = train_ids & test_ids
-        assert intersection == set(), (
-            f"Clip-level leakage: {intersection} appear in both splits"
-        )
+        assert intersection == set(), f"Clip-level leakage: {intersection} appear in both splits"
         assert train_ids | test_ids == {m.clip_id for m in metas}, (
             "All clips must appear in exactly one split"
         )

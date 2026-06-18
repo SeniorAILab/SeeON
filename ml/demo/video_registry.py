@@ -9,9 +9,7 @@ from typing import Final, Protocol
 DATA_DIR: Final = Path(__file__).resolve().parent.parent / "data"
 # ml/data/ is domain-first (ADR-012): top-level folders are domains except these.
 NON_DOMAIN_DIRS: Final[frozenset[str]] = frozenset({"eval", "uploads"})
-SUPPORTED_VIDEO_EXTENSIONS: Final[frozenset[str]] = frozenset(
-    {".mp4", ".mov", ".avi", ".mkv"}
-)
+SUPPORTED_VIDEO_EXTENSIONS: Final[frozenset[str]] = frozenset({".mp4", ".mov", ".avi", ".mkv"})
 # Some upstream models ship only a still sample image as their demo asset.
 # OpenCV reads these as single-frame clips, so we register them alongside videos.
 SUPPORTED_IMAGE_EXTENSIONS: Final[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png"})

@@ -14,7 +14,7 @@ import pytest
 
 MODELS_ROOT = Path(__file__).resolve().parents[1] / "models"
 
-ALLOWED_TOP_LEVEL = {"pose", "fall"}
+ALLOWED_TOP_LEVEL = {"bed", "fall", "person", "pose"}
 ALLOWED_SOURCES = {"downloaded", "trained", "third-party"}
 
 pytestmark = pytest.mark.skipif(

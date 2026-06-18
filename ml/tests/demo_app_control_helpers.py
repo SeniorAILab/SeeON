@@ -1,4 +1,5 @@
 """Reusable AppTest widget lookup helpers for the Streamlit demo."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -29,9 +30,7 @@ def find_labeled(widgets: Iterable[Any], label: str, kind: str) -> Any:
 def require_exactly_one_labeled(widgets: Iterable[Any], label: str, kind: str) -> Any:
     """Return the only widget with ``label`` or fail with a count diagnostic."""
     matches = [widget for widget in widgets if widget.label == label]
-    assert len(matches) == 1, (
-        f"Expected exactly 1 {kind} labelled {label!r}, found {len(matches)}"
-    )
+    assert len(matches) == 1, f"Expected exactly 1 {kind} labelled {label!r}, found {len(matches)}"
     return matches[0]
 
 

@@ -94,9 +94,7 @@ class TestParseGoldCsvValid:
         assert len(proposed) == 1
 
     def test_video_lengths_valid(self, tmp_path: Path) -> None:
-        csv_path = _write_csv(
-            tmp_path / "gold.csv", [_good_row(start=100, end=130)]
-        )
+        csv_path = _write_csv(tmp_path / "gold.csv", [_good_row(start=100, end=130)])
         confirmed, _ = parse_gold_csv(csv_path, video_lengths={"clip01": 500})
         assert confirmed[0].fall_end_frame == 130
 
@@ -182,18 +180,14 @@ class TestParseGoldCsvValidation:
 
     def test_video_length_overflow_raises(self, tmp_path: Path) -> None:
         # fall_end_frame=130 >= video_length=100 → rejected
-        csv_path = _write_csv(
-            tmp_path / "gold.csv", [_good_row(start=100, end=130)]
-        )
+        csv_path = _write_csv(tmp_path / "gold.csv", [_good_row(start=100, end=130)])
         with pytest.raises(ValueError, match="video_length"):
             parse_gold_csv(csv_path, video_lengths={"clip01": 100})
 
     def test_video_length_exact_boundary_raises(self, tmp_path: Path) -> None:
         # fall_end_frame=130 == video_length=130 → condition: end >= video_length
         # A video with 130 frames has last valid index 129; index 130 is out of range.
-        csv_path = _write_csv(
-            tmp_path / "gold.csv", [_good_row(start=100, end=130)]
-        )
+        csv_path = _write_csv(tmp_path / "gold.csv", [_good_row(start=100, end=130)])
         with pytest.raises(ValueError, match="video_length"):
             parse_gold_csv(csv_path, video_lengths={"clip01": 130})
 
@@ -229,9 +223,7 @@ class TestParseGoldCsvValidation:
             tmp_path / "gold.csv", [_good_row(video="clip01", start=100, end=130)]
         )
         # Key is "clip02" — not matched — so no length validation on "clip01"
-        confirmed, _ = parse_gold_csv(
-            csv_path, video_lengths={"clip02": 50}
-        )
+        confirmed, _ = parse_gold_csv(csv_path, video_lengths={"clip02": 50})
         assert len(confirmed) == 1
 
 
@@ -349,9 +341,7 @@ class TestCheckGate:
 
     def test_all_required_caught(self) -> None:
         mask = {"random-forest": ["fall01", "fall02", "fall03"]}
-        passed, missed = check_gate(
-            "random-forest", {"fall01", "fall02", "fall03"}, mask
-        )
+        passed, missed = check_gate("random-forest", {"fall01", "fall02", "fall03"}, mask)
         assert passed is True
         assert missed == []
 
@@ -383,9 +373,7 @@ class TestCheckGate:
     def test_extra_caught_not_penalised(self) -> None:
         """Catching more falls than required is fine."""
         mask = {"random-forest": ["fall01"]}
-        passed, missed = check_gate(
-            "random-forest", {"fall01", "fall02", "fall_bonus"}, mask
-        )
+        passed, missed = check_gate("random-forest", {"fall01", "fall02", "fall_bonus"}, mask)
         assert passed is True
         assert missed == []
 

@@ -214,7 +214,7 @@ def test_classifier_selectbox_all_options_selectable_no_crash() -> None:
     format_func requires passing the raw Python option value, not the formatted
     display string that select_index() would store.
     """
-    from demo.classifiers import CLASSIFIER_REGISTRY
+    from core.classifiers import CLASSIFIER_REGISTRY
 
     at = _boot()
     assert_no_exception(at)
@@ -243,7 +243,7 @@ def test_threshold_slider_absent_for_rule_based_default() -> None:
 
 
 def test_threshold_slider_present_for_available_temporal_model() -> None:
-    from demo.classifiers import CLASSIFIER_REGISTRY
+    from core.classifiers import CLASSIFIER_REGISTRY
 
     temporal_available = [
         spec for spec in CLASSIFIER_REGISTRY if spec.key != "rule_based" and spec.available
@@ -267,7 +267,7 @@ def test_threshold_slider_present_for_available_temporal_model() -> None:
 
 
 def test_threshold_slider_accepts_custom_value() -> None:
-    from demo.classifiers import CLASSIFIER_REGISTRY
+    from core.classifiers import CLASSIFIER_REGISTRY
 
     temporal_available = [
         spec for spec in CLASSIFIER_REGISTRY if spec.key != "rule_based" and spec.available
@@ -340,7 +340,7 @@ def test_yolo_size_selectbox_selects_each_option_without_crash() -> None:
     Passing the raw size code avoids an AppTest limitation where select_index()
     would store the formatted label instead of the key expected by format_func.
     """
-    from demo.model_modules import POSE_MODEL_SIZES
+    from core.model_modules import POSE_MODEL_SIZES
 
     at = _boot()
     assert_no_exception(at)
@@ -436,8 +436,8 @@ def test_stop_button_sets_live_playing_false_without_entering_video_loop() -> No
 
 
 def test_bed_exit_badge_text_is_user_facing_korean() -> None:
+    from core.playback_status import CurrentPlaybackStatus
     from demo.app import _bed_exit_badge_text
-    from demo.playback_status import CurrentPlaybackStatus
 
     status = CurrentPlaybackStatus(
         label="정상",
@@ -456,8 +456,8 @@ def test_bed_exit_badge_text_is_user_facing_korean() -> None:
 
 
 def test_status_alert_text_surfaces_no_bed_monitoring_once() -> None:
+    from core.playback_status import CurrentPlaybackStatus
     from demo.app import _status_alert_text
-    from demo.playback_status import CurrentPlaybackStatus
 
     status = CurrentPlaybackStatus(
         label="정상",
@@ -475,8 +475,8 @@ def test_status_alert_text_surfaces_no_bed_monitoring_once() -> None:
 
 
 def test_status_alert_text_keeps_alert_status_when_bed_exists() -> None:
+    from core.playback_status import CurrentPlaybackStatus
     from demo.app import _status_alert_text
-    from demo.playback_status import CurrentPlaybackStatus
 
     status = CurrentPlaybackStatus(
         label="정상",

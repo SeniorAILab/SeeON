@@ -68,8 +68,4 @@ def hp_bool(name: str, default: bool) -> bool:
 
 def active_hps() -> dict[str, str]:
     """Return all currently-set ``HARNESS_HP_*`` vars (for logging)."""
-    return {
-        k[len(_PREFIX) :].lower(): v
-        for k, v in os.environ.items()
-        if k.startswith(_PREFIX)
-    }
+    return {k[len(_PREFIX) :].lower(): v for k, v in os.environ.items() if k.startswith(_PREFIX)}

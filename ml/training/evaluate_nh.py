@@ -102,9 +102,7 @@ def check_gate(
         ``(gate_passed, sorted_missed_fall_ids)``.
     """
     if reference_mask is None:
-        log.warning(
-            "NH gate not armed (no reference mask) — check_gate returns pass"
-        )
+        log.warning("NH gate not armed (no reference mask) — check_gate returns pass")
         return (True, [])
     required = set(reference_mask.get(model_key, []))
     missed = sorted(required - caught_fall_ids)
@@ -174,21 +172,15 @@ def _any_track_catches_fall(
         n_frames = len(poses)
 
         starts = (
-            list(range(0, n_frames - window_size + 1, stride))
-            if n_frames >= window_size
-            else [0]
+            list(range(0, n_frames - window_size + 1, stride)) if n_frames >= window_size else [0]
         )
 
         for start in starts:
-            if not _window_overlaps_fall(
-                start, fall_start_frame, fall_end_frame, window_size
-            ):
+            if not _window_overlaps_fall(start, fall_start_frame, fall_end_frame, window_size):
                 continue
 
             # Zero-padded window when clip is shorter than window_size
-            window = np.zeros(
-                (window_size, N_KEYPOINTS, KPT_DIMS), dtype=np.float32
-            )
+            window = np.zeros((window_size, N_KEYPOINTS, KPT_DIMS), dtype=np.float32)
             end = min(start + window_size, n_frames)
             window[: end - start] = poses[start:end]
 
@@ -237,8 +229,8 @@ def _extract_track_poses(
     """
     import cv2
 
-    from demo.seam import BoundingBox
-    from demo.tracking import GreedyIouTracker
+    from core.seam import BoundingBox
+    from core.tracking import GreedyIouTracker
     from training.extract_poses import normalize_person_keypoints
 
     cap = cv2.VideoCapture(str(video_path))
@@ -264,10 +256,7 @@ def _extract_track_poses(
             break
         poses, raw_boxes = runner.predict_full(frame)  # type: ignore[union-attr]
         if raw_boxes:
-            boxes = tuple(
-                BoundingBox(x1, y1, x2, y2, conf)
-                for x1, y1, x2, y2, conf in raw_boxes
-            )
+            boxes = tuple(BoundingBox(x1, y1, x2, y2, conf) for x1, y1, x2, y2, conf in raw_boxes)
             track_ids = tracker.update(boxes)
             for person_idx, track_id in enumerate(track_ids):
                 if track_id not in track_buffers:
@@ -275,9 +264,7 @@ def _extract_track_poses(
                         (n_frames, N_KEYPOINTS, KPT_DIMS), dtype=np.float32
                     )
                 person_pose = (poses[person_idx],)
-                kpts = normalize_person_keypoints(
-                    person_pose, frame_w, frame_h, CONF_THRESHOLD
-                )
+                kpts = normalize_person_keypoints(person_pose, frame_w, frame_h, CONF_THRESHOLD)
                 track_buffers[track_id][frame_idx] = kpts
         frame_idx += 1
     cap.release()
@@ -289,9 +276,7 @@ def _extract_track_poses(
             "No tracks detected in %s — single zero-filled track written",
             video_path.name,
         )
-        track_buffers[0] = np.zeros(
-            (max(frame_idx, 1), N_KEYPOINTS, KPT_DIMS), dtype=np.float32
-        )
+        track_buffers[0] = np.zeros((max(frame_idx, 1), N_KEYPOINTS, KPT_DIMS), dtype=np.float32)
 
     npz_paths: list[Path] = []
     for track_id, buffer in sorted(track_buffers.items()):
@@ -323,7 +308,7 @@ def _sha256_file(path: Path) -> str:
 
 def _resolve_pose_weight(pose_size: str) -> tuple[Path, str, str]:
     """Resolve and hash the configured YOLO pose weight for *pose_size*."""
-    from demo.model_modules import pose_weight_filename, pose_weight_path
+    from core.model_modules import pose_weight_filename, pose_weight_path
 
     if pose_size not in POSE_SIZE_CHOICES:
         raise ValueError(
@@ -331,9 +316,7 @@ def _resolve_pose_weight(pose_size: str) -> tuple[Path, str, str]:
         )
     weight_path = pose_weight_path(pose_size)
     if not weight_path.exists():
-        raise FileNotFoundError(
-            f"Pose weight for size {pose_size!r} not found at {weight_path}"
-        )
+        raise FileNotFoundError(f"Pose weight for size {pose_size!r} not found at {weight_path}")
     return weight_path, pose_weight_filename(pose_size), _sha256_file(weight_path)
 
 
@@ -378,7 +361,7 @@ def _ensure_track_poses(
         )
 
     try:
-        from demo.yolo_runtime import YoloPoseRunner
+        from core.yolo_runtime import YoloPoseRunner
 
         weight_path, _weight_filename, _weight_sha256 = _resolve_pose_weight(pose_size)
         runner = YoloPoseRunner(model_path=str(weight_path))
@@ -410,17 +393,13 @@ def evaluate_nh(
 ) -> dict[str, object]:
     """Run deployment-equivalent multi-person NH evaluation for *model_key*."""
     if model_key not in REGISTRY:
-        raise ValueError(
-            f"Unknown model key {model_key!r}. "
-            f"Available: {sorted(REGISTRY.keys())}"
-        )
+        raise ValueError(f"Unknown model key {model_key!r}. Available: {sorted(REGISTRY.keys())}")
 
     out_dir = artifact_dir(model_key, artifact_base)
     model_file = out_dir / REGISTRY[model_key]["artifact_filename"]
     if not model_file.exists():
         raise FileNotFoundError(
-            f"No artifact for {model_key!r} at {model_file}. "
-            "Run train.py first."
+            f"No artifact for {model_key!r} at {model_file}. Run train.py first."
         )
 
     _weight_path, weight_filename, weight_sha256 = _resolve_pose_weight(pose_size)
@@ -435,9 +414,7 @@ def evaluate_nh(
 
     confirmed_rows, proposed_rows = parse_gold_csv(gold_csv)
     if not confirmed_rows:
-        raise ValueError(
-            f"No confirmed rows found in {gold_csv}. Cannot evaluate."
-        )
+        raise ValueError(f"No confirmed rows found in {gold_csv}. Cannot evaluate.")
     if proposed_rows:
         log.warning(
             "%d proposed rows skipped (not yet confirmed) in %s",
@@ -449,9 +426,7 @@ def evaluate_nh(
 
     video_paths = enumerate_processed_videos(processed_dir)
     if not video_paths:
-        raise FileNotFoundError(
-            f"No .mp4/.avi files found in {processed_dir}."
-        )
+        raise FileNotFoundError(f"No .mp4/.avi files found in {processed_dir}.")
     video_by_stem: dict[str, Path] = {v.stem: v for v in video_paths}
 
     caught_fall_ids: set[str] = set()
@@ -467,9 +442,7 @@ def evaluate_nh(
                 fall_id,
                 processed_dir,
             )
-            missing_clips.append(
-                {"clip_id": fall_id, "reason": "processed video not found"}
-            )
+            missing_clips.append({"clip_id": fall_id, "reason": "processed video not found"})
             continue
 
         clip_list.append({"clip_id": fall_id, "path": str(video_path)})
@@ -493,12 +466,8 @@ def evaluate_nh(
                 stride=stride,
             )
         except Exception as exc:  # noqa: BLE001
-            failed_clips.append(
-                {"clip_id": fall_id, "path": str(video_path), "error": str(exc)}
-            )
-            log.exception(
-                "Failed evaluating clip %r with pose_size=%s", fall_id, pose_size
-            )
+            failed_clips.append({"clip_id": fall_id, "path": str(video_path), "error": str(exc)})
+            log.exception("Failed evaluating clip %r with pose_size=%s", fall_id, pose_size)
             continue
 
         if caught:
@@ -518,9 +487,7 @@ def evaluate_nh(
         try:
             reference_mask = json.loads(mask_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Invalid JSON in reference mask {mask_path}: {exc}"
-            ) from exc
+            raise ValueError(f"Invalid JSON in reference mask {mask_path}: {exc}") from exc
     else:
         log.info(
             "NH reference mask not found at %s — delegating to check_gate",
@@ -632,9 +599,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(levelname)s %(name)s %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 
     command_args = list(sys.argv[1:] if argv is None else argv)
     result = evaluate_nh(

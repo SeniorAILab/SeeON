@@ -52,9 +52,7 @@ def _feat_data(n: int = _N) -> tuple[np.ndarray, np.ndarray]:
 # ---------------------------------------------------------------------------
 
 
-def _fit_fast(
-    clf: TorchFallClassifier, X: np.ndarray, y: np.ndarray
-) -> None:
+def _fit_fast(clf: TorchFallClassifier, X: np.ndarray, y: np.ndarray) -> None:
     """Call fit() but cap training at 2 epochs via monkeypatching train_torch_module."""
     import training.models.base as _base
 
@@ -186,9 +184,7 @@ class TestSvmFallClassifier:
         clf.fit(X, y)
         clf.save(tmp_path)
         loaded = SvmFallClassifier.load(tmp_path)
-        np.testing.assert_allclose(
-            clf.predict_proba(X), loaded.predict_proba(X), atol=1e-5
-        )
+        np.testing.assert_allclose(clf.predict_proba(X), loaded.predict_proba(X), atol=1e-5)
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +218,4 @@ class TestGcnFallClassifier:
         _fit_fast(clf, X, y)
         clf.save(tmp_path)
         loaded = GcnFallClassifier.load(tmp_path)
-        np.testing.assert_allclose(
-            clf.predict_proba(X), loaded.predict_proba(X), atol=1e-5
-        )
+        np.testing.assert_allclose(clf.predict_proba(X), loaded.predict_proba(X), atol=1e-5)
