@@ -50,12 +50,9 @@ class BedDetector:
         self._runner = runner if runner is not None else _default_runner()
 
     def detect(self, frame: Frame) -> tuple[BoundingBox, ...]:
-        from core.yolo_runtime import BED_MAX_DETECTIONS, dedupe_bed_boxes
+        from core.yolo_runtime import dedupe_bed_boxes
 
-        deduped = dedupe_bed_boxes(
-            self._runner.detect_beds(frame.image),
-            max_beds=BED_MAX_DETECTIONS,
-        )
+        deduped = dedupe_bed_boxes(self._runner.detect_beds(frame.image))
         return tuple(
             BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
             for x1, y1, x2, y2, conf in deduped
@@ -63,12 +60,12 @@ class BedDetector:
 
     def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
         """Detect beds across multiple frames and return one stable deduped union."""
-        from core.yolo_runtime import BED_MAX_DETECTIONS, dedupe_bed_boxes
+        from core.yolo_runtime import dedupe_bed_boxes
 
         raw_boxes: list[tuple[int, int, int, int, float]] = []
         for frame in frames:
             raw_boxes.extend(self._runner.detect_beds(frame.image))
-        deduped = dedupe_bed_boxes(tuple(raw_boxes), max_beds=BED_MAX_DETECTIONS)
+        deduped = dedupe_bed_boxes(tuple(raw_boxes))
         return tuple(
             BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
             for x1, y1, x2, y2, conf in deduped
