@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { MissingFieldException } from '../../common/domain-errors.js';
+import {
+  AlertEventTypes,
+  type AlertEventType,
+} from '../../alerts/dto/alert-events.dto.js';
 
 export interface IngestAlertBody {
   resident_id?: unknown;
@@ -15,7 +19,7 @@ export interface ParsedIngestAlertBody {
   facility_id: string;
   probability: number;
   detectedAt: Date;
-  type: string;
+  type: AlertEventType;
 }
 
 const REQUIRED_FIELDS = [
@@ -25,6 +29,8 @@ const REQUIRED_FIELDS = [
   'detected_at',
   'type',
 ] as const;
+
+const VALID_ALERT_TYPES = new Set<string>(Object.values(AlertEventTypes));
 
 export function parseIngestAlertBody(
   body: IngestAlertBody,
@@ -51,11 +57,18 @@ export function parseIngestAlertBody(
     throw new BadRequestException('detected_at must be a valid ISO 8601 date');
   }
 
+  const type = String(body.type);
+  if (!VALID_ALERT_TYPES.has(type)) {
+    throw new BadRequestException(
+      'type must be one of: fall, detection-lost, bed-exit',
+    );
+  }
+
   return {
     resident_id: String(body.resident_id),
     facility_id: String(body.facility_id),
     probability,
     detectedAt,
-    type: String(body.type),
+    type: type as AlertEventType,
   };
 }
