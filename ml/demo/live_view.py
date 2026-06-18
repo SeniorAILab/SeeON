@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from demo.bed_detector import BedDetector
-from demo.bed_exit import BedExitMonitor
+from demo.bed_exit import BedExitEvent, BedExitMonitor
 from demo.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.seam import FrameSource, ModelModule
 from demo.yolo_overlay import render_yolo_overlay
@@ -58,6 +58,35 @@ class FallEventLatch:
                 self.first_event_sec = time_sec
         self._prev_fall = is_fall
         return onset
+
+
+class BedExitLatch:
+    """Latch bed-exit events out of the per-frame bed-exit monitor output.
+
+    Bed-exit monitor events are discrete facts. This helper records only real
+    rising-edge ``(person_id, bed_id)`` events, dedupes sustained duplicate
+    frames, and remembers the first event time and total count for callers that
+    need a stable badge or alert trigger.
+    """
+
+    def __init__(self) -> None:
+        self.event_count: int = 0
+        self.first_event_sec: float | None = None
+        self._active_exits: set[tuple[int, int]] = set()
+
+    def update(self, events: tuple[BedExitEvent, ...], time_sec: float) -> tuple[BedExitEvent, ...]:
+        """Feed one frame's bed-exit events; return newly latched onsets."""
+        event_keys = {(event.person_id, event.bed_id) for event in events}
+        onset_events = tuple(
+            event for event in events if (event.person_id, event.bed_id) not in self._active_exits
+        )
+        if onset_events:
+            self.event_count += len(onset_events)
+            if self.first_event_sec is None:
+                self.first_event_sec = time_sec
+        self._active_exits = event_keys
+        return onset_events
+
 
 class DetectionLossMonitor:
     def __init__(self, *, loss_after_sec: float = 5.0) -> None:
@@ -113,6 +142,7 @@ def iter_live_frames(
     bed_boxes = None
     bed_exit_monitor = BedExitMonitor()
     detector = bed_detector
+    bed_exit_latch = BedExitLatch()
     for frame in source:
         if bed_boxes is None:
             bed_boxes = detector.detect(frame) if detector is not None else ()
@@ -136,6 +166,13 @@ def iter_live_frames(
             result=result,
             pose_count=len(result.keypoints),
             time_sec=frame.time_sec,
+        )
+        bed_exit_events = bed_exit_latch.update(bed_exit_frame.events, frame.time_sec)
+        status = replace(
+            status,
+            bed_exit_events=bed_exit_events,
+            bed_exit_event_count=bed_exit_latch.event_count,
+            first_bed_exit_sec=bed_exit_latch.first_event_sec,
         )
         confidence = max((label.confidence for label in result.labels), default=0.0)
         yield overlay, status, confidence

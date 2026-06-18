@@ -66,10 +66,15 @@ def _client_kwargs(api_url: str = "http://127.0.0.1:9/ingest/alerts") -> dict[st
 
 
 def _expected_signature(
-    *, secret: str, resident_id: str, facility_id: str, detected_at: str
+    *,
+    secret: str,
+    resident_id: str,
+    facility_id: str,
+    detected_at: str,
+    event_type: str = "fall",
 ) -> str:
     signing_key = hashlib.sha256(secret.encode("utf-8")).hexdigest()
-    canonical = f"{resident_id}|{facility_id}|fall|{detected_at}"
+    canonical = f"{resident_id}|{facility_id}|{event_type}|{detected_at}"
     return hmac.new(
         signing_key.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256
     ).hexdigest()
@@ -114,6 +119,36 @@ def test_alert_client_send_enqueues_and_posts_hmac_ingest_payload() -> None:
         thread.join(timeout=1.0)
 
 
+def test_alert_client_send_accepts_bed_exit_with_event_probability() -> None:
+    _reset_handler()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
+    thread = _run_server(server)
+    client = AlertClient(
+        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
+        timeout_sec=0.2,
+    )
+    try:
+        accepted = client.send(
+            event_type="bed-exit",
+            detected_at="2026-06-13T12:00:00.000Z",
+            confidence=None,
+        )
+
+        assert accepted is True
+        assert _RecordingHandler.received_event.wait(1.0)
+        assert _RecordingHandler.received[0] == {
+            "resident_id": "resident-001",
+            "facility_id": "facility-001",
+            "probability": 1.0,
+            "detected_at": "2026-06-13T12:00:00.000Z",
+            "type": "bed-exit",
+        }
+    finally:
+        client.close()
+        server.shutdown()
+        thread.join(timeout=1.0)
+
+
 def test_alert_client_posts_hmac_headers_and_signature() -> None:
     _reset_handler()
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
@@ -137,9 +172,38 @@ def test_alert_client_posts_hmac_headers_and_signature() -> None:
             resident_id="resident-001",
             facility_id="facility-001",
             detected_at=detected_at,
+            event_type="fall",
         )
         assert headers["Content-Type"] == "application/json"
         assert headers["x-alert-api-key"] is None
+    finally:
+        client.close()
+        server.shutdown()
+        thread.join(timeout=1.0)
+
+
+def test_alert_client_posts_bed_exit_signature_with_type_in_canonical() -> None:
+    _reset_handler()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
+    thread = _run_server(server)
+    client = AlertClient(
+        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
+        timeout_sec=0.2,
+    )
+    try:
+        detected_at = "2026-06-13T12:00:00.000Z"
+        accepted = client.send(event_type="bed-exit", detected_at=detected_at)
+
+        assert accepted is True
+        assert _RecordingHandler.received_event.wait(1.0)
+        headers = _RecordingHandler.received_headers[0]
+        assert headers["X-Signature"] == _expected_signature(
+            secret="raw-demo-secret",
+            resident_id="resident-001",
+            facility_id="facility-001",
+            detected_at=detected_at,
+            event_type="bed-exit",
+        )
     finally:
         client.close()
         server.shutdown()
@@ -296,7 +360,9 @@ def test_alert_client_rejects_unknown_event_type_without_enqueueing() -> None:
     client = AlertClient(**_client_kwargs())
     try:
         accepted = client.send(
-            event_type="detection-lost", detected_at="2026-06-13T12:00:00.000Z", confidence=0.5
+            event_type="detection-lost",
+            detected_at="2026-06-13T12:00:00.000Z",
+            confidence=0.5,
         )
 
         assert accepted is False
