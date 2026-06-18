@@ -21,6 +21,9 @@ export interface KakaoProfile {
 export class KakaoClient implements OnModuleInit {
   constructor(private readonly config: ConfigService) {}
 
+  private static readonly DEFAULT_SCOPE = 'talk_message';
+  private static readonly SCOPE_TOKEN_PATTERN = /^[A-Za-z0-9_.:-]+$/;
+
   onModuleInit(): void {
     requiredConfig(this.config, 'KAKAO_REST_API_KEY');
     requiredConfig(this.config, 'KAKAO_REDIRECT_URI');
@@ -34,8 +37,37 @@ export class KakaoClient implements OnModuleInit {
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('state', state);
-    url.searchParams.set('scope', 'talk_message profile_nickname');
+    url.searchParams.set('scope', this.resolveScopes());
     return url.toString();
+  }
+
+  /**
+   * Resolve the OAuth scopes from KAKAO_SCOPES (space/comma separated).
+   * Defaults to the minimal `talk_message` scope (no profile_nickname) so a
+   * missing profile_nickname consent item cannot cause invalid_scope.
+   * Throws on a malformed scope token (e.g. control characters).
+   */
+  resolveScopes(): string {
+    const raw = this.config.get<string>('KAKAO_SCOPES');
+    if (raw === undefined || raw === null) return KakaoClient.DEFAULT_SCOPE;
+    const tokens = raw
+      .split(/[\s,]+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 0);
+    if (tokens.length === 0) return KakaoClient.DEFAULT_SCOPE;
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const token of tokens) {
+      if (!KakaoClient.SCOPE_TOKEN_PATTERN.test(token))
+        throw new ServiceUnavailableException(
+          `KAKAO_SCOPES contains an invalid scope token: ${JSON.stringify(token)}`,
+        );
+      if (!seen.has(token)) {
+        seen.add(token);
+        normalized.push(token);
+      }
+    }
+    return normalized.join(' ');
   }
 
   async exchangeCode(code: string): Promise<KakaoTokenResponse> {
