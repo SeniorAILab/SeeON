@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from demo.classifiers import (
+from core.classifiers import (
     ClassifierParams,
     RuleBasedClassifier,
     available_classifier_keys,
     build_classifier,
 )
-from demo.features import FrameFeatures
+from core.features import FrameFeatures
 
 
 def _down(params: ClassifierParams) -> FrameFeatures:
@@ -149,7 +149,7 @@ class TestRegistry:
         asserts the invariant contract instead of a fixed membership, which keeps
         the test stable both before and after artifacts exist on disk.
         """
-        from demo.temporal_module import TEMPORAL_MODEL_KEYS
+        from core.temporal_module import TEMPORAL_MODEL_KEYS
 
         keys = available_classifier_keys()
         assert "rule_based" in keys

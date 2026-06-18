@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from demo.bed_detector import BedDetector
-from demo.seam import BoundingBox, Frame
-from demo.yolo_runtime import YoloBedRunner
+from core.bed_detector import BedDetector
+from core.seam import BoundingBox, Frame
+from core.yolo_runtime import YoloBedRunner
 
 
 def _frame() -> Frame:
@@ -21,9 +21,7 @@ def _frame() -> Frame:
 class _StubRunner:
     """Records calls so we can assert one-shot semantics without a real model."""
 
-    def __init__(
-        self, result: tuple[tuple[int, int, int, int, float], ...]
-    ) -> None:
+    def __init__(self, result: tuple[tuple[int, int, int, int, float], ...]) -> None:
         self._result = result
         self.calls = 0
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from demo.playback_status import current_playback_status
-from demo.seam import DetectionLabel, DetectionResult
+from core.playback_status import current_playback_status
+from core.seam import DetectionLabel, DetectionResult
 
 
 def test_current_status_reports_not_fall_when_no_fall_labels() -> None:
@@ -38,9 +38,7 @@ def test_current_status_reports_fall_when_any_label_is_fall() -> None:
 def test_current_status_not_fall_with_non_fall_labels_only() -> None:
     status = current_playback_status(
         result=DetectionResult(
-            labels=(
-                DetectionLabel(text="standing", confidence=0.9, is_fall=False),
-            )
+            labels=(DetectionLabel(text="standing", confidence=0.9, is_fall=False),)
         ),
         pose_count=0,
         time_sec=0.5,

@@ -28,7 +28,7 @@ training = [
     "scikit-learn>=1.5",
     "joblib>=1.4",                  # direct import in training/models/rf.py (artifact (de)serialization)
     "tqdm>=4.66",
-    "ultralytics>=8.3",             # extract_poses reuses demo.yolo_runtime -> ultralytics
+    "ultralytics>=8.3",             # extract_poses reuses core.yolo_runtime -> ultralytics
     "opencv-python-headless>=4.10", # cv2.VideoCapture frame intake in extract_poses
     "optuna>=4.9.0",
 ]

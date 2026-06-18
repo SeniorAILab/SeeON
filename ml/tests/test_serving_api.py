@@ -44,7 +44,6 @@ def _valid_window(frames: int = 2) -> list[list[float]]:
     return [list(frame) for _ in range(frames)]
 
 
-
 class StubPipeline:
     def __init__(self, *, error: Exception | None = None) -> None:
         self.error = error

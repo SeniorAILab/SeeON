@@ -11,6 +11,7 @@ import time  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
+from core.playback_status import CurrentPlaybackStatus  # noqa: E402
 from demo.demo_ui import (  # noqa: E402
     build_model,
     render_live_controls,
@@ -18,7 +19,6 @@ from demo.demo_ui import (  # noqa: E402
     select_classifier_spec,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
-from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
 from util.camera_probe import probe_cameras  # noqa: E402
 from util.frame_source import CameraSource  # noqa: E402
 
@@ -58,10 +58,7 @@ def main() -> None:
 
     cameras = st.session_state["cameras"]
     if not cameras:
-        st.warning(
-            "연결된 카메라를 찾을 수 없습니다. "
-            "카메라를 연결한 뒤 '다시 검색'을 눌러주세요."
-        )
+        st.warning("연결된 카메라를 찾을 수 없습니다. 카메라를 연결한 뒤 '다시 검색'을 눌러주세요.")
         return
 
     # Show thumbnails in a row, one column per found camera.

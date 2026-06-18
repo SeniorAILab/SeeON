@@ -18,7 +18,7 @@ from typing import Final, Protocol
 
 from numpy.typing import NDArray
 
-from demo.seam import BoundingBox, Frame
+from core.seam import BoundingBox, Frame
 
 # bed-localization weight cache — a function axis under ml/models/ alongside
 # pose/ and fall/ (docs/rules/ml-models.md; gitignored, never committed).
@@ -50,7 +50,7 @@ class BedDetector:
         self._runner = runner if runner is not None else _default_runner()
 
     def detect(self, frame: Frame) -> tuple[BoundingBox, ...]:
-        from demo.yolo_runtime import BED_MAX_DETECTIONS, dedupe_bed_boxes
+        from core.yolo_runtime import BED_MAX_DETECTIONS, dedupe_bed_boxes
 
         deduped = dedupe_bed_boxes(
             self._runner.detect_beds(frame.image),
@@ -68,7 +68,7 @@ def _default_runner() -> BedRunner:
     Imported lazily so importing this module (e.g. for the stubbed unit tests)
     does not pull in ultralytics.
     """
-    from demo.yolo_runtime import YoloBedRunner
+    from core.yolo_runtime import YoloBedRunner
 
     BED_WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
     return YoloBedRunner(model_path=str(bed_weight_path()))

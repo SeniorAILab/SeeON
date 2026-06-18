@@ -7,6 +7,7 @@ repo that mirrors the ADR-015 custody layout (weights + metadata.json — no
 footage). Pose weights need no custody here: ``demo/model_modules.py`` already
 lets ultralytics auto-download into ``ml/models/pose/``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
