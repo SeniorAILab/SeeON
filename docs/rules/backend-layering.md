@@ -14,7 +14,7 @@ Controllers own HTTP only:
 - Calling exactly one use-case service method for the request.
 - Mapping use-case results to response DTOs/presenters.
 
-Controllers must not own business policy, idempotency rules, tenant-state transitions, Prisma error repair, or external delivery logic. `backend/src/ingest/ingest.controller.ts` is the current cautionary example: it validates freshness, checks tenant coherence, derives the idempotency key, catches Prisma `P2002`, writes the dashboard alert, and ensures the outbox inline. That behavior is correct domain behavior, but the controller is not the correct owner. `backend/src/dashboard/sse.controller.ts` is allowed to own SSE transport details, but domain event formatting still belongs in presenter-mapper helpers.
+Controllers must not own business policy, idempotency rules, tenant-state transitions, Prisma error repair, or external delivery logic. `backend/src/ingest/ingest.controller.ts` is the current thin-controller example: it applies the HMAC guard, parses `IngestAlertDto` from `backend/src/ingest/dto/ingest-alert.dto.ts`, and delegates the ingest use case to `IngestAlertService`. Freshness, tenant coherence, idempotency, dashboard alert writes, and outbox orchestration belong in services/repositories/adapters. `backend/src/dashboard/sse.controller.ts` is allowed to own SSE transport details, but domain event formatting still belongs in presenter-mapper helpers.
 
 ### DTO + parser
 
@@ -27,10 +27,9 @@ DTOs and parsers own the external request/response shape:
 
 Examples already present:
 
-- `backend/src/alerts/dto/alert-events.dto.ts` defines snake_case alert-event boundary DTOs such as `source_id`, `external_event_id`, `detected_at`, and `fall_probability`.
+- `backend/src/ingest/dto/ingest-alert.dto.ts` defines the `/ingest/alerts` boundary DTO and parser for snake_case fields such as `resident_id`, `facility_id`, `type`, and `detected_at`.
+- `backend/src/alerts/dto/alert-events.dto.ts` defines retained alert-event/outbox DTOs such as `source_id`, `external_event_id`, `detected_at`, and `fall_probability`.
 - `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts` parses the ML response and rejects missing `fall_probability`, `operating_threshold`, or `is_fall`.
-
-Inline controller DTOs such as `IngestAlertBody` in `backend/src/ingest/ingest.controller.ts` are transition-only; stable DTOs live under the domain `dto/` folder.
 
 ### Service
 
@@ -43,8 +42,9 @@ Services own use-case orchestration:
 
 Examples:
 
+- `backend/src/ingest/ingest-alert.service.ts` owns `/ingest/alerts` orchestration: tenant coherence, idempotency, dashboard alert writes, and alert-event/outbox creation.
 - `backend/src/alerts/alert-writer.service.ts` owns serialized alert writes, `ResidentStatus` updates, and post-commit SSE emission order.
-- `backend/src/alerts/services/alert-events.service.ts` owns alert-event orchestration: duplicate detection, alert policy evaluation, outbox creation, Kakao recipient fan-out, and delivery result recording.
+- `backend/src/alerts/services/alert-events.service.ts` owns retained alert-event orchestration for the repository/ports/adapters seam: duplicate detection, alert policy evaluation, outbox creation, Kakao recipient fan-out, and delivery result recording.
 - `backend/src/alerts/services/alert-policy.service.ts` owns alert dispatch/suppression policy.
 
 Services may call repositories and adapters. Services must not return raw Prisma models directly to controllers when a response DTO/presenter exists.

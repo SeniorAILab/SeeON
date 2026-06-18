@@ -39,17 +39,19 @@ Small legacy domains may still have flat files during transition (`backend/src/r
 - External-system implementations: `*.adapter.ts`
 - Tests: `*.spec.ts`, beside the source file they exercise
 
-Reference layout already present in `backend/src/alerts/`:
+Reference layout already present across `backend/src/ingest/` and `backend/src/alerts/`:
 
-- `controllers/alert-events.controller.ts`
-- `services/alert-events.service.ts`
-- `services/alert-policy.service.ts`
-- `repositories/alert-events.repository.ts`
-- `ports/channel.port.ts`
-- `ports/prediction.port.ts`
-- `adapters/kakao-send-to-me-channel.adapter.ts`
-- `adapters/ml-serving-prediction.adapter.ts`
-- `dto/alert-events.dto.ts`
+- `backend/src/ingest/ingest.controller.ts` stays thin: HMAC guard, request DTO parsing, and one service call.
+- `backend/src/ingest/ingest-alert.service.ts`
+- `backend/src/ingest/dto/ingest-alert.dto.ts`
+- `backend/src/alerts/services/alert-events.service.ts`
+- `backend/src/alerts/services/alert-policy.service.ts`
+- `backend/src/alerts/repositories/alert-events.repository.ts`
+- `backend/src/alerts/ports/channel.port.ts`
+- `backend/src/alerts/ports/prediction.port.ts`
+- `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts`
+- `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`
+- `backend/src/alerts/dto/alert-events.dto.ts`
 
 ## No root contracts folder
 
@@ -70,5 +72,5 @@ Examples:
 
 - `backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts` beside `ml-serving-prediction.adapter.ts`.
 - `backend/src/alerts/repositories/alert-events.repository.spec.ts` beside the repository.
-- `backend/src/ingest/ingest.controller.spec.ts` beside the controller while ingest remains flat.
+- `backend/src/ingest/ingest-alert.service.spec.ts` beside `ingest-alert.service.ts`; controller specs stay beside thin controllers when they exercise HTTP wiring.
 - `backend/test/auth.spec.ts` and `backend/test/app-boot.spec.ts` are acceptable because they exercise whole-app route/session boot behavior rather than one source unit.

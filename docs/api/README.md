@@ -1,12 +1,12 @@
 # API and Event Contracts
 
-`docs/api/` is the single owner for current front↔backend↔ML HTTP API and realtime event contracts.
+`docs/api/` is the single owner for the **current** front↔backend↔ML HTTP API and realtime event contracts.
 
-This directory documents the target contract for issue #216. Code must be refactored to match these files, not the other way around. When implementation is still in transition, the contract page marks the gap as `Target; not yet in code`.
+These pages describe the contract **as implemented** (issue #216 / PR #217): the code matches these files, not the other way around. Future API/event changes update these pages (and the relevant ADR) first, then the code.
 
 ## Contract index
 
-- [Route inventory](./route-inventory.md) — all target backend dashboard/auth/ingest routes plus removed routes.
+- [Route inventory](./route-inventory.md) — all backend dashboard/auth/ingest routes plus explicitly removed routes.
 - [Edge ingest API](./edge-ingest-api.md) — HMAC camera ingest for alerts and heartbeat.
 - [Dashboard API](./dashboard-api.md) — authenticated dashboard read-model and CRUD APIs.
 - [ML serving API](./ml-serving-api.md) — FastAPI `/predict` window contract and `/health`.
@@ -30,8 +30,6 @@ Do not create a root `contracts/` directory. Contract ownership stays under `doc
 - ML serving owns classification only: it converts a pose window into a fall probability and boolean classification.
 - Frontend consumes backend dashboard/auth routes; it does not call ML serving directly.
 
-## Transitional notation
+## Removed routes
 
-- `Target; already in code` means current implementation already serves the contract.
-- `Target; not yet in code` means this is the approved post-refactor contract and current implementation still differs.
-- Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and must not be kept as aliases unless a later ADR changes this contract.
+Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events` (→ `/ingest/alerts`, ADR-047), `POST /orgs` (→ `/api/orgs`), `GET/PUT /api/snapshots/:alertId` (→ `/api/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`).
