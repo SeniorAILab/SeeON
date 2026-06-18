@@ -1,4 +1,4 @@
-# ADR-051: Bed localization via COCO instance segmentation
+# ADR-054: Bed localization via COCO instance segmentation
 
 ## Status
 
@@ -26,7 +26,7 @@ Bed ROIs were localized with COCO **detection** (`yolo26m.pt`, class 59 = bed) a
 |---|---|
 | Pose/detection framework choice | ADR-025 |
 | Model weight root + metadata contract | ADR-015 |
-| Bed localization method (detection → segmentation) + mask rendering | ADR-051 |
+| Bed localization method (detection → segmentation) + mask rendering | ADR-054 |
 | No hard cap on bed count | issue #244 |
 | Bed-exit policy (containment/grace/sticky assignment) | bed-exit logic (unchanged) |
 
