@@ -20,9 +20,17 @@
  *   - `event: status-snapshot` → full ResidentStatus[] replacement on connect.
  *
  * The hook merges replay + live events using alertSeq for dedup/order.
+ *
+ * Demo mode (NEXT_PUBLIC_DEMO=1): no EventSource is opened. The hook hydrates
+ * from the persistent mock scenario and subscribes to the idempotent mock
+ * scheduler, so the stream runs with zero backend dependency and ACKs/events
+ * stay consistent across the app.
  */
 
 import { useEffect, useRef, useState } from "react";
+import { IS_DEMO } from "./config";
+import { getScenario } from "./mock/scenario";
+import { startMockSse } from "./mock/sse";
 import {
   mergeAlerts,
   mergeStatuses,
@@ -78,6 +86,48 @@ export function useAlertStream(options: UseAlertStreamOptions = {}): AlertStream
   }, [onSessionInvalid]);
 
   useEffect(() => {
+    // Demo mode: hydrate persistent scenario, then subscribe to the mock
+    // scheduler. No network, no EventSource, no session-invalid redirect.
+    if (IS_DEMO) {
+      const scenario = getScenario();
+      setState({
+        alerts: scenario.alerts.slice(0, maxAlertsRef.current),
+        statuses: scenario.statuses,
+        connected: true,
+      });
+      const stop = startMockSse(
+        (incoming) => {
+          setState((prev) => {
+            const alerts = mergeAlerts(prev.alerts, [incoming]).slice(
+              0,
+              maxAlertsRef.current,
+            );
+            const optimisticState =
+              incoming.probability >= 0.8
+                ? "FALL"
+                : incoming.probability >= 0.5
+                  ? "WARNING"
+                  : "NORMAL";
+            const statuses = prev.statuses.map((s) =>
+              s.residentId === incoming.residentId
+                ? { ...s, state: optimisticState as ResidentStatus["state"] }
+                : s,
+            );
+            return { ...prev, alerts, statuses };
+          });
+        },
+        (statusEvent) => {
+          setState((prev) => ({
+            ...prev,
+            statuses: mergeStatuses(prev.statuses, statusEvent),
+          }));
+        },
+      );
+      return () => {
+        stop();
+      };
+    }
+
     let cancelled = false;
     const es = new EventSource("/api/sse");
 

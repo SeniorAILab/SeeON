@@ -4,8 +4,10 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api, ApiError } from "../../../lib/api";
 import type { SseAlert } from "../../../lib/sse-utils";
-import { ALERT_STATUS_LABELS, formatTime } from "../../../lib/sse-utils";
+import { ALERT_STATUS_LABELS, ALERT_TYPE_LABELS, formatTime } from "../../../lib/sse-utils";
+import { IS_DEMO } from "../../../lib/config";
 import { SnapshotThumb } from "../../../components/SnapshotThumb";
+import { PoseFrameCard } from "../../../components/PoseFrameCard";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -72,10 +74,10 @@ export default function AlertDetailPage({
             href="/alerts"
             className="text-sm text-slate-400 transition hover:text-white"
           >
-            ← 알림 이력
+            ← 알림 목록
           </Link>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400">
-            Alert Detail
+            알림 상세
           </p>
         </div>
 
@@ -109,47 +111,50 @@ export default function AlertDetailPage({
             </div>
 
             <div className="mb-6">
-              <SnapshotThumb
-                alertId={alert.id}
-                snapshotKey={alert.snapshotKey}
-                className="h-48 w-full"
-              />
+              {IS_DEMO ? (
+                <PoseFrameCard />
+              ) : (
+                <SnapshotThumb
+                  alertId={alert.id}
+                  snapshotKey={alert.snapshotKey}
+                  className="h-48 w-full"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field
-                label="대상자 ID"
-                value={
-                  <span className="font-mono text-xs">
-                    {alert.residentId}
-                  </span>
-                }
-              />
               {alert.resident?.room && (
                 <Field label="호실" value={`${alert.resident.room}호`} />
               )}
               <Field
+                label="유형"
+                value={ALERT_TYPE_LABELS[alert.type] ?? alert.type}
+              />
+              <Field
                 label="신뢰도"
                 value={`${Math.round(alert.probability * 100)}%`}
               />
-              <Field label="유형" value={alert.type} />
               <Field
                 label="감지 시각"
                 value={formatTime(alert.detectedAt, { dateStyle: "long", timeStyle: "medium" })}
               />
-              <Field
-                label="alertSeq"
-                value={
-                  <span className="font-mono text-xs">{alert.alertSeq}</span>
-                }
-              />
-              {alert.cameraId && (
-                <Field
-                  label="카메라 ID"
-                  value={
-                    <span className="font-mono text-xs">{alert.cameraId}</span>
-                  }
-                />
+              {!IS_DEMO && (
+                <>
+                  <Field
+                    label="대상자 ID"
+                    value={<span className="font-mono text-xs">{alert.residentId}</span>}
+                  />
+                  <Field
+                    label="alertSeq"
+                    value={<span className="font-mono text-xs">{alert.alertSeq}</span>}
+                  />
+                  {alert.cameraId && (
+                    <Field
+                      label="카메라 ID"
+                      value={<span className="font-mono text-xs">{alert.cameraId}</span>}
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -160,15 +165,9 @@ export default function AlertDetailPage({
                   disabled={acking}
                   className="w-full rounded-xl bg-cyan-700 py-3 text-sm font-semibold transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {acking ? "처리 중..." : "확인 처리 (ACK)"}
+                  {acking ? "처리 중..." : "확인 처리"}
                 </button>
               </div>
-            )}
-
-            {error && (
-              <p className="mt-4 rounded-xl bg-red-900/30 p-3 text-sm text-red-400">
-                {error}
-              </p>
             )}
           </div>
         )}

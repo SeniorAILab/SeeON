@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { BACKEND_ORIGIN as backendOrigin } from "./config";
+import { BACKEND_ORIGIN as backendOrigin, isServerDemo } from "./config";
+import { DEMO_SESSION } from "./mock/session";
 
 export type FrontSessionUser = {
   id: string;
@@ -13,6 +14,12 @@ export type FrontSession = {
 };
 
 export async function getFrontSession(): Promise<FrontSession | null> {
+  // Demo mode: return a fixed session without reading cookies or calling the
+  // backend, so server components render org-scoped content with zero network.
+  if (isServerDemo()) {
+    return DEMO_SESSION as FrontSession;
+  }
+
   const cookieHeader = (await cookies()).toString();
   if (!cookieHeader.includes("app_session=")) return null;
 

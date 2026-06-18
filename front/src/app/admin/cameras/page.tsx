@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCrud } from "../../../lib/useCrud";
+import { api } from "../../../lib/api";
+import { IS_DEMO } from "../../../lib/config";
+import type { DemoCamera } from "../../../lib/mock/types";
 import { residentName, formatTime } from "../../../lib/sse-utils";
 import { EmptyState } from "../../../components/EmptyState";
 
@@ -22,7 +25,7 @@ interface Resident {
   room: string | null;
 }
 
-export default function CamerasPage() {
+function ProductionCamerasPage() {
   const cam = useCrud<Camera>("/api/cameras");
   const res = useCrud<Resident>("/api/residents");
   const loading = cam.loading || res.loading;
@@ -256,4 +259,96 @@ export default function CamerasPage() {
       </div>
     </main>
   );
+}
+
+function DemoCamerasPage() {
+  const [cameras, setCameras] = useState<DemoCamera[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<DemoCamera[]>("/api/cameras")
+      .then((data) => {
+        if (cancelled) return;
+        setCameras(data);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400">
+              Admin
+            </p>
+            <h1 className="mt-1 text-2xl font-bold">카메라 관리</h1>
+          </div>
+          <div className="flex gap-3">
+            <Link href="/admin/residents" className="text-sm text-slate-400 hover:text-white">
+              대상자
+            </Link>
+            <Link href="/admin/guardians" className="text-sm text-slate-400 hover:text-white">
+              보호자
+            </Link>
+            <Link href="/dashboard" className="text-sm text-slate-400 hover:text-white">
+              ← 대시보드
+            </Link>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="flex justify-center py-16">
+            <span className="text-sm text-slate-500">로딩 중...</span>
+          </div>
+        )}
+        {error && !loading && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+        {!loading && !error && (
+          <div className="flex flex-col gap-2">
+            {cameras.length === 0 && <EmptyState message="등록된 카메라가 없습니다" />}
+            {cameras.map((c) => (
+              <div key={c.id} className="rounded-xl border border-white/5 bg-white/5 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-white">{c.label}</span>
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      c.online ? "bg-emerald-400" : "bg-slate-600"
+                    }`}
+                    title={c.online ? "온라인" : "오프라인"}
+                  />
+                  <span className="text-xs text-slate-400">
+                    {c.online ? "온라인" : "오프라인"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  마지막 확인: {c.lastSeenAt ? formatTime(c.lastSeenAt, { dateStyle: "short", timeStyle: "short" }) : "기록 없음"}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+export default function CamerasPage() {
+  if (IS_DEMO) return <DemoCamerasPage />;
+  return <ProductionCamerasPage />;
 }

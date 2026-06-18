@@ -151,3 +151,11 @@ export function residentName(
   if (!id) return "미지정";
   return residents.find((r) => r.id === id)?.name ?? id.slice(0, 8);
 }
+
+/** Alert type → Korean label. */
+export const ALERT_TYPE_LABELS: Record<string, string> = {
+  FALL: "낙상",
+  BED_EXIT: "침대 이탈",
+  NO_MOTION: "움직임 없음",
+  DETECTION_LOST: "감지 끊김",
+};

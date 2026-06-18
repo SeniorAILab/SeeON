@@ -6,10 +6,16 @@
  * 403 → session valid but no org context → redirect to /onboarding
  *       (consistent with server-side dashboard redirect; see auth/org-context.interceptor).
  *
+ * Demo mode (NEXT_PUBLIC_DEMO=1): every call is served from the in-memory mock
+ * router with no network and no auth redirect, so the demo runs with zero
+ * backend dependency.
+ *
  * Optimistic badge thresholds (probability >= 0.8 → FALL, >= 0.5 → WARNING, else NORMAL)
  * mirror the ingest/alert-writer contract in backend/src/alerts/alert-writer.service.ts.
  * Update here if the backend threshold logic changes.
  */
+import { IS_DEMO } from "./config";
+import { mockApi, MockApiError } from "./mock/api";
 
 export class ApiError extends Error {
   constructor(
@@ -22,6 +28,17 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (IS_DEMO) {
+    try {
+      return await mockApi<T>(path, init);
+    } catch (error) {
+      if (error instanceof MockApiError) {
+        throw new ApiError(error.status, error.message);
+      }
+      throw error;
+    }
+  }
+
   const res = await fetch(path, {
     ...init,
     credentials: "include",

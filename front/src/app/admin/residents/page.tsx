@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "../../../components/EmptyState";
+import { api } from "../../../lib/api";
+import { IS_DEMO } from "../../../lib/config";
 import { useCrud } from "../../../lib/useCrud";
+import type { DemoResident } from "../../../lib/mock/types";
 
 interface Resident {
   id: string;
@@ -12,7 +15,7 @@ interface Resident {
   createdAt: string;
 }
 
-export default function ResidentsPage() {
+function ProductionResidentsPage() {
   const c = useCrud<Resident>("/api/residents");
 
   // Create form
@@ -215,4 +218,89 @@ export default function ResidentsPage() {
       </div>
     </main>
   );
+}
+
+function DemoResidentsPage() {
+  const [residents, setResidents] = useState<DemoResident[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<DemoResident[]>("/api/residents")
+      .then((data) => {
+        if (cancelled) return;
+        setResidents(data);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400">
+              Admin
+            </p>
+            <h1 className="mt-1 text-2xl font-bold">대상자 관리</h1>
+          </div>
+          <div className="flex gap-3">
+            <Link href="/admin/cameras" className="text-sm text-slate-400 hover:text-white">
+              카메라
+            </Link>
+            <Link href="/admin/guardians" className="text-sm text-slate-400 hover:text-white">
+              보호자
+            </Link>
+            <Link href="/dashboard" className="text-sm text-slate-400 hover:text-white">
+              ← 대시보드
+            </Link>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="flex justify-center py-16">
+            <span className="text-sm text-slate-500">로딩 중...</span>
+          </div>
+        )}
+        {error && !loading && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+        {!loading && !error && (
+          <div className="flex flex-col gap-2">
+            {residents.length === 0 && <EmptyState message="등록된 대상자가 없습니다" />}
+            {residents.map((r) => (
+              <Link
+                key={r.id}
+                href={`/admin/residents/${r.id}`}
+                className="rounded-xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/10"
+              >
+                <p className="font-medium text-white">{r.name}</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  {r.room}호 · {r.careLevel}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+export default function ResidentsPage() {
+  if (IS_DEMO) return <DemoResidentsPage />;
+  return <ProductionResidentsPage />;
 }

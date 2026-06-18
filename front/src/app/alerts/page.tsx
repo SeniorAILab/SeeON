@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
 import type { AlertStatus, SseAlert } from "../../lib/sse-utils";
-import { ALERT_STATUS_LABELS, formatTime } from "../../lib/sse-utils";
+import { ALERT_STATUS_LABELS, ALERT_TYPE_LABELS, formatTime } from "../../lib/sse-utils";
 import { EmptyState } from "../../components/EmptyState";
 
 const PAGE_SIZE = 50;
@@ -12,11 +12,13 @@ const PAGE_SIZE = 50;
 function buildAlertsPath(filters: {
   residentId: string;
   status: AlertStatus | "";
+  type: string;
   beforeSeq?: string;
 }): string {
   const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
   if (filters.residentId) params.set("residentId", filters.residentId);
   if (filters.status) params.set("status", filters.status);
+  if (filters.type) params.set("type", filters.type);
   if (filters.beforeSeq) params.set("beforeSeq", filters.beforeSeq);
   return `/api/alerts?${params.toString()}`;
 }
@@ -42,9 +44,11 @@ export default function AlertsPage({
       ? initialStatus
       : "",
   );
+  const [typeInput, setTypeInput] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({
     residentId: initialResidentId ?? "",
     status: statusInput,
+    type: "",
   });
 
   useEffect(() => {
@@ -77,17 +81,19 @@ export default function AlertsPage({
     setAppliedFilters({
       residentId: filterInput.trim(),
       status: statusInput,
+      type: typeInput,
     });
   }
 
   function handleReset() {
     setFilterInput("");
     setStatusInput("");
+    setTypeInput("");
     setLoading(true);
     setError(null);
     setAlerts([]);
     setHasMore(false);
-    setAppliedFilters({ residentId: "", status: "" });
+    setAppliedFilters({ residentId: "", status: "", type: "" });
   }
 
   async function loadOlder() {
@@ -108,7 +114,9 @@ export default function AlertsPage({
     }
   }
 
-  const filtering = Boolean(appliedFilters.residentId || appliedFilters.status);
+  const filtering = Boolean(
+    appliedFilters.residentId || appliedFilters.status || appliedFilters.type,
+  );
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
@@ -116,9 +124,9 @@ export default function AlertsPage({
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400">
-              Alert History
+              알림 이력
             </p>
-            <h1 className="mt-1 text-2xl font-bold">알림 이력</h1>
+            <h1 className="mt-1 text-2xl font-bold">알림</h1>
           </div>
           <Link
             href="/dashboard"
@@ -134,15 +142,25 @@ export default function AlertsPage({
             value={filterInput}
             onChange={(e) => setFilterInput(e.target.value)}
             placeholder="대상자 ID로 필터"
-            className="min-w-64 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-500"
+            className="min-w-56 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-500"
           />
+          <select
+            value={typeInput}
+            onChange={(e) => setTypeInput(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none focus:border-cyan-500"
+          >
+            <option value="">전체 유형</option>
+            <option value="FALL">낙상만</option>
+            <option value="BED_EXIT">침대 이탈</option>
+            <option value="NO_MOTION">움직임 없음</option>
+          </select>
           <select
             value={statusInput}
             onChange={(e) => setStatusInput(e.target.value as AlertStatus | "")}
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none focus:border-cyan-500"
           >
             <option value="">전체 상태</option>
-            <option value="NEW">신규</option>
+            <option value="NEW">미확인</option>
             <option value="ACKED">확인됨</option>
             <option value="RESOLVED">해결됨</option>
           </select>
@@ -204,17 +222,18 @@ export default function AlertsPage({
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-300">
-                    낙상 감지 — 신뢰도 {Math.round(alert.probability * 100)}%
+                    {ALERT_TYPE_LABELS[alert.type] ?? alert.type} 감지 — 신뢰도{" "}
+                    {Math.round(alert.probability * 100)}%
                   </p>
                   <p className="text-xs text-slate-500">
-                    {formatTime(alert.detectedAt)} · alertSeq {alert.alertSeq}
+                    {formatTime(alert.detectedAt)}
                   </p>
                 </div>
                 <span className="flex-none text-slate-600">›</span>
               </Link>
             ))}
             {alerts.length === 0 && (
-              <EmptyState message={filtering ? "조건에 맞는 알림 이력이 없습니다" : "알림 이력이 없습니다"} />
+              <EmptyState message={filtering ? "조건에 맞는 알림이 없습니다" : "알림 이력이 없습니다"} />
             )}
             {alerts.length > 0 && hasMore && (
               <button

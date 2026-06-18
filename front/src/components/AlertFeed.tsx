@@ -2,28 +2,50 @@
 
 import { useAlertStream, type SseAlert } from "../lib/sse";
 import type { ResidentStatus } from "../lib/sse-utils";
-import { formatTime } from "../lib/sse-utils";
+import { formatTime, ALERT_TYPE_LABELS } from "../lib/sse-utils";
+import { IS_DEMO } from "../lib/config";
 import { StatusBadge } from "./StatusBadge";
 import { SnapshotThumb } from "./SnapshotThumb";
 import { EmptyState } from "./EmptyState";
 import Link from "next/link";
 
+// Demo evidence thumbnail: pose-based type marker, no stored image and no
+// /api/alerts/*/snapshot dependency (privacy-first; AC-E).
+function AlertTypeThumb({ type }: { type: string }) {
+  const cls =
+    type === "FALL"
+      ? "bg-red-500/15 text-red-300"
+      : type === "BED_EXIT"
+        ? "bg-amber-500/15 text-amber-300"
+        : "bg-sky-500/15 text-sky-300";
+  return (
+    <div
+      className={`flex h-16 w-16 flex-none items-center justify-center rounded-lg text-center text-xs font-bold leading-tight ${cls}`}
+    >
+      {ALERT_TYPE_LABELS[type] ?? "감지"}
+    </div>
+  );
+}
+
 function AlertCard({ alert }: { alert: SseAlert }) {
   const isNew = alert.status === "NEW";
+  const typeLabel = ALERT_TYPE_LABELS[alert.type] ?? "이상";
   return (
     <Link
       href={`/alerts/${alert.id}`}
       className={`flex gap-3 rounded-xl border p-4 transition hover:bg-white/10 ${
-        isNew
-          ? "border-red-500/30 bg-red-500/5"
-          : "border-white/5 bg-white/5"
+        isNew ? "border-red-500/30 bg-red-500/5" : "border-white/5 bg-white/5"
       }`}
     >
-      <SnapshotThumb
-        alertId={alert.id}
-        snapshotKey={alert.snapshotKey}
-        className="h-16 w-16 flex-none"
-      />
+      {IS_DEMO ? (
+        <AlertTypeThumb type={alert.type} />
+      ) : (
+        <SnapshotThumb
+          alertId={alert.id}
+          snapshotKey={alert.snapshotKey}
+          className="h-16 w-16 flex-none"
+        />
+      )}
       <div className="flex flex-1 flex-col gap-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium text-white truncate">
@@ -43,12 +65,19 @@ function AlertCard({ alert }: { alert: SseAlert }) {
           </span>
         </div>
         <p className="text-sm text-slate-300">
-          낙상 감지 — 신뢰도{" "}
+          {typeLabel} 감지 — 신뢰도{" "}
           <span className="font-semibold text-white">
             {Math.round(alert.probability * 100)}%
           </span>
         </p>
-        <p className="text-xs text-slate-500">{formatTime(alert.detectedAt, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</p>
+        <p className="text-xs text-slate-500">
+          {formatTime(alert.detectedAt, {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          })}
+        </p>
       </div>
     </Link>
   );
@@ -100,7 +129,6 @@ export function AlertFeed({ initialAlerts, initialStatuses }: AlertFeedProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Resident status grid */}
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold uppercase tracking-widest text-slate-400">
@@ -113,14 +141,13 @@ export function AlertFeed({ initialAlerts, initialStatuses }: AlertFeedProps) {
               }`}
             />
             <span className="text-xs text-slate-500">
-              {connected ? "SSE 연결됨" : "재연결 중..."}
+              {connected ? "실시간 연결됨" : "연결 중..."}
             </span>
           </div>
         </div>
         <StatusGrid statuses={statuses} />
       </section>
 
-      {/* Live alert feed */}
       <section>
         <h2 className="mb-4 text-base font-semibold uppercase tracking-widest text-slate-400">
           실시간 낙상 피드
