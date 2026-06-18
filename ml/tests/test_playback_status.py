@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from core.contract import DetectionLabel, DetectionResult
 from core.playback_status import current_playback_status
-from core.seam import DetectionLabel, DetectionResult
 
 
 def test_current_status_reports_not_fall_when_no_fall_labels() -> None:

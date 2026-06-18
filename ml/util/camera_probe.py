@@ -19,7 +19,7 @@ def probe_cameras(max_index: int = 5) -> list[CameraInfo]:
     Returns a CameraInfo for each index that opens AND yields at least one
     frame.  The thumbnail is the first captured frame converted to RGB.
     Pure OpenCV — no Streamlit dependency (unit-testable with monkeypatched
-    cv2.VideoCapture, same seam layer as CameraSource).
+    cv2.VideoCapture, same 계약(contract) layer as CameraSource).
     """
     found: list[CameraInfo] = []
     for idx in range(max_index):

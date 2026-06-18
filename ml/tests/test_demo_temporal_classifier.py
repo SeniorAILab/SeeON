@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from core.classifiers import CLASSIFIER_REGISTRY
-from core.seam import (
+from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,
@@ -214,7 +214,7 @@ class TestTemporalFallClassifierModule:
         assert result.keypoints == ()
 
     def test_satisfies_model_module_protocol(self, tmp_path: Path) -> None:
-        from core.seam import ModelModule
+        from core.contract import ModelModule
 
         _build_rf_artifact(tmp_path)
         module = _load_module(tmp_path)
