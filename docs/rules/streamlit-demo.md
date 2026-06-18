@@ -12,7 +12,7 @@
 ## 1. Allowed operator controls
 
 The following controls are legitimate in the demo. Do not remove them; do not
-add knobs that duplicate model-seam internals.
+add knobs that duplicate model-contract internals.
 
 - **Classifier selectbox** — `select_classifier_spec()` from `demo.demo_ui`;
   renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`. The registry is
@@ -112,13 +112,13 @@ and then appear under the `uploads` domain like any other source. `handle_upload
 so the same file is not persisted twice. `video_registry` stays UI-agnostic — do
 not push upload bookkeeping into the registry.
 
-## 6. Model / size / classifier selection goes through the model-seam
+## 6. Model / size / classifier selection goes through the model contract
 
-Selecting the pose model size is a **one-line weight swap through the model-seam**
+Selecting the pose model size is a **one-line weight swap through the model contract**
 (`pose_weight_filename(size)` → `yolo26{size}-pose.pt`), not bespoke UI logic.
 Any future "choose pose model" or "choose downstream classifier" control must be
 wired through `demo.classifiers` / `demo.model_modules`, leaving the renderer
-and downstream consumers untouched (ADR-026/027). Do not branch the UI on
+and downstream consumers untouched (ADR-050/027). Do not branch the UI on
 framework internals.
 
 ## 7. Operational notes

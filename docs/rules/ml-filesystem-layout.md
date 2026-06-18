@@ -43,7 +43,7 @@ four role folders you need. Point the relevant config constant
 | Domain-bound data, any role | `ml/data/{domain}/{raw,processed,poses,annotated}` | no (gitignored) | ADR-012 |
 | Cross-domain derived outputs | `ml/data/eval/` | no (gitignored) | ADR-012 |
 | Transient demo uploads | `ml/data/uploads/` | no (gitignored) | ADR-012 |
-| Frame-intake seam **code** | `ml/util/` | yes | ADR-006 |
+| Frame-intake contract **code** | `ml/util/` | yes | ADR-006 |
 
 ## Invariants
 

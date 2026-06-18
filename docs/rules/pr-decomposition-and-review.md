@@ -66,7 +66,7 @@ changing the workflow policy.
 | Shape | Use when | Example |
 | --- | --- | --- |
 | Vertical slice | A feature can be delivered in small complete increments | UI labels first, test helpers second |
-| Horizontal foundation | Later slices need a shared seam first | constants/helper module first, consumers later |
+| Horizontal foundation | Later slices need a shared contract first | constants/helper module first, consumers later |
 | File group | Different reviewers own different areas | CI workflow separate from docs rule |
 | Docs/archive slice | Implementation is merged but lifecycle records remain | archive execution plans after code PRs |
 
