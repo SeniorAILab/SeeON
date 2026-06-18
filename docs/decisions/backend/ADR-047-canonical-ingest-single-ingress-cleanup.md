@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the pilot-endpoint retention clause in ADR-043.
+Accepted. Supersedes ADR-035's separate `/api.alerts/events` ingress and ADR-043's pilot-endpoint retention clause.
 
 ## Date
 
@@ -10,7 +10,7 @@ Accepted. Supersedes the pilot-endpoint retention clause in ADR-043.
 
 ## Context
 
-ADR-043 made `POST /ingest/alerts` the canonical backend ingress for ML-originated fall alerts, while temporarily leaving the legacy `POST /api.alerts/events` pilot endpoint in place. That pilot clause was useful during the MVP transition but leaves two possible live alert ingress paths in the visible architecture.
+ADR-035 accepted `POST /api.alerts/events` as a separate trusted pilot/edge ingress. ADR-043 made `POST /ingest/alerts` the canonical backend ingress for ML-originated fall alerts, while temporarily leaving the legacy `POST /api.alerts/events` pilot endpoint in place. Those clauses were useful during the MVP transition but leave two possible live alert ingress paths in the visible architecture.
 
 The current contract cleanup makes `docs/` the source of truth and removes the legacy pilot surface from the live path. Backend alert policy, persistence, deduplication, and delivery remain backend-owned under ADR-035, ADR-037, ADR-038, ADR-043, and ADR-044.
 
@@ -23,7 +23,7 @@ Concretely:
 - Remove `POST /api.alerts/events` from the live backend API contract.
 - Do not route ML demo, frontend, operators, or production integrations through `/api.alerts/events`.
 - Keep `/ingest/alerts` as the single path that creates or repairs the RLS `Alert` read-model, SSE update, `AlertEvent`, and per-recipient `DeliveryAttempt` outbox for one idempotent event.
-- Treat the ADR-043 sentence that retained `POST /api.alerts/events` as a pilot endpoint as superseded by this ADR.
+- Treat the ADR-035 separate `POST /api.alerts/events` ingress and the ADR-043 sentence that retained `POST /api.alerts/events` as a pilot endpoint as superseded by this ADR.
 - Any future non-ML alert source must either use `/ingest/alerts` with an explicit source contract or receive a new ADR before adding another live ingress.
 
 ## Alternatives Considered
@@ -48,7 +48,8 @@ Concretely:
 
 ## Consequences
 
+- ADR-035 remains active for backend-owned alert policy, idempotency, persistence, and dispatch ownership, except its separate `/api.alerts/events` ingress is superseded.
 - ADR-043 remains active for the canonical ingest transaction and repair semantics, except its pilot-endpoint retention clause is superseded.
-- The decisions index must show ADR-043 as partially superseded by ADR-047.
+- The decisions index must show ADR-035 and ADR-043 as partially superseded by ADR-047.
 - Backend tests and callers that still assert `/api.alerts/events` as live contract must migrate to `/ingest/alerts` or be removed.
 - The visible API surface has one alert ingress, reducing duplicate delivery and read-model divergence risk.

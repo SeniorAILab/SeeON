@@ -10,9 +10,9 @@ Required headers:
 
 | Header | Meaning |
 |---|---|
-| `X-Ingest-KeyId` | Target public camera ingest key selector. Current code reads `X-Ingest-Key-Id`; this is a not-yet-in-code naming gap. Backend resolves the key through `get_camera_for_ingest(keyId)` and attaches the camera to the request. |
+| `X-Ingest-Key-Id` | Camera ingest key selector. Backend resolves the key through `get_camera_for_ingest(keyId)` and attaches the camera to the request. |
 | `X-Ingest-Timestamp` | ISO-8601 or Unix milliseconds timestamp. Must be within the freshness window. |
-| `signature` | Target public hex HMAC-SHA256 over the canonical message. Current code reads `X-Signature`; this is a not-yet-in-code naming gap. |
+| `X-Signature` | Hex HMAC-SHA256 over the canonical message. |
 
 Freshness window: 5 minutes. Requests outside `±5 minutes` of server time fail with the stale timestamp domain error.
 

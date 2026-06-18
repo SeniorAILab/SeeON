@@ -11,7 +11,7 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
    - `/dashboard` when the user already has an organization.
    - `/onboarding` when the user needs to create one.
 5. Frontend/server rendering reads `GET /auth/session` for the current user.
-6. Onboarding creates the organization through `POST /api/orgs` (target; current code still serves `POST /orgs`).
+6. Onboarding creates the organization through `POST /api/orgs`.
 7. Dashboard uses `/api/alerts`, `/api/status`, `/api/residents`, `/api/cameras`, `/api/guardians`, snapshots, and `/api/sse`.
 
 `POST /auth/logout` revokes the session and clears the session cookie.
@@ -38,12 +38,10 @@ Acknowledges one org-scoped alert. No request body. Response is the updated aler
 
 ## Snapshot API
 
-Target snapshot path is nested under the alert:
+Snapshot paths are nested under the alert:
 
 - `GET /api/alerts/:alertId/snapshot`
 - `PUT /api/alerts/:alertId/snapshot`
-
-Current code still serves `GET/PUT /api/snapshots/:alertId`; that is a removed route in the target inventory.
 
 ### `PUT /api/alerts/:alertId/snapshot`
 
@@ -116,7 +114,7 @@ These routes are target/current except DTO validation is still pending in the re
 
 ### `POST /api/orgs`
 
-Target; not yet in code. Current code serves `POST /orgs`.
+Current-effective route.
 
 Request:
 

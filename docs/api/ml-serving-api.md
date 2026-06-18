@@ -25,7 +25,7 @@ When the artifact cannot load, `status` is `degraded`, `model_status` is `error`
 
 ## `POST /predict` — R1-A window contract
 
-Target; not yet in code. Current `ml/serving/main.py` only accepts `source_id` or `upload_id` and forbids extra fields. The backend adapter already sends `{ "window": ... }` and expects the response fields below.
+Current-effective backend serving contract. `POST /predict` accepts `{ "window": ... }` and returns the response fields below.
 
 ### Request
 
@@ -37,7 +37,7 @@ Target; not yet in code. Current `ml/serving/main.py` only accepts `source_id` o
 
 `window` is `number[][]` with shape `[T][51]`:
 
-- `T` is the number of frames. Target operating window is approximately 30 frames; serving constants require `EXPECTED_WINDOW = 30`.
+- `T` is the number of frames. Operating window is approximately 30 frames; serving constants require `EXPECTED_WINDOW = 30`.
 - Each row contains 17 COCO-17 keypoints × `[x, y, conf]` = 51 numbers.
 - Coordinates are normalized the same way as training via `normalize_person_keypoints`.
 - `conf` values are in `[0, 1]`.
@@ -78,7 +78,7 @@ Field rules:
 
 ## Retained demo/eval mode
 
-Target retains the existing source-backed mode for demo/evaluation, separate from the backend alert contract:
+The existing source-backed mode is retained for demo/evaluation, separate from the backend alert contract:
 
 ```json
 {
@@ -106,4 +106,4 @@ or:
 
 That path resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It is for demo/eval surfaces, not the backend alert-ingest boundary.
 
-The target implementation may keep this mode in the same `/predict` endpoint as a discriminated branch or split it behind a demo-only route. In either shape, the backend contract remains `{ window }` → `{ fall_probability, operating_threshold, is_fall }`.
+This implementation may keep demo/eval mode in the same `/predict` endpoint as a discriminated branch or split it behind a demo-only route. In either shape, the backend contract remains `{ window }` → `{ fall_probability, operating_threshold, is_fall }`.

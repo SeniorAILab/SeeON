@@ -8,7 +8,7 @@ Target route inventory for issue #216. Auth names match backend guards: `Session
 | GET | `/auth/kakao/callback` | OAuth state cookie | Query: `code`, `state`. | `302` redirect to frontend `/dashboard` when user has org, otherwise `/onboarding`; sets session cookie and clears OAuth state cookie. | Target; already in code |
 | GET | `/auth/session` | Session cookie validation without rotation | No body. | `{ user }` for valid session; unauthenticated sessions are rejected by session validation semantics. | Target; already in code |
 | POST | `/auth/logout` | `SessionGuard` | No body. | `204` empty; revokes session and clears session cookie. | Target; already in code |
-| POST | `/api/orgs` | `SessionGuard` | `{ facilityName: string, businessRegistrationNumber?: string or null }` | `{ user }` with refreshed org-bearing session cookie. | Target; not yet in code (`/orgs` exists) |
+| POST | `/api/orgs` | `SessionGuard` | `{ facilityName: string, businessRegistrationNumber?: string or null }` | `{ user }` with refreshed org-bearing session cookie. | Current-effective |
 | GET | `/api/residents` | `SessionGuard`, `RequireOrgGuard` | No body. | Resident list for caller org. | Target; already in code |
 | GET | `/api/residents/:id` | `SessionGuard`, `RequireOrgGuard` | Path `id`. | One org-scoped resident or org-scoped not found. | Target; already in code |
 | POST | `/api/residents` | `SessionGuard`, `RequireOrgGuard` | `{ name: string, room?: string }` | Created resident. | Target; already in code; DTO validation pending |
@@ -29,10 +29,10 @@ Target route inventory for issue #216. Auth names match backend guards: `Session
 | GET | `/api/alerts` | `SessionGuard`, `RequireOrgGuard` | Query: `limit?`, `beforeSeq?`; service also supports `residentId?`, `status?`, `afterSeq?`. | Alert list ordered by alert sequence for dashboard/history. | Target; already in code |
 | GET | `/api/alerts/:id` | `SessionGuard`, `RequireOrgGuard` | Path `id`. | One org-scoped alert detail. | Target; already in code |
 | PATCH | `/api/alerts/:id/ack` | `SessionGuard`, `RequireOrgGuard` | Path `id`; no body. | Acknowledged alert. | Target; already in code |
-| GET | `/api/alerts/:alertId/snapshot` | `SessionGuard`, `RequireOrgGuard` | Path `alertId`. | Snapshot bytes with private cache headers; org-scoped alert ownership checked. | Target; not yet in code (`/api/snapshots/:alertId` exists) |
-| PUT | `/api/alerts/:alertId/snapshot` | `SessionGuard`, `RequireOrgGuard` | Raw image body; content-type one of `image/jpeg`, `image/png`, `application/octet-stream`, `multipart/form-data`; max 2 MiB. | `201 { snapshotKey }`; server stores bytes under server-derived key. | Target; not yet in code (`/api/snapshots/:alertId` exists) |
+| GET | `/api/alerts/:alertId/snapshot` | `SessionGuard`, `RequireOrgGuard` | Path `alertId`. | Snapshot bytes with private cache headers; org-scoped alert ownership checked. | Current-effective |
+| PUT | `/api/alerts/:alertId/snapshot` | `SessionGuard`, `RequireOrgGuard` | Raw image body; content-type one of `image/jpeg`, `image/png`, `application/octet-stream`, `multipart/form-data`; max 2 MiB. | `201 { snapshotKey }`; server stores bytes under server-derived key. | Current-effective |
 | GET | `/api/sse` | `SessionGuard`, `RequireOrgGuard` | Header `Last-Event-ID?`; session cookie. | `text/event-stream`; alert/status/session frames. | Target; already in code |
-| POST | `/ingest/alerts` | `HmacIngestGuard` | HMAC headers plus canonical alert JSON. | `201 { alertSeq, id, status: "created" or "duplicate" }`; duplicate is idempotent and repairs outbox. | Target; already in code, extraction/DTO pending |
+| POST | `/ingest/alerts` | `HmacIngestGuard` | HMAC headers plus canonical alert JSON. | `201 { alertSeq, id, status: "created" or "duplicate" }`; duplicate is idempotent and repairs outbox through the extracted ingest service/DTO. | Current-effective |
 | POST | `/ingest/heartbeat` | `HmacIngestGuard` | HMAC headers; empty-body canonical signing supported. | `200 { ok: true }`; updates camera online state and resident status when assigned. | Target; already in code |
 
 ## Removed routes

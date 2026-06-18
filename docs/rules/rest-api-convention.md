@@ -46,7 +46,8 @@ Controllers and exception filters may include framework status metadata, but cli
 A path rename must update backend routes, frontend callers, Next rewrites/proxies, tests, and docs in one change set. Never leave an intermediate state where the frontend calls a path the backend does not serve, or the backend only serves a path no frontend/test still exercises.
 
 Concrete refactor targets from issue #216:
+Removed/renamed routes must stay removed/renamed across frontend, backend, tests, and docs:
 
-- `/orgs` must move atomically to `/api/orgs`; frontend `app/onboarding/page.tsx`, `next.config.ts`, backend `auth.controller.ts`, and tests must agree.
-- `/api/snapshots/:alertId` must move atomically to `/api/alerts/:id/snapshot`; frontend snapshot components and backend `AlertsController` must agree.
+- `/orgs` is removed; use `POST /api/orgs`.
+- `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/alerts/:alertId/snapshot`.
 - `/api.alerts/events` is removed, not renamed, because `/ingest/alerts` is the only canonical alert ingress.
