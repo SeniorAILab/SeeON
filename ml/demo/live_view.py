@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 
 from core.bed_detector import BedDetector
 from core.bed_exit import BedExitMonitor
-from core.contract import FrameSource, ModelModule
+from core.contract import BoundingBox, Frame, FrameSource, ModelModule
 from core.events import BedExitLatch, DetectionLossMonitor, FallEventLatch, render_due
 from core.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.yolo_overlay import render_yolo_overlay
@@ -21,6 +21,10 @@ __all__ = [
     "render_due",
 ]
 
+BED_SEED_FRAME_COUNT = 8
+BED_REDETECT_INTERVAL_FRAMES = 30
+
+
 
 def iter_live_frames(
     source: FrameSource,
@@ -29,6 +33,8 @@ def iter_live_frames(
     show_boxes: bool = True,
     show_pose: bool = True,
     bed_detector: BedDetector | None = None,
+    bed_seed_frame_count: int = BED_SEED_FRAME_COUNT,
+    bed_redetect_interval: int = BED_REDETECT_INTERVAL_FRAMES,
 ) -> Iterator[tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]]:
     """Yield ``(overlay, status, confidence)`` per source frame for live rendering.
 
@@ -46,22 +52,40 @@ def iter_live_frames(
     ``confidence`` is the strongest label confidence on the frame (the primary
     person's classifier ramp once a fall classifier is composed in), surfaced so
     the UI can show how close the fire state is.
+    Bed ROIs are seeded from the first ``bed_seed_frame_count`` frames and then
+    refreshed every ``bed_redetect_interval`` frames. The default interval is
+    30 frames: sparse enough to avoid per-frame bed inference, frequent enough
+    to recover when later frames expose additional beds.
+
     """
-    bed_boxes = None
+    bed_boxes: tuple[BoundingBox, ...] = ()
     bed_exit_monitor = BedExitMonitor()
     detector = bed_detector
     bed_exit_latch = BedExitLatch()
-    for frame in source:
-        if bed_boxes is None:
-            bed_boxes = detector.detect(frame) if detector is not None else ()
+    seed_frames: list[Frame] = []
+    pending_frames: list[Frame] = []
+    normalized_seed_count = max(1, bed_seed_frame_count)
+    normalized_redetect_interval = max(1, bed_redetect_interval)
+
+    def detect_union(frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
+        if detector is None or not frames:
+            return ()
+        union_detector = getattr(detector, "detect_union", None)
+        if union_detector is not None:
+            return union_detector(frames)
+        return detector.detect(frames[0])
+
+    def process_frame(
+        frame: Frame, current_bed_boxes: tuple[BoundingBox, ...]
+    ) -> tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]:
         result = model.predict(frame)
         bed_exit_frame = bed_exit_monitor.update(
-            bed_boxes=bed_boxes,
+            bed_boxes=current_bed_boxes,
             person_boxes=result.boxes,
         )
         result = replace(
             result,
-            bed_boxes=bed_boxes,
+            bed_boxes=current_bed_boxes,
             bed_exit_statuses=bed_exit_frame.statuses,
         )
         overlay = render_yolo_overlay(
@@ -78,10 +102,37 @@ def iter_live_frames(
         bed_exit_events = bed_exit_latch.update(bed_exit_frame.events, frame.time_sec)
         status = replace(
             status,
-            bed_count=len(bed_boxes or ()),
+            bed_count=len(current_bed_boxes),
             bed_exit_events=bed_exit_events,
             bed_exit_event_count=bed_exit_latch.event_count,
             first_bed_exit_sec=bed_exit_latch.first_event_sec,
         )
         confidence = max((label.confidence for label in result.labels), default=0.0)
-        yield overlay, status, confidence
+        return overlay, status, confidence
+
+    for frame in source:
+        if detector is None:
+            yield process_frame(frame, ())
+            continue
+
+        if len(seed_frames) < normalized_seed_count:
+            seed_frames.append(frame)
+            pending_frames.append(frame)
+            if len(seed_frames) < normalized_seed_count:
+                continue
+            bed_boxes = detect_union(tuple(seed_frames))
+            for pending_frame in pending_frames:
+                yield process_frame(pending_frame, bed_boxes)
+            pending_frames.clear()
+            continue
+
+        if frame.index % normalized_redetect_interval == 0:
+            updated_bed_boxes = detector.detect(frame)
+            if updated_bed_boxes:
+                bed_boxes = updated_bed_boxes
+        yield process_frame(frame, bed_boxes)
+
+    if pending_frames:
+        bed_boxes = detect_union(tuple(seed_frames))
+        for pending_frame in pending_frames:
+            yield process_frame(pending_frame, bed_boxes)
