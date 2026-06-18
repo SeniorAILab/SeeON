@@ -23,6 +23,9 @@ class ModelInputError(ValueError):
 EXPECTED_WINDOW = 30
 EXPECTED_STRIDE = 5
 EXPECTED_FEATURE_DIM = 45
+# Recall-first threshold selected during training; metadata.json may override it.
+DEFAULT_OPERATING_THRESHOLD = 0.09
+
 
 @dataclass(frozen=True, slots=True)
 class ModelMetadata:
@@ -111,6 +114,14 @@ class FallDetector:
     @property
     def version(self) -> str:
         return self.metadata.version
+
+    @property
+    def operating_threshold(self) -> float:
+        return (
+            DEFAULT_OPERATING_THRESHOLD
+            if self.metadata.operating_threshold is None
+            else self.metadata.operating_threshold
+        )
 
     def metadata_dict(self) -> dict[str, Any]:
         metadata = self.metadata.asdict()
