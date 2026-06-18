@@ -15,7 +15,7 @@ COCO_BED_CLASS_ID: Final = 59
 BED_MODEL_CONFIDENCE: Final = 0.25
 BED_MAX_DETECTIONS: Final = 4
 BED_NMS_IOU_THRESHOLD: Final = 0.5
-BED_MERGE_IOU_THRESHOLD: Final = 0.2
+BED_MERGE_IOU_THRESHOLD: Final = 0.5
 
 
 class YoloPoseRunner:
@@ -76,11 +76,11 @@ class YoloPoseRunner:
 
 
 class YoloBedRunner:
-    """One-shot COCO-detection runner that returns bed ROIs (class 59).
+    """Low-frequency COCO-detection runner that returns bed ROIs (class 59).
 
     Mirrors ``YoloPoseRunner`` but reads ``r.boxes`` only (no keypoints). The
-    bed scene is static, so this is meant to run **once** at stream start — the
-    per-frame path stays a single pose pass (ADR-005 §3).
+    bed detector uses this for initial multi-frame seeding and sparse re-detects;
+    the per-frame path stays a single pose pass (ADR-005 §3).
 
     Robustness: the COCO class id for "bed" is asserted against the loaded
     model's ``names`` map at construction. If the weight family does not map
@@ -90,7 +90,7 @@ class YoloBedRunner:
 
     def __init__(
         self,
-        model_path: str = "yolo26n.pt",
+        model_path: str = "yolo26m.pt",
         confidence: float = BED_MODEL_CONFIDENCE,
         max_beds: int = BED_MAX_DETECTIONS,
     ) -> None:
