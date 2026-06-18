@@ -86,6 +86,18 @@ describe('parseIngestAlertBody', () => {
     });
   });
 
+  it('accepts bed-exit alert type', () => {
+    expect(body({ type: 'bed-exit' })).toEqual(
+      expect.objectContaining({
+        type: 'bed-exit',
+      }),
+    );
+  });
+
+  it('rejects unknown alert types', () => {
+    expect(() => body({ type: 'foo' })).toThrow(BadRequestException);
+  });
+
   it('rejects missing required fields', () => {
     expect(() => body({ resident_id: '' })).toThrow(MissingFieldException);
   });
@@ -156,6 +168,37 @@ describe('IngestAlertService', () => {
       type: 'fall',
       detectedAt: NOW,
       confidence: 0.9,
+    });
+  });
+
+  it('accepts bed-exit ingest and ensures an alert event outbox', async () => {
+    const { service, writeAlert, ensureOutboxForIngest } = setup();
+    writeAlert.mockResolvedValue({ alertSeq: 8n, id: 'bed-exit-alert-1' });
+
+    const result = await service.ingestAlert(
+      camera(),
+      body({ type: 'bed-exit', probability: 0.1 }),
+    );
+
+    expect(result).toEqual({
+      alertSeq: '8',
+      id: 'bed-exit-alert-1',
+      status: 'created',
+    });
+    expect(writeAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'bed-exit',
+        probability: 0.1,
+      }),
+    );
+    const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
+    expect(ensureOutboxForIngest).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      sourceId: 'cam-1',
+      externalEventId: idempotencyKey,
+      type: 'bed-exit',
+      detectedAt: NOW,
+      confidence: 0.1,
     });
   });
 
