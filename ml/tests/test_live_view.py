@@ -46,6 +46,10 @@ class _BedDetector:
     def detect(self, _frame: Frame) -> tuple[BoundingBox, ...]:
         return (BoundingBox(x1=0, y1=0, x2=12, y2=12, confidence=0.8),)
 
+    def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
+        return self.detect(frames[0]) if frames else ()
+
+
 
 class _TwoBedDetector:
     def detect(self, _frame: Frame) -> tuple[BoundingBox, ...]:
@@ -53,6 +57,25 @@ class _TwoBedDetector:
             BoundingBox(x1=0, y1=0, x2=12, y2=12, confidence=0.8),
             BoundingBox(x1=12, y1=0, x2=24, y2=12, confidence=0.8),
         )
+
+    def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
+        return self.detect(frames[0]) if frames else ()
+
+
+class _RedetectingBedDetector:
+    def __init__(self) -> None:
+        self.union_frame_indexes: list[tuple[int, ...]] = []
+        self.detect_frame_indexes: list[int] = []
+
+    def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
+        self.union_frame_indexes.append(tuple(frame.index for frame in frames))
+        return (BoundingBox(x1=0, y1=0, x2=12, y2=12, confidence=0.8),)
+
+    def detect(self, frame: Frame) -> tuple[BoundingBox, ...]:
+        self.detect_frame_indexes.append(frame.index)
+        return (BoundingBox(x1=12, y1=0, x2=24, y2=12, confidence=0.9),)
+
+
 
 
 class _BedExitScriptedModel:
@@ -137,6 +160,23 @@ def test_iter_live_frames_surfaces_bed_count() -> None:
     assert [status.bed_count for _overlay, status, _conf in with_beds] == [2, 2]
     assert [status.bed_count for _overlay, status, _conf in without_beds] == [0, 0]
 
+
+def test_iter_live_frames_seeds_beds_from_frame_union_then_redetects_periodically() -> None:
+    detector = _RedetectingBedDetector()
+
+    items = list(
+        iter_live_frames(
+            _FakeSource(count=5),
+            _ScriptedModel(fall_at=99),
+            bed_detector=detector,
+            bed_seed_frame_count=2,
+            bed_redetect_interval=2,
+        )
+    )
+
+    assert detector.union_frame_indexes == [(0, 1)]
+    assert detector.detect_frame_indexes == [2, 4]
+    assert [status.bed_count for _overlay, status, _conf in items] == [1, 1, 1, 1, 1]
 
 def test_current_playback_status_bed_count_defaults_to_zero() -> None:
     status = CurrentPlaybackStatus(
