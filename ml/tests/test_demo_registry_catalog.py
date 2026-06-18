@@ -111,7 +111,7 @@ class TestThresholdOverridePlumbing:
 
 class _NullPose:
     def predict(self, frame):  # pragma: no cover - never driven in these tests
-        from core.seam import DetectionResult
+        from core.contract import DetectionResult
 
         return DetectionResult()
 

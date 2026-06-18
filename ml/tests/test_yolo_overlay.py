@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.seam import BoundingBox, DetectionLabel, DetectionResult
+from core.contract import BoundingBox, DetectionLabel, DetectionResult
 from demo.yolo_overlay import render_yolo_overlay
 
 # ---------------------------------------------------------------------------
@@ -81,18 +81,18 @@ def test_fall_box_uses_distinct_color_from_normal_box() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Live-path seam assertion
+# Live-path contract assertion
 # ---------------------------------------------------------------------------
 
 
-def test_live_path_is_wired_through_the_seam() -> None:
-    """app.py routes playback through the live viewer, which drives the model seam.
+def test_live_path_is_wired_through_the_contract() -> None:
+    """app.py routes playback through the live viewer, which drives the model contract.
 
     The real-time live-inference rework (ADR-010) replaced the pre-rendered
     player with ``live_view.iter_live_frames``: app.py imports ``live_view`` and
     composes the model via ``demo_ui.build_model`` (which imports the pose
-    model-module), while ``live_view`` imports the seam types + overlay.
-    Asserting the chain keeps the per-frame inference seam live.
+    model-module), while ``live_view`` imports the contract types + overlay.
+    Asserting the chain keeps the per-frame inference contract live.
     """
     demo_dir = Path(__file__).parent.parent / "demo"
     app_modules = _imported_modules(demo_dir / "app.py")
@@ -100,7 +100,7 @@ def test_live_path_is_wired_through_the_seam() -> None:
     live_view_modules = _imported_modules(demo_dir / "live_view.py")
 
     assert any("live_view" in m for m in app_modules), (
-        "app.py must import live_view to route playback through the live seam"
+        "app.py must import live_view to route playback through the live contract"
     )
     assert any("demo_ui" in m for m in app_modules), (
         "app.py must compose the live model via demo_ui.build_model"
@@ -108,8 +108,8 @@ def test_live_path_is_wired_through_the_seam() -> None:
     assert any("model_modules" in m for m in demo_ui_modules), (
         "demo_ui.py must import the pose model-module to compose the live model"
     )
-    assert any("seam" in m for m in live_view_modules), (
-        "live_view.py must import seam types (Frame/FrameSource/ModelModule)"
+    assert any("contract" in m for m in live_view_modules), (
+        "live_view.py must import contract types (Frame/FrameSource/ModelModule)"
     )
 
 
@@ -151,7 +151,7 @@ def test_show_boxes_and_show_pose_toggle_independently() -> None:
 
 
 def test_render_yolo_overlay_accepts_detection_result() -> None:
-    """render_yolo_overlay signature must accept DetectionResult (seam type)."""
+    """render_yolo_overlay signature must accept DetectionResult (contract type)."""
     import inspect
 
     from demo.yolo_overlay import render_yolo_overlay as fn

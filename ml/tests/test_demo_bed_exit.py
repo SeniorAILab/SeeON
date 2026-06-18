@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from core.bed_exit import BedExitMonitor
-from core.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
 from demo.live_view import iter_live_frames
 
 

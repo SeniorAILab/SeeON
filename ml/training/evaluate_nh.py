@@ -229,7 +229,7 @@ def _extract_track_poses(
     """
     import cv2
 
-    from core.seam import BoundingBox
+    from core.contract import BoundingBox
     from core.tracking import GreedyIouTracker
     from training.extract_poses import normalize_person_keypoints
 

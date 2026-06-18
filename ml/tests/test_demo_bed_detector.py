@@ -1,4 +1,4 @@
-"""BedDetector multi-bed one-shot bed-localization seam.
+"""BedDetector multi-bed one-shot bed-localization 계약(contract).
 
 Stubs inference so these tests carry no ultralytics dependency and no real
 weight. They pin tuple-return semantics, filtering/dedup behavior, deterministic
@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 
 from core.bed_detector import BedDetector
-from core.seam import BoundingBox, Frame
+from core.contract import BoundingBox, Frame
 from core.yolo_runtime import YoloBedRunner
 
 

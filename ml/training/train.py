@@ -173,12 +173,12 @@ def run(
 
     # === 단계 4: fall-fraction 게이트 — 어노테이션 연결 실패(시임 버그) 조기 감지 ===
     # --- Fall-fraction gate (full run only) ---
-    # This gate guards against the annotation-resolution seam bug (clip_id decode
+    # This gate guards against the annotation-resolution 계약(contract) bug (clip_id decode
     # or path layout failure), which makes EVERY clip resolve as ADL → fall
     # fraction collapses to exactly 0.000.  It is NOT a class-balance check: on
     # Le2i a fall is a brief event inside a much longer clip, so the legitimate
     # positive-window fraction is ~5-6% (433/7716).  The floor sits at 0.02 to
-    # cleanly separate "real but imbalanced" from "seam bug zeroed everything".
+    # cleanly separate "real but imbalanced" from "계약(contract) bug zeroed everything".
     total_windows = train_pos + train_neg + test_pos + test_neg
     total_pos_windows = train_pos + test_pos
     fall_fraction = total_pos_windows / total_windows if total_windows > 0 else 0.0
