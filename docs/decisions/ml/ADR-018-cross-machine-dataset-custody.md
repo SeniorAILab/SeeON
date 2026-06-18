@@ -73,8 +73,8 @@ requires human review on the operator's machine (where the footage is).
 - Pros: no staging choreography, both machines mount one truth
 - Cons: nursing-home CCTV would transit/persist on third-party or
   network-exposed storage
-- Rejected: violates the privacy perimeter (ADR-028 Demo Access Boundary). The data
-  must stay on operator-controlled disks.
+- Rejected: violates the privacy perimeter. Nursing-home footage must stay on
+  operator-controlled disks (custody owned here; the demo stays local-only per ADR-045).
 
 ### git-lfs for footage and weights
 

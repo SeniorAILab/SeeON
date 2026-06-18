@@ -27,11 +27,6 @@ from demo import video_registry as videos  # noqa: E402
 from demo.alert_client import AlertClient  # noqa: E402
 from demo.bed_detector import BedDetector  # noqa: E402
 from demo.classifiers import ClassifierParams  # noqa: E402
-from demo.demo_mode import (  # noqa: E402
-    OPERATOR_MODE,
-    demo_mode,
-    filter_videos_for_public_mode,
-)
 from demo.demo_ui import (  # noqa: E402
     LiveSourceOption,
     build_model,
@@ -88,15 +83,9 @@ def main() -> None:
     )
 
     app_assets.handle_upload()
-    mode = demo_mode()
-    registered_videos = _list_videos_for_mode(mode)
-    operator_mode = mode == OPERATOR_MODE
-    if not operator_mode and not registered_videos:
-        st.info("재생할 영상이 없습니다 — 위에서 영상을 업로드하세요.")
-        return
+    registered_videos = _list_videos()
 
     source_options = render_live_source_selection(
-        operator_mode=operator_mode,
         registered_videos=registered_videos,
         label=VIDEO_SELECT_LABEL,
     )
@@ -116,47 +105,39 @@ def main() -> None:
     )
 
 
-def _list_videos_for_mode(mode: str) -> list[videos.RegisteredVideo]:
-    """Resolve the video dropdown options for the active FALL_DEMO_MODE.
+def _list_videos() -> list[videos.RegisteredVideo]:
+    """Resolve the video dropdown options via the domain/role selector.
 
-    operator — domain selector over ml/data/{domain}/{processed,raw} plus
-    uploads. public (fail-safe default) — only clips uploaded in the current
-    browser session; internal domain sources are never listed (ADR-028 Demo Access
-    Boundary; session filter lives here in the app layer, not the registry).
+    Domain selector over ml/data/{domain}/{processed,raw} plus uploads, then a
+    role selector within the chosen domain. This is a local developer tool, so
+    every internal data source is listed (ADR-045 — demo is local-only).
     """
-    if mode == OPERATOR_MODE:
-        domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
-        col_domain, col_role = st.columns(2)
-        selected_domain = col_domain.segmented_control(
-            DOMAIN_SELECT_LABEL,
-            options=domain_options,
-            default=domain_options[0] if domain_options else None,
-        )
-        if selected_domain is None:
-            return []
-        if selected_domain == videos.UPLOADS_DOMAIN:
-            return videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
-        role_options = videos.list_roles_for_domain(selected_domain)
-        if not role_options:
-            return []
-        selected_role = col_role.segmented_control(
-            ROLE_SELECT_LABEL,
-            options=role_options,
-            format_func=lambda r: r.value,
-            default=role_options[0],
-        )
-        if selected_role is None:
-            return []
-        return videos.list_registered_videos(
-            include_sources=(selected_role,),
-            domains=(selected_domain,),
-        )
-    st.caption("Public mode — 이 세션에서 업로드한 영상만 표시됩니다.")
-    session_upload_ids: set[str] = st.session_state.setdefault(
-        app_assets.SESSION_UPLOAD_IDS_KEY, set()
+    domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
+    col_domain, col_role = st.columns(2)
+    selected_domain = col_domain.segmented_control(
+        DOMAIN_SELECT_LABEL,
+        options=domain_options,
+        default=domain_options[0] if domain_options else None,
     )
-    uploads = videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
-    return filter_videos_for_public_mode(uploads, session_upload_ids)
+    if selected_domain is None:
+        return []
+    if selected_domain == videos.UPLOADS_DOMAIN:
+        return videos.list_registered_videos(include_sources=(videos.VideoSource.UPLOAD,))
+    role_options = videos.list_roles_for_domain(selected_domain)
+    if not role_options:
+        return []
+    selected_role = col_role.segmented_control(
+        ROLE_SELECT_LABEL,
+        options=role_options,
+        format_func=lambda r: r.value,
+        default=role_options[0],
+    )
+    if selected_role is None:
+        return []
+    return videos.list_registered_videos(
+        include_sources=(selected_role,),
+        domains=(selected_domain,),
+    )
 
 
 def _source_caption(selected_source: LiveSourceOption, camera_index: int) -> str:

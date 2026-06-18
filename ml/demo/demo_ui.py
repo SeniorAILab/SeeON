@@ -44,13 +44,12 @@ class LiveSourceOption:
 
 def build_live_source_options(
     *,
-    operator_mode: bool,
     registered_videos: list[RegisteredVideo],
 ) -> list[LiveSourceOption]:
-    """Build live-source choices without leaking camera access into public mode."""
-    options: list[LiveSourceOption] = []
-    if operator_mode:
-        options.append(LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL))
+    """Build live-source choices: laptop camera plus registered clips."""
+    options: list[LiveSourceOption] = [
+        LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL)
+    ]
     options.extend(
         LiveSourceOption(kind="video", label=video.display_name, video=video)
         for video in registered_videos
@@ -60,17 +59,15 @@ def build_live_source_options(
 
 def render_live_source_selection(
     *,
-    operator_mode: bool,
     registered_videos: list[RegisteredVideo],
     label: str,
 ) -> tuple[LiveSourceOption, int]:
-    """Render the operator/public live-source selector.
+    """Render the live-source selector (laptop camera + registered clips).
 
-    Camera is operator-only and uses an explicit integer device index so demos can
-    switch from the built-in webcam (0) to another local capture device.
+    Camera uses an explicit integer device index so demos can switch from the
+    built-in webcam (0) to another local capture device.
     """
     source_options = build_live_source_options(
-        operator_mode=operator_mode,
         registered_videos=registered_videos,
     )
     selected_source: LiveSourceOption = st.selectbox(

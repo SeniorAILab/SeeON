@@ -27,10 +27,10 @@ pnpm prisma:migrate     # backend/.env.development 로드해 Phase1/3 마이그�
 pnpm prisma:seed        # demo-org-01 + 카메라(HMAC keyId/secret 콘솔 출력) + 거주자 시드
 pnpm dev:backend        # :8080
 pnpm dev:front          # :3000
-FALL_DEMO_MODE=operator pnpm dev:demo   # Streamlit operator mode (노트북 카메라 소스 노출)
+pnpm dev:demo           # Streamlit 데모 (노트북 카메라 + 내부 클립 소스, 모드 분기 없음)
 ```
 > `pnpm prisma:seed`가 출력하는 `Cam 01: secret=… keyId=…`를 저장 — 3번 ml alert 자격에 넣는다.
-> `dev:demo`는 기본 public mode라 카메라 소스가 숨겨진다. 반드시 `FALL_DEMO_MODE=operator`로 띄울 것.
+> `dev:demo`는 이제 모드 분기가 없다(ADR-045 — 데모는 로컬 전용). 노트북 카메라와 모든 내부 클립 소스가 항상 노출된다.
 
 ## 2. 데모 테넌트 바인딩 (나·형을 demo-org-01에 묶기)
 1. 나 + 형이 각각 `http://localhost:3000/login` → 카카오 로그인(동의 시 `talk_message` 포함) 1회 → User + 암호화 토큰 생성.
@@ -67,7 +67,7 @@ DEMO_FACILITY_ID=demo-org-01
 - HMAC 401(InvalidSignature): 서명키가 raw secret이 아니라 `sha256(secret)`인지 확인.
 - 로그인 후 8080/dashboard 404: 백엔드 콜백이 `${FRONT_ORIGIN}` 절대 redirect인지 확인(Phase2 적용됨).
 - 대시보드 피드 비어있음: 로그인 유저 org == 카메라 org(demo-org-01) 바인딩(2단계) 확인.
-- 카메라 소스 안 보임: `FALL_DEMO_MODE=operator`로 데모를 띄웠는지 확인.
+- 카메라 소스 안 보임: 카메라 장치 연결/권한 확인. 데모는 항상 카메라 소스를 노출한다(모드 분기 없음).
 
 ## 7. 미검증(라이브 의존) — 정직 고지
 - 실제 카카오 발송, 실제 노트북 카메라 라이브 캡처, 브라우저 로그인→대시보드 E2E는 Phase 0(실 콘솔/키) + 카메라 하드웨어가 있어야 검증된다. 코드/통합 경로는 단위·서비스 테스트로 검증됨(G001–G005). 이 런북대로 리허설에서 최종 확인할 것.
