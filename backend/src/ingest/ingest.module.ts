@@ -5,10 +5,11 @@ import { CamerasModule } from '../cameras/cameras.module.js';
 import { StatusModule } from '../status/status.module.js';
 import { IngestController } from './ingest.controller.js';
 import { HmacIngestGuard } from './hmac.guard.js';
+import { IngestAlertService } from './ingest-alert.service.js';
 
 @Module({
   imports: [PrismaModule, AlertsModule, CamerasModule, StatusModule],
   controllers: [IngestController],
-  providers: [HmacIngestGuard],
+  providers: [HmacIngestGuard, IngestAlertService],
 })
 export class IngestModule {}

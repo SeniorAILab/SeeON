@@ -11,7 +11,7 @@ export default function OnboardingPage() {
     setSubmitting(true);
     setError(null);
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/orgs", {
+    const response = await fetch("/api/orgs", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
