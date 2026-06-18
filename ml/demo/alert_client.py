@@ -14,7 +14,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Final, Literal
 
-AlertEventType = Literal["fall", "detection-lost"]
+AlertEventType = Literal["fall", "detection-lost", "bed-exit"]
 
 DEFAULT_QUEUE_SIZE: Final = 8
 DEFAULT_TIMEOUT_SEC: Final = 0.5
@@ -23,7 +23,7 @@ INGEST_KEY_ID_ENV: Final = "INGEST_KEY_ID"
 INGEST_SECRET_ENV: Final = "INGEST_SECRET"
 DEMO_RESIDENT_ID_ENV: Final = "DEMO_RESIDENT_ID"
 DEMO_FACILITY_ID_ENV: Final = "DEMO_FACILITY_ID"
-ALERT_EVENT_TYPES: Final[frozenset[str]] = frozenset({"fall"})
+ALERT_EVENT_TYPES: Final[frozenset[str]] = frozenset({"fall", "bed-exit"})
 ISO_TIMESTAMP_RE: Final = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$"
 )
@@ -136,7 +136,7 @@ class AlertClient:
             resident_id=self.resident_id,
             facility_id=self.facility_id,
             detected_at=detected_at,
-            probability=confidence,
+            probability=1.0 if event_type == "bed-exit" else confidence,
         )
         if payload is None:
             self._increment_failure()
