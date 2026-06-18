@@ -6,6 +6,7 @@ import numpy as np
 
 from demo.bed_exit import BedExitEvent
 from demo.live_view import BedExitLatch, FallEventLatch, iter_live_frames, render_due
+from demo.playback_status import CurrentPlaybackStatus
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 
 
@@ -44,6 +45,14 @@ class _ScriptedModel:
 class _BedDetector:
     def detect(self, _frame: Frame) -> tuple[BoundingBox, ...]:
         return (BoundingBox(x1=0, y1=0, x2=12, y2=12, confidence=0.8),)
+
+
+class _TwoBedDetector:
+    def detect(self, _frame: Frame) -> tuple[BoundingBox, ...]:
+        return (
+            BoundingBox(x1=0, y1=0, x2=12, y2=12, confidence=0.8),
+            BoundingBox(x1=12, y1=0, x2=24, y2=12, confidence=0.8),
+        )
 
 
 class _BedExitScriptedModel:
@@ -113,6 +122,32 @@ def test_iter_live_frames_surfaces_bed_exit_events() -> None:
     _, exit_status, _ = items[-1]
     assert exit_status.first_bed_exit_sec == 3.0
     assert exit_status.bed_exit_events == (BedExitEvent(person_id=0, bed_id=0),)
+
+
+def test_iter_live_frames_surfaces_bed_count() -> None:
+    with_beds = list(
+        iter_live_frames(
+            _FakeSource(count=2),
+            _ScriptedModel(fall_at=99),
+            bed_detector=_TwoBedDetector(),
+        )
+    )
+    without_beds = list(iter_live_frames(_FakeSource(count=2), _ScriptedModel(fall_at=99)))
+
+    assert [status.bed_count for _overlay, status, _conf in with_beds] == [2, 2]
+    assert [status.bed_count for _overlay, status, _conf in without_beds] == [0, 0]
+
+
+def test_current_playback_status_bed_count_defaults_to_zero() -> None:
+    status = CurrentPlaybackStatus(
+        label="정상",
+        detail="0.00s / 낙상 없음",
+        pose_label="포즈 대기",
+        pose_count=0,
+        is_fall=False,
+    )
+
+    assert status.bed_count == 0
 
 
 class TestRenderDue:
