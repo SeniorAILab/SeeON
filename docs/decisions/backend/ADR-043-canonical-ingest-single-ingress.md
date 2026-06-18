@@ -1,7 +1,7 @@
 # ADR-043: Canonical ingest single ingress for alert read-model and outbox
 
 ## Status
-Accepted
+Accepted; pilot endpoint superseded by ADR-047
 
 ## Date
 2026-06-17
@@ -31,7 +31,7 @@ For each valid ingest request:
 6. Return a retryable 5xx if outbox pre-persistence fails after the read-model is written, so ML retry can repair the missing outbox.
 7. On duplicate repair, send only `PENDING` delivery attempts; do not re-send already terminal or sent attempts.
 
-The legacy `POST /api.alerts/events` path remains as a pilot endpoint while the MVP path moves to `/ingest/alerts`. It is not the canonical live-demo ingress.
+The legacy `POST /api.alerts/events` pilot-endpoint retention clause is superseded by ADR-047. The pilot endpoint has been removed from the live contract; `/ingest/alerts` is the only live backend alert ingress.
 
 ## Alternatives Considered
 
@@ -53,4 +53,4 @@ The legacy `POST /api.alerts/events` path remains as a pilot endpoint while the 
 - Read-model/SSE and outbox state are tied to one idempotency key.
 - Duplicate ingest requests are useful repair attempts, not silent no-ops that can leave missing outbox state.
 - The ingest transaction boundary must protect provider sends from happening before durable `PENDING` attempts exist.
-- `api.alerts/events` remains temporary pilot surface area and should be cleaned up or explicitly repositioned after the MVP.
+- The temporary `api.alerts/events` pilot surface area was removed from the live contract by ADR-047; `/ingest/alerts` is the only live backend alert ingress.

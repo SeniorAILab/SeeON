@@ -37,7 +37,7 @@ export function SnapshotThumb({ alertId, snapshotKey, className = "" }: Snapshot
   return (
     <div className={`relative overflow-hidden rounded-lg ${className}`}>
       <Image
-        src={`/api/snapshots/${alertId}`}
+        src={`/api/alerts/${alertId}/snapshot`}
         alt="낙상 스냅샷"
         fill
         className="object-cover"
