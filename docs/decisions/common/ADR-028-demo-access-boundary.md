@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the access-boundary clauses of [ADR-012](../ml/ADR-012-ml-data-domain-first-layout.md). ADR-012 remains accepted for ML data layout and as the preserved historical source for the original combined layout/access decision.
+Superseded by [ADR-045](./ADR-045-streamlit-demo-local-only.md) (2026-06-18): the Streamlit demo is local-only and the `FALL_DEMO_MODE` public/operator access-mode branching is removed. This ADR is retained as the historical access-boundary record. It originally superseded the access-boundary clauses of [ADR-012](../ml/ADR-012-ml-data-domain-first-layout.md); ADR-012 remains accepted for ML data layout.
 
 ## Date
 
