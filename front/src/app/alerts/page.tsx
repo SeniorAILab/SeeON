@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
 import type { AlertStatus, SseAlert } from "../../lib/sse-utils";
-import { ALERT_STATUS_LABELS, formatTime } from "../../lib/sse-utils";
+import { ALERT_STATUS_LABELS, alertTypeLabel, formatTime } from "../../lib/sse-utils";
 import { EmptyState } from "../../components/EmptyState";
 
 const PAGE_SIZE = 50;
@@ -204,7 +204,7 @@ export default function AlertsPage({
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-300">
-                    낙상 감지 — 신뢰도 {Math.round(alert.probability * 100)}%
+                    {alertTypeLabel(alert.type)} 감지 — 신뢰도 {Math.round(alert.probability * 100)}%
                   </p>
                   <p className="text-xs text-slate-500">
                     {formatTime(alert.detectedAt)} · alertSeq {alert.alertSeq}
