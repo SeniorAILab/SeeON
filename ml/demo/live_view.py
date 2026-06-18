@@ -170,6 +170,7 @@ def iter_live_frames(
         bed_exit_events = bed_exit_latch.update(bed_exit_frame.events, frame.time_sec)
         status = replace(
             status,
+            bed_count=len(bed_boxes or ()),
             bed_exit_events=bed_exit_events,
             bed_exit_event_count=bed_exit_latch.event_count,
             first_bed_exit_sec=bed_exit_latch.first_event_sec,
