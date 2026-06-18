@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  alertTypeLabel,
   maskPhone,
   mergeAlerts,
   mergeStatuses,
@@ -86,6 +87,17 @@ describe("mergeStatuses", () => {
     const added = out.find((s) => s.residentId === "r2");
     expect(added?.state).toBe("FALL");
     expect(added?.source).toBeNull();
+  });
+});
+describe("alertTypeLabel", () => {
+  it("maps known backend event types to Korean labels", () => {
+    expect(alertTypeLabel("fall")).toBe("낙상");
+    expect(alertTypeLabel("detection-lost")).toBe("감지 끊김");
+    expect(alertTypeLabel("bed-exit")).toBe("침대 이탈");
+  });
+
+  it("returns unknown event types unchanged", () => {
+    expect(alertTypeLabel("custom-event")).toBe("custom-event");
   });
 });
 

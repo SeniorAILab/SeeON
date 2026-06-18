@@ -2,7 +2,7 @@
 
 import { useAlertStream, type SseAlert } from "../lib/sse";
 import type { ResidentStatus } from "../lib/sse-utils";
-import { formatTime } from "../lib/sse-utils";
+import { alertTypeLabel, formatTime } from "../lib/sse-utils";
 import { StatusBadge } from "./StatusBadge";
 import { SnapshotThumb } from "./SnapshotThumb";
 import { EmptyState } from "./EmptyState";
@@ -43,7 +43,7 @@ function AlertCard({ alert }: { alert: SseAlert }) {
           </span>
         </div>
         <p className="text-sm text-slate-300">
-          낙상 감지 — 신뢰도{" "}
+          {alertTypeLabel(alert.type)} 감지 — 신뢰도{" "}
           <span className="font-semibold text-white">
             {Math.round(alert.probability * 100)}%
           </span>
