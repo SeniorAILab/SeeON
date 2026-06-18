@@ -89,7 +89,7 @@ def _runner_with_boxes(
     conf: tuple[float, ...],
     cls: tuple[int, ...] | None = None,
     *,
-    max_beds: int = 4,
+    max_beds: int | None = None,
 ) -> tuple[YoloBedRunner, _Model]:
     runner = YoloBedRunner.__new__(YoloBedRunner)
     model = _Model(_Boxes(xyxy, conf, cls or (59,) * len(xyxy)))
@@ -275,3 +275,45 @@ def test_yolo_detect_beds_honors_max_beds_cap() -> None:
         (40, 0, 50, 10, 0.7),
         (60, 0, 70, 10, 0.6),
     )
+
+
+def test_yolo_detect_beds_has_no_hard_cap_by_default() -> None:
+    runner, _ = _runner_with_boxes(
+        (
+            (0, 0, 10, 10),
+            (20, 0, 30, 10),
+            (40, 0, 50, 10),
+            (60, 0, 70, 10),
+            (80, 0, 90, 10),
+        ),
+        (0.9, 0.8, 0.7, 0.6, 0.5),
+    )
+
+    boxes = runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8))
+
+    assert len(boxes) == 5
+    assert boxes == (
+        (0, 0, 10, 10, 0.9),
+        (20, 0, 30, 10, 0.8),
+        (40, 0, 50, 10, 0.7),
+        (60, 0, 70, 10, 0.6),
+        (80, 0, 90, 10, 0.5),
+    )
+
+
+def test_detect_returns_all_beds_without_hard_cap() -> None:
+    runner = _StubRunner(
+        (
+            (0, 0, 40, 100, 0.90),
+            (100, 0, 140, 100, 0.85),
+            (200, 0, 240, 100, 0.80),
+            (300, 0, 340, 100, 0.75),
+            (400, 0, 440, 100, 0.70),
+            (500, 0, 540, 100, 0.65),
+        )
+    )
+
+    boxes = BedDetector(runner=runner).detect(_frame())
+
+    assert len(boxes) == 6
+    assert tuple(box.x1 for box in boxes) == (0, 100, 200, 300, 400, 500)
