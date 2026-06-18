@@ -27,6 +27,66 @@ tmux new -As eldercare-fall
 
 `new -As` creates the session if absent and attaches if it already exists.
 
+### Local shortcut: 2-pane reusable-slot session (`eflab`)
+
+For two goals side by side, a local zsh function (`~/.dotfiles/.zshrc`) opens the
+`eldercare-fall` session split into two panes, each `cd`-ed into a worktree and running
+plain `gjc`:
+
+```bash
+eflab                         # default: panes in lab/a + lab/b
+eflab feat/81-... feat/83-... # or any paths under eldercare-fall-ai-worktrees/
+```
+
+The function (single double-quoted remote string so ssh quoting never breaks):
+
+```zsh
+eflab() {
+  local a="${1:-lab/a}" b="${2:-lab/b}"
+  ssh -t -o RemoteCommand=none m1-pro "
+    s=eldercare-fall
+    base=\"\$HOME/Documents/01_Project/eldercare-fall-ai-worktrees\"
+    tmux has-session -t \$s 2>/dev/null || {
+      tmux new-session -d -s \$s -c \"\$base/$a\"
+      tmux send-keys -t \$s gjc C-m
+      tmux split-window -h -t \$s -c \"\$base/$b\"
+      tmux send-keys -t \$s gjc C-m
+      tmux select-pane -t \$s.0
+    }
+    tmux attach -t \$s
+  "
+}
+```
+
+- Re-running `eflab` just reattaches (`has-session` guard skips re-launch) — reuse forever.
+- `-o RemoteCommand=none` is mandatory: the `m1-pro` host's `RemoteCommand tmux ... main`
+  would otherwise hijack into the shared `main` session.
+- `gjc` resolves only under the pane's **zsh** (`~/.bun/bin/gjc` via `.zshrc`); `bash -lc`
+  does not see it. tmux panes spawn zsh, so it works.
+
+#### Reusable lab slots (`lab/a`, `lab/b`)
+
+Persistent personal sandboxes, **outside** the issue-driven `git wt` convention (raw worktree
+add off `main`; no hook blocks creation — only commit/push are guarded). Use plain `gjc` here,
+not `gjc --worktree` (which lands in a separate `.gajae-code-worktrees/` bucket symlinking only
+`node_modules`). For a real PR, branch properly inside the slot: `git wt <issue#>`.
+
+Recreate the slots if missing (run on m1-pro):
+
+```bash
+MAIN=~/Documents/01_Project/eldercare-fall-ai
+WT=~/Documents/01_Project/eldercare-fall-ai-worktrees
+cd "$MAIN" && git fetch origin --quiet && mkdir -p "$MAIN/ml/artifacts"
+for slot in a b; do
+  git worktree add -b "lab/$slot" "$WT/lab/$slot" main
+  for d in data models artifacts; do ln -s "$MAIN/ml/$d" "$WT/lab/$slot/ml/$d"; done
+done
+```
+
+Gaps to fill manually per slot: `.env.development` (backend work — not symlinked) and the
+**shared Postgres `fall_dev`** — two goals migrating the same DB collide; for true isolation
+give each goal its own schema/DB.
+
 ## Repo path
 
 The repo lives at the same absolute path as on the local machine:
