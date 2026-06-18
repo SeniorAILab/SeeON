@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { api, ApiError } from "../../../lib/api";
 import type { SseAlert } from "../../../lib/sse-utils";
-import { ALERT_STATUS_LABELS, formatTime } from "../../../lib/sse-utils";
+import { ALERT_STATUS_LABELS, alertTypeLabel, formatTime } from "../../../lib/sse-utils";
 import { SnapshotThumb } from "../../../components/SnapshotThumb";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -132,7 +132,7 @@ export default function AlertDetailPage({
                 label="신뢰도"
                 value={`${Math.round(alert.probability * 100)}%`}
               />
-              <Field label="유형" value={alert.type} />
+              <Field label="유형" value={alertTypeLabel(alert.type)} />
               <Field
                 label="감지 시각"
                 value={formatTime(alert.detectedAt, { dateStyle: "long", timeStyle: "medium" })}
