@@ -4,7 +4,8 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from demo.live_view import FallEventLatch, iter_live_frames, render_due
+from demo.bed_exit import BedExitEvent
+from demo.live_view import BedExitLatch, FallEventLatch, iter_live_frames, render_due
 from demo.seam import BoundingBox, DetectionLabel, DetectionResult, Frame
 
 
@@ -36,6 +37,28 @@ class _ScriptedModel:
             confidence=0.95 if is_fall else 0.4,
             is_fall=is_fall,
         )
+        pose = ((3, 3, 0.9),) * 17
+        return DetectionResult(boxes=(box,), labels=(label,), keypoints=(pose,))
+
+
+class _BedDetector:
+    def detect(self, _frame: Frame) -> tuple[BoundingBox, ...]:
+        return (BoundingBox(x1=0, y1=0, x2=12, y2=12, confidence=0.8),)
+
+
+class _BedExitScriptedModel:
+    def predict(self, frame: Frame) -> DetectionResult:
+        boxes = (
+            BoundingBox(x1=2, y1=2, x2=10, y2=10, confidence=0.9),
+            BoundingBox(x1=2, y1=2, x2=10, y2=10, confidence=0.9),
+            BoundingBox(x1=6, y1=2, x2=14, y2=10, confidence=0.9),
+            BoundingBox(x1=10, y1=2, x2=18, y2=10, confidence=0.9),
+            BoundingBox(x1=10, y1=2, x2=18, y2=10, confidence=0.9),
+            BoundingBox(x1=10, y1=2, x2=18, y2=10, confidence=0.9),
+            BoundingBox(x1=10, y1=2, x2=18, y2=10, confidence=0.9),
+        )
+        box = boxes[frame.index]
+        label = DetectionLabel(text="person", confidence=0.4, is_fall=False)
         pose = ((3, 3, 0.9),) * 17
         return DetectionResult(boxes=(box,), labels=(label,), keypoints=(pose,))
 
@@ -76,11 +99,25 @@ def test_iter_live_frames_empty_source_yields_nothing() -> None:
     assert list(iter_live_frames(_FakeSource(count=0), _ScriptedModel(fall_at=0))) == []
 
 
+def test_iter_live_frames_surfaces_bed_exit_events() -> None:
+    items = list(
+        iter_live_frames(
+            _FakeSource(count=7),
+            _BedExitScriptedModel(),
+            bed_detector=_BedDetector(),
+        )
+    )
+
+    event_counts = [status.bed_exit_event_count for _overlay, status, _conf in items]
+    assert event_counts == [0, 0, 0, 0, 0, 0, 1]
+    _, exit_status, _ = items[-1]
+    assert exit_status.first_bed_exit_sec == 3.0
+    assert exit_status.bed_exit_events == (BedExitEvent(person_id=0, bed_id=0),)
+
+
 class TestRenderDue:
     def test_paints_every_stride_th_frame(self) -> None:
-        due = [
-            render_due(n, 4, is_fall=False, last_painted_fall=False) for n in range(1, 9)
-        ]
+        due = [render_due(n, 4, is_fall=False, last_painted_fall=False) for n in range(1, 9)]
         assert due == [False, False, False, True, False, False, False, True]
 
     def test_fall_onset_paints_immediately(self) -> None:
@@ -95,9 +132,7 @@ class TestRenderDue:
         assert render_due(8, 4, is_fall=True, last_painted_fall=True) is True
 
     def test_stride_one_paints_everything(self) -> None:
-        assert all(
-            render_due(n, 1, is_fall=False, last_painted_fall=False) for n in range(1, 5)
-        )
+        assert all(render_due(n, 1, is_fall=False, last_painted_fall=False) for n in range(1, 5))
 
 
 class TestFallEventLatch:
@@ -127,6 +162,40 @@ class TestFallEventLatch:
         latch = FallEventLatch()
         assert latch.update(True, 0.0) is True
         assert latch.first_event_sec == 0.0
+
+
+class TestBedExitLatch:
+    def test_no_bed_exit_no_event(self) -> None:
+        latch = BedExitLatch()
+        assert latch.update((), 0.0) == ()
+        assert latch.event_count == 0
+        assert latch.first_event_sec is None
+
+    def test_single_onset_records_time_and_counts_once(self) -> None:
+        latch = BedExitLatch()
+        event = BedExitEvent(person_id=7, bed_id=2)
+
+        onsets = [
+            latch.update((), 0.0),
+            latch.update((event,), 0.5),
+            latch.update((event,), 1.0),
+            latch.update((), 1.5),
+        ]
+
+        assert onsets == [(), (event,), (), ()]
+        assert latch.event_count == 1
+        assert latch.first_event_sec == 0.5
+
+    def test_reentry_counts_new_event_keeps_first_time(self) -> None:
+        latch = BedExitLatch()
+        event = BedExitEvent(person_id=7, bed_id=2)
+
+        latch.update((event,), 0.5)
+        latch.update((), 1.0)
+        latch.update((event,), 1.5)
+
+        assert latch.event_count == 2
+        assert latch.first_event_sec == 0.5
 
 
 def test_app_live_source_is_not_strided() -> None:
