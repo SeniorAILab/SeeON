@@ -34,9 +34,8 @@ add knobs that duplicate model-seam internals.
   `nano · fastest`, `large · accurate`).
 - **Overlay toggles** — bounding boxes and pose skeleton as independent
   `st.checkbox` controls inside `render_live_controls()`; see Rule 3.
-- **Domain / role segmented-control row** (operator mode only) — domain
-  selector + role selector rendered side by side via `st.columns` inside
-  `_list_videos_for_mode()`; absent in public mode.
+- **Domain / role segmented-control row** — domain selector + role selector
+  rendered side by side via `st.columns` inside `_list_videos()`.
 
 Lay related controls side by side (`st.columns`) rather than stacking
 full-width widgets.
@@ -78,41 +77,40 @@ its own `st.checkbox`; all four on/off combinations must render correctly, and
 "both off" returns a clean frame. `render_yolo_overlay(frame, result,
 show_boxes=..., show_pose=...)` honors the flags.
 
-## 4. Public mode — nursing-home data never exposed
+## 4. Local-only demo — all data sources available
 
-The demo defaults to `FALL_DEMO_MODE=public` (fail-safe):
+The demo is a local developer/operator tool with no external/deployed surface
+([ADR-045](../decisions/common/ADR-045-streamlit-demo-local-only.md), superseding
+ADR-028; non-product per [ADR-024](../decisions/common/ADR-024-ml-demo-product-surface-boundary.md)).
+There is no `FALL_DEMO_MODE` and no public/operator branching: the demo always
+lists every internal `ml/data/{domain}/{raw,processed}` source plus session
+uploads, and always offers the laptop camera as a live source.
 
-| Mode | Who | Video sources | Default? |
-|------|-----|---------------|----------|
-| `public` | external testers (deployed) | **only clips uploaded in the current browser session** | **yes — fail-safe** |
-| `operator` | local development | `ml/data/{domain}/{raw,processed}` internal clips + uploads | explicit opt-in |
-
-- **The default is `public` on purpose.** A deployment that forgets to set
-  `FALL_DEMO_MODE` must **never** expose nursing-home footage
-  (ADR-028 Demo Access Boundary). Never flip the default to `operator`.
-- **Public-mode invariants:** internal domain sources are not listed, not
-  reachable by any widget, and uploads outside the current session's
-  `st.session_state["session_upload_ids"]` set are not shown. Session
-  filtering lives in `app.py`; `video_registry` stays mode-agnostic.
-- **Local operator run:**
+- **Run it:**
 
   ```bash
-  FALL_DEMO_MODE=operator pnpm dev:demo
+  pnpm dev:demo
   # or directly:
-  cd ml && FALL_DEMO_MODE=operator uv run streamlit run demo/app.py
+  cd ml && uv run streamlit run demo/app.py
   ```
 
-- The upload widget works in both modes and accepts the
-  `SUPPORTED_VIDEO_EXTENSIONS` set (mp4, mov, avi, mkv).
+- **Never expose this demo externally as-is** — it lists patient-adjacent
+  nursing-home footage by design. Reviving a hosted demo requires a new
+  data-access-boundary ADR first (ADR-045). Footage custody (footage stays on
+  operator disks, out of Git) is owned by
+  [ADR-018](../decisions/ml/ADR-018-cross-machine-dataset-custody.md), not a demo runtime mode.
+- The upload widget accepts the `SUPPORTED_VIDEO_EXTENSIONS` set (mp4, mov, avi, mkv).
 - `video_id` format is `"{domain}/{role}/{filename}"` — unique within one
   `ml/data/` root; never reintroduce the role-only format (it collides across
   domains).
 
-## 5. Upload session scope
+## 5. Upload handling
 
-Uploads are **session-scoped**. `video_registry` is mode-agnostic; the session
-filter (`app_assets.SESSION_UPLOAD_IDS_KEY`) lives exclusively in `app.py`.
-Do not push session filtering into the registry.
+Uploads persist to `ml/data/uploads/` via `video_registry.persist_uploaded_video`
+and then appear under the `uploads` domain like any other source. `handle_upload`
+(`app_assets.py`) only de-duplicates re-uploads within a session (`seen_uploads`)
+so the same file is not persisted twice. `video_registry` stays UI-agnostic — do
+not push upload bookkeeping into the registry.
 
 ## 6. Model / size / classifier selection goes through the model-seam
 

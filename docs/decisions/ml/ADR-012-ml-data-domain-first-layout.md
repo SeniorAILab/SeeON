@@ -3,10 +3,13 @@
 ## Status
 
 Accepted. Supersedes retired source ADR-004 and ADR-007 for current `ml/data/` layout. Partially
-superseded by [ADR-028](../common/ADR-028-demo-access-boundary.md), which extracts
-the access-boundary clauses into `common/`. The deliberately deferred hook/script
-validation is resolved by [ADR-016](../common/ADR-016-enforcement-timing-principle.md):
-layout conventions are audit-tier, not hook-blocked.
+superseded by [ADR-028](../common/ADR-028-demo-access-boundary.md), which extracted
+the access-boundary clauses into `common/`; ADR-028 is in turn superseded by
+[ADR-045](../common/ADR-045-streamlit-demo-local-only.md) (demo is local-only, the
+`FALL_DEMO_MODE` access-mode branching is removed). The `FALL_DEMO_MODE` clause below is
+preserved as historical context only. The deliberately deferred hook/script validation is
+resolved by [ADR-016](../common/ADR-016-enforcement-timing-principle.md): layout conventions
+are audit-tier, not hook-blocked.
 
 Historical pre-MECE source ADRs ADR-004 and ADR-007 are now retired from the visible corpus after their active clauses were represented by ADR-012 and ADR-015. Their exact original bodies remain recoverable from git history and are mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
 

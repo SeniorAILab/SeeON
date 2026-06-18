@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from demo.demo_mode import OPERATOR_MODE, PUBLIC_MODE
 from demo.demo_ui import CAMERA_SOURCE_LABEL, LiveSourceOption, build_live_source_options
 from demo.video_registry import RegisteredVideo, VideoSource
 from util.frame_source import CameraSource
@@ -18,28 +17,13 @@ def _video(video_id: str = "uploads/demo.mp4") -> RegisteredVideo:
     )
 
 
-def test_operator_source_options_include_laptop_camera() -> None:
+def test_source_options_include_laptop_camera() -> None:
     video = _video()
 
-    options = build_live_source_options(
-        operator_mode=OPERATOR_MODE == "operator",
-        registered_videos=[video],
-    )
+    options = build_live_source_options(registered_videos=[video])
 
     assert options[0] == LiveSourceOption(kind="camera", label=CAMERA_SOURCE_LABEL)
     assert options[1] == LiveSourceOption(kind="video", label=video.display_name, video=video)
-
-
-def test_public_source_options_do_not_include_camera() -> None:
-    video = _video()
-
-    options = build_live_source_options(
-        operator_mode=PUBLIC_MODE == "operator",
-        registered_videos=[video],
-    )
-
-    assert [option.kind for option in options] == ["video"]
-    assert all(option.label != CAMERA_SOURCE_LABEL for option in options)
 
 
 def test_camera_selection_creates_camera_source_without_video_path(monkeypatch) -> None:

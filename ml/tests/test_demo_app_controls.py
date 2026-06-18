@@ -1,9 +1,9 @@
 """Headless control-verification suite for the Streamlit fall-detection demo.
 
 Uses ``streamlit.testing.v1.AppTest`` to exercise every interactive control
-in ``demo/app.py`` without a browser.  FALL_DEMO_MODE=operator is forced so
-domain/role segmented controls, all domain clip sources, and all classifier
-options are exercised.
+in ``demo/app.py`` without a browser.  The demo is a local developer tool that
+lists every internal data source plus session uploads, so domain/role segmented
+controls, all domain clip sources, and all classifier options are exercised.
 
 Play-button blocking caveat
 ---------------------------
@@ -70,12 +70,6 @@ _OVERLAY_VALUES = [
 ]
 
 
-@pytest.fixture(autouse=True)
-def _operator_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Force operator mode for every test in this module."""
-    monkeypatch.setenv("FALL_DEMO_MODE", "operator")
-
-
 def _at() -> AppTest:
     """Return a fresh (not yet run) AppTest instance."""
     return AppTest.from_file(_APP, default_timeout=_TIMEOUT)
@@ -109,7 +103,7 @@ def test_file_uploader_present_with_correct_label() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. Domain segmented_control — operator mode only
+# 2. Domain segmented_control
 # ---------------------------------------------------------------------------
 
 
