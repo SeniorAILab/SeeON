@@ -57,7 +57,12 @@ export class IngestAlertService {
         detectedAt: input.detectedAt,
         idempotencyKey,
       });
-      await this.ensureOutboxForIngest(camera, input, idempotencyKey);
+      await this.ensureOutboxForIngest(
+        camera,
+        input,
+        idempotencyKey,
+        alert.resident ?? null,
+      );
       return {
         alertSeq: alert.alertSeq.toString(),
         id: alert.id,
@@ -70,9 +75,15 @@ export class IngestAlertService {
           (tx: Prisma.TransactionClient) =>
             tx.alert.findFirst({
               where: { orgId: camera.orgId, idempotencyKey },
+              include: { resident: { select: { name: true, room: true } } },
             }),
         );
-        await this.ensureOutboxForIngest(camera, input, idempotencyKey);
+        await this.ensureOutboxForIngest(
+          camera,
+          input,
+          idempotencyKey,
+          existing?.resident ?? null,
+        );
         return {
           alertSeq: existing?.alertSeq?.toString() ?? '0',
           id: existing?.id ?? '',
@@ -87,6 +98,7 @@ export class IngestAlertService {
     camera: IngestCameraInfo,
     input: ParsedIngestAlertBody,
     idempotencyKey: string,
+    resident: { name: string; room: string | null } | null,
   ): Promise<void> {
     await this.alertEventsService.ensureOutboxForIngest({
       orgId: camera.orgId,
@@ -95,6 +107,8 @@ export class IngestAlertService {
       type: input.type as AlertEventIngressDto['type'],
       detectedAt: input.detectedAt,
       confidence: input.probability,
+      residentName: resident?.name,
+      residentRoom: resident?.room ?? null,
     });
   }
 }
