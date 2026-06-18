@@ -15,6 +15,7 @@ clicking stop: the stop handler writes ``live_playing=False`` before the
 loop-entry guard fires, so the run returns immediately without entering the
 video loop.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -158,9 +159,7 @@ def test_role_segmented_control_selects_each_option_without_crash() -> None:
         pytest.skip("No domain folders available on this machine")
 
     # Prefer a domain that has more than one role to exercise both branches.
-    domain = next(
-        (d for d in domains if len(list_roles_for_domain(d)) > 1), domains[0]
-    )
+    domain = next((d for d in domains if len(list_roles_for_domain(d)) > 1), domains[0])
     roles = list_roles_for_domain(domain)
 
     at = _boot()
@@ -247,9 +246,7 @@ def test_threshold_slider_present_for_available_temporal_model() -> None:
     from demo.classifiers import CLASSIFIER_REGISTRY
 
     temporal_available = [
-        spec
-        for spec in CLASSIFIER_REGISTRY
-        if spec.key != "rule_based" and spec.available
+        spec for spec in CLASSIFIER_REGISTRY if spec.key != "rule_based" and spec.available
     ]
     if not temporal_available:
         pytest.skip("No available temporal models on this machine")
@@ -273,9 +270,7 @@ def test_threshold_slider_accepts_custom_value() -> None:
     from demo.classifiers import CLASSIFIER_REGISTRY
 
     temporal_available = [
-        spec
-        for spec in CLASSIFIER_REGISTRY
-        if spec.key != "rule_based" and spec.available
+        spec for spec in CLASSIFIER_REGISTRY if spec.key != "rule_based" and spec.available
     ]
     if not temporal_available:
         pytest.skip("No available temporal models on this machine")
@@ -316,9 +311,7 @@ def test_detection_params_all_four_number_inputs_present() -> None:
 
 
 @pytest.mark.parametrize("label,new_value", _DETECTION_PARAM_VALUES)
-def test_detection_param_number_input_accepts_value(
-    label: str, new_value: float
-) -> None:
+def test_detection_param_number_input_accepts_value(label: str, new_value: float) -> None:
     at = _boot()
     assert_no_exception(at)
 
@@ -327,9 +320,7 @@ def test_detection_param_number_input_accepts_value(
     at.run()
     assert_no_exception(at, f"Setting {label!r}={new_value}")
     result = find_labeled(at.number_input, label, "number_input").value
-    assert abs(float(result) - new_value) < 1e-6, (
-        f"{label!r}: expected {new_value}, got {result}"
-    )
+    assert abs(float(result) - new_value) < 1e-6, f"{label!r}: expected {new_value}, got {result}"
 
 
 # ---------------------------------------------------------------------------
@@ -383,9 +374,7 @@ def test_pose_skeleton_checkbox_present_and_defaults_true() -> None:
 
 
 @pytest.mark.parametrize("boxes,pose", _OVERLAY_VALUES)
-def test_overlay_checkbox_combination_does_not_crash(
-    boxes: bool, pose: bool
-) -> None:
+def test_overlay_checkbox_combination_does_not_crash(boxes: bool, pose: bool) -> None:
     at = _boot()
     assert_no_exception(at)
 
@@ -442,6 +431,61 @@ def test_stop_button_sets_live_playing_false_without_entering_video_loop() -> No
 
     assert_no_exception(at, "Clicking stop")
     assert at.session_state[_PLAYING_KEY] is False, (
-        f"Expected {_PLAYING_KEY}=False after stop click, "
-        f"got {at.session_state[_PLAYING_KEY]!r}"
+        f"Expected {_PLAYING_KEY}=False after stop click, got {at.session_state[_PLAYING_KEY]!r}"
     )
+
+
+def test_bed_exit_badge_text_is_user_facing_korean() -> None:
+    from demo.app import _bed_exit_badge_text
+    from demo.playback_status import CurrentPlaybackStatus
+
+    status = CurrentPlaybackStatus(
+        label="정상",
+        detail="3.00s / 낙상 없음",
+        pose_label="포즈 감지: 1명",
+        pose_count=1,
+        is_fall=False,
+        bed_count=1,
+        bed_exit_event_count=2,
+        first_bed_exit_sec=3.0,
+    )
+
+    assert _bed_exit_badge_text(status) == (
+        "🛏️ 침대 이탈 2회 — 최초 3.0초 시점 (영상 종료까지 유지)"
+    )
+
+
+def test_status_alert_text_surfaces_no_bed_monitoring_once() -> None:
+    from demo.app import _status_alert_text
+    from demo.playback_status import CurrentPlaybackStatus
+
+    status = CurrentPlaybackStatus(
+        label="정상",
+        detail="0.00s / 낙상 없음",
+        pose_label="포즈 감지: 1명",
+        pose_count=1,
+        is_fall=False,
+        bed_count=0,
+    )
+
+    assert _status_alert_text(None, status) == "침대 없음 — 낙상만 모니터링"
+    assert _status_alert_text("alert failures 0", status) == (
+        "침대 없음 — 낙상만 모니터링 · alert failures 0"
+    )
+
+
+def test_status_alert_text_keeps_alert_status_when_bed_exists() -> None:
+    from demo.app import _status_alert_text
+    from demo.playback_status import CurrentPlaybackStatus
+
+    status = CurrentPlaybackStatus(
+        label="정상",
+        detail="0.00s / 낙상 없음",
+        pose_label="포즈 감지: 1명",
+        pose_count=1,
+        is_fall=False,
+        bed_count=1,
+    )
+
+    assert _status_alert_text("alert failures 0", status) == "alert failures 0"
+    assert _status_alert_text(None, status) is None
