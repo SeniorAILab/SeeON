@@ -18,6 +18,7 @@ class CurrentPlaybackStatus:
     pose_label: str
     pose_count: int
     is_fall: bool
+    bed_count: int = 0
     bed_exit_events: BedExitEvents = field(default_factory=tuple)
     bed_exit_event_count: int = 0
     first_bed_exit_sec: float | None = None
