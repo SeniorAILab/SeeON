@@ -20,7 +20,11 @@ const NOW = new Date('2026-06-18T00:00:00.000Z');
 function setup() {
   jest.spyOn(Date, 'now').mockReturnValue(NOW.getTime());
   const writeAlert = jest.fn<
-    Promise<{ alertSeq: bigint; id: string }>,
+    Promise<{
+      alertSeq: bigint;
+      id: string;
+      resident?: { name: string; room: string | null } | null;
+    }>,
     [WriteAlertInput]
   >();
   const withOrgContext = jest.fn() as jest.MockedFunction<
@@ -141,9 +145,13 @@ describe('IngestAlertService', () => {
     ).rejects.toBeInstanceOf(TenantMismatchException);
   });
 
-  it('writes created alerts with server-derived idempotency and outbox', async () => {
+  it('writes created alerts with idempotency, outbox, and threaded resident context', async () => {
     const { service, writeAlert, ensureOutboxForIngest } = setup();
-    writeAlert.mockResolvedValue({ alertSeq: 7n, id: 'a1' });
+    writeAlert.mockResolvedValue({
+      alertSeq: 7n,
+      id: 'a1',
+      resident: { name: '홍길동', room: '302호' },
+    });
 
     const result = await service.ingestAlert(camera(), body());
 
@@ -161,6 +169,8 @@ describe('IngestAlertService', () => {
     );
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
     expect(idempotencyKey).toMatch(/^[0-9a-f]{64}$/);
+    // AC8: resident name/room from the alert-writer join thread to the outbox
+    // without changing the ML ingest DTO.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith({
       orgId: 'org-1',
       sourceId: 'cam-1',
@@ -168,12 +178,18 @@ describe('IngestAlertService', () => {
       type: 'fall',
       detectedAt: NOW,
       confidence: 0.9,
+      residentName: '홍길동',
+      residentRoom: '302호',
     });
   });
 
   it('accepts bed-exit ingest and ensures an alert event outbox', async () => {
     const { service, writeAlert, ensureOutboxForIngest } = setup();
-    writeAlert.mockResolvedValue({ alertSeq: 8n, id: 'bed-exit-alert-1' });
+    writeAlert.mockResolvedValue({
+      alertSeq: 8n,
+      id: 'bed-exit-alert-1',
+      resident: { name: '김영희', room: null },
+    });
 
     const result = await service.ingestAlert(
       camera(),
@@ -199,16 +215,24 @@ describe('IngestAlertService', () => {
       type: 'bed-exit',
       detectedAt: NOW,
       confidence: 0.1,
+      residentName: '김영희',
+      residentRoom: null,
     });
   });
 
-  it('returns duplicate status on P2002 and ensures outbox', async () => {
+  it('returns duplicate status on P2002 and threads resident context from the existing alert', async () => {
     const { service, writeAlert, withOrgContext, ensureOutboxForIngest } =
       setup();
     writeAlert.mockRejectedValue({ code: 'P2002' });
     withOrgContext.mockImplementation((_orgId: string, cb) =>
       cb({
-        alert: { findFirst: () => ({ alertSeq: 3n, id: 'a-dup' }) },
+        alert: {
+          findFirst: () => ({
+            alertSeq: 3n,
+            id: 'a-dup',
+            resident: { name: '박철수', room: '101호' },
+          }),
+        },
       } as unknown as Parameters<typeof cb>[0]),
     );
 
@@ -217,12 +241,15 @@ describe('IngestAlertService', () => {
     expect(result).toEqual({ alertSeq: '3', id: 'a-dup', status: 'duplicate' });
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
     expect(withOrgContext).toHaveBeenCalledWith('org-1', expect.any(Function));
+    // AC8 duplicate-repair: the existing alert's resident still threads through.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId: 'org-1',
         sourceId: 'cam-1',
         externalEventId: idempotencyKey,
         confidence: 0.9,
+        residentName: '박철수',
+        residentRoom: '101호',
       }),
     );
   });
