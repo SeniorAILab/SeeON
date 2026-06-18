@@ -34,6 +34,10 @@ class BoundingBox:
     x2: int
     y2: int
     confidence: float
+    # Optional mask contour (issue #243): bed ROIs from instance segmentation
+    # carry the silhouette polygon for shape-accurate rendering. None for plain
+    # detection boxes (person/fall). x1..y2 stays the source of truth for IoU.
+    polygon: tuple[tuple[int, int], ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
