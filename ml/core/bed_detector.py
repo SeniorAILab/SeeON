@@ -18,7 +18,7 @@ from typing import Final, Protocol
 
 from numpy.typing import NDArray
 
-from core.seam import BoundingBox, Frame
+from core.contract import BoundingBox, Frame
 
 # bed-localization weight cache — a function axis under ml/models/ alongside
 # pose/ and fall/ (docs/rules/ml-models.md; gitignored, never committed).
@@ -32,7 +32,7 @@ def bed_weight_path() -> Path:
 
 
 class BedRunner(Protocol):
-    """Minimal inference seam: one frame in → bed boxes."""
+    """Minimal inference 계약(contract): one frame in → bed boxes."""
 
     def detect_beds(
         self, frame: NDArray

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.seam import BoundingBox
+from core.contract import BoundingBox
 from core.tracking import GreedyIouTracker, iou
 
 

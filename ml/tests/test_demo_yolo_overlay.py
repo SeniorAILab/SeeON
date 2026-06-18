@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from core.seam import (
+from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,

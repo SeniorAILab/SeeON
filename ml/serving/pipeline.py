@@ -9,8 +9,8 @@ from typing import Protocol
 
 import numpy as np
 
+from core.contract import DetectionResult, ModelModule
 from core.model_modules import YoloPoseModule, pose_weight_path
-from core.seam import DetectionResult, ModelModule
 from serving.model import FallDetector
 from util.frame_source import FrameSource, VideoFileSource
 

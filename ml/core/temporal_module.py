@@ -28,7 +28,7 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
-from core.seam import (
+from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     DetectionLabel,

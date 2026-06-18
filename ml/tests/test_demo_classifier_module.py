@@ -8,7 +8,7 @@ import numpy as np
 
 from core.classifier_module import FallClassifierModule
 from core.classifiers import Classification
-from core.seam import (
+from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,

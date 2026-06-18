@@ -8,9 +8,9 @@ from numpy.typing import NDArray
 
 from core.bed_detector import BedDetector
 from core.bed_exit import BedExitMonitor
+from core.contract import FrameSource, ModelModule
 from core.events import BedExitLatch, DetectionLossMonitor, FallEventLatch, render_due
 from core.playback_status import CurrentPlaybackStatus, current_playback_status
-from core.seam import FrameSource, ModelModule
 from demo.yolo_overlay import render_yolo_overlay
 
 __all__ = [
