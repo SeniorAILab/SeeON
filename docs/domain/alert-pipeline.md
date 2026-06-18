@@ -59,9 +59,9 @@ Do not model these as two separate alert domains. A live ingest that updates onl
 
 Kakao self-notification is backend-owned delivery policy. The ingest path calls `ensureOutboxForIngest`, which finds Kakao recipients for the organization and dispatches one send-to-me attempt per recipient. The Kakao adapter may report sent, transient failure, or terminal operator-action failure; it must never fake success.
 
-## ML prediction seam
+## ML prediction contract
 
-The ML prediction seam is a future backend-prediction path, not a second alert ingress.
+The ML prediction contract is a future backend-prediction path, not a second alert ingress.
 
 - Port: `backend/src/alerts/ports/prediction.port.ts`.
 - Adapter: `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`.
