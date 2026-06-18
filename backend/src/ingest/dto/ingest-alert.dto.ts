@@ -59,7 +59,9 @@ export function parseIngestAlertBody(
 
   const type = String(body.type);
   if (!VALID_ALERT_TYPES.has(type)) {
-    throw new BadRequestException('type must be one of: fall, detection-lost, bed-exit');
+    throw new BadRequestException(
+      'type must be one of: fall, detection-lost, bed-exit',
+    );
   }
 
   return {
