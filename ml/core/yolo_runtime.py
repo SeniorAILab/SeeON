@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final, TypeAlias
 
+import numpy as np
 from numpy.typing import NDArray
 
 PoseDetections: TypeAlias = tuple[tuple[tuple[int, int, float], ...], ...]
@@ -15,6 +16,7 @@ COCO_BED_CLASS_ID: Final = 59
 BED_MODEL_CONFIDENCE: Final = 0.25
 BED_NMS_IOU_THRESHOLD: Final = 0.5
 BED_MERGE_IOU_THRESHOLD: Final = 0.5
+BED_MASK_MAX_POINTS: Final = 48
 
 
 class YoloPoseRunner:
@@ -74,54 +76,75 @@ class YoloPoseRunner:
         return poses, raw_boxes
 
 
-class YoloBedRunner:
-    """Low-frequency COCO-detection runner that returns bed ROIs (class 59).
+class YoloBedSegRunner:
+    """Low-frequency COCO instance-segmentation runner returning bed masks (class 59).
 
-    Mirrors ``YoloPoseRunner`` but reads ``r.boxes`` only (no keypoints). The
-    bed detector uses this for initial multi-frame seeding and sparse re-detects;
-    the per-frame path stays a single pose pass (ADR-005 §3).
+    Replaces the bbox-only detector (issue #243): each bed is returned as
+    ``(x1, y1, x2, y2, conf, polygon)`` where ``polygon`` is the mask contour in
+    image pixels. The bbox is derived from the mask for the bed-exit containment
+    logic; the polygon is carried through for shape-accurate rendering — a loose
+    axis-aligned box wraps a fisheye-distorted bed poorly.
 
-    Robustness: the COCO class id for "bed" is asserted against the loaded
-    model's ``names`` map at construction. If the weight family does not map
-    index 59 → "bed", ``detect_beds`` degrades gracefully to an empty tuple
-    rather than trusting a wrong class id.
+    Robustness: the COCO class id for "bed" is asserted against the loaded model's
+    ``names`` map at construction. If the weight family does not map index 59 →
+    "bed", or a frame yields no masks (detection-only weight), ``detect_beds``
+    degrades gracefully to an empty tuple rather than guessing.
     """
 
     def __init__(
         self,
-        model_path: str = "yolo26m.pt",
+        model_path: str = "yolo26m-seg.pt",
         confidence: float = BED_MODEL_CONFIDENCE,
-        max_beds: int | None = None,
+        max_points: int = BED_MASK_MAX_POINTS,
     ) -> None:
         self._model = _load_yolo_model(Path(model_path))
         self._confidence = confidence
-        self._max_beds = max_beds
+        self._max_points = max_points
         self._bed_class_id = _resolve_bed_class_id(getattr(self._model, "names", None))
 
     def detect_beds(
         self, frame: NDArray
-    ) -> tuple[tuple[int, int, int, int, float], ...]:
-        """Return bed boxes ``(x1,y1,x2,y2,conf)`` after NMS/overlap merge.
+    ) -> tuple[tuple[int, int, int, int, float, tuple[tuple[int, int], ...]], ...]:
+        """Return bed instances ``(x1,y1,x2,y2,conf,polygon)`` for class-59 masks.
 
-        Ordering is deterministic by geometry before confidence so callers can
-        use the tuple position as a stable bed-id seed for the cached seed frame.
+        No internal cap or merge: instance masks are already separated by the
+        model. Cross-frame dedup and deterministic ordering happen in
+        ``BedDetector`` (issue #244: no hard cap).
         """
         if self._bed_class_id is None:
             return ()
         results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
         r = results[0]
-        if r.boxes is None or len(r.boxes) == 0:
+        if r.boxes is None or len(r.boxes) == 0 or r.masks is None:
             return ()
         xyxy = r.boxes.xyxy.cpu().numpy()
         confs = r.boxes.conf.cpu().numpy()
         classes = r.boxes.cls.cpu().numpy()
+        polygons = r.masks.xy
 
-        candidates = tuple(
-            (int(box[0]), int(box[1]), int(box[2]), int(box[3]), float(conf))
-            for box, conf, cls in zip(xyxy, confs, classes, strict=True)
+        return tuple(
+            (
+                int(box[0]),
+                int(box[1]),
+                int(box[2]),
+                int(box[3]),
+                float(conf),
+                _simplify_polygon(poly, self._max_points),
+            )
+            for box, conf, cls, poly in zip(xyxy, confs, classes, polygons, strict=True)
             if int(cls) == self._bed_class_id and float(conf) >= self._confidence
         )
-        return dedupe_bed_boxes(candidates, max_beds=self._max_beds)
+
+
+def _simplify_polygon(points: NDArray, max_points: int) -> tuple[tuple[int, int], ...]:
+    """Downsample a mask contour to <= ``max_points`` integer vertices (uniform stride)."""
+    pts = np.asarray(points, dtype=float)
+    if pts.ndim != 2 or pts.shape[0] == 0:
+        return ()
+    if pts.shape[0] > max_points:
+        idx = np.linspace(0, pts.shape[0] - 1, max_points).astype(int)
+        pts = pts[idx]
+    return tuple((int(round(x)), int(round(y))) for x, y in pts)
 
 
 def dedupe_bed_boxes(

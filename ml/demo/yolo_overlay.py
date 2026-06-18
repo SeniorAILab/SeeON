@@ -90,7 +90,12 @@ def _draw_bed_status(overlay: NDArray[np.uint8], status: object) -> None:
         if occupancy == "occupied"
         else BED_EMPTY_COLOR
     )
-    cv2.rectangle(overlay, (box.x1, box.y1), (box.x2, box.y2), color, 2)
+    polygon = getattr(box, "polygon", None)
+    if polygon:
+        contour = np.array(polygon, dtype=np.int32).reshape(-1, 1, 2)
+        cv2.polylines(overlay, [contour], isClosed=True, color=color, thickness=2)
+    else:
+        cv2.rectangle(overlay, (box.x1, box.y1), (box.x2, box.y2), color, 2)
     suffix = f" P{person_id}" if person_id is not None else ""
     _draw_caption(
         overlay=overlay,

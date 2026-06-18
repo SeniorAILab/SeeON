@@ -176,3 +176,23 @@ def _result_with_box(label: str, is_fall: bool) -> DetectionResult:
 
 def _empty_pose() -> list[tuple[int, int, float]]:
     return [(0, 0, 0.0)] * 17
+
+
+def test_render_bed_status_draws_mask_polygon_not_just_bbox() -> None:
+    """A bed with a mask polygon renders the silhouette (issue #243): a point on
+    a non-rectangular polygon edge is painted, which a bbox rectangle never would."""
+    from core.bed_exit import BedStatus
+
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    # Triangle: the (10,60)->(60,10) edge passes through interior point (35,35),
+    # which the axis-aligned bbox (10,10,110,60) border would leave black.
+    polygon = ((10, 60), (60, 10), (110, 60))
+    bed = BoundingBox(x1=10, y1=10, x2=110, y2=60, confidence=0.9, polygon=polygon)
+    status = BedStatus(bed_id=0, box=bed, occupancy="empty")
+    result = DetectionResult(bed_exit_statuses=(status,))
+
+    overlay = render_yolo_overlay(
+        frame=frame, result=result, show_boxes=True, show_pose=False
+    )
+
+    assert np.count_nonzero(overlay[34:37, 34:37]) > 0
