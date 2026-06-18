@@ -245,11 +245,12 @@ def test_threshold_slider_absent_for_rule_based_default() -> None:
 
 def test_threshold_slider_present_for_available_temporal_model() -> None:
     from demo.classifiers import CLASSIFIER_REGISTRY
+    from demo.temporal_module import TEMPORAL_MODEL_KEYS
 
     temporal_available = [
         spec
         for spec in CLASSIFIER_REGISTRY
-        if spec.key != "rule_based" and spec.available
+        if spec.key in TEMPORAL_MODEL_KEYS and spec.available
     ]
     if not temporal_available:
         pytest.skip("No available temporal models on this machine")
@@ -271,11 +272,12 @@ def test_threshold_slider_present_for_available_temporal_model() -> None:
 
 def test_threshold_slider_accepts_custom_value() -> None:
     from demo.classifiers import CLASSIFIER_REGISTRY
+    from demo.temporal_module import TEMPORAL_MODEL_KEYS
 
     temporal_available = [
         spec
         for spec in CLASSIFIER_REGISTRY
-        if spec.key != "rule_based" and spec.available
+        if spec.key in TEMPORAL_MODEL_KEYS and spec.available
     ]
     if not temporal_available:
         pytest.skip("No available temporal models on this machine")

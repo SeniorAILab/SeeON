@@ -18,6 +18,7 @@ dependencies = [
 demo = [
     "opencv-python-headless>=4.10",
     "streamlit>=1.38",
+    "mediapipe>=0.10",              # hybrid pose backend: pose-in-box landmarks (issue #218)
     "ultralytics>=8.3",
 ]
 test = [

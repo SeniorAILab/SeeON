@@ -142,18 +142,21 @@ class TestRegistry:
             build_classifier("random_forest", ClassifierParams())
 
     def test_available_keys_contract(self) -> None:
-        """rule_based is always available; any extra keys are valid temporal keys.
+        """rule_based + pose_angle are always available; the rest are temporal.
 
-        Availability for temporal models is artifact-driven (computed at import
-        from disk), so the exact tuple depends on whether training has run.  This
-        asserts the invariant contract instead of a fixed membership, which keeps
-        the test stable both before and after artifacts exist on disk.
+        ``rule_based`` (box-only) and ``pose_angle`` (pose-driven, issue #218) are
+        the two always-on rule classifiers. Availability for temporal models is
+        artifact-driven (computed at import from disk), so the exact tuple depends
+        on whether training has run. This asserts the invariant contract instead
+        of a fixed membership, which keeps the test stable both before and after
+        artifacts exist on disk.
         """
         from demo.temporal_module import TEMPORAL_MODEL_KEYS
 
+        always_on = {"rule_based", "pose_angle"}
         keys = available_classifier_keys()
-        assert "rule_based" in keys
-        extra = set(keys) - {"rule_based"}
+        assert always_on <= set(keys)
+        extra = set(keys) - always_on
         assert extra <= set(TEMPORAL_MODEL_KEYS), (
             f"Unexpected available keys outside temporal set: {extra}"
         )

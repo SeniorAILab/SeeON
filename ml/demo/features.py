@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from demo.seam import DetectionResult
@@ -11,6 +12,11 @@ _LEFT_HIP = 11
 _RIGHT_HIP = 12
 _CONF_THRESHOLD = 0.2
 
+# Torso angle when the pose is missing/degenerate: 90° = upright. The pose-angle
+# fall classifier treats near-horizontal torsos as lying, so defaulting to
+# upright means "no pose ⇒ no fall signal" rather than a false positive.
+_UPRIGHT_ANGLE_DEG = 90.0
+
 
 @dataclass(frozen=True, slots=True)
 class FrameFeatures:
@@ -19,6 +25,11 @@ class FrameFeatures:
     vertical_center: float  # box center_y / frame_height in [0,1]; larger = lower (toward floor)
     box_height_ratio: float  # box height / frame_height
     torso_vertical: float  # |shoulder_mid_y - hip_mid_y| / frame_height; small = horizontal
+    # Angle of the shoulder-mid→hip-mid vector from the horizontal axis, in
+    # degrees [0, 90]. ~90 = torso upright (standing); ~0 = torso flat (lying).
+    # Scale-invariant (unlike torso_vertical), so it is the signal the
+    # YOLO+MediaPipe pose-angle classifier uses to judge falls (issue #218).
+    torso_angle_deg: float = _UPRIGHT_ANGLE_DEG
 
 
 _NO_PERSON = FrameFeatures(
@@ -27,7 +38,27 @@ _NO_PERSON = FrameFeatures(
     vertical_center=0.0,
     box_height_ratio=0.0,
     torso_vertical=0.0,
+    torso_angle_deg=_UPRIGHT_ANGLE_DEG,
 )
+
+
+def _mid_point(
+    kpts: tuple[tuple[int, int, float], ...], indices: tuple[int, int]
+) -> tuple[float, float] | None:
+    """Average the confident keypoints among ``indices`` into one (x, y) point.
+
+    Returns ``None`` when neither keypoint clears ``_CONF_THRESHOLD`` so callers
+    skip torso math instead of trusting a phantom point at the origin.
+    """
+    xs: list[float] = []
+    ys: list[float] = []
+    for idx in indices:
+        if idx < len(kpts) and kpts[idx][2] >= _CONF_THRESHOLD:
+            xs.append(float(kpts[idx][0]))
+            ys.append(float(kpts[idx][1]))
+    if not xs:
+        return None
+    return sum(xs) / len(xs), sum(ys) / len(ys)
 
 
 def extract_frame_features(
@@ -60,23 +91,23 @@ def extract_frame_features(
     vertical_center = center_y / frame_height
     box_height_ratio = height / frame_height
 
-    # Torso vertical: |shoulder_mid_y - hip_mid_y| / frame_height
-    # Only uses keypoints with confidence >= _CONF_THRESHOLD
+    # Torso geometry from the shoulder-mid and hip-mid points (confident
+    # keypoints only). torso_vertical keeps its frame-normalized magnitude;
+    # torso_angle_deg is the scale-invariant inclination from horizontal.
     torso_vertical = 0.0
+    torso_angle_deg = _UPRIGHT_ANGLE_DEG
     if best_idx < len(result.keypoints):
         kpts = result.keypoints[best_idx]
-        shoulder_ys: list[float] = []
-        for idx in (_LEFT_SHOULDER, _RIGHT_SHOULDER):
-            if idx < len(kpts) and kpts[idx][2] >= _CONF_THRESHOLD:
-                shoulder_ys.append(float(kpts[idx][1]))
-        hip_ys: list[float] = []
-        for idx in (_LEFT_HIP, _RIGHT_HIP):
-            if idx < len(kpts) and kpts[idx][2] >= _CONF_THRESHOLD:
-                hip_ys.append(float(kpts[idx][1]))
-        if shoulder_ys and hip_ys:
-            shoulder_mid = sum(shoulder_ys) / len(shoulder_ys)
-            hip_mid = sum(hip_ys) / len(hip_ys)
-            torso_vertical = abs(shoulder_mid - hip_mid) / frame_height
+        shoulder_mid = _mid_point(kpts, (_LEFT_SHOULDER, _RIGHT_SHOULDER))
+        hip_mid = _mid_point(kpts, (_LEFT_HIP, _RIGHT_HIP))
+        if shoulder_mid is not None and hip_mid is not None:
+            dx = abs(hip_mid[0] - shoulder_mid[0])
+            dy = abs(hip_mid[1] - shoulder_mid[1])
+            torso_vertical = dy / frame_height
+            # atan2(0, 0) == 0 would read a coincident shoulder/hip as "flat";
+            # treat that degenerate case as upright instead.
+            if dx > 0.0 or dy > 0.0:
+                torso_angle_deg = math.degrees(math.atan2(dy, dx))
 
     return FrameFeatures(
         has_person=True,
@@ -84,4 +115,5 @@ def extract_frame_features(
         vertical_center=vertical_center,
         box_height_ratio=box_height_ratio,
         torso_vertical=torso_vertical,
+        torso_angle_deg=torso_angle_deg,
     )

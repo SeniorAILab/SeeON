@@ -182,7 +182,7 @@ def _render_live_viewer(
     st.subheader("실시간 재생")
     st.caption(_source_caption(selected_source, camera_index))
 
-    size, show_boxes, show_pose = render_live_controls(
+    size, pose_backend, show_boxes, show_pose = render_live_controls(
         PLAYING_KEY, start_label="재생", stop_label="정지"
     )
 
@@ -202,7 +202,9 @@ def _render_live_viewer(
     # render IS the live view (ADR-010). Pacing targets the clip's native fps
     # and degrades to slower-than-real-time when pose can't keep up — frames
     # are never skipped to catch up.
-    model = build_model(size, classifier_key, classifier_params, decision_threshold)
+    model = build_model(
+        size, classifier_key, classifier_params, decision_threshold, pose_backend=pose_backend
+    )
     source = _frame_source_for_selection(selected_source, camera_index)
     frame_interval = _frame_interval_for_selection(selected_source)
 

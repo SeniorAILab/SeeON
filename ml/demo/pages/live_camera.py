@@ -79,7 +79,7 @@ def main() -> None:
     classifier_key: str | None = selected_spec.key if selected_spec.available else None
     classifier_params = select_classifier_params()
 
-    size, show_boxes, show_pose = render_live_controls(
+    size, pose_backend, show_boxes, show_pose = render_live_controls(
         CAMERA_PLAYING_KEY, start_label="시작", stop_label="중지"
     )
 
@@ -91,7 +91,9 @@ def main() -> None:
         return
 
     # No pacing sleep — the camera itself is the real-time gate (ADR-010).
-    model = build_model(size, classifier_key, classifier_params)
+    model = build_model(
+        size, classifier_key, classifier_params, pose_backend=pose_backend
+    )
     source = CameraSource(selected_index)
 
     t_start = time.perf_counter()

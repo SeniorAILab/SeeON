@@ -17,6 +17,13 @@ BED_MAX_DETECTIONS: Final = 4
 BED_NMS_IOU_THRESHOLD: Final = 0.5
 BED_MERGE_IOU_THRESHOLD: Final = 0.2
 
+# COCO class index for "person". The hybrid YOLO+MediaPipe backend (issue #218)
+# uses YOLO only to localize people; the id is asserted against the loaded
+# weight's names map at runtime, degrading to "no person" on a family rename.
+COCO_PERSON_CLASS_ID: Final = 0
+PERSON_MODEL_CONFIDENCE: Final = 0.25
+PERSON_MAX_DETECTIONS: Final = 8
+
 
 class YoloPoseRunner:
     def __init__(
@@ -125,6 +132,59 @@ class YoloBedRunner:
         return dedupe_bed_boxes(candidates, max_beds=self._max_beds)
 
 
+class YoloPersonRunner:
+    """One-shot-per-frame COCO-detection runner returning person boxes (class 0).
+
+    The hybrid pose backend (issue #218) uses YOLO purely for person
+    *localization* — MediaPipe then estimates the pose inside each box. Mirrors
+    ``YoloBedRunner`` (reads ``r.boxes`` only, no keypoints) but keeps every
+    person above ``confidence`` instead of merging to one static ROI.
+
+    Robustness: the COCO "person" class id is asserted against the loaded
+    model's ``names`` map at construction. A weight family that does not map
+    index 0 → "person" degrades ``detect_persons`` to an empty tuple rather
+    than trusting a wrong class id.
+    """
+
+    def __init__(
+        self,
+        model_path: str = "yolo26n.pt",
+        confidence: float = PERSON_MODEL_CONFIDENCE,
+        max_persons: int = PERSON_MAX_DETECTIONS,
+    ) -> None:
+        self._model = _load_yolo_model(Path(model_path))
+        self._confidence = confidence
+        self._max_persons = max_persons
+        self._person_class_id = _resolve_person_class_id(getattr(self._model, "names", None))
+
+    def detect_persons(
+        self, frame: NDArray
+    ) -> tuple[tuple[int, int, int, int, float], ...]:
+        """Return person boxes ``(x1,y1,x2,y2,conf)`` ordered by descending area.
+
+        Ultralytics applies NMS internally, so callers receive deduplicated
+        detections; ordering by area keeps the largest (nearest) person first so
+        the downstream primary-person pick (demo.features) stays stable, then
+        caps to ``max_persons``.
+        """
+        if self._person_class_id is None:
+            return ()
+        results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
+        r = results[0]
+        if r.boxes is None or len(r.boxes) == 0:
+            return ()
+        xyxy = r.boxes.xyxy.cpu().numpy()
+        confs = r.boxes.conf.cpu().numpy()
+        classes = r.boxes.cls.cpu().numpy()
+        candidates = [
+            (int(box[0]), int(box[1]), int(box[2]), int(box[3]), float(conf))
+            for box, conf, cls in zip(xyxy, confs, classes, strict=True)
+            if int(cls) == self._person_class_id and float(conf) >= self._confidence
+        ]
+        candidates.sort(key=lambda b: (b[2] - b[0]) * (b[3] - b[1]), reverse=True)
+        return tuple(candidates[: self._max_persons])
+
+
 def dedupe_bed_boxes(
     boxes: tuple[tuple[int, int, int, int, float], ...],
     *,
@@ -200,6 +260,22 @@ def _resolve_bed_class_id(names: object) -> int | None:
         return COCO_BED_CLASS_ID
     for class_id, class_name in names.items():
         if str(class_name).lower() == "bed":
+            return int(class_id)
+    return None
+
+
+def _resolve_person_class_id(names: object) -> int | None:
+    """Return the class id mapping to 'person', preferring the COCO index 0.
+
+    Returns ``None`` when the model's ``names`` map exposes no "person" class,
+    so callers degrade to the graceful no-person state.
+    """
+    if not isinstance(names, dict):
+        return None
+    if str(names.get(COCO_PERSON_CLASS_ID, "")).lower() == "person":
+        return COCO_PERSON_CLASS_ID
+    for class_id, class_name in names.items():
+        if str(class_name).lower() == "person":
             return int(class_id)
     return None
 

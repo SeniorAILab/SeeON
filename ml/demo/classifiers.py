@@ -23,6 +23,7 @@ class ClassifierParams:
     sustained_down_sec: float = 2.0
     aspect_ratio_min: float = 1.2  # wider-than-tall => lying
     vertical_center_min: float = 0.55  # in lower portion of frame => on floor
+    angle_max_deg: float = 45.0  # torso within this of horizontal => lying (pose-angle)
 
 
 @runtime_checkable
@@ -85,6 +86,62 @@ class RuleBasedClassifier:
         return Classification(is_fall=False, confidence=conf, label="no-fall")
 
 
+class PoseAngleClassifier:
+    """Fall classifier driven by the torso (shoulder→hip) angle from the pose.
+
+    Mirrors the YOLO+MediaPipe reference pipeline (rhafaelc/Fall-Detection-YOLO-
+    MediaPipe): the person's posture is "lying" when the torso vector is near
+    horizontal (``torso_angle_deg <= angle_max_deg``) while their box sits in the
+    lower frame (``vertical_center >= vertical_center_min``, so a person lying in
+    a high bed is not a fall). A fall is emitted once continuous lying-duration
+    reaches ``sustained_down_sec``; confidence ramps 0→1 over that window and
+    holds at 1.0 once the fall fires. Any non-lying frame resets the timer.
+
+    Unlike RuleBasedClassifier this consumes the *pose* (the shoulder/hip
+    keypoints), not just the bounding box — so it only produces signal when
+    keypoints are present, and it is the path where swapping in MediaPipe pose
+    actually changes the fall judgment (issue #218).
+    """
+
+    name: str = "pose_angle"
+
+    def __init__(self, params: ClassifierParams) -> None:
+        self._params = params
+        self._down_start: float | None = None
+        self._is_fall: bool = False
+
+    def reset(self) -> None:
+        """Clear all internal state."""
+        self._down_start = None
+        self._is_fall = False
+
+    def update(self, features: FrameFeatures, time_sec: float) -> Classification:
+        p = self._params
+        is_lying = (
+            features.has_person
+            and features.torso_angle_deg <= p.angle_max_deg
+            and features.vertical_center >= p.vertical_center_min
+        )
+
+        if not is_lying:
+            self._down_start = None
+            self._is_fall = False
+            return Classification(is_fall=False, confidence=0.0, label="no-fall")
+
+        if self._down_start is None:
+            self._down_start = time_sec
+
+        duration = time_sec - self._down_start
+        conf = min(1.0, duration / p.sustained_down_sec)
+
+        if duration >= p.sustained_down_sec:
+            self._is_fall = True
+
+        if self._is_fall:
+            return Classification(is_fall=True, confidence=conf, label="fall")
+        return Classification(is_fall=False, confidence=conf, label="no-fall")
+
+
 @dataclass(frozen=True, slots=True)
 class ClassifierSpec:
     key: str
@@ -126,6 +183,12 @@ CLASSIFIER_REGISTRY: tuple[ClassifierSpec, ...] = (
         display_name="규칙기반 (Rule-based)",
         available=True,
         factory=RuleBasedClassifier,
+    ),
+    ClassifierSpec(
+        key="pose_angle",
+        display_name="포즈 각도 (YOLO+MediaPipe)",
+        available=True,
+        factory=PoseAngleClassifier,
     ),
     *(_temporal_spec(key) for key in TEMPORAL_MODEL_KEYS),
 )

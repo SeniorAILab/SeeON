@@ -12,7 +12,16 @@ from demo.classifiers import (
     ClassifierSpec,
     build_classifier,
 )
-from demo.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPoseModule
+from demo.model_modules import (
+    POSE_BACKEND_LABELS,
+    POSE_BACKENDS,
+    POSE_MODEL_SIZE_LABELS,
+    POSE_MODEL_SIZES,
+    YOLO_MEDIAPIPE_BACKEND,
+    YOLO_POSE_BACKEND,
+    MediaPipePoseModule,
+    YoloPoseModule,
+)
 from demo.playback_status import CurrentPlaybackStatus
 from demo.seam import ModelModule
 from demo.temporal_module import TEMPORAL_MODEL_KEYS
@@ -23,6 +32,7 @@ from demo.ui_labels import (
     CONFIDENCE_THRESHOLD_LABEL,
     DECISION_THRESHOLD_LABEL,
     DETECTION_PARAMS_LABEL,
+    POSE_BACKEND_LABEL,
     POSE_SKELETON_LABEL,
     STRIDE_FRAMES_LABEL,
     SUSTAINED_FALL_SECONDS_LABEL,
@@ -86,14 +96,20 @@ def build_model(
     classifier_key: str | None,
     classifier_params: ClassifierParams,
     decision_threshold: float | None = None,
+    pose_backend: str = YOLO_POSE_BACKEND,
 ) -> ModelModule:
     """Compose the per-playback model: pose alone, or pose + fall classifier.
 
     A fresh model (hence a fresh classifier with cleared state) is built on every
     재생 so replays never inherit a prior run's fall timer. ``decision_threshold``
-    (the 판정 임계값 slider value) applies to temporal models only.
+    (the 판정 임계값 slider value) applies to temporal models only. ``pose_backend``
+    selects the pose source — YOLO26-pose (default) or the YOLO+MediaPipe hybrid;
+    both emit COCO-17 so the classifier/feature/overlay path is identical.
     """
-    pose = YoloPoseModule(size=size, confidence=classifier_params.confidence)
+    if pose_backend == YOLO_MEDIAPIPE_BACKEND:
+        pose: ModelModule = MediaPipePoseModule(size=size)
+    else:
+        pose = YoloPoseModule(size=size, confidence=classifier_params.confidence)
     if classifier_key is None:
         return pose
     if classifier_key in TEMPORAL_MODEL_KEYS:
@@ -109,19 +125,30 @@ def render_live_controls(
     *,
     start_label: str,
     stop_label: str,
-) -> tuple[str, bool, bool]:
+) -> tuple[str, str, bool, bool]:
     """Render the shared live-inference control rows for a playback page.
 
-    Row 1: YOLO size + overlay toggles. Row 2: start/stop buttons that write
-    ``st.session_state[playing_key]``. Returns (size, show_boxes, show_pose).
+    Row 1: pose backend + YOLO size. Row 2: overlay toggles. Row 3: start/stop
+    buttons that write ``st.session_state[playing_key]``. Returns
+    ``(size, pose_backend, show_boxes, show_pose)``.
     """
-    size_col, boxes_col, pose_col = st.columns([2, 1, 1])
+    backend_col, size_col = st.columns(2)
+    pose_backend = backend_col.selectbox(
+        POSE_BACKEND_LABEL,
+        options=POSE_BACKENDS,
+        format_func=lambda b: POSE_BACKEND_LABELS[b],
+        help=(
+            "기본은 YOLO26-pose 단일 패스. "
+            "하이브리드는 YOLO 박스 안에서 MediaPipe로 포즈를 잡습니다."
+        ),
+    )
     size = size_col.selectbox(
         YOLO_SIZE_LABEL,
         options=POSE_MODEL_SIZES,
         format_func=lambda s: POSE_MODEL_SIZE_LABELS[s],
         help="사이즈가 클수록 정확도는 높아지고 속도는 느려집니다.",
     )
+    boxes_col, pose_col = st.columns(2)
     show_boxes = boxes_col.checkbox(BOUNDING_BOXES_LABEL, value=True)
     show_pose = pose_col.checkbox(POSE_SKELETON_LABEL, value=True)
 
@@ -130,7 +157,7 @@ def render_live_controls(
         st.session_state[playing_key] = True
     if stop_col.button(stop_label, use_container_width=True):
         st.session_state[playing_key] = False
-    return size, show_boxes, show_pose
+    return size, pose_backend, show_boxes, show_pose
 
 
 def render_status(

@@ -14,7 +14,10 @@ import pytest
 
 MODELS_ROOT = Path(__file__).resolve().parents[1] / "models"
 
-ALLOWED_TOP_LEVEL = {"pose", "fall"}
+# Function-axis caches under ml/models/ (all gitignored runtime weights):
+#   pose/ + fall/ (ADR-015) · bed/ (bed_detector, issue #100) ·
+#   person/ (YOLO+MediaPipe hybrid person localization, issue #218)
+ALLOWED_TOP_LEVEL = {"pose", "fall", "bed", "person"}
 ALLOWED_SOURCES = {"downloaded", "trained", "third-party"}
 
 pytestmark = pytest.mark.skipif(
