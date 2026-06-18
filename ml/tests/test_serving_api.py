@@ -19,15 +19,30 @@ class StubModel:
     class Metadata:
         window = 2
         feature_dim = 45
+        operating_threshold = 0.5
 
         def asdict(self):
-            return {"name": "fall-detector", "version": "test", "window": 2, "feature_dim": 45}
+            return {
+                "name": "fall-detector",
+                "version": "test",
+                "window": 2,
+                "feature_dim": 45,
+                "operating_threshold": 0.5,
+            }
 
     metadata = Metadata()
     model_path = Path("/tmp/model.pkl")
 
     def predict(self, features):
         return 0.73
+
+
+def _valid_window(frames: int = 2) -> list[list[float]]:
+    frame = []
+    for index in range(17):
+        frame.extend([0.1 + index * 0.01, 0.2 + index * 0.01, 0.9])
+    return [list(frame) for _ in range(frames)]
+
 
 
 class StubPipeline:
@@ -100,8 +115,37 @@ def test_valid_allowlisted_source_positive(tmp_path: Path):
         "model": "fall-detector",
         "version": "test",
         "fall_probability": 0.73,
+        "operating_threshold": 0.5,
+        "is_fall": True,
     }
     assert pipeline.calls[0][0] == "path"
+
+
+def test_valid_window_positive(tmp_path: Path):
+    request = _request(tmp_path, {})
+
+    res = _predict({"window": _valid_window()}, request)
+
+    assert res.model_dump() == {
+        "model": "fall-detector",
+        "version": "test",
+        "fall_probability": 0.73,
+        "operating_threshold": 0.5,
+        "is_fall": True,
+    }
+
+
+@pytest.mark.parametrize("window", [[], [[0.0] * 50]])
+def test_malformed_window_rejected(tmp_path: Path, window: list[list[float]]):
+    exc = _raises_http({"window": window}, _request(tmp_path, {}))
+
+    assert exc.status_code == 400
+    assert "window" in exc.detail
+
+
+def test_window_and_source_id_rejected_by_schema():
+    with pytest.raises(ValidationError):
+        PredictRequest.model_validate({"source_id": "safe", "window": _valid_window()})
 
 
 def test_unknown_source_rejected(tmp_path: Path):
@@ -210,6 +254,8 @@ def test_trusted_live_source_positive(tmp_path: Path):
     res = _predict({"source_id": "cam-a", "duration_sec": 1, "max_frames": 2}, request)
     assert res.fall_probability == 0.61
     assert pipeline.calls[0][0] == "live"
+    assert res.operating_threshold == 0.5
+    assert res.is_fall is True
 
 
 def test_untrusted_live_source_rejected(tmp_path: Path):
