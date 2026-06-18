@@ -39,6 +39,9 @@ package = false
 # bare `uv run` must see every group — no --group flags needed to run anything.
 # The split itself stays: a slim serving build can opt out via --no-default-groups.
 default-groups = ["demo", "test", "training"]
+# Keep ultralytics from pulling the GUI OpenCV wheel alongside the ADR-selected
+# headless wheel; both distributions own cv2/ and corrupt clean uv installs.
+override-dependencies = ["opencv-python ; sys_platform == 'never'"]
 
 [tool.ruff]
 line-length = 100
