@@ -113,20 +113,36 @@ def build_temporal_model(
             "Run `uv run --group training python -m training.train` to produce one."
         )
     # === 단계 2: metadata.json 로드 (window / stride / operating_threshold) ===
+    # window/stride/threshold come from the shared artifact even in serving mode:
+    # the demo and serving point at the same ml/models dir, so these match
+    # serving's configured model — the demo only needs them to buffer correctly.
     meta = load_metadata(adir)
 
-    # === 단계 3: 모델 클래스 지연 임포트 & 저장된 가중치 로드 ===
-    # Lazy import — avoids torch/sklearn at module level. ``load`` reconstructs
-    # HP-varied torch architectures from the arch.json sidecar when present.
-    from training.models.catalog import load_model_class
+    # === 단계 3: 모델 — serving /predict (단일 경로) 또는 in-process ===
+    # ADR-029 / streamlit-demo §8: when FALL_SERVING_URL is set the fall decision
+    # runs through the real serving service; the raw [W][51] window is emitted
+    # (mode="sequence") and serving owns feature extraction + the decision.
+    # ponytail: the env gate is deployment config, not an if-demo branch — the
+    # demo runbook sets FALL_SERVING_URL and the path is serving-only, fail-loud.
+    from core.serving_client import ServingFallClassifier, serving_url_from_env
 
-    model = load_model_class(artifact_key).load(adir)
+    serving_url = serving_url_from_env()
+    if serving_url is not None:
+        model: object = ServingFallClassifier(serving_url)
+        mode = "sequence"
+    else:
+        # Lazy import — avoids torch/sklearn at module level. ``load`` reconstructs
+        # HP-varied torch architectures from the arch.json sidecar when present.
+        from training.models.catalog import load_model_class
+
+        model = load_model_class(artifact_key).load(adir)
+        mode = _KEY_TO_MODE[key]
 
     # === 단계 4: TemporalFallClassifierModule로 래핑 후 반환 ===
     return TemporalFallClassifierModule(
         pose_module=pose_module,
         model=model,
-        mode=_KEY_TO_MODE[key],
+        mode=mode,
         window=meta.window,
         stride=meta.stride,
         operating_threshold=(
