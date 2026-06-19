@@ -18,7 +18,7 @@ function alert(seq: string, over: Partial<SseAlert> = {}): SseAlert {
     orgId: "org-1",
     residentId: "r1",
     cameraId: null,
-    type: "fall",
+    type: "FALL",
     probability: 0.9,
     detectedAt: "2026-06-16T00:00:00.000Z",
     status: "NEW",
@@ -91,9 +91,9 @@ describe("mergeStatuses", () => {
 });
 describe("alertTypeLabel", () => {
   it("maps known backend event types to Korean labels", () => {
-    expect(alertTypeLabel("fall")).toBe("낙상");
-    expect(alertTypeLabel("detection-lost")).toBe("감지 끊김");
-    expect(alertTypeLabel("bed-exit")).toBe("침대 이탈");
+    expect(alertTypeLabel("FALL")).toBe("낙상");
+    expect(alertTypeLabel("DETECTION_LOST")).toBe("감지 끊김");
+    expect(alertTypeLabel("BED_EXIT")).toBe("침대 이탈");
   });
 
   it("returns unknown event types unchanged", () => {

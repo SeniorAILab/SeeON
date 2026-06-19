@@ -7,7 +7,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`rounded-xl border border-dashed border-white/10 ${className} text-center text-sm text-slate-500`}
+      className={`rounded-card border border-dashed border-line bg-surface ${className} text-pretty text-center text-sm text-muted`}
     >
       {message}
     </div>

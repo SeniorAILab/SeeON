@@ -130,12 +130,6 @@ export const ALERT_STATUS_LABELS: Record<string, string> = {
   ACKED: "확인됨",
   RESOLVED: "해결됨",
 };
-/** Alert type → Korean label. Unknown types are shown as-is. */
-export const ALERT_TYPE_LABELS: Record<string, string> = {
-  fall: "낙상",
-  "detection-lost": "감지 끊김",
-  "bed-exit": "침대 이탈",
-};
 
 export function alertTypeLabel(type: string): string {
   return ALERT_TYPE_LABELS[type] ?? type;
@@ -161,3 +155,11 @@ export function residentName(
   if (!id) return "미지정";
   return residents.find((r) => r.id === id)?.name ?? id.slice(0, 8);
 }
+
+/** Alert type → Korean label. */
+export const ALERT_TYPE_LABELS: Record<string, string> = {
+  FALL: "낙상",
+  BED_EXIT: "침대 이탈",
+  NO_MOTION: "움직임 없음",
+  DETECTION_LOST: "감지 끊김",
+};
