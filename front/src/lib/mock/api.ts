@@ -21,13 +21,12 @@ function filterAlerts(alerts: SseAlert[], query: string): SseAlert[] {
   let out = sortAlertsBySeq(alerts);
   const residentId = params.get("residentId");
   const status = params.get("status");
-  const type = params.get("type");
+  // ponytail: backend ignores ?type= — parsed but not applied to match real API behaviour
   const afterSeq = params.get("afterSeq");
   const beforeSeq = params.get("beforeSeq");
   const limit = params.get("limit");
   if (residentId) out = out.filter((a) => a.residentId === residentId);
   if (status) out = out.filter((a) => a.status === status);
-  if (type) out = out.filter((a) => a.type === type);
   if (afterSeq) out = out.filter((a) => BigInt(a.alertSeq) > BigInt(afterSeq));
   if (beforeSeq) out = out.filter((a) => BigInt(a.alertSeq) < BigInt(beforeSeq));
   if (limit) out = out.slice(0, Number(limit));
@@ -39,9 +38,18 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
   const [rawPath, query = ""] = path.split("?");
   const s = getScenario();
 
-  // /api/status
+  // /api/status  (GET all)
   if (rawPath === "/api/status" && method === "GET") {
     return s.statuses as unknown as T;
+  }
+
+  // /api/status/:residentId  (GET single) — real backend returns one ResidentStatus
+  const statusByResidentMatch = rawPath.match(/^\/api\/status\/([^/]+)$/);
+  if (statusByResidentMatch && method === "GET") {
+    const residentId = decodeURIComponent(statusByResidentMatch[1]);
+    const found = s.statuses.find((st) => st.residentId === residentId) ?? null;
+    if (!found) throw new MockApiError(404, "status not found");
+    return found as unknown as T;
   }
 
   // /api/alerts/:id/ack  (PATCH)
@@ -66,18 +74,16 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     return filterAlerts(s.alerts, query) as unknown as T;
   }
 
-  // /api/residents/:id  (GET)
+  // /api/residents/:id  (GET) — flat shape matching real backend (no embedded guardians/alerts)
   const residentMatch = rawPath.match(/^\/api\/residents\/([^/]+)$/);
   if (residentMatch && method === "GET") {
     const id = decodeURIComponent(residentMatch[1]);
     const resident = s.residents.find((r) => r.id === id);
     if (!resident) throw new MockApiError(404, "resident not found");
     return {
-      ...resident,
-      guardians: s.guardians.filter((g) => g.residentId === id),
-      cameras: s.cameras.filter((c) => c.residentId === id),
-      status: s.statuses.find((st) => st.residentId === id) ?? null,
-      alerts: sortAlertsBySeq(s.alerts.filter((a) => a.residentId === id)),
+      id: resident.id,
+      name: resident.name,
+      room: resident.room,
     } as unknown as T;
   }
 
@@ -86,14 +92,24 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     return s.residents as unknown as T;
   }
 
-  // /api/cameras  (GET)
+  // /api/cameras  (GET, optional ?residentId= filter)
   if (rawPath === "/api/cameras" && method === "GET") {
-    return s.cameras as unknown as T;
+    const params = new URLSearchParams(query);
+    const residentId = params.get("residentId");
+    const cameras = residentId
+      ? s.cameras.filter((c) => c.residentId === residentId)
+      : s.cameras;
+    return cameras as unknown as T;
   }
 
-  // /api/guardians  (GET)
+  // /api/guardians  (GET, optional ?residentId= filter)
   if (rawPath === "/api/guardians" && method === "GET") {
-    return s.guardians as unknown as T;
+    const params = new URLSearchParams(query);
+    const residentId = params.get("residentId");
+    const guardians = residentId
+      ? s.guardians.filter((g) => g.residentId === residentId)
+      : s.guardians;
+    return guardians as unknown as T;
   }
 
   // Mutating admin verbs on known CRUD resources: accept as no-ops (demo never

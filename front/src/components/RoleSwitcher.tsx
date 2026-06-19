@@ -17,12 +17,12 @@ export function RoleSwitcher() {
   }
 
   return (
-    <label className="ml-auto flex items-center gap-2 text-xs text-slate-400">
+    <label className="flex items-center gap-2 text-xs text-ink-2">
       <span className="hidden sm:inline">권한</span>
       <select
         value={role}
         onChange={onChange}
-        className="rounded-md border border-white/10 bg-slate-800 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+        className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-weak"
       >
         {ROLES.map((r) => (
           <option key={r} value={r}>

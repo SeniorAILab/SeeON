@@ -11,21 +11,18 @@ interface Config {
 const STATE_CONFIG: Record<ResidentState, Config> = {
   NORMAL: {
     label: "정상",
-    dotClass: "bg-emerald-400",
-    badgeClass:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    dotClass: "bg-ok",
+    badgeClass: "border-ok/30 bg-ok-weak text-ok",
   },
   WARNING: {
     label: "경고",
-    dotClass: "bg-amber-400",
-    badgeClass:
-      "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    dotClass: "bg-warn",
+    badgeClass: "border-warn/30 bg-warn-weak text-warn",
   },
   FALL: {
     label: "낙상",
-    dotClass: "bg-red-400 animate-pulse",
-    badgeClass:
-      "border-red-500/30 bg-red-500/10 text-red-300 animate-pulse",
+    dotClass: "bg-danger animate-pulse",
+    badgeClass: "border-danger/30 bg-danger-weak text-danger animate-pulse",
   },
 };
 

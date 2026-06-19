@@ -39,12 +39,12 @@ describe("mock api router", () => {
     expect(acked.status).toBe("ACKED");
   });
 
-  it("GET /api/residents/:id returns detail with guardians and alerts", async () => {
-    const detail = await mockApi<
-      DemoResident & { guardians: unknown[]; alerts: unknown[] }
-    >("/api/residents/res-01");
+  it("GET /api/residents/:id returns flat resident shape", async () => {
+    const detail = await mockApi<DemoResident>("/api/residents/res-01");
     expect(detail.id).toBe("res-01");
-    expect(detail.guardians.length).toBeGreaterThan(0);
+    expect(typeof detail.name).toBe("string");
+    expect("guardians" in detail).toBe(false);
+    expect("alerts" in detail).toBe(false);
   });
 
   it("treats mutating admin verbs as no-ops", async () => {
