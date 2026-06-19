@@ -3,7 +3,7 @@ slug: demo-classification-through-serving
 issue: 251
 author: gobeumsu
 date: 2026-06-19
-status: in-progress
+status: done
 ---
 
 # Demo fall classification runs through serving /predict (single path)
