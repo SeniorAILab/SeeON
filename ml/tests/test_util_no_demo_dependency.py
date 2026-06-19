@@ -36,7 +36,6 @@ def test_util_has_no_demo_imports() -> None:
         if hits:
             all_violations[str(path)] = hits
 
-    assert not all_violations, (
-        "ml/util/ must not import from demo/. Found:\n"
-        + "\n".join(f"  {f}: {vs}" for f, vs in all_violations.items())
+    assert not all_violations, "ml/util/ must not import from demo/. Found:\n" + "\n".join(
+        f"  {f}: {vs}" for f, vs in all_violations.items()
     )

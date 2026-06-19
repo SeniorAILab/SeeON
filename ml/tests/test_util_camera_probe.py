@@ -102,7 +102,7 @@ def test_probe_cameras_thumbnail_bgr_converted_to_rgb(monkeypatch: pytest.Monkey
     thumb = cameras[0].thumbnail
     assert thumb[0, 0, 0] == 150  # R (was cv2 channel 2)
     assert thumb[0, 0, 1] == 100  # G (was cv2 channel 1)
-    assert thumb[0, 0, 2] == 50   # B (was cv2 channel 0)
+    assert thumb[0, 0, 2] == 50  # B (was cv2 channel 0)
 
 
 def test_probe_cameras_empty_when_none_open(monkeypatch: pytest.MonkeyPatch) -> None:

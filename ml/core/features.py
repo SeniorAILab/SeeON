@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from demo.seam import DetectionResult
+from core.contract import DetectionResult
 
 # COCO-17 keypoint indices used for torso orientation
 _LEFT_SHOULDER = 5

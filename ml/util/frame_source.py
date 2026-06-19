@@ -29,7 +29,7 @@ class VideoFileSource:
     Owns a self-contained ``cv2.VideoCapture`` read loop so the frame-intake
     abstraction depends on nothing in ``demo/``. A stored video and a live
     stream are the same "frame source" to downstream consumers — this is the
-    seam serving / realtime reuse, hence its home in ``ml/util/`` (ADR-006).
+    계약(contract) serving / realtime reuse, hence its home in ``ml/util/`` (ADR-006).
     """
 
     def __init__(
@@ -68,7 +68,7 @@ class CameraSource:
 
     Implements the FrameSource protocol for real-time capture so the downstream
     iter_live_frames loop requires no changes — camera and file sources share
-    the same seam (ADR-006).
+    the same 계약(contract) (ADR-006).
 
     Unlike VideoFileSource there is no fps metadata to trust for time_sec;
     time_sec uses time.monotonic() elapsed since the first frame so timestamps

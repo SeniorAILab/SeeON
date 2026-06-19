@@ -131,6 +131,10 @@ export const ALERT_STATUS_LABELS: Record<string, string> = {
   RESOLVED: "해결됨",
 };
 
+export function alertTypeLabel(type: string): string {
+  return ALERT_TYPE_LABELS[type] ?? type;
+}
+
 /** Format an ISO timestamp for ko-KR display; falls back to the raw string. */
 export function formatTime(
   iso: string,

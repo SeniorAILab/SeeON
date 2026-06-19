@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  alertTypeLabel,
   maskPhone,
   mergeAlerts,
   mergeStatuses,
@@ -17,7 +18,7 @@ function alert(seq: string, over: Partial<SseAlert> = {}): SseAlert {
     orgId: "org-1",
     residentId: "r1",
     cameraId: null,
-    type: "fall",
+    type: "FALL",
     probability: 0.9,
     detectedAt: "2026-06-16T00:00:00.000Z",
     status: "NEW",
@@ -86,6 +87,17 @@ describe("mergeStatuses", () => {
     const added = out.find((s) => s.residentId === "r2");
     expect(added?.state).toBe("FALL");
     expect(added?.source).toBeNull();
+  });
+});
+describe("alertTypeLabel", () => {
+  it("maps known backend event types to Korean labels", () => {
+    expect(alertTypeLabel("FALL")).toBe("낙상");
+    expect(alertTypeLabel("DETECTION_LOST")).toBe("감지 끊김");
+    expect(alertTypeLabel("BED_EXIT")).toBe("침대 이탈");
+  });
+
+  it("returns unknown event types unchanged", () => {
+    expect(alertTypeLabel("custom-event")).toBe("custom-event");
   });
 });
 

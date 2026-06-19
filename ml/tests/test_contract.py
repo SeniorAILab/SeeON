@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult, ModelModule
+from core.contract import BoundingBox, DetectionLabel, DetectionResult, ModelModule
 from util.frame_source import Frame, VideoFileSource
 
 # ---------------------------------------------------------------------------

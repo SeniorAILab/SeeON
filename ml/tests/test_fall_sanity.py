@@ -12,8 +12,8 @@ These tests verify the classifier's temporal logic at a realistic frame rate
 
 from __future__ import annotations
 
-from demo.classifiers import ClassifierParams, RuleBasedClassifier
-from demo.features import FrameFeatures
+from core.classifiers import ClassifierParams, RuleBasedClassifier
+from core.features import FrameFeatures
 
 _FPS = 12.0
 _DT = 1.0 / _FPS
@@ -81,6 +81,4 @@ class TestFallTrajectory:
             t = i * _DT
             features = lying if i == crouch_frame else standing
             result = clf.update(features, t)
-            assert result.is_fall is False, (
-                f"Fall fired unexpectedly at frame {i} (t={t:.3f}s)"
-            )
+            assert result.is_fall is False, f"Fall fired unexpectedly at frame {i} (t={t:.3f}s)"

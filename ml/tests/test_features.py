@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from demo.features import FrameFeatures, extract_frame_features
-from demo.seam import BoundingBox, DetectionResult
+from core.contract import BoundingBox, DetectionResult
+from core.features import FrameFeatures, extract_frame_features
 
 
 def _box(x1: int, y1: int, x2: int, y2: int) -> BoundingBox:
@@ -52,9 +52,7 @@ class TestExtractFrameFeatures:
     def test_largest_area_box_chosen_as_primary(self) -> None:
         small = _box(0, 0, 10, 10)  # area 100
         large = _box(50, 50, 200, 200)  # area 22 500
-        result = extract_frame_features(
-            DetectionResult(boxes=(small, large)), 480, 640
-        )
+        result = extract_frame_features(DetectionResult(boxes=(small, large)), 480, 640)
         expected_ar = (200 - 50) / (200 - 50)  # 1.0
         assert abs(result.aspect_ratio - expected_ar) < 1e-6
 
@@ -66,9 +64,7 @@ class TestExtractFrameFeatures:
     def test_torso_vertical_computed_from_high_conf_keypoints(self) -> None:
         b = _box(0, 0, 200, 300)
         kpts = _kpts_17(shoulder_y=80, hip_y=200, conf=0.9)
-        result = extract_frame_features(
-            DetectionResult(boxes=(b,), keypoints=(kpts,)), 480, 640
-        )
+        result = extract_frame_features(DetectionResult(boxes=(b,), keypoints=(kpts,)), 480, 640)
         expected = abs(80 - 200) / 480
         assert abs(result.torso_vertical - expected) < 1e-6
 
@@ -76,18 +72,14 @@ class TestExtractFrameFeatures:
         b = _box(0, 0, 200, 300)
         # shoulders at conf=0.1 (below threshold); hips high conf but no shoulders → insufficient
         kpts = _kpts_17(shoulder_y=80, hip_y=200, conf=0.1)
-        result = extract_frame_features(
-            DetectionResult(boxes=(b,), keypoints=(kpts,)), 480, 640
-        )
+        result = extract_frame_features(DetectionResult(boxes=(b,), keypoints=(kpts,)), 480, 640)
         assert result.torso_vertical == 0.0
         assert result.has_person is True
 
     def test_missing_keypoints_entry_gives_zero_torso(self) -> None:
         b = _box(0, 0, 200, 300)
         # keypoints tuple is empty — no entry for index 0
-        result = extract_frame_features(
-            DetectionResult(boxes=(b,), keypoints=()), 480, 640
-        )
+        result = extract_frame_features(DetectionResult(boxes=(b,), keypoints=()), 480, 640)
         assert result.torso_vertical == 0.0
         assert result.has_person is True
 

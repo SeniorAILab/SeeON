@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from demo.classifier_module import FallClassifierModule
-from demo.classifiers import Classification
-from demo.seam import (
+from core.classifier_module import FallClassifierModule
+from core.classifiers import Classification
+from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,
@@ -81,9 +81,7 @@ def test_nonprimary_persons_keep_person_text() -> None:
     pose_module.predict.return_value = pose_result
 
     classifier = MagicMock()
-    classifier.update.return_value = Classification(
-        is_fall=True, confidence=1.0, label="fall"
-    )
+    classifier.update.return_value = Classification(is_fall=True, confidence=1.0, label="fall")
 
     module = FallClassifierModule(pose_module, classifier)
     result = module.predict(_fake_frame())

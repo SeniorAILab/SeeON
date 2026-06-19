@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult
+from core.contract import BoundingBox, DetectionLabel, DetectionResult
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)
@@ -77,6 +77,7 @@ def _draw_detection_box(
         color=color,
     )
 
+
 def _draw_bed_status(overlay: NDArray[np.uint8], status: object) -> None:
     box = status.box
     occupancy = status.occupancy
@@ -89,7 +90,12 @@ def _draw_bed_status(overlay: NDArray[np.uint8], status: object) -> None:
         if occupancy == "occupied"
         else BED_EMPTY_COLOR
     )
-    cv2.rectangle(overlay, (box.x1, box.y1), (box.x2, box.y2), color, 2)
+    polygon = getattr(box, "polygon", None)
+    if polygon:
+        contour = np.array(polygon, dtype=np.int32).reshape(-1, 1, 2)
+        cv2.polylines(overlay, [contour], isClosed=True, color=color, thickness=2)
+    else:
+        cv2.rectangle(overlay, (box.x1, box.y1), (box.x2, box.y2), color, 2)
     suffix = f" P{person_id}" if person_id is not None else ""
     _draw_caption(
         overlay=overlay,
@@ -141,10 +147,7 @@ def _draw_pose(
             continue
         start_point = keypoints[start]
         end_point = keypoints[end]
-        if (
-            start_point[2] < MIN_KEYPOINT_CONFIDENCE
-            or end_point[2] < MIN_KEYPOINT_CONFIDENCE
-        ):
+        if start_point[2] < MIN_KEYPOINT_CONFIDENCE or end_point[2] < MIN_KEYPOINT_CONFIDENCE:
             continue
         cv2.line(overlay, start_point[:2], end_point[:2], color, 2)
     for x, y, confidence in keypoints:

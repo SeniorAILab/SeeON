@@ -12,6 +12,11 @@ import type {
   DeliveryResult,
 } from '../ports/channel.port.js';
 
+import {
+  buildKakaoTemplateObject,
+  toKakaoAlertMessageDto,
+} from '../dto/kakao-alert-message.dto.js';
+
 const DEFAULT_KAKAO_MESSAGE_ENDPOINT =
   'https://kapi.kakao.com/v2/api/talk/memo/default/send';
 const DEFAULT_LINK_URL = 'http://localhost:3000';
@@ -52,21 +57,9 @@ export class KakaoSendToMeChannelAdapter implements ChannelPort {
   private buildTemplate(
     message: AlertDeliveryMessage,
   ): Record<string, unknown> {
-    const confidence =
-      message.confidence === undefined
-        ? ''
-        : ` confidence=${message.confidence.toFixed(2)}`;
-    return {
-      object_type: 'text',
-      text:
-        `Fall alert: ${message.type} source=${message.source_id}` +
-        ` external_event_id=${message.external_event_id}` +
-        ` detected_at=${message.detected_at}${confidence}`,
-      link: {
-        web_url: this.messageLinkUrl(),
-        mobile_web_url: this.messageLinkUrl(),
-      },
-    };
+    return buildKakaoTemplateObject(
+      toKakaoAlertMessageDto(message, this.messageLinkUrl()),
+    );
   }
 
   private messageEndpoint(): URL {

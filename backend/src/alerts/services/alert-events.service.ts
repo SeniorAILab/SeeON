@@ -9,7 +9,10 @@ import { ConfigService } from '@nestjs/config';
 
 import { decryptToken } from '../../auth/token-crypto.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { AlertEventIngressDto } from '../dto/alert-events.dto.js';
+import {
+  AlertEventTypes,
+  type AlertEventIngressDto,
+} from '../dto/alert-events.dto.js';
 import {
   ALERT_CHANNEL_PORT,
   type ChannelPort,
@@ -30,6 +33,8 @@ export type EnsureOutboxForIngestInput = {
   readonly type: AlertEventIngressDto['type'];
   readonly detectedAt: Date;
   readonly confidence?: number;
+  readonly residentName?: string;
+  readonly residentRoom?: string | null;
 };
 
 @Injectable()
@@ -63,7 +68,10 @@ export class AlertEventsService {
       detected_at: input.detectedAt.toISOString(),
       confidence: input.confidence,
     };
-    const recipients = await this.findKakaoRecipients(input.orgId);
+    const recipients =
+      input.type === AlertEventTypes.bedExit
+        ? []
+        : await this.findKakaoRecipients(input.orgId);
     const aggregate = await this.alertEventsRepository.ensureIngestOutbox({
       event,
       decision: { kind: 'dispatch' },
@@ -94,6 +102,8 @@ export class AlertEventsService {
           aggregate.event.id,
           deliveryAttempt,
           recipient,
+          input.residentName,
+          input.residentRoom,
         );
       }),
     );
@@ -104,6 +114,8 @@ export class AlertEventsService {
     eventId: string,
     deliveryAttempt: DeliveryAttempt,
     recipient: KakaoRecipient,
+    residentName: string | undefined,
+    residentRoom: string | null | undefined,
   ): Promise<void> {
     const expired =
       recipient.kakaoIdentity.tokenExpiresAt !== null &&
@@ -150,6 +162,8 @@ export class AlertEventsService {
       delivery_attempt_id: deliveryAttempt.id,
       created_at: deliveryAttempt.createdAt,
       recipient_access_token: recipientAccessToken,
+      resident_name: residentName,
+      resident_room: residentRoom,
     });
     await this.alertEventsRepository.recordDeliveryResult(
       deliveryAttempt.id,

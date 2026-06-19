@@ -6,7 +6,7 @@ constraint on *how* we work in a given area.
 
 | Rule | Scope | Summary |
 |------|-------|---------|
-| [streamlit-demo.md](./streamlit-demo.md) | `ml/demo/` | Live per-frame inference UI (ADR-010); allowed operator controls; `st.empty().image` render pattern; public mode never exposes nursing-home data; uploads are session-scoped; model/size/classifier selection through the model-seam. |
+| [streamlit-demo.md](./streamlit-demo.md) | `ml/demo/` | Live per-frame inference UI (ADR-010); allowed operator controls; `st.empty().image` render pattern; public mode never exposes nursing-home data; uploads are session-scoped; model/size/classifier selection through the model contract. |
 | [ml-filesystem-layout.md](./ml-filesystem-layout.md) | `ml/` | Where each file category lives: models → `ml/models/` (single root, gitignored), domain inputs → `ml/data/{domain}/{raw,processed,poses,annotated}`, cross-domain outputs → `ml/data/eval/`, uploads → `ml/data/uploads/`. Records ADR-015 (model layout) and ADR-012 (domain-first data layout). |
 | [ml-models.md](./ml-models.md) | `ml/models/` | `ml/models/` layout and `metadata.json` contract: required fields (`source`, `reacquire`, `version`), reacquire convention per source type, worktree symlink rule, `model_type` kebab-key convention. Records ADR-015. |
 | [code-stability.md](./code-stability.md) | repo-wide | Deny-list against silent failure: no error swallowing (`except: pass`, empty `catch`, floating promises), typed refusal at boundaries, broad catch only at process boundaries with `logging.exception` + justification, no duplicate logic (jscpd + search-before-write). Every rule maps to a lint rule ID or grep-able pattern. Records ADR-014. |
@@ -29,7 +29,7 @@ Collectively Exhaustive — with respect to the decisions it records.
   area an existing ADR owns, it must explicitly state what it does **not**
   reopen, and scope itself to the genuinely new decision. (Example: ADR-006
   places the frame-source intake in `ml/util/` and explicitly excludes the
-  model-seam placement and demo-UX, which belong to ADR-026 and the plan
+  model-contract placement and demo-UX, which belong to ADR-050 and the plan
   respectively.)
 - **Collectively Exhaustive.** Within an ADR, the decision is recorded in full:
   the context that forced it, the option chosen, the alternatives weighed and

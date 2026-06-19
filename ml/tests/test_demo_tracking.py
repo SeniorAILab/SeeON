@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-from demo.seam import BoundingBox
-from demo.tracking import GreedyIouTracker, iou
+from core.contract import BoundingBox
+from core.tracking import GreedyIouTracker, iou
 
 
 def _box(x1: int, y1: int, x2: int, y2: int, conf: float = 0.9) -> BoundingBox:

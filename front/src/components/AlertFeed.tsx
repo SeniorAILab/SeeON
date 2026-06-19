@@ -67,6 +67,7 @@ function AlertCard({ alert }: { alert: SseAlert }) {
         <p className="text-sm text-ink-2">
           {typeLabel} 감지 — 신뢰도{" "}
           <span className="font-semibold text-ink tabular-nums">
+
             {Math.round(alert.probability * 100)}%
           </span>
         </p>

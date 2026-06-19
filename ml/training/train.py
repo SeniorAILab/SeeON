@@ -91,9 +91,7 @@ def _subsample_metas(
     idx_fall: list[int] = (
         list(rng.choice(len(falls), size=n_fall, replace=False)) if n_fall > 0 else []
     )
-    idx_adl: list[int] = (
-        list(rng.choice(len(adls), size=n_adl, replace=False)) if n_adl > 0 else []
-    )
+    idx_adl: list[int] = list(rng.choice(len(adls), size=n_adl, replace=False)) if n_adl > 0 else []
     return [falls[i] for i in idx_fall] + [adls[i] for i in idx_adl]
 
 
@@ -142,10 +140,7 @@ def run(
         metas = _subsample_metas(metas, smoke_n)
         n_fall_clips = sum(1 for m in metas if m.is_fall_clip)
         n_adl_clips = len(metas) - n_fall_clips
-        print(
-            f"[train/smoke] subsampled: total={len(metas)}"
-            f" fall={n_fall_clips} adl={n_adl_clips}"
-        )
+        print(f"[train/smoke] subsampled: total={len(metas)} fall={n_fall_clips} adl={n_adl_clips}")
 
     # === 단계 2: 윈도우 데이터셋 구성 — sequence(LSTM/Transformer), features(RF) 두 모드 ===
     # --- Build both WindowDatasets (same metas → identical deterministic split) ---
@@ -162,34 +157,28 @@ def run(
     train_ids_seq = {m.clip_id for m in train_seq._clip_metas}  # noqa: SLF001
     train_ids_feat = {m.clip_id for m in train_feat._clip_metas}  # noqa: SLF001
     assert train_ids_seq == train_ids_feat, (
-        "Train clip-id sets differ between sequence and features modes"
-        " — split is non-deterministic"
+        "Train clip-id sets differ between sequence and features modes — split is non-deterministic"
     )
     test_ids_seq = {m.clip_id for m in test_seq._clip_metas}  # noqa: SLF001
     test_ids_feat = {m.clip_id for m in test_feat._clip_metas}  # noqa: SLF001
     assert test_ids_seq == test_ids_feat, (
-        "Test clip-id sets differ between sequence and features modes"
-        " — split is non-deterministic"
+        "Test clip-id sets differ between sequence and features modes — split is non-deterministic"
     )
 
     # --- Log window-class distributions (read from sample index, no I/O) ---
     train_pos, train_neg = _window_class_counts(train_seq)
     test_pos, test_neg = _window_class_counts(test_seq)
-    print(
-        f"[train] train windows: total={train_pos + train_neg} pos={train_pos} neg={train_neg}"
-    )
-    print(
-        f"[train] test  windows: total={test_pos + test_neg} pos={test_pos} neg={test_neg}"
-    )
+    print(f"[train] train windows: total={train_pos + train_neg} pos={train_pos} neg={train_neg}")
+    print(f"[train] test  windows: total={test_pos + test_neg} pos={test_pos} neg={test_neg}")
 
     # === 단계 4: fall-fraction 게이트 — 어노테이션 연결 실패(시임 버그) 조기 감지 ===
     # --- Fall-fraction gate (full run only) ---
-    # This gate guards against the annotation-resolution seam bug (clip_id decode
+    # This gate guards against the annotation-resolution 계약(contract) bug (clip_id decode
     # or path layout failure), which makes EVERY clip resolve as ADL → fall
     # fraction collapses to exactly 0.000.  It is NOT a class-balance check: on
     # Le2i a fall is a brief event inside a much longer clip, so the legitimate
     # positive-window fraction is ~5-6% (433/7716).  The floor sits at 0.02 to
-    # cleanly separate "real but imbalanced" from "seam bug zeroed everything".
+    # cleanly separate "real but imbalanced" from "계약(contract) bug zeroed everything".
     total_windows = train_pos + train_neg + test_pos + test_neg
     total_pos_windows = train_pos + test_pos
     fall_fraction = total_pos_windows / total_windows if total_windows > 0 else 0.0
@@ -269,9 +258,7 @@ def run(
                 _orig_train = _base.train_torch_module
 
                 def _capped(module, X, y, *, device, _train=_orig_train, **kwargs):  # type: ignore[override]
-                    return _train(
-                        module, X, y, device=device, max_epochs=2, patience=99, **kwargs
-                    )
+                    return _train(module, X, y, device=device, max_epochs=2, patience=99, **kwargs)
 
                 _base.train_torch_module = _capped
                 try:
@@ -282,9 +269,7 @@ def run(
                 clf.fit(X_tr, y_tr)
 
             clf.save(out_dir)
-            y_pred = (
-                clf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD
-            ).astype(int)
+            y_pred = (clf.predict_proba(X_tr)[:, 1] >= DEFAULT_OPERATING_THRESHOLD).astype(int)
             train_f1 = float(f1_score(y_tr, y_pred, zero_division=0))
             meta = ModelMetadata(
                 model_type=key,

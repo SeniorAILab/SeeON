@@ -58,13 +58,9 @@ class ModelMetadata:
         if window <= 0 or stride <= 0 or feature_dim <= 0:
             raise ModelLoadError("metadata window, stride, and feature_dim must be positive")
         if window != EXPECTED_WINDOW:
-            raise ModelLoadError(
-                f"metadata window must be {EXPECTED_WINDOW}, received {window}"
-            )
+            raise ModelLoadError(f"metadata window must be {EXPECTED_WINDOW}, received {window}")
         if stride != EXPECTED_STRIDE:
-            raise ModelLoadError(
-                f"metadata stride must be {EXPECTED_STRIDE}, received {stride}"
-            )
+            raise ModelLoadError(f"metadata stride must be {EXPECTED_STRIDE}, received {stride}")
         if feature_dim != EXPECTED_FEATURE_DIM:
             raise ModelLoadError(
                 f"metadata feature_dim must be {EXPECTED_FEATURE_DIM}, received {feature_dim}"

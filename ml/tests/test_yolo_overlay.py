@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from demo.seam import BoundingBox, DetectionLabel, DetectionResult
+from core.contract import BoundingBox, DetectionLabel, DetectionResult
 from demo.yolo_overlay import render_yolo_overlay
 
 # ---------------------------------------------------------------------------
@@ -81,18 +81,18 @@ def test_fall_box_uses_distinct_color_from_normal_box() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Live-path seam assertion
+# Live-path contract assertion
 # ---------------------------------------------------------------------------
 
 
-def test_live_path_is_wired_through_the_seam() -> None:
-    """app.py routes playback through the live viewer, which drives the model seam.
+def test_live_path_is_wired_through_the_contract() -> None:
+    """app.py routes playback through the live viewer, which drives the model contract.
 
     The real-time live-inference rework (ADR-010) replaced the pre-rendered
     player with ``live_view.iter_live_frames``: app.py imports ``live_view`` and
     composes the model via ``demo_ui.build_model`` (which imports the pose
-    model-module), while ``live_view`` imports the seam types + overlay.
-    Asserting the chain keeps the per-frame inference seam live.
+    model-module), while ``live_view`` imports the contract types + overlay.
+    Asserting the chain keeps the per-frame inference contract live.
     """
     demo_dir = Path(__file__).parent.parent / "demo"
     app_modules = _imported_modules(demo_dir / "app.py")
@@ -100,7 +100,7 @@ def test_live_path_is_wired_through_the_seam() -> None:
     live_view_modules = _imported_modules(demo_dir / "live_view.py")
 
     assert any("live_view" in m for m in app_modules), (
-        "app.py must import live_view to route playback through the live seam"
+        "app.py must import live_view to route playback through the live contract"
     )
     assert any("demo_ui" in m for m in app_modules), (
         "app.py must compose the live model via demo_ui.build_model"
@@ -108,17 +108,15 @@ def test_live_path_is_wired_through_the_seam() -> None:
     assert any("model_modules" in m for m in demo_ui_modules), (
         "demo_ui.py must import the pose model-module to compose the live model"
     )
-    assert any("seam" in m for m in live_view_modules), (
-        "live_view.py must import seam types (Frame/FrameSource/ModelModule)"
+    assert any("contract" in m for m in live_view_modules), (
+        "live_view.py must import contract types (Frame/FrameSource/ModelModule)"
     )
 
 
 def _imported_modules(source_path: Path) -> set[str]:
     tree = ast.parse(source_path.read_text())
     return {
-        node.module
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module
+        node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module
     }
 
 
@@ -153,7 +151,7 @@ def test_show_boxes_and_show_pose_toggle_independently() -> None:
 
 
 def test_render_yolo_overlay_accepts_detection_result() -> None:
-    """render_yolo_overlay signature must accept DetectionResult (seam type)."""
+    """render_yolo_overlay signature must accept DetectionResult (contract type)."""
     import inspect
 
     from demo.yolo_overlay import render_yolo_overlay as fn
@@ -178,3 +176,23 @@ def _result_with_box(label: str, is_fall: bool) -> DetectionResult:
 
 def _empty_pose() -> list[tuple[int, int, float]]:
     return [(0, 0, 0.0)] * 17
+
+
+def test_render_bed_status_draws_mask_polygon_not_just_bbox() -> None:
+    """A bed with a mask polygon renders the silhouette (issue #243): a point on
+    a non-rectangular polygon edge is painted, which a bbox rectangle never would."""
+    from core.bed_exit import BedStatus
+
+    frame = np.zeros((96, 128, 3), dtype=np.uint8)
+    # Triangle: the (10,60)->(60,10) edge passes through interior point (35,35),
+    # which the axis-aligned bbox (10,10,110,60) border would leave black.
+    polygon = ((10, 60), (60, 10), (110, 60))
+    bed = BoundingBox(x1=10, y1=10, x2=110, y2=60, confidence=0.9, polygon=polygon)
+    status = BedStatus(bed_id=0, box=bed, occupancy="empty")
+    result = DetectionResult(bed_exit_statuses=(status,))
+
+    overlay = render_yolo_overlay(
+        frame=frame, result=result, show_boxes=True, show_pose=False
+    )
+
+    assert np.count_nonzero(overlay[34:37, 34:37]) > 0

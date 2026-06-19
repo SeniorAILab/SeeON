@@ -35,7 +35,7 @@ Small legacy domains may still have flat files during transition (`backend/src/r
 - Services/use cases: `*.service.ts`
 - Repositories: `*.repository.ts`
 - DTOs and parser-facing types: `*.dto.ts`
-- Ports/interfaces/tokens for outbound seams: `*.port.ts`
+- Ports/interfaces/tokens for outbound contracts: `*.port.ts`
 - External-system implementations: `*.adapter.ts`
 - Tests: `*.spec.ts`, beside the source file they exercise
 

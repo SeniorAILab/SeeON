@@ -44,7 +44,7 @@ Examples:
 
 - `backend/src/ingest/ingest-alert.service.ts` owns `/ingest/alerts` orchestration: tenant coherence, idempotency, dashboard alert writes, and alert-event/outbox creation.
 - `backend/src/alerts/alert-writer.service.ts` owns serialized alert writes, `ResidentStatus` updates, and post-commit SSE emission order.
-- `backend/src/alerts/services/alert-events.service.ts` owns retained alert-event orchestration for the repository/ports/adapters seam: duplicate detection, alert policy evaluation, outbox creation, Kakao recipient fan-out, and delivery result recording.
+- `backend/src/alerts/services/alert-events.service.ts` owns retained alert-event orchestration for the repository/ports/adapters contract: duplicate detection, alert policy evaluation, outbox creation, Kakao recipient fan-out, and delivery result recording.
 - `backend/src/alerts/services/alert-policy.service.ts` owns alert dispatch/suppression policy.
 
 Services may call repositories and adapters. Services must not return raw Prisma models directly to controllers when a response DTO/presenter exists.
@@ -66,7 +66,7 @@ Adapters own external systems and translate their failure modes into domain/serv
 
 - Kakao Talk send-to-me delivery: `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts`.
 - ML serving prediction: `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`.
-- Filesystem snapshot storage/proxying currently sits in `backend/src/alerts/alerts.controller.ts`; new work must move filesystem effects behind an adapter/service seam instead of expanding controller file I/O.
+- Filesystem snapshot storage/proxying currently sits in `backend/src/alerts/alerts.controller.ts`; new work must move filesystem effects behind an adapter/service contract instead of expanding controller file I/O.
 
 Adapters do not decide whether an alert should exist or whether a notification should be sent. They execute the external call and report success/failure precisely. Never fake Kakao or ML success.
 
@@ -80,6 +80,6 @@ Presenter-mappers own entity-to-response and stream-frame formatting:
 
 Current examples are helper functions in `backend/src/dashboard/sse.controller.ts`: `formatAlertEvent`, `formatStatusEvent`, and `formatSseEvent`. They define the dashboard stream contract and should remain presentation-only. REST endpoints such as `backend/src/alerts/alerts.controller.ts` should use response DTO/presenter helpers instead of returning raw Prisma query results.
 
-## Retained seams are first-class
+## Retained contracts are first-class
 
-Retained-but-currently-unused seams must be documented and tested, never silently orphaned. The `ALERT_PREDICTION_PORT` and `MlServingPredictionAdapter` registered through `backend/src/alerts/alerts.module.ts` are the canonical example: the live MVP alert ingress is `/ingest/alerts`, while the prediction port is a future backend-prediction path. It must keep a focused adapter test (`backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts`) and documentation explaining why it exists. Removing, bypassing, or leaving such seams untested creates a false contract and is not allowed.
+Retained-but-currently-unused contracts must be documented and tested, never silently orphaned. The `ALERT_PREDICTION_PORT` and `MlServingPredictionAdapter` registered through `backend/src/alerts/alerts.module.ts` are the canonical example: the live MVP alert ingress is `/ingest/alerts`, while the prediction port is a future backend-prediction path. It must keep a focused adapter test (`backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts`) and documentation explaining why it exists. Removing, bypassing, or leaving such contracts untested creates a false contract and is not allowed.

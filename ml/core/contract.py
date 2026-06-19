@@ -6,8 +6,8 @@ from typing import Final, Protocol, runtime_checkable
 from util.frame_source import CameraSource, Frame, FrameSource, VideoFileSource
 
 # Frame / FrameSource / VideoFileSource / CameraSource are the cross-cutting
-# frame-intake seam and live in ml/util/ (ADR-006). They are re-exported here
-# so demo modules can keep importing the seam types from one place.
+# frame-intake 계약(contract) and live in ml/util/ (ADR-006). They are re-exported here
+# so demo modules can keep importing the contract types from one place.
 __all__ = [
     "Frame",
     "FrameSource",
@@ -34,6 +34,10 @@ class BoundingBox:
     x2: int
     y2: int
     confidence: float
+    # Optional mask contour (issue #243): bed ROIs from instance segmentation
+    # carry the silhouette polygon for shape-accurate rendering. None for plain
+    # detection boxes (person/fall). x1..y2 stays the source of truth for IoU.
+    polygon: tuple[tuple[int, int], ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

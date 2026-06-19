@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from demo.seam import BoundingBox
-from demo.tracking import GreedyIouTracker
+from core.contract import BoundingBox
+from core.tracking import GreedyIouTracker
 
 BedOccupancy = Literal["empty", "occupied", "exit"]
 

@@ -16,7 +16,7 @@ that this module and all callers that only need ``TEMPORAL_MODEL_KEYS`` /
 ``temporal_artifact_available`` remain importable without those heavy deps.
 
 ``normalize_person_keypoints`` is imported lazily inside ``predict`` because
-its module (training.extract_poses) brings in cv2 via demo.model_modules —
+its module (training.extract_poses) brings in cv2 via core.model_modules —
 keeping the cv2 requirement scoped to the hot path rather than import time.
 """
 
@@ -28,7 +28,7 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
-from demo.seam import (
+from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     DetectionLabel,
@@ -36,7 +36,7 @@ from demo.seam import (
     Frame,
     ModelModule,
 )
-from demo.tracking import GreedyIouTracker
+from core.tracking import GreedyIouTracker
 from training import config
 from training.data.features import extract_window_features
 from training.metadata import artifact_dir, load_metadata

@@ -5,6 +5,7 @@ This is an ML demo surface, NOT the product frontend.  The product frontend is
 (NestJS).  See ADR-024 for the demo/product surface boundary and ADR-010 for the live
 per-frame inference mode decision.
 """
+
 from __future__ import annotations
 
 # Bootstrap: put the ml/ project root on sys.path so `streamlit run demo/app.py`
@@ -22,11 +23,13 @@ from typing import Final  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
+from core.alert_client import AlertClient  # noqa: E402
+from core.bed_detector import BedDetector  # noqa: E402
+from core.classifiers import ClassifierParams  # noqa: E402
+from core.contract import CameraSource, FrameSource, VideoFileSource  # noqa: E402
+from core.playback_status import CurrentPlaybackStatus  # noqa: E402
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
-from demo.alert_client import AlertClient  # noqa: E402
-from demo.bed_detector import BedDetector  # noqa: E402
-from demo.classifiers import ClassifierParams  # noqa: E402
 from demo.demo_ui import (  # noqa: E402
     LiveSourceOption,
     build_model,
@@ -44,7 +47,6 @@ from demo.live_view import (  # noqa: E402
     render_due,
 )
 from demo.model_bootstrap import ensure_fall_models  # noqa: E402
-from demo.seam import CameraSource, FrameSource, VideoFileSource  # noqa: E402
 from demo.ui_labels import (  # noqa: E402
     DOMAIN_SELECT_LABEL,
     ROLE_SELECT_LABEL,
@@ -187,6 +189,7 @@ def _render_live_viewer(
     )
 
     event_ph = st.empty()
+    bed_event_ph = st.empty()
     status_ph = st.empty()
     frame_ph = st.empty()
 
@@ -244,6 +247,10 @@ def _render_live_viewer(
                     f"🚨 낙상 감지 {latch.event_count}회 — "
                     f"최초 {latch.first_event_sec:.1f}초 시점 (영상 종료까지 유지)"
                 )
+            if status.bed_exit_events:
+                if alert_client is not None:
+                    alert_client.send(event_type="bed-exit", detected_at=detected_at)
+                bed_event_ph.warning(_bed_exit_badge_text(status))
             if loss_monitor.update(pose_count=status.pose_count, time_sec=frame_time_sec):
                 if alert_client is not None:
                     alert_client.send(
@@ -261,9 +268,10 @@ def _render_live_viewer(
                     status_ph,
                     status,
                     confidence,
-                    alert_status=alert_client.status_text()
-                    if alert_client is not None
-                    else None,
+                    alert_status=_status_alert_text(
+                        alert_client.status_text() if alert_client is not None else None,
+                        status,
+                    ),
                 )
                 last_painted_fall = status.is_fall
             if frame_interval > 0.0:
@@ -287,8 +295,24 @@ def _render_live_viewer(
     status_ph.info(f"재생 완료 — {processed} 프레임 처리됨. 다시 재생하려면 ▶︎ 재생.")
 
 
+def _bed_exit_badge_text(status: CurrentPlaybackStatus) -> str:
+    event_count = status.bed_exit_event_count
+    first_sec = status.first_bed_exit_sec
+    return f"🛏️ 침대 이탈 {event_count}회 — 최초 {first_sec:.1f}초 시점 (영상 종료까지 유지)"
+
+
+def _status_alert_text(alert_status: str | None, status: CurrentPlaybackStatus) -> str | None:
+    if status.bed_count != 0:
+        return alert_status
+    no_bed = "침대 없음 — 낙상만 모니터링"
+    if alert_status is None:
+        return no_bed
+    return f"{no_bed} · {alert_status}"
+
 
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 if __name__ == "__main__":
     main()

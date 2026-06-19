@@ -4,7 +4,7 @@ Covers:
 - _compute_label: overlap thresholds (0%, 49%, 50%, 100%), ADL clips
 - WindowDataset: short-clip padding, features mode
 - split(): disjoint clip-id sets (leakage guard)
-- Integration seam: npz encoding (np.bytes_) -> load_clip_metas -> WindowDataset
+- Integration 계약(contract): npz encoding (np.bytes_) -> load_clip_metas -> WindowDataset
 
 All fixtures are synthetic; no real Le2i data or YOLO weights are loaded.
 """
@@ -137,7 +137,7 @@ class TestWindowDatasetIntegration:
         meta = metas[0]
         assert meta.fall_interval == (15, 50), (
             f"Annotation not loaded for clip '{clip_id}'. "
-            f"Likely seam bug: load_clip_metas resolved clip_id as "
+            f"Likely 계약(contract) bug: load_clip_metas resolved clip_id as "
             f"{meta.clip_id!r} instead of '{clip_id}', so the annotation "
             f"file lookup failed and fall_interval defaulted to None."
         )
@@ -248,9 +248,7 @@ class TestWindowDatasetIntegration:
         assert len(train_ids) > 0, "Train set must be non-empty"
         assert len(test_ids) > 0, "Test set must be non-empty"
         intersection = train_ids & test_ids
-        assert intersection == set(), (
-            f"Clip-level leakage: {intersection} appear in both splits"
-        )
+        assert intersection == set(), f"Clip-level leakage: {intersection} appear in both splits"
         assert train_ids | test_ids == {m.clip_id for m in metas}, (
             "All clips must appear in exactly one split"
         )

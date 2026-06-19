@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from demo.classifier_module import FallClassifierModule
-from demo.classifiers import ClassifierParams, RuleBasedClassifier
-from demo.seam import (
+from core.classifier_module import FallClassifierModule
+from core.classifiers import ClassifierParams, RuleBasedClassifier
+from core.contract import (
     FALL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
@@ -83,9 +83,7 @@ class TestFallClassifierModule:
 
     def test_keypoints_preserved_from_pose_result(self) -> None:
         params = ClassifierParams()
-        module = FallClassifierModule(
-            _FakePoseModule(_wide_low_box()), RuleBasedClassifier(params)
-        )
+        module = FallClassifierModule(_FakePoseModule(_wide_low_box()), RuleBasedClassifier(params))
         result = module.predict(_frame(0, 0.0))
         assert len(result.keypoints) > 0
         assert len(result.keypoints[0]) == 17

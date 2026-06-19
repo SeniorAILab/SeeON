@@ -6,83 +6,24 @@ from dataclasses import replace
 import numpy as np
 from numpy.typing import NDArray
 
-from demo.bed_detector import BedDetector
-from demo.bed_exit import BedExitMonitor
-from demo.playback_status import CurrentPlaybackStatus, current_playback_status
-from demo.seam import FrameSource, ModelModule
+from core.bed_detector import BedDetector
+from core.bed_exit import BedExitMonitor
+from core.contract import BoundingBox, Frame, FrameSource, ModelModule
+from core.events import BedExitLatch, DetectionLossMonitor, FallEventLatch, render_due
+from core.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.yolo_overlay import render_yolo_overlay
 
+__all__ = [
+    "BedExitLatch",
+    "DetectionLossMonitor",
+    "FallEventLatch",
+    "iter_live_frames",
+    "render_due",
+]
 
-def render_due(
-    frame_count: int,
-    render_stride: int,
-    *,
-    is_fall: bool,
-    last_painted_fall: bool,
-) -> bool:
-    """Decide whether the UI should repaint for this processed frame.
+BED_SEED_FRAME_COUNT = 8
+BED_REDETECT_INTERVAL_FRAMES = 30
 
-    Inference always runs on every consecutive frame (train/serve parity,
-    ADR-013); only *painting* is decimated to every ``render_stride``-th
-    frame. A change in fall state repaints immediately so decimation can
-    never delay an alarm — in either direction.
-    """
-    if is_fall != last_painted_fall:
-        return True
-    return frame_count % max(1, render_stride) == 0
-
-
-class FallEventLatch:
-    """Latch fall *events* out of the per-frame fall signal.
-
-    The per-window classifier honestly returns to 정상 once the fall motion
-    exits its window — correct trained semantics, but the "a fall happened"
-    fact would vanish from screen. This helper detects rising edges
-    (정상→낙상) and remembers the first onset time and total onset count so
-    the UI can keep a latched badge. Pure aggregation of real inference
-    outputs — it never invents a fall (ADR-027). Product-grade alerting
-    (ack flow, notifications) is backend scope (ADR-023).
-    """
-
-    def __init__(self) -> None:
-        self.event_count: int = 0
-        self.first_event_sec: float | None = None
-        self._prev_fall: bool = False
-
-    def update(self, is_fall: bool, time_sec: float) -> bool:
-        """Feed one frame's fall state; return True on a rising edge (new event)."""
-        onset = is_fall and not self._prev_fall
-        if onset:
-            self.event_count += 1
-            if self.first_event_sec is None:
-                self.first_event_sec = time_sec
-        self._prev_fall = is_fall
-        return onset
-
-class DetectionLossMonitor:
-    def __init__(self, *, loss_after_sec: float = 5.0) -> None:
-        self._loss_after_sec = loss_after_sec
-        self._has_seen_pose = False
-        self._zero_pose_since_sec: float | None = None
-        self._emitted_for_current_loss = False
-
-    def update(self, *, pose_count: int, time_sec: float) -> bool:
-        if pose_count > 0:
-            self._has_seen_pose = True
-            self._zero_pose_since_sec = None
-            self._emitted_for_current_loss = False
-            return False
-        if not self._has_seen_pose:
-            return False
-        if self._zero_pose_since_sec is None:
-            self._zero_pose_since_sec = time_sec
-            return False
-        if self._emitted_for_current_loss:
-            return False
-        if time_sec - self._zero_pose_since_sec < self._loss_after_sec:
-            return False
-        self._emitted_for_current_loss = True
-        return True
 
 
 def iter_live_frames(
@@ -92,6 +33,8 @@ def iter_live_frames(
     show_boxes: bool = True,
     show_pose: bool = True,
     bed_detector: BedDetector | None = None,
+    bed_seed_frame_count: int = BED_SEED_FRAME_COUNT,
+    bed_redetect_interval: int = BED_REDETECT_INTERVAL_FRAMES,
 ) -> Iterator[tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]]:
     """Yield ``(overlay, status, confidence)`` per source frame for live rendering.
 
@@ -109,21 +52,40 @@ def iter_live_frames(
     ``confidence`` is the strongest label confidence on the frame (the primary
     person's classifier ramp once a fall classifier is composed in), surfaced so
     the UI can show how close the fire state is.
+    Bed ROIs are seeded from the first ``bed_seed_frame_count`` frames and then
+    refreshed every ``bed_redetect_interval`` frames. The default interval is
+    30 frames: sparse enough to avoid per-frame bed inference, frequent enough
+    to recover when later frames expose additional beds.
+
     """
-    bed_boxes = None
+    bed_boxes: tuple[BoundingBox, ...] = ()
     bed_exit_monitor = BedExitMonitor()
     detector = bed_detector
-    for frame in source:
-        if bed_boxes is None:
-            bed_boxes = detector.detect(frame) if detector is not None else ()
+    bed_exit_latch = BedExitLatch()
+    seed_frames: list[Frame] = []
+    pending_frames: list[Frame] = []
+    normalized_seed_count = max(1, bed_seed_frame_count)
+    normalized_redetect_interval = max(1, bed_redetect_interval)
+
+    def detect_union(frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
+        if detector is None or not frames:
+            return ()
+        union_detector = getattr(detector, "detect_union", None)
+        if union_detector is not None:
+            return union_detector(frames)
+        return detector.detect(frames[0])
+
+    def process_frame(
+        frame: Frame, current_bed_boxes: tuple[BoundingBox, ...]
+    ) -> tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]:
         result = model.predict(frame)
         bed_exit_frame = bed_exit_monitor.update(
-            bed_boxes=bed_boxes,
+            bed_boxes=current_bed_boxes,
             person_boxes=result.boxes,
         )
         result = replace(
             result,
-            bed_boxes=bed_boxes,
+            bed_boxes=current_bed_boxes,
             bed_exit_statuses=bed_exit_frame.statuses,
         )
         overlay = render_yolo_overlay(
@@ -137,5 +99,40 @@ def iter_live_frames(
             pose_count=len(result.keypoints),
             time_sec=frame.time_sec,
         )
+        bed_exit_events = bed_exit_latch.update(bed_exit_frame.events, frame.time_sec)
+        status = replace(
+            status,
+            bed_count=len(current_bed_boxes),
+            bed_exit_events=bed_exit_events,
+            bed_exit_event_count=bed_exit_latch.event_count,
+            first_bed_exit_sec=bed_exit_latch.first_event_sec,
+        )
         confidence = max((label.confidence for label in result.labels), default=0.0)
-        yield overlay, status, confidence
+        return overlay, status, confidence
+
+    for frame in source:
+        if detector is None:
+            yield process_frame(frame, ())
+            continue
+
+        if len(seed_frames) < normalized_seed_count:
+            seed_frames.append(frame)
+            pending_frames.append(frame)
+            if len(seed_frames) < normalized_seed_count:
+                continue
+            bed_boxes = detect_union(tuple(seed_frames))
+            for pending_frame in pending_frames:
+                yield process_frame(pending_frame, bed_boxes)
+            pending_frames.clear()
+            continue
+
+        if frame.index % normalized_redetect_interval == 0:
+            updated_bed_boxes = detector.detect(frame)
+            if updated_bed_boxes:
+                bed_boxes = updated_bed_boxes
+        yield process_frame(frame, bed_boxes)
+
+    if pending_frames:
+        bed_boxes = detect_union(tuple(seed_frames))
+        for pending_frame in pending_frames:
+            yield process_frame(pending_frame, bed_boxes)

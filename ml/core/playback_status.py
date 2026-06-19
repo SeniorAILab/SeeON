@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:
-    from demo.seam import DetectionResult
+    from core.contract import DetectionResult
 except ModuleNotFoundError:
-    from seam import DetectionResult  # type: ignore[no-redef]
+    from contract import DetectionResult  # type: ignore[no-redef]
+
+
+BedExitEvents = tuple[object, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +18,10 @@ class CurrentPlaybackStatus:
     pose_label: str
     pose_count: int
     is_fall: bool
+    bed_count: int = 0
+    bed_exit_events: BedExitEvents = field(default_factory=tuple)
+    bed_exit_event_count: int = 0
+    first_bed_exit_sec: float | None = None
 
 
 def current_playback_status(

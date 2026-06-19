@@ -28,7 +28,7 @@ training = [
     "scikit-learn>=1.5",
     "joblib>=1.4",                  # direct import in training/models/rf.py (artifact (de)serialization)
     "tqdm>=4.66",
-    "ultralytics>=8.3",             # extract_poses reuses demo.yolo_runtime -> ultralytics
+    "ultralytics>=8.3",             # extract_poses reuses core.yolo_runtime -> ultralytics
     "opencv-python-headless>=4.10", # cv2.VideoCapture frame intake in extract_poses
     "optuna>=4.9.0",
 ]
@@ -39,6 +39,9 @@ package = false
 # bare `uv run` must see every group — no --group flags needed to run anything.
 # The split itself stays: a slim serving build can opt out via --no-default-groups.
 default-groups = ["demo", "test", "training"]
+# Keep ultralytics from pulling the GUI OpenCV wheel alongside the ADR-selected
+# headless wheel; both distributions own cv2/ and corrupt clean uv installs.
+override-dependencies = ["opencv-python ; sys_platform == 'never'"]
 
 [tool.ruff]
 line-length = 100
