@@ -135,3 +135,33 @@ framework internals.
   `try/except ModuleNotFoundError` dual-import shims.
 - **Never fabricate data.** Nothing in the demo may paint keypoints, boxes, or
   labels that did not come from a real model inference (ADR-027).
+
+## 8. No demo-only fallback — run the real single code path
+
+The demo is the **edge-node prototype** of the production system
+([ADR-029](../decisions/ml/ADR-029-edge-inference-deployment-topology.md)), not a
+separate toy wired to mocks. It must exercise the **same path production runs**;
+a demo that takes a different path proves nothing about production and rots.
+This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
+(fail-fast, no fake substitution) applied to the demo.
+
+**Do NOT:**
+
+- Classify falls **in-process** inside the demo as a shortcut. The fall-decision
+  signal (`fall_probability`) must come from the real **ml-serving `/predict`**
+  service — the same inference path production uses — not a bypass that skips it.
+- Emit alerts through anything but the real `AlertClient` → `POST /ingest/alerts`
+  path (HMAC-signed). No hardcoded recipients, no REST-key direct send, no
+  fabricated probability (the live fan-out path is owned by
+  [the live-fall runbook](../runbooks/live-fall-to-kakao-workflow.md)).
+- Add an `if demo:` branch, a mock, or a silent fallback that diverges the demo
+  from production. If a dependency (serving, DB, backend) is down, the demo
+  **fails loudly** — it does not quietly degrade to a fake path.
+
+**Allowed (not a bypass):** pose extraction stays **edge-local** in the demo —
+it feeds the overlay and forms the `[T][51]` window sent to `/predict`. That is
+the edge half of ADR-029 (pose+classify both on the edge device), not a shortcut.
+What must never be bypassed is the **classification decision** and the **emit
+path**. The demo surface may differ from `front/`
+([ADR-024](../decisions/common/ADR-024-ml-demo-product-surface-boundary.md)); the
+code path underneath may not.
