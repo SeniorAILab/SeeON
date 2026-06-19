@@ -15,10 +15,10 @@ export function SnapshotThumb({ alertId, snapshotKey, className = "" }: Snapshot
   if (!snapshotKey || errored) {
     return (
       <div
-        className={`flex items-center justify-center rounded-lg bg-slate-800/60 border border-white/5 ${className}`}
+        className={`flex items-center justify-center rounded-lg bg-canvas border border-line ${className}`}
       >
         <svg
-          className="h-5 w-5 text-slate-600"
+          className="h-5 w-5 text-muted"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
