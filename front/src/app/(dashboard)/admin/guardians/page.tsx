@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useCrud } from "../../../../lib/useCrud";
-import { api } from "../../../../lib/api";
-import { IS_DEMO } from "../../../../lib/config";
 import { useDemoRole } from "../../../../lib/useDemoRole";
 import { canSeeFullPhone } from "../../../../lib/mock/session";
-import type { DemoGuardian, DemoResident } from "../../../../lib/mock/types";
 import { maskPhone, residentName } from "../../../../lib/sse-utils";
 import { EmptyState } from "../../../../components/EmptyState";
 import { inputCls, btnPrimary } from "../../../../lib/form-cls";
+import { AdminHeader } from "../../../../components/AdminHeader";
 
 interface Guardian {
   id: string;
@@ -27,7 +24,9 @@ interface Resident {
   room: string | null;
 }
 
-function ProductionGuardiansPage() {
+export default function GuardiansPage() {
+  const role = useDemoRole();
+  const showFullPhone = canSeeFullPhone(role);
   const gd = useCrud<Guardian>("/api/guardians");
   const res = useCrud<Resident>("/api/residents");
   const loading = gd.loading || res.loading;
@@ -84,18 +83,14 @@ function ProductionGuardiansPage() {
   return (
     <div className="px-5 py-6 sm:px-8">
       <div className="mx-auto max-w-6xl">
-        {/* Page header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-brand">Admin</p>
-            <h1 className="mt-1 text-2xl font-bold text-ink text-balance">보호자 관리</h1>
-          </div>
-          <div className="flex gap-3">
-            <Link href="/admin/residents" className="text-sm text-ink-2 hover:text-ink">대상자</Link>
-            <Link href="/admin/cameras" className="text-sm text-ink-2 hover:text-ink">카메라</Link>
-            <Link href="/dashboard" className="text-sm text-ink-2 hover:text-ink">← 대시보드</Link>
-          </div>
-        </div>
+        <AdminHeader
+          title="보호자 관리"
+          links={[
+            { href: "/admin/residents", label: "대상자" },
+            { href: "/admin/cameras", label: "카메라" },
+            { href: "/dashboard", label: "← 대시보드" },
+          ]}
+        />
 
         {/* Create form */}
         <form
@@ -227,7 +222,7 @@ function ProductionGuardiansPage() {
                       <tr key={g.id} className="transition hover:bg-surface-2">
                         <td className="px-4 py-3 font-medium text-ink">{g.name}</td>
                         <td className="px-4 py-3 text-ink-2">{g.relation ?? "—"}</td>
-                        <td className="px-4 py-3 tabular-nums text-ink-2">{maskPhone(g.phone)}</td>
+                        <td className="px-4 py-3 tabular-nums text-ink-2">{showFullPhone ? g.phone : maskPhone(g.phone)}</td>
                         <td className="px-4 py-3 text-muted">{residentName(res.items, g.residentId)}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
@@ -258,103 +253,4 @@ function ProductionGuardiansPage() {
       </div>
     </div>
   );
-}
-
-function DemoGuardiansPage() {
-  const role = useDemoRole();
-  const showFullPhone = canSeeFullPhone(role);
-  const [guardians, setGuardians] = useState<DemoGuardian[]>([]);
-  const [residents, setResidents] = useState<DemoResident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([api.get<DemoGuardian[]>("/api/guardians"), api.get<DemoResident[]>("/api/residents")])
-      .then(([guardianData, residentData]) => {
-        if (cancelled) return;
-        setGuardians(guardianData);
-        setResidents(residentData);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return (
-    <div className="px-5 py-6 sm:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-brand">Admin</p>
-            <h1 className="mt-1 text-2xl font-bold text-ink text-balance">보호자 관리</h1>
-          </div>
-          <div className="flex gap-3">
-            <Link href="/admin/residents" className="text-sm text-ink-2 hover:text-ink">대상자</Link>
-            <Link href="/admin/cameras" className="text-sm text-ink-2 hover:text-ink">카메라</Link>
-            <Link href="/dashboard" className="text-sm text-ink-2 hover:text-ink">← 대시보드</Link>
-          </div>
-        </div>
-
-        {error && !loading && (
-          <div className="mb-4 rounded-xl border border-danger/20 bg-danger-weak p-4 text-sm text-danger">{error}</div>
-        )}
-
-        <section className="rounded-card border border-line bg-surface shadow-sm">
-          <div className="border-b border-line px-5 py-4">
-            <h2 className="text-base font-bold text-ink">보호자 목록</h2>
-            <p className="mt-0.5 text-xs text-muted">
-              {loading ? "로딩 중..." : `${guardians.length}명 등록`}
-            </p>
-          </div>
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <span className="text-sm text-muted">로딩 중...</span>
-            </div>
-          ) : guardians.length === 0 ? (
-            <div className="p-5">
-              <EmptyState message="등록된 보호자가 없습니다" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">이름</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">관계</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">전화번호</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">대상자</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {guardians.map((g) => (
-                    <tr key={g.id} className="transition hover:bg-surface-2">
-                      <td className="px-4 py-3 font-medium text-ink">{g.name}</td>
-                      <td className="px-4 py-3 text-ink-2">{g.relation ?? "—"}</td>
-                      <td className="px-4 py-3 tabular-nums text-ink-2">
-                        {showFullPhone ? g.phone : maskPhone(g.phone)}
-                      </td>
-                      <td className="px-4 py-3 text-muted">{residentName(residents, g.residentId)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-export default function GuardiansPage() {
-  if (IS_DEMO) return <DemoGuardiansPage />;
-  return <ProductionGuardiansPage />;
 }

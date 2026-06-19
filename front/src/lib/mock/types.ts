@@ -15,13 +15,12 @@ export type { SseAlert, ResidentStatus, SseStatusEvent, AlertStatus, ResidentSta
  * the backend Prisma Role enum (OWNER/ADMIN) is never changed. */
 export type DemoRole = "CAREGIVER" | "OWNER" | "ADMIN";
 
+// Flat shape matching the real backend Resident the demo mirrors (no
+// birthYear/careLevel/admittedAt — those were never rendered).
 export interface DemoResident {
   id: string;
   name: string;
   room: string;
-  birthYear: number;
-  careLevel: string; // 장기요양등급
-  admittedAt: string; // ISO
 }
 
 export interface DemoGuardian {

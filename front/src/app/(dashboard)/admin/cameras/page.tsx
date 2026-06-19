@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useCrud } from "../../../../lib/useCrud";
-import { api } from "../../../../lib/api";
-import { IS_DEMO } from "../../../../lib/config";
-import type { DemoCamera } from "../../../../lib/mock/types";
 import { residentName, formatTime } from "../../../../lib/sse-utils";
 import { EmptyState } from "../../../../components/EmptyState";
 import { inputCls, btnPrimary } from "../../../../lib/form-cls";
+import { AdminHeader } from "../../../../components/AdminHeader";
 
 interface Camera {
   id: string;
@@ -40,7 +37,7 @@ function OnlineDot({ online }: { online: boolean }) {
   );
 }
 
-function ProductionCamerasPage() {
+export default function CamerasPage() {
   const cam = useCrud<Camera>("/api/cameras");
   const res = useCrud<Resident>("/api/residents");
   const loading = cam.loading || res.loading;
@@ -88,18 +85,14 @@ function ProductionCamerasPage() {
   return (
     <div className="px-5 py-6 sm:px-8">
       <div className="mx-auto max-w-6xl">
-        {/* Page header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-brand">Admin</p>
-            <h1 className="mt-1 text-2xl font-bold text-ink text-balance">카메라 관리</h1>
-          </div>
-          <div className="flex gap-3">
-            <Link href="/admin/residents" className="text-sm text-ink-2 hover:text-ink">대상자</Link>
-            <Link href="/admin/guardians" className="text-sm text-ink-2 hover:text-ink">보호자</Link>
-            <Link href="/dashboard" className="text-sm text-ink-2 hover:text-ink">← 대시보드</Link>
-          </div>
-        </div>
+        <AdminHeader
+          title="카메라 관리"
+          links={[
+            { href: "/admin/residents", label: "대상자" },
+            { href: "/admin/guardians", label: "보호자" },
+            { href: "/dashboard", label: "← 대시보드" },
+          ]}
+        />
 
         {/* Create form */}
         <form
@@ -252,102 +245,4 @@ function ProductionCamerasPage() {
       </div>
     </div>
   );
-}
-
-function DemoCamerasPage() {
-  const [cameras, setCameras] = useState<DemoCamera[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<DemoCamera[]>("/api/cameras")
-      .then((data) => {
-        if (cancelled) return;
-        setCameras(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return (
-    <div className="px-5 py-6 sm:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-brand">Admin</p>
-            <h1 className="mt-1 text-2xl font-bold text-ink text-balance">카메라 관리</h1>
-          </div>
-          <div className="flex gap-3">
-            <Link href="/admin/residents" className="text-sm text-ink-2 hover:text-ink">대상자</Link>
-            <Link href="/admin/guardians" className="text-sm text-ink-2 hover:text-ink">보호자</Link>
-            <Link href="/dashboard" className="text-sm text-ink-2 hover:text-ink">← 대시보드</Link>
-          </div>
-        </div>
-
-        {error && !loading && (
-          <div className="mb-4 rounded-xl border border-danger/20 bg-danger-weak p-4 text-sm text-danger">{error}</div>
-        )}
-
-        <section className="rounded-card border border-line bg-surface shadow-sm">
-          <div className="border-b border-line px-5 py-4">
-            <h2 className="text-base font-bold text-ink">카메라 목록</h2>
-            <p className="mt-0.5 text-xs text-muted">
-              {loading ? "로딩 중..." : `${cameras.length}개 등록`}
-            </p>
-          </div>
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <span className="text-sm text-muted">로딩 중...</span>
-            </div>
-          ) : cameras.length === 0 ? (
-            <div className="p-5">
-              <EmptyState message="등록된 카메라가 없습니다" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">레이블</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">상태</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">마지막 확인</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {cameras.map((c) => (
-                    <tr key={c.id} className="transition hover:bg-surface-2">
-                      <td className="px-4 py-3 font-medium text-ink">{c.label}</td>
-                      <td className="px-4 py-3">
-                        <OnlineDot online={c.online} />
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-muted">
-                        {c.lastSeenAt
-                          ? formatTime(c.lastSeenAt, { dateStyle: "short", timeStyle: "short" })
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-export default function CamerasPage() {
-  if (IS_DEMO) return <DemoCamerasPage />;
-  return <ProductionCamerasPage />;
 }

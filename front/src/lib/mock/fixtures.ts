@@ -26,14 +26,10 @@ const SURNAMES = ["김", "이", "박", "최", "정", "강", "조", "윤", "장",
 export const RESIDENTS: DemoResident[] = Array.from({ length: 16 }, (_, i) => {
   const floor = i < 8 ? 2 : 3;
   const roomNo = floor * 100 + (i % 8) + 1;
-  const careLevels = ["1등급", "2등급", "3등급", "4등급"];
   return {
     id: `res-${String(i + 1).padStart(2, "0")}`,
     name: `${SURNAMES[i % SURNAMES.length]}${["복순", "영자", "정애", "말순", "옥분", "춘자", "귀남", "병호", "달수", "종근", "판석", "두식", "용득", "기철", "순임", "금례"][i]}`,
     room: `${roomNo}`,
-    birthYear: 1934 + (i % 12),
-    careLevel: careLevels[i % careLevels.length],
-    admittedAt: `${2023 + (i % 3)}-0${(i % 9) + 1}-1${i % 9}T00:00:00+09:00`,
   };
 });
 

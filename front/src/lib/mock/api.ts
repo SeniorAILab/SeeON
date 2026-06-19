@@ -1,9 +1,9 @@
 // In-memory mock API router for demo mode. Mirrors the backend REST shapes the
 // existing pages consume, reading/writing the single scenario source. Mutating
-// admin verbs (POST/PATCH/DELETE on residents/cameras/guardians) are accepted
-// as no-ops so demo admin screens never hit a backend.
+// admin verbs (POST/PATCH/DELETE on residents/cameras/guardians) mutate that
+// in-memory scenario so demo CRUD behaves like a real backend with no network.
 import { sortAlertsBySeq } from "../sse-utils";
-import { ackAlert, getScenario } from "./scenario";
+import { ackAlert, crud, getScenario } from "./scenario";
 import type { SseAlert } from "./types";
 
 export class MockApiError extends Error {
@@ -87,9 +87,9 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     } as unknown as T;
   }
 
-  // /api/residents  (GET)
+  // /api/residents  (GET) — fresh array each call so useCrud.reload() re-renders after CRUD
   if (rawPath === "/api/residents" && method === "GET") {
-    return s.residents as unknown as T;
+    return [...s.residents] as unknown as T;
   }
 
   // /api/cameras  (GET, optional ?residentId= filter)
@@ -98,7 +98,7 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     const residentId = params.get("residentId");
     const cameras = residentId
       ? s.cameras.filter((c) => c.residentId === residentId)
-      : s.cameras;
+      : [...s.cameras];
     return cameras as unknown as T;
   }
 
@@ -108,20 +108,27 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     const residentId = params.get("residentId");
     const guardians = residentId
       ? s.guardians.filter((g) => g.residentId === residentId)
-      : s.guardians;
+      : [...s.guardians];
     return guardians as unknown as T;
   }
 
-  // Mutating admin verbs on known CRUD resources: accept as no-ops (demo never
-  // persists CRUD to a backend). Scoped to known resources so a misspelled or
-  // unimplemented mutating route surfaces as a missing-route error instead of a
-  // silent fake success.
-  const adminMutation = /^\/api\/(residents|cameras|guardians)(\/[^/]+)?$/;
+  // Mutating admin verbs on known CRUD resources mutate the in-memory scenario
+  // so the demo behaves like a real product: a created/edited/deleted record
+  // shows up on the next list reload. Scoped to known resources so a misspelled
+  // route surfaces as a missing-route error instead of a silent fake success.
+  const adminMutation = rawPath.match(
+    /^\/api\/(residents|cameras|guardians)(?:\/([^/]+))?$/,
+  );
   if (
-    (method === "POST" || method === "PATCH" || method === "DELETE") &&
-    adminMutation.test(rawPath)
+    adminMutation &&
+    (method === "POST" || method === "PATCH" || method === "DELETE")
   ) {
-    return {} as unknown as T;
+    const key = adminMutation[1] as "residents" | "cameras" | "guardians";
+    const id = adminMutation[2] ? decodeURIComponent(adminMutation[2]) : null;
+    const body = init.body ? JSON.parse(init.body as string) : {};
+    const result = crud(key, method, id, body);
+    if (result === null) throw new MockApiError(404, `${key} not found`);
+    return result as unknown as T;
   }
 
   throw new MockApiError(404, `no mock route for ${method} ${rawPath}`);

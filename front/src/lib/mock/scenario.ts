@@ -32,9 +32,10 @@ function seed(): ScenarioState {
   return {
     baseTime: BASE_TIME,
     nextSeq: 2000,
-    residents: RESIDENTS,
-    guardians: GUARDIANS,
-    cameras: CAMERAS,
+    // clone the fixture arrays so in-place CRUD never mutates the module constants
+    residents: [...RESIDENTS],
+    guardians: [...GUARDIANS],
+    cameras: [...CAMERAS],
     alerts: mergeAlerts([], buildAlertHistory(BASE_TIME)),
     statuses: buildStatuses(BASE_TIME),
   };
@@ -77,6 +78,53 @@ export function ackAlert(alertId: string): SseAlert | null {
     emit();
   }
   return acked;
+}
+
+type CrudKey = "residents" | "cameras" | "guardians";
+
+// Defaults for fields the admin create forms don't collect, so a new record is
+// renderable (online dot, "—" placeholders) without the form fabricating them.
+const CRUD_DEFAULTS: Record<CrudKey, Record<string, unknown>> = {
+  residents: { room: "" },
+  cameras: { residentId: null, online: false, lastSeenAt: null, ingestKeyId: "demo" },
+  guardians: { residentId: "", relation: "" },
+};
+
+/** Demo CRUD: mutate an admin collection in-memory so useCrud.reload() reflects
+ * it. POST returns the created record; PATCH the updated one; DELETE echoes {id}.
+ * Returns null when a PATCH/DELETE target id is missing (caller maps to 404). */
+export function crud(
+  key: CrudKey,
+  method: "POST" | "PATCH" | "DELETE",
+  id: string | null,
+  body: Record<string, unknown>,
+): unknown {
+  const s = getScenario();
+  const list = s[key] as unknown as Array<Record<string, unknown> & { id: string }>;
+  const clean = Object.fromEntries(
+    Object.entries(body).filter(([, v]) => v !== undefined),
+  );
+
+  if (method === "POST") {
+    const record = { ...CRUD_DEFAULTS[key], ...clean, id: crypto.randomUUID() };
+    list.unshift(record);
+    persist();
+    emit();
+    return record;
+  }
+
+  const target = list.find((it) => it.id === id);
+  if (!target) return null;
+  if (method === "DELETE") {
+    list.splice(list.indexOf(target), 1);
+    persist();
+    emit();
+    return { id };
+  }
+  Object.assign(target, clean);
+  persist();
+  emit();
+  return target;
 }
 
 const GEN_TYPES = ["FALL", "BED_EXIT", "NO_MOTION"] as const;

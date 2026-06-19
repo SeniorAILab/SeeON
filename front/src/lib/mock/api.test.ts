@@ -47,11 +47,33 @@ describe("mock api router", () => {
     expect("alerts" in detail).toBe(false);
   });
 
-  it("treats mutating admin verbs as no-ops", async () => {
-    const result = await mockApi<Record<string, unknown>>("/api/cameras/cam-01", {
-      method: "DELETE",
+  it("POST /api/residents adds a resident the next list reflects", async () => {
+    const before = await mockApi<DemoResident[]>("/api/residents");
+    const created = await mockApi<DemoResident>("/api/residents", {
+      method: "POST",
+      body: JSON.stringify({ name: "테스트", room: "999" }),
     });
-    expect(result).toEqual({});
+    expect(created.id).toBeTruthy();
+    const after = await mockApi<DemoResident[]>("/api/residents");
+    expect(after).toHaveLength(before.length + 1);
+    expect(after.some((r) => r.id === created.id)).toBe(true);
+  });
+
+  it("DELETE /api/cameras/:id removes it from the list", async () => {
+    const before = await mockApi<{ id: string }[]>("/api/cameras");
+    const target = before[0].id;
+    await mockApi(`/api/cameras/${target}`, { method: "DELETE" });
+    const after = await mockApi<{ id: string }[]>("/api/cameras");
+    expect(after.some((c) => c.id === target)).toBe(false);
+  });
+
+  it("PATCH /api/guardians/:id 404s for an unknown id", async () => {
+    await expect(
+      mockApi("/api/guardians/nope", {
+        method: "PATCH",
+        body: JSON.stringify({ name: "x" }),
+      }),
+    ).rejects.toBeInstanceOf(MockApiError);
   });
 
   it("throws MockApiError for an unknown alert", async () => {
