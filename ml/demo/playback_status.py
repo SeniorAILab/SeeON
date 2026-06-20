@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-try:
-    from contracts import FrameObservation
-except ModuleNotFoundError:
-    from contract import FrameObservation  # type: ignore[no-redef]
-
+from contracts.observation import FrameObservation
 
 BedExitEvents = tuple[object, ...]
 

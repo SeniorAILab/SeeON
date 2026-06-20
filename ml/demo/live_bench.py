@@ -35,7 +35,7 @@ class _LimitedSource:
 
 
 def measure_pipeline(source: Any, model: Any) -> dict[str, float | int]:
-    """Pure measurement core: drive source through model, return metrics dict.
+    """Pure measurement loop: drive source through model, return metrics dict.
 
     Takes any FrameSource-compatible source and any ModelModule-compatible model
     so the function is testable with fakes without loading real weights.

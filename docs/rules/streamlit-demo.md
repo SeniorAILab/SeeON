@@ -124,7 +124,7 @@ framework internals.
 ## 7. Operational notes
 
 - **First-select latency.** `yolo26{s,m,l,x}-pose.pt` weights download on first
-  selection and are large. They cache to `ml/weights/` (not the `ml/` root) via
+  selection and are large. They cache to `ml/models/pose/` (not the `ml/` root) via
   `pose_weight_path(size)` — see [ml-filesystem-layout.md](./ml-filesystem-layout.md)
   and ADR-015. `*.pt` is gitignored — never commit weights. Expect a one-time
   download delay when a size is picked for the first time.

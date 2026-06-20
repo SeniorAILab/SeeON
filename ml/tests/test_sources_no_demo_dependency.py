@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 
-def _util_python_files() -> list[Path]:
+def _sources_python_files() -> list[Path]:
     util_dir = Path(__file__).parent.parent / "sources"
     return list(util_dir.rglob("*.py"))
 
@@ -25,8 +25,8 @@ def _imports_demo(source: str) -> list[str]:
     return violations
 
 
-def test_util_has_no_demo_imports() -> None:
-    files = _util_python_files()
+def test_sources_has_no_demo_imports() -> None:
+    files = _sources_python_files()
     assert files, "Expected at least one .py file under ml/sources/"
 
     all_violations: dict[str, list[str]] = {}
