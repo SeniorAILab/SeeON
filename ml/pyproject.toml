@@ -22,7 +22,6 @@ demo = [
 ]
 test = [
     "pytest>=8.3",
-    "httpx>=0.27",                  # fastapi.testclient (TestClient) HTTP-level serving tests
 ]
 training = [
     "torch>=2.3",
