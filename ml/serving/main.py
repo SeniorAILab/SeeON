@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from serving.model import DEFAULT_OPERATING_THRESHOLD, ModelLoadError, get_model
@@ -32,29 +28,7 @@ from serving.pipeline import (
 )
 from serving.source_registry import SourceRegistryError, get_source_registry
 
-STATIC_DIR = Path(__file__).parent / "static"
-
-# /docs is served from vendored Swagger UI assets (serving/static) instead of the
-# default jsdelivr CDN, so the interactive docs render on offline / CDN-restricted
-# networks (lab boxes, tailnet-only hosts). See FastAPI "Custom Docs UI Static Assets".
-app = FastAPI(title="fall-detector serving", version="0.2.0", docs_url=None)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-
-@app.get("/docs", include_in_schema=False)
-def custom_swagger_ui_html() -> HTMLResponse:
-    return get_swagger_ui_html(
-        openapi_url=app.openapi_url,
-        title=f"{app.title} - Swagger UI",
-        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
-        swagger_js_url="/static/swagger-ui-bundle.js",
-        swagger_css_url="/static/swagger-ui.css",
-    )
-
-
-@app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
-def swagger_ui_redirect() -> HTMLResponse:
-    return get_swagger_ui_oauth2_redirect_html()
+app = FastAPI(title="fall-detector serving", version="0.2.0")
 
 
 class PredictRequest(BaseModel):
