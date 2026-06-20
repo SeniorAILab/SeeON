@@ -9,10 +9,10 @@
 ## 빠른 시작
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # 타입체크 + 프로덕션 빌드
-npm run preview  # 빌드 결과 미리보기
+pnpm install        # repo root에서 실행
+pnpm --filter front dev      # http://localhost:3000
+pnpm --filter front build    # 타입체크 + 프로덕션 빌드
+pnpm --filter front preview  # 빌드 결과 미리보기
 ```
 
 ### 데모 계정 (비밀번호 모두 `1234`)
@@ -173,15 +173,15 @@ src/
 실시간마다 TTS API를 호출하지 않도록, 자주 쓰는 안내 문구를 **미리 mp3로 생성**해 두고 재생합니다.
 
 ```bash
-npm run gen:tts        # Mock(키 없음): 폴더 구조 + manifest 생성, 런타임은 음성 폴백
-CLOVA_CLIENT_ID=... CLOVA_CLIENT_SECRET=... npm run gen:tts   # 실제 mp3 생성
-GOOGLE_TTS_API_KEY=... npm run gen:tts                        # Google TTS 로 생성
+pnpm --filter front gen:tts        # Mock(키 없음): 폴더 구조 + manifest 생성, 런타임은 음성 폴백
+CLOVA_CLIENT_ID=... CLOVA_CLIENT_SECRET=... pnpm --filter front gen:tts   # 실제 mp3 생성
+GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Google TTS 로 생성
 ```
 
 - 문구/공간을 조합해 `public/audio/tts/<층>/<호실>_<단계>.mp3`, `public/audio/tts/common/<슬러그>_<단계>.mp3`, `summary.mp3`를 생성합니다. (예: `201호 확인이 필요합니다` → `/audio/tts/2F/201_danger.mp3`, `중앙복도 단독 이동…` → `/audio/tts/common/center_hallway_danger.mp3`)
 - 생성 결과는 `manifest.json`에 `real: true/false`로 기록되고, 런타임 `playTTS`는 **실제 파일이 있으면 `Audio`로 재생, 없으면 브라우저 음성으로 폴백**합니다. 그래서 키가 없어도 동작하고, 키를 넣어 한 번 생성하면 자동으로 mp3 재생으로 전환됩니다.
 - 중복 재생 방지·우선순위(응급>위험>주의)·확인 완료 시 중단은 `ttsManager`가 담당합니다.
-- 파일: `scripts/generate-tts.ts`, `src/services/tts/{ttsConfig,audioMap,ttsProvider,synthesizer,playTTS,ttsManager}.ts`. 문구를 바꾸려면 `ttsConfig.ts`만 수정 후 `npm run gen:tts` 재실행하면 됩니다.
+- 파일: `scripts/generate-tts.ts`, `src/services/tts/{ttsConfig,audioMap,ttsProvider,synthesizer,playTTS,ttsManager}.ts`. 문구를 바꾸려면 `pnpm --filter front gen:tts` 재실행하면 됩니다.
 
 ---
 
