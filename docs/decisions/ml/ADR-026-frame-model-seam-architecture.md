@@ -3,7 +3,7 @@
 ## Status
 
 Accepted. Supersedes the two-seam architecture clauses of retired source ADR-005. ADR-005 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
-Superseded by ADR-050 (terminology: seam→contract).
+Superseded by ADR-050 (terminology: seam→contract) and then by ADR-057 (active architecture; ml/ edge-device relayout, issue #268). Body preserved as historical record.
 
 ## Date
 
