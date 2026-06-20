@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from core.contract import BoundingBox, DetectionLabel, DetectionResult
+from core.contract import BoundingBox, DetectionLabel, FrameObservation
 
 FALL_BOX_COLOR: Final = (255, 64, 64)
 DETECTION_BOX_COLOR: Final = (64, 220, 120)
@@ -40,11 +40,11 @@ MIN_KEYPOINT_CONFIDENCE: Final = 0.2
 
 def render_yolo_overlay(
     frame: NDArray[np.uint8],
-    result: DetectionResult,
+    result: FrameObservation,
     show_boxes: bool = True,
     show_pose: bool = True,
 ) -> NDArray[np.uint8]:
-    """Render bounding boxes and/or pose skeleton from a normalised DetectionResult.
+    """Render bounding boxes and/or pose skeleton from a normalised FrameObservation.
 
     ``show_boxes`` and ``show_pose`` are independent: any of the four
     combinations renders correctly. With both off, a clean copy of the input

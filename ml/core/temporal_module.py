@@ -32,8 +32,8 @@ from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     DetectionLabel,
-    DetectionResult,
     Frame,
+    FrameObservation,
     ModelModule,
 )
 from core.tracking import GreedyIouTracker
@@ -50,15 +50,12 @@ from training.models.catalog import CATALOG
 # the training pipeline (train.py / evaluate.py / artifact_dir) saves artifacts
 # under the kebab catalog key (e.g. ``random-forest``, ADR-015). The mapping is
 # mechanical so every CATALOG family is exposed without a demo-side edit.
-_KEY_TO_ARTIFACT: Final[dict[str, str]] = {
-    key.replace("-", "_"): key for key in CATALOG
-}
+_KEY_TO_ARTIFACT: Final[dict[str, str]] = {key.replace("-", "_"): key for key in CATALOG}
 
 TEMPORAL_MODEL_KEYS: Final[tuple[str, ...]] = tuple(_KEY_TO_ARTIFACT)
 
 _KEY_TO_MODE: Final[dict[str, str]] = {
-    demo_key: CATALOG[artifact_key].mode
-    for demo_key, artifact_key in _KEY_TO_ARTIFACT.items()
+    demo_key: CATALOG[artifact_key].mode for demo_key, artifact_key in _KEY_TO_ARTIFACT.items()
 }
 
 
@@ -203,10 +200,10 @@ class TemporalFallClassifierModule:
         self._tracker: GreedyIouTracker = GreedyIouTracker()
         self._frame_counter: int = 0
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         """Run pose, update per-track buffers, infer when due, emit per-person labels.
 
-        Returns an empty DetectionResult when no person is detected this frame.
+        Returns an empty FrameObservation when no person is detected this frame.
         Missed (occluded) tracks still receive an all-zeros keypoint frame so
         their window stays temporally contiguous with the training convention.
         """
@@ -260,9 +257,7 @@ class TemporalFallClassifierModule:
         # === 단계 6: stride 트리거 — 가득 찬 버퍼를 배치로 한 번만 추론 ===
         # Only tracks whose buffer is full (== window) participate in this batch.
         if self._frame_counter % self._stride == 0:
-            due_ids = [
-                tid for tid in self._buffers if len(self._buffers[tid]) == self._window
-            ]
+            due_ids = [tid for tid in self._buffers if len(self._buffers[tid]) == self._window]
             if due_ids:
                 if self._mode == "features":
                     # [N, 45]
@@ -288,9 +283,9 @@ class TemporalFallClassifierModule:
                 for j, tid in enumerate(due_ids):
                     self._last_probs[tid] = float(probs[j])
 
-        # === 단계 7: 박스 없으면 빈 DetectionResult 반환 (버퍼는 이미 갱신됨) ===
+        # === 단계 7: 박스 없으면 빈 FrameObservation 반환 (버퍼는 이미 갱신됨) ===
         if not pose.boxes:
-            return DetectionResult()
+            return FrameObservation()
 
         # === 단계 8: 사람별 레이블 생성 → 전원 박스·키포인트와 함께 방출 ===
         labels: list[DetectionLabel] = []
@@ -300,8 +295,8 @@ class TemporalFallClassifierModule:
             label_text = FALL_LABEL_TEXT if is_fall else NORMAL_LABEL_TEXT
             labels.append(DetectionLabel(text=label_text, confidence=prob, is_fall=is_fall))
 
-        return DetectionResult(
-            boxes=pose.boxes,
-            labels=tuple(labels),
-            keypoints=pose.keypoints,
+        return FrameObservation(
+            detections=(pose.boxes, tuple(labels)),
+            poses=pose.keypoints,
+            regions=(pose.bed_boxes, pose.bed_exit_statuses),
         )

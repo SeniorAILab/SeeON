@@ -31,7 +31,11 @@ def build_frame_observation(
     ``raw_boxes`` accepts runner boxes shaped as ``(x1, y1, x2, y2, confidence)``.
     Explicit keyword payloads override the corresponding payload from ``detections``.
     """
-    base = detections or DetectionResult()
+    base = (
+        FrameObservation.from_detection_result(detections)
+        if detections is not None
+        else FrameObservation()
+    )
     observation_boxes = tuple(boxes) if boxes is not None else base.boxes
     if raw_boxes is not None:
         observation_boxes = tuple(

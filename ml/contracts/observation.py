@@ -59,6 +59,26 @@ class FrameObservation:
     poses: tuple[tuple[tuple[int, int, float], ...], ...] = field(default_factory=tuple)
     regions: Regions = field(default_factory=lambda: ((), ()))
 
+    @property
+    def boxes(self) -> tuple[BoundingBox, ...]:
+        return self.detections[0]
+
+    @property
+    def labels(self) -> tuple[DetectionLabel, ...]:
+        return self.detections[1]
+
+    @property
+    def keypoints(self) -> tuple[tuple[tuple[int, int, float], ...], ...]:
+        return self.poses
+
+    @property
+    def bed_boxes(self) -> tuple[BoundingBox, ...]:
+        return self.regions[0]
+
+    @property
+    def bed_exit_statuses(self) -> tuple[object, ...]:
+        return self.regions[1]
+
     @classmethod
     def from_detection_result(cls, result: DetectionResult) -> FrameObservation:
         return cls(

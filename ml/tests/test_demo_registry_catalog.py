@@ -111,9 +111,9 @@ class TestThresholdOverridePlumbing:
 
 class _NullPose:
     def predict(self, frame):  # pragma: no cover - never driven in these tests
-        from core.contract import DetectionResult
+        from core.contract import FrameObservation
 
-        return DetectionResult()
+        return FrameObservation(detections=((), ()), poses=(), regions=((), ()))
 
 
 def _write_metadata(adir: Path, operating_threshold: float) -> None:

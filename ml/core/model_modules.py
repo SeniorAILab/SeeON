@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Final
 
 from contracts.artifacts import WEIGHTS_DIR, pose_weight_filename, pose_weight_path  # noqa: F401
-from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
 from runners.yolo_pose import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
@@ -18,6 +18,7 @@ POSE_MODEL_SIZE_LABELS: Final[dict[str, str]] = {
     "x": "xlarge / 고성능 GPU (정밀 분석용)",
 }
 
+
 # Pose weight path helpers are delegated to contracts.artifacts (ADR-015).
 class YoloPoseModule:
     """Pose ModelModule wrapping YoloPoseRunner. Emits {boxes, keypoints}.
@@ -29,11 +30,9 @@ class YoloPoseModule:
 
     def __init__(self, size: str = "n", confidence: float = 0.05) -> None:
         WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-        self._runner = YoloPoseRunner(
-            model_path=str(pose_weight_path(size)), confidence=confidence
-        )
+        self._runner = YoloPoseRunner(model_path=str(pose_weight_path(size)), confidence=confidence)
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         poses, raw_boxes = self._runner.predict_full(frame.image)
         boxes = tuple(
             BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
@@ -43,4 +42,4 @@ class YoloPoseModule:
             DetectionLabel(text="person", confidence=conf, is_fall=False)
             for _x1, _y1, _x2, _y2, conf in raw_boxes
         )
-        return DetectionResult(boxes=boxes, labels=labels, keypoints=poses)
+        return FrameObservation(detections=(boxes, labels), poses=poses)
