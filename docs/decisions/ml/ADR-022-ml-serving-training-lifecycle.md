@@ -24,6 +24,7 @@ This ADR owns only the **ML-internal lifecycle boundary**: how the `ml/` uv proj
 Both lifecycles remain in one uv project rather than separate Python projects. They share project-level dependency resolution and code conventions, but runtime dependency weight is separated through uv dependency groups.
 
 `pyproject.toml` keeps serving dependencies in the base dependency set and heavier demo/training dependencies in dependency groups. Developer installs may include all default groups; slim serving hosts use the explicit serving-only install path when needed.
+The lifecycle boundary is enforced as an import boundary. `training/` may import only its training-local modules plus `contracts/`, `features/`, `sources/`, and `runners/`; it must not import `perception/`, `domains/`, `runtime/`, `events/`, `serving/`, `demo/`, `core/`, or `util/`. `serving/` must not import `training/`. These constraints are guarded by `ml/tests/test_import_dependency_ladder.py`.
 
 ## MECE boundary
 

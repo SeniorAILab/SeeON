@@ -321,8 +321,8 @@ def _run_gold8_eval(
         return
 
     try:
-        from core.model_modules import pose_weight_path
-        from core.yolo_runtime import YoloPoseRunner
+        from contracts.artifacts import pose_weight_path
+        from runners.yolo_pose import YoloPoseRunner
 
         weight_path = pose_weight_path("n")
         runner = YoloPoseRunner(model_path=str(weight_path))
