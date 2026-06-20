@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================
+   라이트/다크 테마 토큰 (CSS 변수)
+   - 컴포넌트는 bg-surface, text-ink 등 토큰 클래스만 사용
+   - .dark 클래스가 붙은 하위 트리는 자동으로 야간 색상으로 전환
+   ============================================================= */
+:root {
+  color-scheme: light;
+  --c-bg: #f4f6f9;
+  --c-surface: #ffffff;
+  --c-surface-2: #f8fafc;
+  --c-border: #e2e6ec;
+  --c-ink: #15233b;
+  --c-ink-soft: #51607a;
+  --c-ink-faint: #8593a8;
+  --c-brand: #2f6fb0;
+  --c-brand-soft: #eaf2fb;
+  --c-teal: #2bb6a3;
+
+  --c-stable: #1f9d57;
+  --c-stable-bg: #e7f7ee;
+  --c-caution: #c2700a;
+  --c-caution-bg: #fdf2df;
+  --c-danger: #d92d20;
+  --c-danger-bg: #fdeceb;
+  --c-check: #2563eb;
+  --c-check-bg: #e8f0fe;
+}
+
+.dark {
+  color-scheme: dark;
+  --c-bg: #0e1620;
+  --c-surface: #18222f;
+  --c-surface-2: #202c3b;
+  --c-border: #2b3a4d;
+  --c-ink: #f1f5fa;
+  --c-ink-soft: #aab8cc;
+  --c-ink-faint: #7488a0;
+  --c-brand: #4d97e0;
+  --c-brand-soft: #1d2c40;
+  --c-teal: #3fd3bd;
+
+  --c-stable: #45d07f;
+  --c-stable-bg: #14301f;
+  --c-caution: #f7b733;
+  --c-caution-bg: #3a2b0b;
+  --c-danger: #ff6b5e;
+  --c-danger-bg: #3c1714;
+  --c-check: #5fa3f7;
+  --c-check-bg: #15243b;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--c-bg);
+  color: var(--c-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-border);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* 위험 카드 강조 — 색약 사용자를 위해 색상 외 모션도 함께 사용 */
+@keyframes pulse-danger {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(217, 45, 32, 0);
+  }
+}
+.animate-pulse-danger {
+  animation: pulse-danger 1.8s ease-in-out infinite;
+}
+
+/* 장갑 착용/큰 손가락 대응: 모든 버튼 최소 터치 영역 확보 */
+button {
+  touch-action: manipulation;
+}
