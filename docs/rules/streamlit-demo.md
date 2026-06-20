@@ -131,8 +131,9 @@ framework internals.
 - **Import contract.** `streamlit run demo/app.py` only puts `ml/demo/` on the
   path; pytest uses `pythonpath=["."]` = `ml/`. `app.py` bootstraps `sys.path`
   with the `ml/` root so both resolve the same package-qualified imports
-  (`from demo.x import …`, `from util.x import …`). Do not reintroduce
-  `try/except ModuleNotFoundError` dual-import shims.
+  (`from demo.x import …`, `from sources.x import …`, `from serving.client import …`).
+  Do not reintroduce `core`/`util` imports or `try/except ModuleNotFoundError`
+  dual-import shims.
 - **Never fabricate data.** Nothing in the demo may paint keypoints, boxes, or
   labels that did not come from a real model inference (ADR-027).
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 try:
-    from core.contract import FrameObservation
+    from contracts import FrameObservation
 except ModuleNotFoundError:
     from contract import FrameObservation  # type: ignore[no-redef]
 

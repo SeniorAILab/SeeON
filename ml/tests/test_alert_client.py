@@ -9,7 +9,7 @@ from threading import Event, Thread
 
 import pytest
 
-from core.alert_client import AlertClient
+from events.publisher import AlertClient
 
 
 class _RecordingHandler(BaseHTTPRequestHandler):

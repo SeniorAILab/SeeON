@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from core.bed_detector import BedDetector
-from core.contract import BoundingBox, Frame
-from core.yolo_runtime import YoloBedSegRunner, dedupe_bed_boxes
+from contracts import BoundingBox, Frame
+from perception.bed_detector import BedDetector
+from runners import YoloBedSegRunner, dedupe_bed_boxes
 
 
 def _frame() -> Frame:

@@ -4,10 +4,10 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from core.bed_exit import BedExitEvent
-from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
-from core.playback_status import CurrentPlaybackStatus
+from contracts import BoundingBox, DetectionLabel, Frame, FrameObservation
 from demo.live_view import BedExitLatch, FallEventLatch, iter_live_frames, render_due
+from demo.playback_status import CurrentPlaybackStatus
+from domains.bed_exit import BedExitEvent
 
 
 class _FakeSource:

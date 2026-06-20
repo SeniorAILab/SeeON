@@ -12,14 +12,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.classifiers import CLASSIFIER_REGISTRY
-from core.temporal_module import (
+from demo.classifiers import CLASSIFIER_REGISTRY
+from demo.temporal_module import (
     _KEY_TO_ARTIFACT,
     _KEY_TO_MODE,
     TEMPORAL_MODEL_KEYS,
     build_temporal_model,
 )
-from core.thresholds import NH_RECOMMENDED_THRESHOLDS, default_threshold
+from demo.thresholds import NH_RECOMMENDED_THRESHOLDS, default_threshold
 from training.data.features import extract_window_features
 from training.metadata import ModelMetadata, save_metadata
 from training.models.catalog import CATALOG, load_model_class
@@ -69,13 +69,13 @@ class TestThresholdDefaults:
     ) -> None:
         assert "svm" not in NH_RECOMMENDED_THRESHOLDS
         _write_metadata(tmp_path, operating_threshold=0.77)
-        monkeypatch.setattr("core.thresholds.artifact_dir", lambda key: tmp_path)
+        monkeypatch.setattr("demo.thresholds.artifact_dir", lambda key: tmp_path)
         assert default_threshold("svm") == pytest.approx(0.77)
 
     def test_none_when_artifact_absent(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("core.thresholds.artifact_dir", lambda key: tmp_path / "missing")
+        monkeypatch.setattr("demo.thresholds.artifact_dir", lambda key: tmp_path / "missing")
         assert default_threshold("svm") is None
 
     def test_none_for_unknown_key(self) -> None:
@@ -87,7 +87,7 @@ class TestThresholdOverridePlumbing:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _build_rf_artifact(tmp_path)
-        monkeypatch.setattr("core.temporal_module.artifact_dir", lambda key: tmp_path)
+        monkeypatch.setattr("demo.temporal_module.artifact_dir", lambda key: tmp_path)
         monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:9")
         module = build_temporal_model("random_forest", _NullPose(), threshold_override=0.42)
         assert module._operating_threshold == pytest.approx(0.42)
@@ -96,7 +96,7 @@ class TestThresholdOverridePlumbing:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _build_rf_artifact(tmp_path)
-        monkeypatch.setattr("core.temporal_module.artifact_dir", lambda key: tmp_path)
+        monkeypatch.setattr("demo.temporal_module.artifact_dir", lambda key: tmp_path)
         monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:9")
         module = build_temporal_model("random_forest", _NullPose())
         assert module._operating_threshold == pytest.approx(0.5)
@@ -113,7 +113,7 @@ class TestThresholdOverridePlumbing:
 
 class _NullPose:
     def predict(self, frame):  # pragma: no cover - never driven in these tests
-        from core.contract import FrameObservation
+        from contracts import FrameObservation
 
         return FrameObservation(detections=((), ()), poses=(), regions=((), ()))
 

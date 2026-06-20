@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def _util_python_files() -> list[Path]:
-    util_dir = Path(__file__).parent.parent / "util"
+    util_dir = Path(__file__).parent.parent / "sources"
     return list(util_dir.rglob("*.py"))
 
 
@@ -27,7 +27,7 @@ def _imports_demo(source: str) -> list[str]:
 
 def test_util_has_no_demo_imports() -> None:
     files = _util_python_files()
-    assert files, "Expected at least one .py file under ml/util/"
+    assert files, "Expected at least one .py file under ml/sources/"
 
     all_violations: dict[str, list[str]] = {}
     for path in files:
@@ -36,6 +36,6 @@ def test_util_has_no_demo_imports() -> None:
         if hits:
             all_violations[str(path)] = hits
 
-    assert not all_violations, "ml/util/ must not import from demo/. Found:\n" + "\n".join(
+    assert not all_violations, "ml/sources/ must not import from demo/. Found:\n" + "\n".join(
         f"  {f}: {vs}" for f, vs in all_violations.items()
     )

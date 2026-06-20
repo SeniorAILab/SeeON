@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> None:
     # pythonpath=["."]] in pyproject.toml covers pytest; this covers __main__.
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-    from core.classifiers import ClassifierParams
+    from demo.classifiers import ClassifierParams
     from demo.demo_ui import build_model
     from sources import VideoFileSource
 
