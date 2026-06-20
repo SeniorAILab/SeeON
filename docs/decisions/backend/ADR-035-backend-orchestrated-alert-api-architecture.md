@@ -24,6 +24,8 @@ Use a backend-orchestrated production alert flow:
 3. `POST /api.alerts/events` remains a separate trusted pilot/edge ingress, guarded by `x-alert-api-key` and payload-level `external_event_id`.
 
 Supersession note: ADR-047 supersedes this separate `/api.alerts/events` ingress clause. `/ingest/alerts` is the only live backend alert ingress; this ADR remains active for backend-owned alert policy, idempotency, persistence, and dispatch ownership.
+
+Route note: the ML serving prediction route is now `POST /debug/predict/window` (ADR-048, ml/ edge-device relayout issue #268); the bare `/predict` references throughout this ADR are historical naming for that same model-signal contract. The backend prediction seam stays dormant on the edge-push topology (ADR-029).
 4. Duplicate `(source_id, external_event_id)` requests return existing backend state and must not create a second delivery attempt or send a second Kakao message.
 
 ## Alternatives Considered
