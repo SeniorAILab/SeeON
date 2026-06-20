@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""SICHIMI 기술 문서 구조 검증기.
+"""Eldercare Fall AI 기술 문서 구조 검증기.
 
-technical-report.yaml 의 document depth(섹션 0~7 → ## 헤딩)를 진리로 삼아,
+technical-report.yaml 의 document depth(섹션 00~50 → ## 헤딩)를 진리로 삼아,
 secondbrain/book/ 의 실제 마크다운 헤딩 구조를 파싱해 대조한다.
 헤딩이 진짜 코드로 강제되는 게이트다 — 누락/추가/순서뒤바뀜/빈 헤딩이면 실패(exit 1).
 
@@ -127,7 +127,7 @@ def validate(book_dir: Path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="SICHIMI 기술 문서 헤딩 구조 검증기")
+    ap = argparse.ArgumentParser(description="Eldercare Fall AI 기술 문서 헤딩 구조 검증기")
     ap.add_argument("--book", type=Path, default=None, help="secondbrain/book 디렉토리")
     ap.add_argument("--json", action="store_true", help="JSON 출력")
     args = ap.parse_args()
