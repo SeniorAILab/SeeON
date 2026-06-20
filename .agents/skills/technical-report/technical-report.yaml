@@ -237,4 +237,3 @@ background:
     - 엣지 디바이스 사이징 — 병원당 단일 박스(다중 RTSP 배치추론) vs 구역별 디바이스. 카메라 수에 따른 선택.
     - 멀티사이트 전송 — 표준은 MQTT(TLS, QoS1) 브로커. 현행은 HMAC POST. 사이트 수 증가 시 재검토.
     - VMS 레이어(Milestone/Genetec) + 엣지 로컬 영상 저장 — 현재 없음. 실서비스 진입 시 갭.
-    - 이벤트 idempotency key(예: sha256(camera_id+ts+type)) — 재시도 dedup용. 표준이나 현재 미구현.
