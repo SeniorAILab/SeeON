@@ -46,7 +46,7 @@ export function buildKakaoMessage(
 export const kakaoService = {
   /** 실제 API 연동 시 이 함수 내부만 fetch 로 교체 */
   async send(message: KakaoMessage): Promise<KakaoSendResult> {
-    // eslint-disable-next-line no-console
+     
     console.info("[Kakao mock] 발송", message);
     return delay({
       ok: true,
