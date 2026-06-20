@@ -148,8 +148,9 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
 **Do NOT:**
 
 - Classify falls **in-process** inside the demo as a shortcut. The fall-decision
-  signal (`fall_probability`) must come from the real **ml-serving `/predict`**
-  service — the same inference path production uses — not a bypass that skips it.
+  signal (`fall_probability`) must come from the real **ml-serving
+  `/debug/predict/window`** service through `serving.client.ServingFallClassifier`
+  — the same inference path production uses — not a bypass that skips it.
 - Emit alerts through anything but the real `AlertClient` → `POST /ingest/alerts`
   path (HMAC-signed). No hardcoded recipients, no REST-key direct send, no
   fabricated probability (the live fan-out path is owned by
@@ -159,8 +160,9 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
   **fails loudly** — it does not quietly degrade to a fake path.
 
 **Allowed (not a bypass):** pose extraction stays **edge-local** in the demo —
-it feeds the overlay and forms the `[T][51]` window sent to `/predict`. That is
-the edge half of ADR-029 (pose+classify both on the edge device), not a shortcut.
+it feeds the overlay and forms the `[T][51]` window sent to
+`/debug/predict/window`. That is the edge half of ADR-029 (pose+classify both on
+the edge device), not a shortcut.
 What must never be bypassed is the **classification decision** and the **emit
 path**. The demo surface may differ from `front/`
 ([ADR-024](../decisions/common/ADR-024-ml-demo-product-surface-boundary.md)); the

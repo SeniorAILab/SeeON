@@ -83,12 +83,13 @@ def build_temporal_model(
     pose_module: ModelModule,
     threshold_override: float | None = None,
 ) -> TemporalFallClassifierModule:
-    """Load a trained temporal model and wrap it in a TemporalFallClassifierModule.
+    """Build a temporal demo classifier backed by real serving HTTP.
 
-    Model classes are imported lazily (``catalog.load_model_class``) so that
-    importing this module at the top of app.py / classifiers.py does not pull
-    in torch or sklearn. ``threshold_override``, when given, replaces the
-    artifact's LE2I ``operating_threshold`` (demo threshold slider).
+    Model artifacts still provide window/stride/threshold metadata, but the
+    classifier object is `ServingFallClassifier`; it posts `[W][51]` windows to
+    ml-serving instead of loading an in-process model. ``threshold_override``,
+    when given, replaces the artifact's LE2I ``operating_threshold`` (demo
+    threshold slider).
 
     Raises
     ------
@@ -115,25 +116,20 @@ def build_temporal_model(
     # serving's configured model — the demo only needs them to buffer correctly.
     meta = load_metadata(adir)
 
-    # === 단계 3: 모델 — serving /predict (단일 경로) 또는 in-process ===
-    # ADR-029 / streamlit-demo §8: when FALL_SERVING_URL is set the fall decision
-    # runs through the real serving service; the raw [W][51] window is emitted
-    # (mode="sequence") and serving owns feature extraction + the decision.
-    # ponytail: the env gate is deployment config, not an if-demo branch — the
-    # demo runbook sets FALL_SERVING_URL and the path is serving-only, fail-loud.
+    # === 단계 3: 모델 — serving HTTP only ===
+    # ADR-029 / streamlit-demo §8: the fall decision runs through the real
+    # serving service. The demo emits the raw [W][51] window (mode="sequence");
+    # serving owns feature extraction + the decision.
     from core.serving_client import ServingFallClassifier, serving_url_from_env
 
     serving_url = serving_url_from_env()
-    if serving_url is not None:
-        model: object = ServingFallClassifier(serving_url)
-        mode = "sequence"
-    else:
-        # Lazy import — avoids torch/sklearn at module level. ``load`` reconstructs
-        # HP-varied torch architectures from the arch.json sidecar when present.
-        from training.models.catalog import load_model_class
-
-        model = load_model_class(artifact_key).load(adir)
-        mode = _KEY_TO_MODE[key]
+    if serving_url is None:
+        raise RuntimeError(
+            "FALL_SERVING_URL is required for temporal demo classification; "
+            "the demo must use serving.client.ServingFallClassifier, not an in-process fallback"
+        )
+    model: object = ServingFallClassifier(serving_url)
+    mode = "sequence"
 
     # === 단계 4: TemporalFallClassifierModule로 래핑 후 반환 ===
     return TemporalFallClassifierModule(
