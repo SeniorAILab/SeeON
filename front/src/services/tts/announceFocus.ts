@@ -17,7 +17,7 @@ export async function announceFocusResidents(items: FocusAnnounceItem[]) {
   }
   // 순차 재생
   for (const line of lines) {
-    // eslint-disable-next-line no-await-in-loop
+     
     await playTTS(line);
   }
 }
