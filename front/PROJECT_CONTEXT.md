@@ -36,11 +36,11 @@
 - 폰트: Pretendard(CDN). 테마: CSS 변수 기반 라이트/다크.
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run build      # tsc -b && vite build  (현재 빌드 통과, gzip ~121kB)
-npm run typecheck  # tsc -b
-npm run gen:tts    # TTS mp3 사전 생성 (키 없으면 mock)
+pnpm install        # repo root에서 실행
+pnpm --filter front dev        # http://localhost:3000
+pnpm --filter front build      # tsc -b && vite build  (현재 빌드 통과, gzip ~121kB)
+pnpm --filter front typecheck  # tsc -b
+pnpm --filter front gen:tts    # TTS mp3 사전 생성 (키 없으면 mock)
 ```
 
 **데모 계정** (비밀번호 전부 `1234`): `super@sen.ai`(통합관리자) · `admin@sen.ai`(시설관리자) · `staff@sen.ai`(케어 직원) · `viewer@sen.ai`(읽기전용). 로그인 후 누구나 **직원 모드(`/now`)** 로 진입, 관리자는 "관리자" 버튼으로 `/admin`.
@@ -248,4 +248,4 @@ Facility 1─* AlertRule    User *─1 Facility
 3. 데이터 접근은 `services/*` 통해서. UI에서 `db.ts` 직접 import 금지(엔진/서비스 제외).
 4. 직원 화면엔 점수·영어·camera ID·모델 설명 노출 금지. 관리자 화면에만 상세 근거.
 5. 문구는 "집중 관찰/더 자주 확인/안전 확인" 사용, "감시/위험 인물/문제 행동/비정상" 금지.
-6. 변경 후 `npm run typecheck`(strict, noUnusedLocals) 통과 확인.
+6. 변경 후 `pnpm --filter front typecheck`(strict, noUnusedLocals) 통과 확인.
