@@ -1,31 +1,36 @@
 {
-  "name": "front",
-  "version": "0.1.0",
+  "name": "senior-ai-lab",
   "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Senior AI Lab - AI 기반 요양원 상태 모니터링 대시보드",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "test": "vitest run"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "gen:tts": "tsx scripts/generate-tts.ts"
   },
   "dependencies": {
-    "next": "16.2.7",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "recharts": "^3.8.1"
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.408.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "recharts": "^2.12.7",
+    "tailwind-merge": "^2.4.0",
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@testing-library/react": "^16.3.2",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.7",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^3"
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.5"
   }
 }
