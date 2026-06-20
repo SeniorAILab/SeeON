@@ -6,9 +6,11 @@ from dataclasses import replace
 import numpy as np
 from numpy.typing import NDArray
 
+from contracts.frame import Frame, FrameSource
+from contracts.model import ModelModule
+from contracts.observation import BoundingBox, FrameObservation
 from core.bed_detector import BedDetector
 from core.bed_exit import BedExitMonitor
-from core.contract import BoundingBox, Frame, FrameObservation, FrameSource, ModelModule
 from core.events import BedExitLatch, DetectionLossMonitor, FallEventLatch, render_due
 from core.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.yolo_overlay import render_yolo_overlay
