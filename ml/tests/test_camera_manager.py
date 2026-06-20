@@ -148,3 +148,47 @@ def test_camera_manager_source_failure_marks_degraded_without_crashing() -> None
         for event in status_store.ops_events()
     ]
     assert ops_summary == [("camera.offline", "cam-a", "facility-1", "OSError")]
+
+class _RaisingRunner:
+    """A runner whose per-frame inference always fails."""
+
+    def predict_full(self, image: np.ndarray) -> object:
+        raise RuntimeError("runner exploded")
+
+
+def test_per_frame_processing_failure_is_not_reported_as_camera_offline() -> None:
+    # A runner/detector exception is a PROCESSING fault, not a source fault: it must
+    # surface as a distinct ops event and must NOT be misclassified as camera.offline,
+    # and the worker must keep processing subsequent frames.
+    status_store = StatusStore()
+    sink = FakeSink()
+    manager = CameraManager(
+        status_store=status_store,
+        incident_manager=IncidentManager(),
+        event_sink=sink,
+        cameras=(
+            CameraConfig(
+                camera_id="cam-a",
+                facility_id="facility-1",
+                frame_source=FakeSource(10, frame_count=2),
+                runners={"pose": _RaisingRunner()},
+                domain_detectors=(FakeDetector(),),
+                scheduler=Scheduler({"pose": 1}),
+            ),
+        ),
+    )
+
+    # Both frames are attempted (worker did not die on the first failure).
+    assert manager.run(max_frames_per_camera=2) == {"cam-a": 2}
+
+    # The source is healthy, so the camera stays READY (NOT degraded/offline).
+    status = status_store.get_status("cam-a")
+    assert status is not None
+    assert status.status == CameraStatus.READY
+
+    ops_types = [event.event_type for event in status_store.ops_events()]
+    # Distinct processing-error evidence, and never camera.offline.
+    assert ops_types == ["frame.processing_error", "frame.processing_error"]
+    assert "camera.offline" not in ops_types
+    # No event reached the sink because processing never completed.
+    assert sink.events == []

@@ -43,22 +43,45 @@ class CameraWorker:
     def run(self, *, max_frames: int | None = None) -> int:
         processed = 0
         self.status_store.set_status(self.camera_id, self.facility_id, CameraStatus.STARTING)
+        # Source construction is the camera/source boundary: failure soft-degrades.
         try:
             frame_iter = iter(self.frame_source)
-            self.status_store.set_status(self.camera_id, self.facility_id, CameraStatus.READY)
-            while max_frames is None or processed < max_frames:
-                try:
-                    frame = next(frame_iter)
-                except StopIteration:
-                    break
-                except Exception as exc:  # noqa: BLE001 - source boundary soft-degrades worker
-                    self._mark_source_failure(exc)
-                    continue
-                self.process_frame(frame)
-                processed += 1
-        except Exception as exc:  # noqa: BLE001 - source construction/iteration is external
+        except Exception as exc:  # noqa: BLE001 - source construction soft-degrades worker
             self._mark_source_failure(exc)
+            return processed
+        self.status_store.set_status(self.camera_id, self.facility_id, CameraStatus.READY)
+        while max_frames is None or processed < max_frames:
+            try:
+                frame = next(frame_iter)
+            except StopIteration:
+                break
+            except Exception as exc:  # noqa: BLE001 - source iteration soft-degrades worker
+                self._mark_source_failure(exc)
+                continue
+            # Per-frame processing (runners/perception/domains/incident/sink) is a
+            # distinct failure domain: it MUST NOT be misreported as camera.offline.
+            try:
+                self.process_frame(frame)
+            except Exception as exc:  # noqa: BLE001 - processing error is distinct from source failure
+                self._mark_processing_failure(exc)
+            processed += 1
         return processed
+
+    def _mark_processing_failure(self, exc: Exception) -> None:
+        """Record a per-frame processing failure WITHOUT marking the camera offline.
+
+        Runner/perception/domain/incident/sink errors are processing-domain faults,
+        not source faults; they surface as a distinct ops event preserving the true
+        failure category while the camera/source stays READY.
+        """
+        category = exc.__class__.__name__
+        self.status_store.record_ops_event(
+            "frame.processing_error",
+            self.camera_id,
+            self.facility_id,
+            category,
+            detail=str(exc) or None,
+        )
 
     def process_frame(self, frame: Frame) -> FrameObservation:
         outputs = self._run_scheduled_runners(frame)
