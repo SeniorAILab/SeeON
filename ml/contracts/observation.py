@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
+# NOTE: DetectionResult remains the Slice 5a compatibility shim for existing
+# consumers. It is superseded by FrameObservation, consumers migrate in Slice 5b,
+# and the shim is removed in Slice 11.
 FALL_LABEL_TEXT: Final = "FALL"
 NORMAL_LABEL_TEXT: Final = "NORMAL"
 
@@ -27,6 +30,10 @@ class DetectionLabel:
     is_fall: bool
 
 
+Detections = tuple[tuple[BoundingBox, ...], tuple[DetectionLabel, ...]]
+Regions = tuple[tuple[BoundingBox, ...], tuple[object, ...]]
+
+
 @dataclass(frozen=True, slots=True)
 class DetectionResult:
     boxes: tuple[BoundingBox, ...] = field(default_factory=tuple)
@@ -37,3 +44,36 @@ class DetectionResult:
     # cached once and carried per-frame so the per-frame path stays a single pose pass.
     bed_boxes: tuple[BoundingBox, ...] = field(default_factory=tuple)
     bed_exit_statuses: tuple[object, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
+class FrameObservation:
+    """Per-frame perception observation in ADR-057 shape.
+
+    detections: (boxes, labels)
+    poses: per-person COCO-17 keypoints
+    regions: (bed_boxes, bed_exit_statuses)
+    """
+
+    detections: Detections = field(default_factory=lambda: ((), ()))
+    poses: tuple[tuple[tuple[int, int, float], ...], ...] = field(default_factory=tuple)
+    regions: Regions = field(default_factory=lambda: ((), ()))
+
+    @classmethod
+    def from_detection_result(cls, result: DetectionResult) -> FrameObservation:
+        return cls(
+            detections=(result.boxes, result.labels),
+            poses=result.keypoints,
+            regions=(result.bed_boxes, result.bed_exit_statuses),
+        )
+
+    def to_detection_result(self) -> DetectionResult:
+        boxes, labels = self.detections
+        bed_boxes, bed_exit_statuses = self.regions
+        return DetectionResult(
+            boxes=boxes,
+            labels=labels,
+            keypoints=self.poses,
+            bed_boxes=bed_boxes,
+            bed_exit_statuses=bed_exit_statuses,
+        )

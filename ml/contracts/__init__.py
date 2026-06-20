@@ -7,6 +7,7 @@ from contracts.observation import (
     BoundingBox,
     DetectionLabel,
     DetectionResult,
+    FrameObservation,
 )
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "BoundingBox",
     "DetectionLabel",
     "DetectionResult",
+    "FrameObservation",
     "ModelModule",
     "FALL_LABEL_TEXT",
     "NORMAL_LABEL_TEXT",
