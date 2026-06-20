@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Extends ADR-023 by fixing the concrete `/debug/predict/window` request/response contract and retaining backend product-policy ownership. `/predict` is a temporary compatibility alias only.
+Accepted. Extends ADR-023 by fixing the concrete `/debug/predict/window` request/response contract and retaining backend product-policy ownership. The bare `/predict` route was removed in the ml/ edge-device relayout (issue #268); `/debug/predict/window` is the canonical route (`/debug/predict/source` covers bounded source/upload debug mode).
 
 ## Date
 
