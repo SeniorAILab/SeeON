@@ -1,0 +1,5 @@
+swagger-ui-dist@5.32.6
+source: https://cdn.jsdelivr.net/npm/swagger-ui-dist@5
+files vendored for offline/self-hosted FastAPI /docs (see serving/main.py)
+swagger-ui-bundle.js  1526593 bytes  sha256=4b5a9b35a1adf37f00d39c0bae23cdb37007e2946240ef035137cc85b4d55349
+swagger-ui.css  178977 bytes  sha256=ca238f7d7c2cf4480c1e77a9c3b9da915ab216e96ffd354e69076560c650c6de
