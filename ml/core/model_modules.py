@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Final
 
+from contracts.artifacts import WEIGHTS_DIR, pose_weight_filename, pose_weight_path  # noqa: F401
 from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
 from core.yolo_runtime import YoloPoseRunner
 
@@ -18,34 +18,7 @@ POSE_MODEL_SIZE_LABELS: Final[dict[str, str]] = {
     "x": "xlarge / 고성능 GPU (정밀 분석용)",
 }
 
-# Upstream pose weights are an ephemeral, re-downloadable cache — distinct from
-# curated comparison checkpoints under ml/models/fall/pretrained/. They live
-# under ml/models/pose/ so Ultralytics neither pollutes the project root nor the
-# fall model tree. Metadata for the pose cache lives at ml/models/pose/metadata.json.
-# See ADR-015.
-WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "pose"
-
-
-def pose_weight_filename(size: str) -> str:
-    """Map a YOLO26-pose size letter to its weight filename (model-contract swap).
-
-    The single one-line weight swap that makes the model size selectable.
-    """
-    if size not in POSE_MODEL_SIZES:
-        raise ValueError(f"Unknown YOLO26-pose size {size!r}; expected one of {POSE_MODEL_SIZES}")
-    return f"yolo26{size}-pose.pt"
-
-
-def pose_weight_path(size: str) -> Path:
-    """Resolve a pose-size letter to its weight path under the ml/models/pose/ cache.
-
-    Keeps ``pose_weight_filename`` a pure identity (its own contract) and layers
-    the cache location on top, so the download/load target is ml/models/pose/ rather
-    than the current working directory.
-    """
-    return WEIGHTS_DIR / pose_weight_filename(size)
-
-
+# Pose weight path helpers are delegated to contracts.artifacts (ADR-015).
 class YoloPoseModule:
     """Pose ModelModule wrapping YoloPoseRunner. Emits {boxes, keypoints}.
 
