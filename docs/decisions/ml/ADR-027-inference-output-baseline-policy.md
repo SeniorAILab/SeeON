@@ -57,6 +57,7 @@ Rejected. Fake adapters paint model state that did not come from a model. That v
 - Rendering remains decoupled from model implementation.
 - Real baselines remain available for comparison and regression evidence.
 - Fake/fabricated outputs stay excluded from truthful ML demos.
+- Serving readiness now reflects eager model warmup: model-load failure records `model.load_failed` and makes `/health/ready` not-ready instead of silently substituting a fake classifier.
 
 **Negative / trade-offs:**
 

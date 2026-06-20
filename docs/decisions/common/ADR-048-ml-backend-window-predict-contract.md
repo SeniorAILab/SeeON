@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Extends ADR-023 by fixing the concrete `/predict` request/response contract and retaining backend product-policy ownership.
+Accepted. Extends ADR-023 by fixing the concrete `/debug/predict/window` request/response contract and retaining backend product-policy ownership. `/predict` is a temporary compatibility alias only.
 
 ## Date
 
@@ -18,7 +18,7 @@ The retained backend prediction seam owner is D2-O1: `AlertsModule`, `prediction
 
 ## Decision
 
-The backend sends a pose window to ML serving `POST /predict`; ML returns model prediction fields; backend applies product policy.
+The backend sends a pose window to ML serving `POST /debug/predict/window`; ML returns model prediction fields; backend applies product policy. The window payload and response contract are unchanged from the original `/predict` route.
 
 Request contract:
 
