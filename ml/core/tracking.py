@@ -9,33 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from core.contract import BoundingBox
-
-
-def iou(a: BoundingBox, b: BoundingBox) -> float:
-    """Intersection-over-union for two axis-aligned bounding boxes.
-
-    Returns 0.0 when the boxes do not overlap or when either box has zero area.
-    """
-    inter_x1 = max(a.x1, b.x1)
-    inter_y1 = max(a.y1, b.y1)
-    inter_x2 = min(a.x2, b.x2)
-    inter_y2 = min(a.y2, b.y2)
-
-    inter_w = max(0, inter_x2 - inter_x1)
-    inter_h = max(0, inter_y2 - inter_y1)
-    inter_area = inter_w * inter_h
-
-    if inter_area == 0:
-        return 0.0
-
-    area_a = (a.x2 - a.x1) * (a.y2 - a.y1)
-    area_b = (b.x2 - b.x1) * (b.y2 - b.y1)
-    union_area = area_a + area_b - inter_area
-
-    if union_area <= 0:
-        return 0.0
-
-    return inter_area / union_area
+from features.geometry import greedy_match, iou  # noqa: F401
 
 
 @dataclass
@@ -72,48 +46,27 @@ class GreedyIouTracker:
         return frozenset(t.track_id for t in self._tracks)
 
     def update(self, boxes: tuple[BoundingBox, ...]) -> tuple[int, ...]:
-        """Associate *boxes* with live tracks; return one track id per box (index-aligned).
-
-        Parameters
-        ----------
-        boxes:
-            Bounding boxes detected this frame.  May be an empty tuple.
-
-        Returns
-        -------
-        tuple[int, ...]
-            Track ids, one per box, in the same order as *boxes*.
-        """
+        """Associate *boxes* with live tracks; return one track id per box (index-aligned)."""
         # Snapshot existing tracks before appending new ones this frame.
         existing = list(self._tracks)
+        matches = greedy_match(
+            tuple(track.last_box for track in existing),
+            boxes,
+            self._min_iou,
+        )
 
-        # --- Step 1: compute all (existing_track, new_box) IoU pairs ---
-        pairs: list[tuple[float, int, int]] = []  # (score, track_idx, box_idx)
-        for ti, track in enumerate(existing):
-            for bi, box in enumerate(boxes):
-                score = iou(track.last_box, box)
-                if score > 0.0:
-                    pairs.append((score, ti, bi))
-
-        pairs.sort(key=lambda t: t[0], reverse=True)
-
-        # --- Step 2: greedy matching ---
         matched_track_idxs: set[int] = set()
         matched_box_idxs: set[int] = set()
         box_to_id: dict[int, int] = {}
 
-        for score, ti, bi in pairs:
-            if score < self._min_iou:
-                break
-            if ti in matched_track_idxs or bi in matched_box_idxs:
-                continue
+        for ti, bi in matches:
             matched_track_idxs.add(ti)
             matched_box_idxs.add(bi)
             box_to_id[bi] = existing[ti].track_id
             existing[ti].last_box = boxes[bi]
             existing[ti].misses = 0
 
-        # --- Step 3: fresh ids for unmatched boxes ---
+        # Fresh ids for unmatched boxes.
         new_tracks: list[_Track] = []
         for bi in range(len(boxes)):
             if bi not in matched_box_idxs:
@@ -122,7 +75,7 @@ class GreedyIouTracker:
                 box_to_id[bi] = new_id
                 new_tracks.append(_Track(track_id=new_id, last_box=boxes[bi]))
 
-        # --- Step 4: accumulate misses for unmatched existing tracks; evict if needed ---
+        # Accumulate misses for unmatched existing tracks; evict if needed.
         surviving_existing: list[_Track] = []
         for ti, track in enumerate(existing):
             if ti in matched_track_idxs:
