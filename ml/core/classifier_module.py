@@ -5,8 +5,8 @@ from core.contract import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     DetectionLabel,
-    DetectionResult,
     Frame,
+    FrameObservation,
     ModelModule,
 )
 from core.features import extract_frame_features
@@ -28,15 +28,13 @@ class FallClassifierModule:
         self._pose_module = pose_module
         self._classifier = classifier
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         pose_result = self._pose_module.predict(frame)
 
         if not pose_result.boxes:
             return pose_result
 
-        features = extract_frame_features(
-            pose_result, frame.image.shape[0], frame.image.shape[1]
-        )
+        features = extract_frame_features(pose_result, frame.image.shape[0], frame.image.shape[1])
         classification = self._classifier.update(features, frame.time_sec)
 
         # Index of the largest-area box (primary person)
@@ -59,8 +57,8 @@ class FallClassifierModule:
             for i in range(len(pose_result.boxes))
         )
 
-        return DetectionResult(
-            boxes=pose_result.boxes,
-            labels=labels,
-            keypoints=pose_result.keypoints,
+        return FrameObservation(
+            detections=(pose_result.boxes, labels),
+            poses=pose_result.keypoints,
+            regions=(pose_result.bed_boxes, pose_result.bed_exit_statuses),
         )

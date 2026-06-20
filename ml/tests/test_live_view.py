@@ -5,7 +5,7 @@ from collections.abc import Iterator
 import numpy as np
 
 from core.bed_exit import BedExitEvent
-from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
 from core.playback_status import CurrentPlaybackStatus
 from demo.live_view import BedExitLatch, FallEventLatch, iter_live_frames, render_due
 
@@ -25,12 +25,12 @@ class _FakeSource:
 
 
 class _ScriptedModel:
-    """Returns a scripted DetectionResult per frame; fall fires on ``fall_at``."""
+    """Returns a scripted FrameObservation per frame; fall fires on ``fall_at``."""
 
     def __init__(self, fall_at: int) -> None:
         self._fall_at = fall_at
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         is_fall = frame.index == self._fall_at
         box = BoundingBox(x1=2, y1=2, x2=10, y2=10, confidence=0.9)
         label = DetectionLabel(
@@ -39,7 +39,7 @@ class _ScriptedModel:
             is_fall=is_fall,
         )
         pose = ((3, 3, 0.9),) * 17
-        return DetectionResult(boxes=(box,), labels=(label,), keypoints=(pose,))
+        return FrameObservation(detections=((box,), (label,)), poses=(pose,), regions=((), ()))
 
 
 class _BedDetector:
@@ -48,7 +48,6 @@ class _BedDetector:
 
     def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
         return self.detect(frames[0]) if frames else ()
-
 
 
 class _TwoBedDetector:
@@ -76,10 +75,8 @@ class _RedetectingBedDetector:
         return (BoundingBox(x1=12, y1=0, x2=24, y2=12, confidence=0.9),)
 
 
-
-
 class _BedExitScriptedModel:
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         boxes = (
             BoundingBox(x1=2, y1=2, x2=10, y2=10, confidence=0.9),
             BoundingBox(x1=2, y1=2, x2=10, y2=10, confidence=0.9),
@@ -92,7 +89,7 @@ class _BedExitScriptedModel:
         box = boxes[frame.index]
         label = DetectionLabel(text="person", confidence=0.4, is_fall=False)
         pose = ((3, 3, 0.9),) * 17
-        return DetectionResult(boxes=(box,), labels=(label,), keypoints=(pose,))
+        return FrameObservation(detections=((box,), (label,)), poses=(pose,), regions=((), ()))
 
 
 def test_iter_live_frames_yields_one_item_per_source_frame_in_order() -> None:
@@ -177,6 +174,7 @@ def test_iter_live_frames_seeds_beds_from_frame_union_then_redetects_periodicall
     assert detector.union_frame_indexes == [(0, 1)]
     assert detector.detect_frame_indexes == [2, 4]
     assert [status.bed_count for _overlay, status, _conf in items] == [1, 1, 1, 1, 1]
+
 
 def test_current_playback_status_bed_count_defaults_to_zero() -> None:
     status = CurrentPlaybackStatus(

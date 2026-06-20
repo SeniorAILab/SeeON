@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
 from demo.live_bench import measure_pipeline
 
 # ---------------------------------------------------------------------------
@@ -29,12 +29,12 @@ class _FakeSource:
 
 
 class _FakeModel:
-    """Returns a minimal DetectionResult for every frame; no real inference."""
+    """Returns a minimal FrameObservation for every frame; no real inference."""
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         box = BoundingBox(x1=0, y1=0, x2=8, y2=8, confidence=0.5)
         label = DetectionLabel(text="person", confidence=0.5, is_fall=False)
-        return DetectionResult(boxes=(box,), labels=(label,), keypoints=())
+        return FrameObservation(detections=((box,), (label,)), poses=(), regions=((), ()))
 
 
 # ---------------------------------------------------------------------------

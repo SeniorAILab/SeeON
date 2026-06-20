@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.contract import BoundingBox, DetectionLabel, DetectionResult
+from core.contract import BoundingBox, DetectionLabel, FrameObservation
 from demo.yolo_overlay import render_yolo_overlay
 
 # ---------------------------------------------------------------------------
@@ -20,7 +20,7 @@ def test_draws_lower_body_pose_segments_when_keypoints_are_visible() -> None:
     pose[13] = (32, 62, 0.95)
     pose[15] = (32, 80, 0.95)
 
-    result = DetectionResult(keypoints=(tuple(pose),))
+    result = FrameObservation(detections=((), ()), poses=(tuple(pose),), regions=((), ()))
     overlay = render_yolo_overlay(frame=frame, result=result)
 
     assert np.count_nonzero(overlay[62:80, 32]) > 0
@@ -35,7 +35,9 @@ def test_draws_each_detected_person_pose() -> None:
     second_pose[6] = (96, 20, 0.95)
     second_pose[8] = (96, 38, 0.95)
 
-    result = DetectionResult(keypoints=(tuple(first_pose), tuple(second_pose)))
+    result = FrameObservation(
+        detections=((), ()), poses=(tuple(first_pose), tuple(second_pose)), regions=((), ())
+    )
     overlay = render_yolo_overlay(frame=frame, result=result)
 
     assert np.count_nonzero(overlay[20:38, 20]) > 0
@@ -48,7 +50,7 @@ def test_draws_low_confidence_pose_segments_for_low_resolution_fall_frames() -> 
     pose[11] = (32, 44, 0.22)
     pose[13] = (32, 62, 0.22)
 
-    result = DetectionResult(keypoints=(tuple(pose),))
+    result = FrameObservation(detections=((), ()), poses=(tuple(pose),), regions=((), ()))
     overlay = render_yolo_overlay(frame=frame, result=result)
 
     assert np.count_nonzero(overlay[44:62, 32]) > 0
@@ -126,10 +128,13 @@ def test_show_boxes_and_show_pose_toggle_independently() -> None:
     pose = _empty_pose()
     pose[5] = (20, 20, 0.95)
     pose[7] = (20, 38, 0.95)
-    result = DetectionResult(
-        boxes=(BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
-        labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
-        keypoints=(tuple(pose),),
+    result = FrameObservation(
+        detections=(
+            (BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
+            (DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+        ),
+        poses=(tuple(pose),),
+        regions=((), ()),
     )
 
     both_off = render_yolo_overlay(frame=frame, result=result, show_boxes=False, show_pose=False)
@@ -151,14 +156,14 @@ def test_show_boxes_and_show_pose_toggle_independently() -> None:
 
 
 def test_render_yolo_overlay_accepts_detection_result() -> None:
-    """render_yolo_overlay signature must accept DetectionResult (contract type)."""
+    """render_yolo_overlay signature must accept FrameObservation (contract type)."""
     import inspect
 
     from demo.yolo_overlay import render_yolo_overlay as fn
 
     sig = inspect.signature(fn)
     assert "result" in sig.parameters, (
-        "render_yolo_overlay must have a 'result: DetectionResult' parameter"
+        "render_yolo_overlay must have a 'result: FrameObservation' parameter"
     )
 
 
@@ -167,10 +172,14 @@ def test_render_yolo_overlay_accepts_detection_result() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _result_with_box(label: str, is_fall: bool) -> DetectionResult:
-    return DetectionResult(
-        boxes=(BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
-        labels=(DetectionLabel(text=label, confidence=0.9, is_fall=is_fall),),
+def _result_with_box(label: str, is_fall: bool) -> FrameObservation:
+    return FrameObservation(
+        detections=(
+            (BoundingBox(x1=12, y1=12, x2=64, y2=64, confidence=0.9),),
+            (DetectionLabel(text=label, confidence=0.9, is_fall=is_fall),),
+        ),
+        poses=(),
+        regions=((), ()),
     )
 
 
@@ -189,10 +198,8 @@ def test_render_bed_status_draws_mask_polygon_not_just_bbox() -> None:
     polygon = ((10, 60), (60, 10), (110, 60))
     bed = BoundingBox(x1=10, y1=10, x2=110, y2=60, confidence=0.9, polygon=polygon)
     status = BedStatus(bed_id=0, box=bed, occupancy="empty")
-    result = DetectionResult(bed_exit_statuses=(status,))
+    result = FrameObservation(detections=((), ()), poses=(), regions=((), (status,)))
 
-    overlay = render_yolo_overlay(
-        frame=frame, result=result, show_boxes=True, show_pose=False
-    )
+    overlay = render_yolo_overlay(frame=frame, result=result, show_boxes=True, show_pose=False)
 
     assert np.count_nonzero(overlay[34:37, 34:37]) > 0

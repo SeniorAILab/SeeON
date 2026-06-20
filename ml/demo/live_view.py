@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 
 from core.bed_detector import BedDetector
 from core.bed_exit import BedExitMonitor
-from core.contract import BoundingBox, Frame, FrameSource, ModelModule
+from core.contract import BoundingBox, Frame, FrameObservation, FrameSource, ModelModule
 from core.events import BedExitLatch, DetectionLossMonitor, FallEventLatch, render_due
 from core.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.yolo_overlay import render_yolo_overlay
@@ -23,7 +23,6 @@ __all__ = [
 
 BED_SEED_FRAME_COUNT = 8
 BED_REDETECT_INTERVAL_FRAMES = 30
-
 
 
 def iter_live_frames(
@@ -46,7 +45,7 @@ def iter_live_frames(
     It has **no Streamlit, no ``cv2.VideoCapture``, and no ultralytics import**:
     frame intake is the injected ``source`` (any ``FrameSource``) and inference
     is the injected ``model`` (any ``ModelModule``). That keeps it unit-testable
-    with fakes — drive it with a scripted ``DetectionResult`` to assert ordering
+    with fakes — drive it with a scripted ``FrameObservation`` to assert ordering
     and fall-state propagation without a real model or UI.
 
     ``confidence`` is the strongest label confidence on the frame (the primary
@@ -83,10 +82,10 @@ def iter_live_frames(
             bed_boxes=current_bed_boxes,
             person_boxes=result.boxes,
         )
-        result = replace(
-            result,
-            bed_boxes=current_bed_boxes,
-            bed_exit_statuses=bed_exit_frame.statuses,
+        result = FrameObservation(
+            detections=result.detections,
+            poses=result.poses,
+            regions=(current_bed_boxes, bed_exit_frame.statuses),
         )
         overlay = render_yolo_overlay(
             frame=frame.image,

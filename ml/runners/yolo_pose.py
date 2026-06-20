@@ -34,7 +34,7 @@ class YoloPoseRunner:
         """Return (pose_detections, person_boxes) where each box is (x1,y1,x2,y2,conf).
 
         Runs the model once and extracts both keypoints and bounding boxes so
-        callers can populate a full DetectionResult without a second inference.
+        callers can populate a full FrameObservation without a second inference.
         """
         results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
         r = results[0]

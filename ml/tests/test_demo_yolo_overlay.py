@@ -9,7 +9,7 @@ from core.contract import (
     NORMAL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
-    DetectionResult,
+    FrameObservation,
 )
 from demo.yolo_overlay import render_yolo_overlay
 
@@ -22,10 +22,10 @@ def _blank_frame(width: int = 320, height: int = 240) -> np.ndarray:
     return np.zeros((height, width, 3), dtype=np.uint8)
 
 
-def _result_with_label(text: str, is_fall: bool) -> DetectionResult:
+def _result_with_label(text: str, is_fall: bool) -> FrameObservation:
     box = BoundingBox(x1=50, y1=50, x2=150, y2=150, confidence=0.9)
     label = DetectionLabel(text=text, confidence=0.9, is_fall=is_fall)
-    return DetectionResult(boxes=(box,), labels=(label,), keypoints=((),))
+    return FrameObservation(detections=((box,), (label,)), poses=((),), regions=((), ()))
 
 
 # ---------------------------------------------------------------------------
