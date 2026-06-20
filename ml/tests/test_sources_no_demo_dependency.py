@@ -5,8 +5,8 @@ from pathlib import Path
 
 
 def _sources_python_files() -> list[Path]:
-    util_dir = Path(__file__).parent.parent / "sources"
-    return list(util_dir.rglob("*.py"))
+    sources_dir = Path(__file__).parent.parent / "sources"
+    return list(sources_dir.rglob("*.py"))
 
 
 def _imports_demo(source: str) -> list[str]:

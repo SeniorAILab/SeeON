@@ -63,6 +63,12 @@ Nothing else — no new conventions, no registry.
 
 ## Where each file category lives
 
+> Package authority: the 9-package edge-runtime layout below is established by
+> **ADR-056** (frame intake → `sources/`, `Frame`/`FrameSource` contract → `contracts/`)
+> and **ADR-057** (FrameObservation runner contracts, `ModelRegistry`, and the edge
+> package tree + dependency ladder + boot order), both under issue #268; they supersede
+> the retired `ml/core/` + `ml/util/` layout (ADR-006 frame-intake-in-`ml/util/`).
+
 | File category | Home | Committed? | ADR |
 |---------------|------|-----------|-----|
 | Production contracts/protocols | `ml/contracts/` | yes | ADR-057 |
