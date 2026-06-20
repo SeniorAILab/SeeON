@@ -88,6 +88,7 @@ class TestThresholdOverridePlumbing:
     ) -> None:
         _build_rf_artifact(tmp_path)
         monkeypatch.setattr("core.temporal_module.artifact_dir", lambda key: tmp_path)
+        monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:9")
         module = build_temporal_model("random_forest", _NullPose(), threshold_override=0.42)
         assert module._operating_threshold == pytest.approx(0.42)
 
@@ -96,6 +97,7 @@ class TestThresholdOverridePlumbing:
     ) -> None:
         _build_rf_artifact(tmp_path)
         monkeypatch.setattr("core.temporal_module.artifact_dir", lambda key: tmp_path)
+        monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:9")
         module = build_temporal_model("random_forest", _NullPose())
         assert module._operating_threshold == pytest.approx(0.5)
 
