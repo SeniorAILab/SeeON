@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from core.classifier_module import FallClassifierModule
-from core.classifiers import ClassifierParams, RuleBasedClassifier
-from core.contract import (
+from contracts import (
     FALL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
@@ -12,6 +10,8 @@ from core.contract import (
     FrameObservation,
     ModelModule,
 )
+from demo.classifier_module import FallClassifierModule
+from demo.classifiers import ClassifierParams, RuleBasedClassifier
 
 
 def _frame(index: int, time_sec: float, h: int = 480, w: int = 640) -> Frame:

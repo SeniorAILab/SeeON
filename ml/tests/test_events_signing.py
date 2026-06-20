@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 
-from core.alert_client import _signature as shim_signature
+from events.publisher import _signature as shim_signature
 from events.schemas import AlertPayload
 from events.signing import _canonical_payload, _derive_hmac_key, _is_iso_timestamp, _signature
 

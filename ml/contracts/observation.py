@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
-# NOTE: DetectionResult remains the Slice 5a compatibility shim for existing
-# consumers. It is superseded by FrameObservation, consumers migrate in Slice 5b,
-# and the shim is removed in Slice 11.
+# DetectionResult is the documented raw-detection interchange type at the
+# runner/observation-builder boundary. FrameObservation is the normalized
+# per-frame contract used by downstream perception, demo, and serving code.
 FALL_LABEL_TEXT: Final = "FALL"
 NORMAL_LABEL_TEXT: Final = "NORMAL"
 

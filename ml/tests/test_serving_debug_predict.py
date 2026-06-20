@@ -35,8 +35,7 @@ def test_debug_predict_window_works() -> None:
     assert response.json()["is_fall"] is True
 
 
-def test_predict_alias_works() -> None:
+def test_predict_alias_removed() -> None:
     response = _client().post("/predict", json={"window": _window()})
 
-    assert response.status_code == 200
-    assert response.json()["fall_probability"] == 0.73
+    assert response.status_code == 404

@@ -12,7 +12,7 @@ Plus `demo/` (Streamlit ML-demo UI) and version-addressed `artifacts/`.
 ```
 ml/
   pyproject.toml          # uv project; serving deps + demo/training groups
-  serving/                # FastAPI online serving (/health, /predict)
+  serving/                # FastAPI online serving (/health, /status, /models, /debug/predict/*)
   training/               # batch training (deferred)
   demo/app.py             # Streamlit demo UI
   artifacts/              # <model-name>/<version>/{model.pt, metadata.json}
@@ -37,7 +37,7 @@ uv run --group demo --group training uvicorn serving.main:app --reload --port 80
 uv run --group demo streamlit run demo/app.py
 ```
 
-`serving.main:/predict` runs the full stored-source pipeline
+`serving.main:/debug/predict/source` runs the full stored-source pipeline
 (FrameSource → YOLO pose → keypoint-window normalizer → random-forest). That
 path requires `opencv-python-headless`, `ultralytics`, `scikit-learn`, and
 `joblib`; missing weights/artifacts fail explicitly rather than falling back.

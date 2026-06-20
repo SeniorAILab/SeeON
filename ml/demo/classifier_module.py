@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from core.classifiers import Classifier
-from core.contract import (
+from contracts import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     DetectionLabel,
@@ -9,7 +8,8 @@ from core.contract import (
     FrameObservation,
     ModelModule,
 )
-from core.features import extract_frame_features
+from demo.classifiers import Classifier
+from perception.frame_features import extract_frame_features
 
 
 class FallClassifierModule:

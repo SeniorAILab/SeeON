@@ -6,16 +6,16 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from core.classifier_module import FallClassifierModule
-from core.classifiers import Classification
-from core.contract import (
+from contracts import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
     FrameObservation,
 )
-from util.frame_source import Frame
+from demo.classifier_module import FallClassifierModule
+from demo.classifiers import Classification
+from sources import Frame
 
 
 def _fake_frame(width: int = 320, height: int = 240) -> Frame:

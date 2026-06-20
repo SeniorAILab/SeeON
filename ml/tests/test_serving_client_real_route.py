@@ -5,7 +5,7 @@ import json
 
 import numpy as np
 
-import core.temporal_module as temporal_module
+import demo.temporal_module as temporal_module
 from serving.client import PREDICT_WINDOW_PATH, ServingFallClassifier
 
 

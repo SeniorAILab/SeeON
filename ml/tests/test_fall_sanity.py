@@ -12,8 +12,8 @@ These tests verify the classifier's temporal logic at a realistic frame rate
 
 from __future__ import annotations
 
-from core.classifiers import ClassifierParams, RuleBasedClassifier
-from core.features import FrameFeatures
+from demo.classifiers import ClassifierParams, RuleBasedClassifier
+from perception.frame_features import FrameFeatures
 
 _FPS = 12.0
 _DT = 1.0 / _FPS

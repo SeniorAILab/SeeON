@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from contracts import BoundingBox, DetectionLabel, Frame, FrameObservation
 from contracts.artifacts import WEIGHTS_DIR, pose_weight_filename, pose_weight_path  # noqa: F401
-from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
 from runners.yolo_pose import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")

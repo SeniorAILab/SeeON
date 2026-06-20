@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.contract import FrameObservation
+from contracts import FrameObservation
 
 # COCO-17 keypoint indices used for torso orientation
 _LEFT_SHOULDER = 5
