@@ -5,7 +5,9 @@ let ctx: AudioContext | null = null;
 
 export function playAlertSound() {
   try {
-    ctx = ctx ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+    // ponytail: dropped webkitAudioContext fallback — unprefixed AudioContext is
+    // supported in all target browsers (Safari ≥14.1, 2021).
+    ctx = ctx ?? new AudioContext();
     const now = ctx.currentTime;
     // 부드러운 2음 알림 (자극적이지 않게)
     [880, 660].forEach((freq, i) => {
