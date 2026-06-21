@@ -14,7 +14,7 @@ Accept: text/event-stream
 Auth:
 
 - `SessionGuard`
-- `RequireOrgGuard`
+- `RequireFacilityGuard`
 - Session cookie auth; frontend does not send bearer tokens.
 
 Headers:
@@ -45,7 +45,7 @@ Heartbeat comments are sent periodically:
 On reconnect:
 
 1. Subscribe to live alert/status streams before replay to avoid a replay/live handoff gap.
-2. Replay org-scoped alerts where `alertSeq > Last-Event-ID` ordered by `alertSeq`.
+2. Replay facility-scoped alerts where `alertSeq > Last-Event-ID` ordered by `alertSeq`.
 3. Emit a full `event: status-snapshot` frame with current resident status.
 4. Flush buffered live alert and status events with `alertSeq` greater than replay high-watermark.
 5. Continue live streaming.
@@ -58,7 +58,7 @@ Alert frames are unnamed SSE events: there is no `event:` line. The SSE `id` is 
 
 ```text
 id: 43
-data: {"alertSeq":"43","id":"alert_cuid","orgId":"org_cuid","residentId":"resident_cuid","cameraId":"camera_cuid","type":"fall","probability":0.97,"snapshotKey":null,"detectedAt":"2026-06-18T12:00:00.000Z","status":"OPEN","resident":null}
+data: {"alertSeq":"43","id":"alert_cuid","facilityId":"facility_cuid","residentId":"resident_cuid","cameraId":"camera_cuid","type":"fall","probability":0.97,"snapshotKey":null,"detectedAt":"2026-06-18T12:00:00.000Z","status":"OPEN","resident":null}
 
 ```
 
@@ -75,7 +75,7 @@ Live status delta emitted after ingest updates resident status.
 ```text
 id: 43
 event: status
-data: {"alertSeq":"43","orgId":"org_cuid","residentId":"resident_cuid","state":"FALL","cameraOnline":true,"lastSeenAt":"2026-06-18T12:00:00.000Z"}
+data: {"alertSeq":"43","facilityId":"facility_cuid","residentId":"resident_cuid","state":"FALL","cameraOnline":true,"lastSeenAt":"2026-06-18T12:00:00.000Z"}
 
 ```
 
@@ -94,7 +94,7 @@ data: [{"residentId":"resident_cuid","state":"NORMAL","cameraOnline":true}]
 
 ```
 
-The exact object shape follows `StatusService.listByOrg` response. It seeds dashboard state before live deltas are applied.
+The exact object shape follows `StatusService.listByFacility` response. It seeds dashboard state before live deltas are applied.
 
 ## `event: session-invalid`
 
