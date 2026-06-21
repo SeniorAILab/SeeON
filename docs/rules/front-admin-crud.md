@@ -1,45 +1,31 @@
 # Rule: Front admin CRUD pages
 
-> Scope: `front/src/app/admin/**` (list+create+edit+delete pages over a REST
-> resource). Every new admin entity page must follow this.
+> **Status: SUPERSEDED (Next.js-era rule).** This rule described the legacy Next.js
+> dashboard: admin pages under `front/src/app/admin/**` built on a shared
+> `front/src/lib/useCrud.ts` hook. The frontend is now **Vite + React** (ADR-055).
+> Admin pages live under `front/src/pages/admin/`, and there is **no `useCrud.ts`** —
+> the Vite front talks to the backend through the typed service layer in
+> `front/src/services/*` (e.g. `adminService.ts`, `residentService.ts`,
+> `zoneService.ts`) via the shared `apiClient.ts` (`request()` wrapper, `VITE_USE_MOCK`).
+> The original Next.js body is recoverable from git history.
 
-A new admin page is **config, not copy-paste**. The list/create/save/delete
-state machine lives once in [`front/src/lib/useCrud.ts`](../../front/src/lib/useCrud.ts);
-pages own only their entity-specific form fields and JSX.
+## Current (Vite) guidance
 
-## 1. Use `useCrud`, never re-roll the state
+Until a canonical Vite admin-CRUD abstraction is introduced, follow the existing
+patterns already in the repo:
 
-`const c = useCrud<Entity>("/api/entities")` gives you `items`, `loading`,
-`error`, `reload`, and the full mutation surface (`create`/`save`/`remove` with
-`creating`/`saving`/`deletingId` flags, `createError`/`editError`/`deleteError`,
-and `editId`/`startEdit`/`cancelEdit`). Do **not** hand-write `useState` +
-`useEffect` + try/catch handlers per page — that is the duplication this hook
-removed (residents/cameras/guardians, #202).
+- **Pages** live in `front/src/pages/admin/` and own their entity-specific form
+  fields and JSX.
+- **Data access** goes through `front/src/services/*` (one service per resource),
+  which wrap `front/src/services/apiClient.ts` `request()`; never call `fetch`
+  ad-hoc from a component.
+- **Casing**: the backend product API (`/api/*`) returns camelCase matching
+  `front/src/types/index.ts` (the domain SSOT) — map at the service boundary, not
+  scattered across components.
+- **Mock vs real**: `apiClient.ts` switches on `VITE_USE_MOCK`; the per-resource
+  mock→real flip (`VITE_USE_MOCK=false`) is tracked as the Front-Based API Frame
+  AC10 follow-up.
 
-- `create(body)` / `save(id, body)` return `Promise<boolean>` (true on success),
-  reload the list, and — for `save` — close the edit form. Reset your local
-  create-form fields in `if (ok) { … }`.
-- `remove(id)` removes the row optimistically (no reload).
-- Korean error fallbacks (`생성/저장/삭제에 실패했습니다`) are built in.
-
-## 2. Pages keep only form-field state
-
-Entity-specific `create*`/`edit*` input values stay as local `useState` in the
-page. `startEdit` sets those fields, then calls `c.startEdit(id)`.
-
-## 3. Co-loaded reference data = a second `useCrud`
-
-Need another list for a dropdown (e.g. residents in the camera/guardian pages)?
-Add a second instance — `const res = useCrud<Resident>("/api/residents")` — and
-combine flags: `const loading = c.loading || res.loading`. Don't reach back to
-`Promise.all` + manual state.
-
-## 4. Behavior-preserving by construction
-
-`useCrud` is covered by a smoke test (`front/src/lib/useCrud.test.ts`). Changes
-to the shared CRUD semantics must keep that green.
-
-> Not yet abstracted: the page chrome (header + admin nav + loading/error
-> blocks) is still duplicated per page. An `<AdminShell>` wrapper was
-> deliberately deferred (#202) — extract it only when a 4th admin page makes the
-> copy cost real.
+> A reusable Vite admin-CRUD hook/convention (the Vite analogue of the retired
+> `useCrud`) is **deferred** until the front mock→real wiring lands; introduce it
+> only when repeated CRUD-page duplication makes the abstraction pay for itself.
