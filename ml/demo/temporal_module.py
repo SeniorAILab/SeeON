@@ -16,7 +16,7 @@ that this module and all callers that only need ``TEMPORAL_MODEL_KEYS`` /
 ``temporal_artifact_available`` remain importable without those heavy deps.
 
 ``normalize_person_keypoints`` is imported lazily inside ``predict`` because
-its module (training.extract_poses) brings in cv2 via core.model_modules —
+its module (training.extract_poses) brings in cv2 via demo.model_modules —
 keeping the cv2 requirement scoped to the hot path rather than import time.
 """
 
@@ -28,7 +28,7 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
-from core.contract import (
+from contracts import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     DetectionLabel,
@@ -36,7 +36,7 @@ from core.contract import (
     FrameObservation,
     ModelModule,
 )
-from core.tracking import GreedyIouTracker
+from perception.tracker import GreedyIouTracker
 from training import config
 from training.data.features import extract_window_features
 from training.metadata import artifact_dir, load_metadata
@@ -120,7 +120,7 @@ def build_temporal_model(
     # ADR-029 / streamlit-demo §8: the fall decision runs through the real
     # serving service. The demo emits the raw [W][51] window (mode="sequence");
     # serving owns feature extraction + the decision.
-    from core.serving_client import ServingFallClassifier, serving_url_from_env
+    from serving.client import ServingFallClassifier, serving_url_from_env
 
     serving_url = serving_url_from_env()
     if serving_url is None:

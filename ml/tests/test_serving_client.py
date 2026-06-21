@@ -7,7 +7,7 @@ from threading import Thread
 import numpy as np
 import pytest
 
-from core.serving_client import ServingFallClassifier, ServingPredictError
+from serving.client import ServingFallClassifier, ServingPredictError
 
 
 class _StubServing(BaseHTTPRequestHandler):

@@ -24,7 +24,12 @@ def ensure_fall_models(target_dir: Path = FALL_MODELS_DIR) -> None:
     try:
         # Lazy import: local operator runs with weights in place never need the hub.
         from huggingface_hub import snapshot_download
-    except ModuleNotFoundError:
-        return
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Fall model artifacts are missing under ml/models/fall/ and huggingface_hub is "
+            "unavailable to fetch them; the demo classifies fall ONLY via served temporal "
+            "models and has no in-process fallback. Install the 'demo' dependency group "
+            "or place artifacts under ml/models/fall/."
+        ) from exc
 
     snapshot_download(repo_id=FALL_MODELS_REPO, local_dir=target_dir)

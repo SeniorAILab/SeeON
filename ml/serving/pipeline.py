@@ -9,11 +9,12 @@ from typing import Protocol
 
 import numpy as np
 
+from contracts import BoundingBox, DetectionLabel, FrameObservation, FrameSource, ModelModule
+from contracts.artifacts import WEIGHTS_DIR, pose_weight_path
 from contracts.model import DEFAULT_FALL_CONFIDENCE_THRESHOLD
-from core.contract import FrameObservation, ModelModule
-from core.model_modules import YoloPoseModule, pose_weight_path
+from runners.yolo_pose import YoloPoseRunner
 from serving.model import FallDetector
-from util.frame_source import FrameSource, VideoFileSource
+from sources import VideoFileSource
 
 DEFAULT_POSE_SIZE = "n"
 DEFAULT_MAX_FRAMES = 120
@@ -24,6 +25,24 @@ DEFAULT_FRAME_STRIDE = 1
 MAX_FRAME_STRIDE = 30
 DEFAULT_TIMEOUT_SEC = 10.0
 MAX_TIMEOUT_SEC = 60.0
+
+
+class YoloPoseModule:
+    def __init__(self, size: str = "n", confidence: float = 0.05) -> None:
+        WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
+        self._runner = YoloPoseRunner(model_path=str(pose_weight_path(size)), confidence=confidence)
+
+    def predict(self, frame) -> FrameObservation:
+        poses, raw_boxes = self._runner.predict_full(frame.image)
+        boxes = tuple(
+            BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
+            for x1, y1, x2, y2, conf in raw_boxes
+        )
+        labels = tuple(
+            DetectionLabel(text="person", confidence=conf, is_fall=False)
+            for _x1, _y1, _x2, _y2, conf in raw_boxes
+        )
+        return FrameObservation(detections=(boxes, labels), poses=poses)
 
 
 class PipelineError(RuntimeError):

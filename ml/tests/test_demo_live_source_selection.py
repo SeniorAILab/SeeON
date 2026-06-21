@@ -4,7 +4,7 @@ from pathlib import Path
 
 from demo.demo_ui import CAMERA_SOURCE_LABEL, LiveSourceOption, build_live_source_options
 from demo.video_registry import RegisteredVideo, VideoSource
-from util.frame_source import CameraSource
+from sources import CameraSource
 
 
 def _video(video_id: str = "uploads/demo.mp4") -> RegisteredVideo:

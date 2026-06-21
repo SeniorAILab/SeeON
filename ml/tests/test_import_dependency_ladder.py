@@ -3,8 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import pytest
-
 ML_ROOT = Path(__file__).resolve().parents[1]
 RANKS = {
     "contracts": 0,
@@ -156,17 +154,13 @@ def test_dependency_ladder_direction() -> None:
     assert not failures, "\n".join(failures)
 
 
-@pytest.mark.xfail(reason="enforced in Slice 11", strict=False)
 def test_no_core_util_after_cleanup() -> None:
     assert not (ML_ROOT / "core").exists()
     assert not (ML_ROOT / "util").exists()
 
     failures: list[tuple[Path, int, str]] = []
     for path in sorted(ML_ROOT.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        relative = path.relative_to(ML_ROOT)
-        if relative.parts[0] in {"tests", "docs"}:
+        if "__pycache__" in path.parts or any(part.startswith(".") for part in path.parts):
             continue
         for line, package in _imports(path):
             if package in CLEANUP_FORBIDDEN:

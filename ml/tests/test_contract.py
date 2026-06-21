@@ -5,14 +5,14 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from core.contract import (
+from contracts import (
     BoundingBox,
     DetectionLabel,
     DetectionResult,
     FrameObservation,
     ModelModule,
 )
-from util.frame_source import Frame, VideoFileSource
+from sources import Frame, VideoFileSource
 
 # ---------------------------------------------------------------------------
 # Helpers

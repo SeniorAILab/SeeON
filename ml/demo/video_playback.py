@@ -59,7 +59,7 @@ def iter_playback_frames(
     start_sec: float,
     frame_stride: int,
 ) -> Iterator[tuple[int, float, NDArray[np.uint8]]]:
-    """Thin tuple adapter over the canonical VideoFileSource read loop (ml/util).
+    """Thin tuple adapter over the canonical VideoFileSource read loop (ml/sources).
 
     Keeps exactly one frame-reading implementation in the codebase; callers that
     want (index, time, rgb) tuples instead of Frame objects stay unchanged.

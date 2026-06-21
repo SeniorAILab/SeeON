@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from core.bed_exit import BedExitMonitor
-from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
+from contracts import BoundingBox, DetectionLabel, Frame, FrameObservation
 from demo.live_view import iter_live_frames
+from domains.bed_exit import BedExitMonitor
 
 
 def box(x1: int, y1: int, x2: int, y2: int, confidence: float = 0.9) -> BoundingBox:

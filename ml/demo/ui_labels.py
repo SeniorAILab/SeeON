@@ -16,7 +16,6 @@ DETECTION_PARAMS_LABEL = "탐지 파라미터"
 CONFIDENCE_THRESHOLD_LABEL = "신뢰도 임계값 (conf)"
 WINDOW_FRAMES_LABEL = "윈도우 (프레임)"
 STRIDE_FRAMES_LABEL = "스트라이드 (프레임)"
-SUSTAINED_FALL_SECONDS_LABEL = "낙상 판단 지속시간 (초)"
 
 YOLO_SIZE_LABEL = "YOLO26-pose 크기"
 BOUNDING_BOXES_LABEL = "바운딩 박스"

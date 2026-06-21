@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # Bootstrap: same contract as demo/app.py — put ml/ root on sys.path so
-# `demo.*` / `util.*` imports resolve whether Streamlit adds pages/ or demo/.
+# `demo.*` / `sources.*` imports resolve whether Streamlit adds pages/ or demo/.
 import sys
 from pathlib import Path
 
@@ -11,7 +11,6 @@ import time  # noqa: E402
 
 import streamlit as st  # noqa: E402
 
-from core.playback_status import CurrentPlaybackStatus  # noqa: E402
 from demo.demo_ui import (  # noqa: E402
     build_model,
     render_live_controls,
@@ -19,8 +18,9 @@ from demo.demo_ui import (  # noqa: E402
     select_classifier_spec,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
+from demo.playback_status import CurrentPlaybackStatus  # noqa: E402
 from sources import CameraSource  # noqa: E402
-from util.camera_probe import probe_cameras  # noqa: E402
+from sources.camera_probe import probe_cameras  # noqa: E402
 
 CAMERA_PLAYING_KEY = "camera_playing"
 

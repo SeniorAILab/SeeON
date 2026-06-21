@@ -40,7 +40,7 @@ async def no_lifespan(app: FastAPI) -> AsyncIterator[None]:
 def predict(req: PredictRequest, request: Any) -> PredictResponse:
     """Compatibility entrypoint for direct unit tests."""
     debug.get_model = get_model
-    return debug.predict(req, request)
+    return debug._predict(req, request)
 
 
 def health() -> dict[str, Any]:

@@ -9,11 +9,13 @@ from numpy.typing import NDArray
 from contracts.frame import Frame, FrameSource
 from contracts.model import ModelModule
 from contracts.observation import BoundingBox, FrameObservation
-from core.bed_detector import BedDetector
-from core.bed_exit import BedExitMonitor
-from core.events import BedExitLatch, DetectionLossMonitor, FallEventLatch, render_due
-from core.playback_status import CurrentPlaybackStatus, current_playback_status
+from demo.playback_status import CurrentPlaybackStatus, current_playback_status
+from demo.render import DetectionLossMonitor, render_due
 from demo.yolo_overlay import render_yolo_overlay
+from domains.bed_exit import BedExitMonitor
+from domains.bed_exit.latch import BedExitLatch
+from domains.fall.detector import FallEventLatch
+from perception.bed_detector import BedDetector
 
 __all__ = [
     "BedExitLatch",
@@ -39,7 +41,7 @@ def iter_live_frames(
 ) -> Iterator[tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]]:
     """Yield ``(overlay, status, confidence)`` per source frame for live rendering.
 
-    The pure inference+render core of the real-time viewer (ADR-010): one frame
+    The pure inference+render loop of the real-time viewer (ADR-010): one frame
     in → one annotated frame + fall state out, emitted incrementally so a caller
     can paint each frame the moment it is processed instead of waiting for a
     pre-rendered file.

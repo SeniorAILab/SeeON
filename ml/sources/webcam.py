@@ -9,7 +9,7 @@ from contracts.frame import Frame
 
 
 class CameraSource:
-    """Frame source over a live camera device (cv2.VideoCapture by index).
+    """Frame source over a live camera device (frame_source.cv2.VideoCapture by index).
 
     Implements the FrameSource protocol for real-time capture so the downstream
     iter_live_frames loop requires no changes — camera and file sources share
