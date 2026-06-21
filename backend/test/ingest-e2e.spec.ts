@@ -58,7 +58,11 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
     });
     await cleanup();
     await direct.facility.create({
-      data: { id: FACILITY, name: 'E2E Ingest Facility' },
+      data: {
+        id: FACILITY,
+        name: 'E2E Ingest Facility',
+        code: 'e2e-ingest-facility',
+      },
     });
     await direct.resident.create({
       data: {
