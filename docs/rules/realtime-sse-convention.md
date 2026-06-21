@@ -11,7 +11,7 @@ GET /api/sse
 ## Authentication
 
 - Auth is cookie-based with the `app_session` cookie.
-- The route uses `SessionGuard` and `RequireOrgGuard`, so every stream is bound to one authenticated organization.
+- The route uses `SessionGuard` and `RequireFacilityGuard`, so every stream is bound to one authenticated facility.
 - The stream periodically re-validates the server session. If the session is revoked, expired, or version-invalid, the server emits `event: session-invalid` and closes the stream.
 - The legacy `/sse` auth probe is removed. Session checks use `/auth/session`; realtime clients use `/api/sse`.
 
@@ -41,7 +41,7 @@ Shape:
 ```text
 id: <alertSeq>
 event: status
-data: { "alertSeq": "...", "orgId": "...", "residentId": "...", "state": "NORMAL|WARNING|FALL", "cameraOnline": true, "lastSeenAt": "..." }
+data: { "alertSeq": "...", "facilityId": "...", "residentId": "...", "state": "NORMAL|WARNING|FALL", "cameraOnline": true, "lastSeenAt": "..." }
 ```
 
 ### `event: status-snapshot`
@@ -68,7 +68,7 @@ data: {}
 
 ## Replay
 
-`Last-Event-ID` is the `Alert.alertSeq` replay cursor, not the `Alert.id` cuid. On reconnect, the server replays org-scoped alerts where `alertSeq > Last-Event-ID`, ordered ascending, then sends `event: status-snapshot`, then begins live alert/status delivery.
+`Last-Event-ID` is the `Alert.alertSeq` replay cursor, not the `Alert.id` cuid. On reconnect, the server replays facility-scoped alerts where `alertSeq > Last-Event-ID`, ordered ascending, then sends `event: status-snapshot`, then begins live alert/status delivery.
 
 `AlertWriterService.writeAlert()` is responsible for the causal order: commit `Alert`, update `ResidentStatus`, emit unnamed alert frame, then emit `event: status` with the same sequence key. SSE implementations must preserve that ordering and must not invent a second cursor.
 

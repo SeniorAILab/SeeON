@@ -11,12 +11,12 @@ describe('bind demo users script helpers', () => {
     ]);
   });
 
-  it('binds users and Kakao identities to demo org in one transaction', async () => {
+  it('binds users and Kakao identities to demo facility in one transaction', async () => {
     const userUpdate = Promise.resolve({});
     const identityUpdate = Promise.resolve({});
     const prisma = {
-      organization: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'demo-org-01' }),
+      facility: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'demo-facility-01' }),
       },
       user: {
         findMany: jest
@@ -34,16 +34,16 @@ describe('bind demo users script helpers', () => {
       boundCount: 1,
     });
 
-    expect(prisma.organization.findUnique).toHaveBeenCalledWith({
-      where: { id: 'demo-org-01' },
+    expect(prisma.facility.findUnique).toHaveBeenCalledWith({
+      where: { id: 'demo-facility-01' },
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { kakaoId: 'kakao-1' },
-      data: { orgId: 'demo-org-01' },
+      data: { facilityId: 'demo-facility-01' },
     });
     expect(prisma.kakaoIdentity.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      data: { orgId: 'demo-org-01' },
+      data: { facilityId: 'demo-facility-01' },
     });
     expect(prisma.$transaction).toHaveBeenCalledWith([
       userUpdate,
@@ -51,24 +51,24 @@ describe('bind demo users script helpers', () => {
     ]);
   });
 
-  it('fails honestly when org or users are missing', async () => {
+  it('fails honestly when facility or users are missing', async () => {
     await expect(
       bindDemoUsers(
         {
-          organization: { findUnique: jest.fn().mockResolvedValue(null) },
+          facility: { findUnique: jest.fn().mockResolvedValue(null) },
           user: { findMany: jest.fn(), update: jest.fn() },
           kakaoIdentity: { updateMany: jest.fn() },
           $transaction: jest.fn(),
         },
         ['kakao-1'],
       ),
-    ).rejects.toThrow('Demo organization demo-org-01 does not exist');
+    ).rejects.toThrow('Demo facility demo-facility-01 does not exist');
 
     await expect(
       bindDemoUsers(
         {
-          organization: {
-            findUnique: jest.fn().mockResolvedValue({ id: 'demo-org-01' }),
+          facility: {
+            findUnique: jest.fn().mockResolvedValue({ id: 'demo-facility-01' }),
           },
           user: {
             findMany: jest.fn().mockResolvedValue([]),

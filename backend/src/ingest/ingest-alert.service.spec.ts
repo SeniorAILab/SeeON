@@ -27,21 +27,21 @@ function setup() {
     }>,
     [WriteAlertInput]
   >();
-  const withOrgContext = jest.fn() as jest.MockedFunction<
-    PrismaService['withOrgContext']
+  const withFacilityContext = jest.fn() as jest.MockedFunction<
+    PrismaService['withFacilityContext']
   >;
   const ensureOutboxForIngest = jest.fn() as jest.MockedFunction<
     AlertEventsService['ensureOutboxForIngest']
   >;
   const writer = { writeAlert } as unknown as AlertWriterService;
-  const prisma = { withOrgContext } as unknown as PrismaService;
+  const prisma = { withFacilityContext } as unknown as PrismaService;
   const alertEventsService = {
     ensureOutboxForIngest,
   } as unknown as AlertEventsService;
   return {
     service: new IngestAlertService(writer, prisma, alertEventsService),
     writeAlert,
-    withOrgContext,
+    withFacilityContext,
     ensureOutboxForIngest,
   };
 }
@@ -49,7 +49,7 @@ function setup() {
 function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
   return {
     id: 'cam-1',
-    orgId: 'org-1',
+    facilityId: 'facility-1',
     residentId: 'res-1',
     ingestKeyId: 'key-1',
     ...overrides,
@@ -59,7 +59,7 @@ function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
 function body(overrides: Record<string, unknown> = {}) {
   return parseIngestAlertBody({
     resident_id: 'res-1',
-    facility_id: 'org-1',
+    facility_id: 'facility-1',
     probability: 0.9,
     detected_at: NOW.toISOString(),
     type: 'fall',
@@ -76,14 +76,14 @@ describe('parseIngestAlertBody', () => {
     expect(
       parseIngestAlertBody({
         resident_id: 123,
-        facility_id: 'org-1',
+        facility_id: 'facility-1',
         probability: '0.75',
         detected_at: NOW.toISOString(),
         type: 'fall',
       }),
     ).toEqual({
       resident_id: '123',
-      facility_id: 'org-1',
+      facility_id: 'facility-1',
       probability: 0.75,
       detectedAt: NOW,
       type: 'fall',
@@ -133,7 +133,7 @@ describe('IngestAlertService', () => {
     const { service } = setup();
 
     await expect(
-      service.ingestAlert(camera(), body({ facility_id: 'other-org' })),
+      service.ingestAlert(camera(), body({ facility_id: 'other-facility' })),
     ).rejects.toBeInstanceOf(TenantMismatchException);
   });
 
@@ -158,7 +158,7 @@ describe('IngestAlertService', () => {
     expect(result).toEqual({ alertSeq: '7', id: 'a1', status: 'created' });
     expect(writeAlert).toHaveBeenCalledWith(
       expect.objectContaining({
-        orgId: 'org-1',
+        facilityId: 'facility-1',
         residentId: 'res-1',
         cameraId: 'cam-1',
         type: 'fall',
@@ -172,7 +172,7 @@ describe('IngestAlertService', () => {
     // AC8: resident name/room from the alert-writer join thread to the outbox
     // without changing the ML ingest DTO.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith({
-      orgId: 'org-1',
+      facilityId: 'facility-1',
       sourceId: 'cam-1',
       externalEventId: idempotencyKey,
       type: 'fall',
@@ -209,7 +209,7 @@ describe('IngestAlertService', () => {
     );
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
     expect(ensureOutboxForIngest).toHaveBeenCalledWith({
-      orgId: 'org-1',
+      facilityId: 'facility-1',
       sourceId: 'cam-1',
       externalEventId: idempotencyKey,
       type: 'bed-exit',
@@ -221,10 +221,10 @@ describe('IngestAlertService', () => {
   });
 
   it('returns duplicate status on P2002 and threads resident context from the existing alert', async () => {
-    const { service, writeAlert, withOrgContext, ensureOutboxForIngest } =
+    const { service, writeAlert, withFacilityContext, ensureOutboxForIngest } =
       setup();
     writeAlert.mockRejectedValue({ code: 'P2002' });
-    withOrgContext.mockImplementation((_orgId: string, cb) =>
+    withFacilityContext.mockImplementation((_facilityId: string, cb) =>
       cb({
         alert: {
           findFirst: () => ({
@@ -240,11 +240,14 @@ describe('IngestAlertService', () => {
 
     expect(result).toEqual({ alertSeq: '3', id: 'a-dup', status: 'duplicate' });
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
-    expect(withOrgContext).toHaveBeenCalledWith('org-1', expect.any(Function));
+    expect(withFacilityContext).toHaveBeenCalledWith(
+      'facility-1',
+      expect.any(Function),
+    );
     // AC8 duplicate-repair: the existing alert's resident still threads through.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith(
       expect.objectContaining({
-        orgId: 'org-1',
+        facilityId: 'facility-1',
         sourceId: 'cam-1',
         externalEventId: idempotencyKey,
         confidence: 0.9,

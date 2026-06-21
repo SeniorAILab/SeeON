@@ -29,9 +29,9 @@ export class IngestAlertService {
       throw new StaleTimestampException();
     }
 
-    if (camera.orgId !== input.facility_id) {
+    if (camera.facilityId !== input.facility_id) {
       throw new TenantMismatchException(
-        `Camera org '${camera.orgId}' does not match facility_id '${input.facility_id}'`,
+        `Camera facility '${camera.facilityId}' does not match facility_id '${input.facility_id}'`,
       );
     }
 
@@ -48,7 +48,7 @@ export class IngestAlertService {
 
     try {
       const alert = await this.writer.writeAlert({
-        orgId: camera.orgId,
+        facilityId: camera.facilityId,
         residentId: input.resident_id,
         cameraId: camera.id,
         type: input.type,
@@ -70,11 +70,11 @@ export class IngestAlertService {
       };
     } catch (err: unknown) {
       if (isPrismaUniqueError(err)) {
-        const existing = await this.prisma.withOrgContext(
-          camera.orgId,
+        const existing = await this.prisma.withFacilityContext(
+          camera.facilityId,
           (tx: Prisma.TransactionClient) =>
             tx.alert.findFirst({
-              where: { orgId: camera.orgId, idempotencyKey },
+              where: { facilityId: camera.facilityId, idempotencyKey },
               include: { resident: { select: { name: true, room: true } } },
             }),
         );
@@ -101,10 +101,10 @@ export class IngestAlertService {
     resident: { name: string; room: string | null } | null,
   ): Promise<void> {
     await this.alertEventsService.ensureOutboxForIngest({
-      orgId: camera.orgId,
+      facilityId: camera.facilityId,
       sourceId: camera.id,
       externalEventId: idempotencyKey,
-      type: input.type as AlertEventIngressDto['type'],
+      type: input.type,
       detectedAt: input.detectedAt,
       confidence: input.probability,
       residentName: resident?.name,
