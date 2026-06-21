@@ -15,9 +15,19 @@ const DEMO_ACCOUNTS = [
   { label: "읽기 전용", email: "viewer@sen.ai" },
 ];
 
+/** 카카오 심볼 (말풍선) — 공식 톤(검정 심볼 on #FEE500). */
+function KakaoSymbol({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 256 256" className={className} aria-hidden="true" fill="currentColor">
+      <path d="M128 36C70.56 36 24 72.9 24 118.42c0 29.43 19.47 55.22 48.74 69.67-1.6 5.7-10.27 35.46-10.62 37.8 0 0-.2 1.8.95 2.5 1.16.68 2.52.15 2.52.15 3.3-.46 38.3-25.04 44.36-29.32 6.18.87 12.52 1.32 18.05 1.32C185.44 200.84 232 163.94 232 118.42 232 72.9 185.44 36 128 36z" />
+    </svg>
+  );
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
+  const kakaoLogin = useAuthStore((s) => s.kakaoLogin);
   const error = useAuthStore((s) => s.error);
   const loading = useAuthStore((s) => s.loading);
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
@@ -45,6 +55,16 @@ export function LoginPage() {
     }
   }
 
+  async function handleKakaoLogin() {
+    try {
+      const user = await kakaoLogin();
+      resolveForUser(user.facilityId ?? null);
+      navigate("/now");
+    } catch {
+      /* error 는 store 에서 표시 */
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#eef2fb] to-bg p-4">
       <div className="w-full max-w-sm">
@@ -55,6 +75,23 @@ export function LoginPage() {
         </div>
 
         <Card className="p-6">
+          <button
+            type="button"
+            onClick={handleKakaoLogin}
+            disabled={loading}
+            aria-label="카카오 로그인"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2.5 text-sm font-bold text-[#191600] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <KakaoSymbol className="h-4 w-4" />
+            카카오 로그인
+          </button>
+
+          <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+            <span className="h-px flex-1 bg-border" />
+            또는 이메일로 로그인
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="이메일">
               <Input
