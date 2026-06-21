@@ -2,7 +2,7 @@
 import { db } from "./db";
 import { setAuthToken, USE_MOCK } from "./apiClient";
 import { delay } from "@/lib/utils";
-import type { AuthSession, User } from "@/types";
+import type { AuthSession, Role, User } from "@/types";
 
 const STORAGE_KEY = "senai.session";
 
@@ -121,6 +121,15 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
+    if (!USE_MOCK) {
+      const base = import.meta.env.VITE_API_BASE_URL ?? "";
+      await fetch(`${base}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+      setAuthToken(null);
+      return;
+    }
     setAuthToken(null);
     localStorage.removeItem(STORAGE_KEY);
     // 카카오 가입 marker 는 유지 → 재로그인 시 가입 반복 방지.
@@ -159,5 +168,46 @@ export const authService = {
     }
     setAuthToken(session.token);
     return session;
+  },
+
+  /** 실 백엔드 쿠키 세션 복원: GET /auth/session → User 매핑 (USE_MOCK=false). */
+  async restoreFromBackend(): Promise<AuthSession | null> {
+    const base = import.meta.env.VITE_API_BASE_URL ?? "";
+    try {
+      const res = await fetch(`${base}/auth/session`, {
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as {
+        user?: {
+          id: string;
+          nickname?: string | null;
+          role?: string | null;
+          facilityId?: string | null;
+        } | null;
+      };
+      if (!body.user) return null;
+      const u = body.user;
+      const role: Role =
+        u.role === "OWNER" || u.role === "ADMIN" ? "FACILITY_ADMIN" : "STAFF";
+      setAuthToken(null);
+      return {
+        user: {
+          id: u.id,
+          name: u.nickname?.trim() || "카카오 사용자",
+          email: "",
+          role,
+          facilityId: u.facilityId ?? null,
+        },
+        token: "",
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /** 부팅 복원: mock 은 localStorage, 실모드는 백엔드 쿠키 세션. */
+  async bootstrap(): Promise<AuthSession | null> {
+    return USE_MOCK ? this.restore() : this.restoreFromBackend();
   },
 };
