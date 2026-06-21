@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. **Frontend framework clause PARTIALLY SUPERSEDED BY ADR-055** — `front/` is now Vite + React, not Next.js. The polyglot-monorepo decision (pnpm workspace = `front` + `backend`, `ml` on uv, per-ecosystem lock files, root orchestration scripts) still stands; only the "Next.js" characterization of `front/` in the Context below is historical. See `docs/decisions/frontend/ADR-055-vite-react-front-stack.md`.
 
 ## Date
 

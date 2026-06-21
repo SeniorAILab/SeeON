@@ -39,7 +39,7 @@ Missing, null, or non-scalar values canonicalize to an empty string. For heartbe
 ```json
 {
   "resident_id": "resident_cuid",
-  "facility_id": "org_cuid",
+  "facility_id": "facility_cuid",
   "probability": 0.97,
   "detected_at": "2026-06-18T12:00:00.000Z",
   "type": "fall",
@@ -53,7 +53,7 @@ Validation and ownership:
 
 - `probability` must be a finite number in `[0, 1]`.
 - `detected_at` must be valid ISO-8601 and within 5 minutes of server time.
-- The authenticated camera's `orgId` must equal `facility_id`.
+- The authenticated camera's `facilityId` must equal `facility_id`.
 - If the authenticated camera is assigned to a resident, its `residentId` must equal `resident_id`.
 - `snapshot_url` is ignored. Backend never dereferences edge-provided URLs; snapshots are uploaded separately through the dashboard snapshot endpoint.
 
