@@ -38,7 +38,7 @@ function sign(body: Record<string, unknown>): string {
 
 const cameraRow = {
   id: 'cam-1',
-  orgId: 'org-1',
+  facilityId: 'facility-1',
   residentId: 'res-1',
   ingestKeyId: 'key-1',
   ingestSecretHash: SECRET,
@@ -47,7 +47,7 @@ const cameraRow = {
 function validRequest() {
   const body = {
     resident_id: 'res-1',
-    facility_id: 'org-1',
+    facility_id: 'facility-1',
     type: 'fall',
     detected_at: '2026-06-16T10:00:00.000Z',
   };
@@ -102,7 +102,7 @@ describe('HmacIngestGuard', () => {
     await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
     expect(req.ingestCamera).toEqual({
       id: 'cam-1',
-      orgId: 'org-1',
+      facilityId: 'facility-1',
       residentId: 'res-1',
       ingestKeyId: 'key-1',
     });

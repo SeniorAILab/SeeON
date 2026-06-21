@@ -34,7 +34,9 @@ describe('KakaoClient.buildAuthorizeUrl scope resolution', () => {
   it('normalizes comma/whitespace separators and deduplicates scopes', () => {
     expect(
       scopeOf(
-        client({ KAKAO_SCOPES: ' talk_message,  talk_message ,profile_nickname ' }),
+        client({
+          KAKAO_SCOPES: ' talk_message,  talk_message ,profile_nickname ',
+        }),
       ),
     ).toBe('talk_message profile_nickname');
   });

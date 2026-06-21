@@ -1,10 +1,10 @@
 // Usage: pnpm demo:bind <kakaoId...> or DEMO_KAKAO_IDS=id1,id2 pnpm demo:bind.
 import { PrismaClient } from '@prisma/client';
 
-const DEMO_ORG_ID = 'demo-org-01';
+const DEMO_FACILITY_ID = 'demo-facility-01';
 
 type BindPrisma = {
-  organization: {
+  facility: {
     findUnique: (args: { where: { id: string } }) => Promise<unknown>;
   };
   user: {
@@ -14,13 +14,13 @@ type BindPrisma = {
     }) => Promise<Array<{ id: string; kakaoId: string }>>;
     update: (args: {
       where: { kakaoId: string };
-      data: { orgId: string };
+      data: { facilityId: string };
     }) => Promise<unknown>;
   };
   kakaoIdentity: {
     updateMany: (args: {
       where: { userId: string };
-      data: { orgId: string };
+      data: { facilityId: string };
     }) => Promise<unknown>;
   };
   $transaction: <T>(operations: Promise<T>[]) => Promise<T[]>;
@@ -40,7 +40,7 @@ export function parseKakaoIds(
 export async function bindDemoUsers(
   prisma: BindPrisma,
   kakaoIds: readonly string[],
-  orgId = DEMO_ORG_ID,
+  facilityId = DEMO_FACILITY_ID,
 ): Promise<{ boundCount: number }> {
   if (kakaoIds.length === 0) {
     throw new CliInputError(
@@ -48,10 +48,10 @@ export async function bindDemoUsers(
     );
   }
 
-  const org = await prisma.organization.findUnique({ where: { id: orgId } });
-  if (!org) {
+  const facility = await prisma.facility.findUnique({ where: { id: facilityId } });
+  if (!facility) {
     throw new CliInputError(
-      `Demo organization ${orgId} does not exist. Run the demo seed first.`,
+      `Demo facility ${facilityId} does not exist. Run the demo seed first.`,
     );
   }
 
@@ -71,11 +71,11 @@ export async function bindDemoUsers(
     users.flatMap((user) => [
       prisma.user.update({
         where: { kakaoId: user.kakaoId },
-        data: { orgId },
+        data: { facilityId },
       }),
       prisma.kakaoIdentity.updateMany({
         where: { userId: user.id },
-        data: { orgId },
+        data: { facilityId },
       }),
     ]),
   );
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   const prisma = createPrismaClient();
   try {
     const result = await bindDemoUsers(prisma, kakaoIds);
-    console.log(`Bound ${result.boundCount} demo user(s) to ${DEMO_ORG_ID}.`);
+    console.log(`Bound ${result.boundCount} demo user(s) to ${DEMO_FACILITY_ID}.`);
   } finally {
     await prisma.$disconnect();
   }

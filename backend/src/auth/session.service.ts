@@ -38,20 +38,20 @@ export class SessionService implements OnModuleInit {
   async createSession(
     user: Pick<
       User,
-      'id' | 'orgId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
+      'id' | 'facilityId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
     >,
   ): Promise<{ token: string; maxAgeSeconds: number; session: ServerSession }> {
     const ttlSeconds = this.sessionTtlSeconds();
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAt = new Date((nowSeconds + ttlSeconds) * 1000);
     const session = await this.prisma.db.serverSession.create({
-      data: { userId: user.id, orgId: user.orgId, expiresAt },
+      data: { userId: user.id, facilityId: user.facilityId, expiresAt },
     });
     const token = createSignedSessionToken(
       {
         sessionId: session.id,
         userId: user.id,
-        orgId: user.orgId,
+        facilityId: user.facilityId,
         sessionVersion: user.sessionVersion,
         iat: nowSeconds,
         exp: nowSeconds + ttlSeconds,
@@ -80,8 +80,11 @@ export class SessionService implements OnModuleInit {
     });
     if (!user || user.sessionVersion !== payload.sessionVersion)
       throw new UnauthorizedException('Stale session');
-    if (user.orgId !== payload.orgId || session.orgId !== payload.orgId)
-      throw new UnauthorizedException('Session org mismatch');
+    if (
+      user.facilityId !== payload.facilityId ||
+      session.facilityId !== payload.facilityId
+    )
+      throw new UnauthorizedException('Session facility mismatch');
     let activeSession = session;
 
     let rotatedToken: string | null = null;
@@ -174,12 +177,12 @@ function positiveInt(raw: string | undefined, fallback: number): number {
 function toAuthenticatedUser(
   user: Pick<
     User,
-    'id' | 'orgId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
+    'id' | 'facilityId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
   >,
 ): AuthenticatedUser {
   return {
     id: user.id,
-    orgId: user.orgId,
+    facilityId: user.facilityId,
     role: user.role,
     kakaoId: user.kakaoId,
     nickname: user.nickname,
