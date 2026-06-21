@@ -1,0 +1,32 @@
+# Edge device stack — runs on the external edge node, NOT on the host stack.
+# The edge performs ML inference locally and pushes signed events to the backend
+# /ingest endpoint over the public network (ADR-029). Because the edge is on a
+# separate host/network, it CANNOT reach the backend by Docker service name —
+# ALERT_API_URL must be the backend's public ingest base URL.
+#
+# Usage (on the edge device):
+#   docker compose -f compose.edge.yaml up -d --build
+#
+# Scope note: this file relocates ml-serving from the host stack to the edge as a
+# topology change. Full edge-runtime image packaging (ml/Dockerfile must also bundle
+# the sibling runtime packages contracts/runners/perception/domains/runtime/events)
+# is owned by the ml-edge-device-relayout work, not this PR.
+services:
+  ml-serving:
+    build:
+      context: .
+      dockerfile: ml/Dockerfile
+      target: runner
+    restart: unless-stopped
+    ports:
+      - "${ML_SERVING_PORT:-8000}:8000"
+    environment:
+      # Backend ingest target + camera HMAC credentials consumed by ml/events/publisher.py.
+      # ALERT_API_URL is POSTed verbatim, so it must be the FULL ingest endpoint
+      # (e.g. https://host/ingest/alerts). DEMO_* are required: AlertClient.from_env
+      # raises if any of INGEST_*/DEMO_* is empty when ALERT_API_URL is set.
+      ALERT_API_URL: ${ALERT_API_URL:?edge requires the backend public ingest URL, e.g. https://host/ingest/alerts}
+      INGEST_KEY_ID: ${INGEST_KEY_ID:?edge requires the camera ingest key id}
+      INGEST_SECRET: ${INGEST_SECRET:?edge requires the camera ingest secret}
+      DEMO_RESIDENT_ID: ${DEMO_RESIDENT_ID:?edge requires the resident id}
+      DEMO_FACILITY_ID: ${DEMO_FACILITY_ID:?edge requires the facility id}
