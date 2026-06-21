@@ -21,22 +21,24 @@ function setup() {
     delete: jest.fn(),
   };
   const prisma = {
-    withOrgContext: jest.fn(
-      (_orgId: string, cb: (tx: { resident: ResidentDelegate }) => unknown) =>
-        cb({ resident }),
+    withFacilityContext: jest.fn(
+      (
+        _facilityId: string,
+        cb: (tx: { resident: ResidentDelegate }) => unknown,
+      ) => cb({ resident }),
     ),
   } as unknown as PrismaService;
   return { service: new ResidentsService(prisma), resident, prisma };
 }
 
 describe('ResidentsService', () => {
-  it('lists residents scoped to the org', async () => {
+  it('lists residents scoped to the facility', async () => {
     const { service, resident, prisma } = setup();
     resident.findMany.mockResolvedValue([{ id: 'r1' }]);
 
-    await expect(service.list('org-1')).resolves.toEqual([{ id: 'r1' }]);
-    expect(prisma.withOrgContext).toHaveBeenCalledWith(
-      'org-1',
+    await expect(service.list('facility-1')).resolves.toEqual([{ id: 'r1' }]);
+    expect(prisma.withFacilityContext).toHaveBeenCalledWith(
+      'facility-1',
       expect.any(Function),
     );
     expect(resident.findMany).toHaveBeenCalledWith({
@@ -47,7 +49,7 @@ describe('ResidentsService', () => {
   it('rejects creation with a blank name', async () => {
     const { service, resident } = setup();
     await expect(
-      service.create('org-1', { name: '   ' }),
+      service.create('facility-1', { name: '   ' }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(resident.create).not.toHaveBeenCalled();
   });
@@ -56,18 +58,18 @@ describe('ResidentsService', () => {
     const { service, resident } = setup();
     resident.create.mockResolvedValue({ id: 'r1' });
 
-    await service.create('org-1', { name: '  Kim  ', room: '  201  ' });
+    await service.create('facility-1', { name: '  Kim  ', room: '  201  ' });
     expect(resident.create).toHaveBeenCalledWith({
-      data: { orgId: 'org-1', name: 'Kim', room: '201' },
+      data: { facilityId: 'facility-1', name: 'Kim', room: '201' },
     });
   });
 
   it('throws NotFound when getOne misses', async () => {
     const { service, resident } = setup();
     resident.findUnique.mockResolvedValue(null);
-    await expect(service.getOne('org-1', 'missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.getOne('facility-1', 'missing'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('maps FK constraint violations to ConflictException on remove', async () => {
@@ -79,7 +81,7 @@ describe('ResidentsService', () => {
         clientVersion: 'test',
       }),
     );
-    await expect(service.remove('org-1', 'r1')).rejects.toBeInstanceOf(
+    await expect(service.remove('facility-1', 'r1')).rejects.toBeInstanceOf(
       ConflictException,
     );
   });

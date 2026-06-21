@@ -24,7 +24,7 @@ import {
 
 export interface IngestCameraInfo {
   id: string;
-  orgId: string;
+  facilityId: string;
   residentId: string | null;
   ingestKeyId: string;
 }
@@ -64,7 +64,7 @@ export class HmacIngestGuard implements CanActivate {
     // Look up camera via SECURITY DEFINER function (bypasses RLS for ingest path).
     type CameraRow = {
       id: string;
-      orgId: string;
+      facilityId: string;
       residentId: string | null;
       ingestKeyId: string;
       ingestSecretHash: string;
@@ -107,7 +107,7 @@ export class HmacIngestGuard implements CanActivate {
 
     request.ingestCamera = {
       id: camera.id,
-      orgId: camera.orgId,
+      facilityId: camera.facilityId,
       residentId: camera.residentId,
       ingestKeyId: camera.ingestKeyId,
     };

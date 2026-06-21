@@ -20,9 +20,11 @@ function setup() {
     delete: jest.fn(),
   };
   const prisma = {
-    withOrgContext: jest.fn(
-      (_orgId: string, cb: (tx: { guardian: GuardianDelegate }) => unknown) =>
-        cb({ guardian }),
+    withFacilityContext: jest.fn(
+      (
+        _facilityId: string,
+        cb: (tx: { guardian: GuardianDelegate }) => unknown,
+      ) => cb({ guardian }),
     ),
   } as unknown as PrismaService;
   return { service: new GuardiansService(prisma), guardian };
@@ -32,7 +34,7 @@ describe('GuardiansService', () => {
   it('filters by residentId when provided', async () => {
     const { service, guardian } = setup();
     guardian.findMany.mockResolvedValue([]);
-    await service.list('org-1', 'res-1');
+    await service.list('facility-1', 'res-1');
     expect(guardian.findMany).toHaveBeenCalledWith({
       where: { residentId: 'res-1' },
       orderBy: { createdAt: 'asc' },
@@ -42,7 +44,7 @@ describe('GuardiansService', () => {
   it('requires residentId, name, and phone on create', async () => {
     const { service, guardian } = setup();
     await expect(
-      service.create('org-1', { residentId: '', name: 'A', phone: '010' }),
+      service.create('facility-1', { residentId: '', name: 'A', phone: '010' }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(guardian.create).not.toHaveBeenCalled();
   });
@@ -50,7 +52,7 @@ describe('GuardiansService', () => {
   it('normalizes blank relation to null on create', async () => {
     const { service, guardian } = setup();
     guardian.create.mockResolvedValue({ id: 'g1' });
-    await service.create('org-1', {
+    await service.create('facility-1', {
       residentId: 'res-1',
       name: '  Lee ',
       phone: ' 01012345678 ',
@@ -58,7 +60,7 @@ describe('GuardiansService', () => {
     });
     expect(guardian.create).toHaveBeenCalledWith({
       data: {
-        orgId: 'org-1',
+        facilityId: 'facility-1',
         residentId: 'res-1',
         name: 'Lee',
         phone: '01012345678',
@@ -71,7 +73,7 @@ describe('GuardiansService', () => {
     const { service, guardian } = setup();
     guardian.findUnique.mockResolvedValue(null);
     await expect(
-      service.update('org-1', 'missing', { name: 'X' }),
+      service.update('facility-1', 'missing', { name: 'X' }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

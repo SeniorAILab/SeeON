@@ -20,15 +20,17 @@ export interface UpdateResidentDto {
 export class ResidentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(orgId: string) {
-    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.resident.findMany({ orderBy: { createdAt: 'asc' } }),
+  async list(facilityId: string) {
+    return this.prisma.withFacilityContext(
+      facilityId,
+      (tx: Prisma.TransactionClient) =>
+        tx.resident.findMany({ orderBy: { createdAt: 'asc' } }),
     );
   }
 
-  async getOne(orgId: string, id: string) {
-    const resident = await this.prisma.withOrgContext(
-      orgId,
+  async getOne(facilityId: string, id: string) {
+    const resident = await this.prisma.withFacilityContext(
+      facilityId,
       (tx: Prisma.TransactionClient) =>
         tx.resident.findUnique({
           where: { id },
@@ -39,18 +41,24 @@ export class ResidentsService {
     return resident;
   }
 
-  async create(orgId: string, dto: CreateResidentDto) {
+  async create(facilityId: string, dto: CreateResidentDto) {
     if (!dto.name?.trim()) throw new ConflictException('name is required');
-    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.resident.create({
-        data: { orgId, name: dto.name.trim(), room: dto.room?.trim() ?? null },
-      }),
+    return this.prisma.withFacilityContext(
+      facilityId,
+      (tx: Prisma.TransactionClient) =>
+        tx.resident.create({
+          data: {
+            facilityId,
+            name: dto.name.trim(),
+            room: dto.room?.trim() ?? null,
+          },
+        }),
     );
   }
 
-  async update(orgId: string, id: string, dto: UpdateResidentDto) {
-    const existing = await this.prisma.withOrgContext(
-      orgId,
+  async update(facilityId: string, id: string, dto: UpdateResidentDto) {
+    const existing = await this.prisma.withFacilityContext(
+      facilityId,
       (tx: Prisma.TransactionClient) =>
         tx.resident.findUnique({ where: { id } }),
     );
@@ -58,27 +66,30 @@ export class ResidentsService {
     if (dto.name !== undefined && !dto.name.trim()) {
       throw new ConflictException('name is required');
     }
-    return this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.resident.update({
-        where: { id },
-        data: {
-          name: dto.name?.trim() ?? undefined,
-          room: dto.room !== undefined ? (dto.room?.trim() ?? null) : undefined,
-        },
-      }),
+    return this.prisma.withFacilityContext(
+      facilityId,
+      (tx: Prisma.TransactionClient) =>
+        tx.resident.update({
+          where: { id },
+          data: {
+            name: dto.name?.trim() ?? undefined,
+            room:
+              dto.room !== undefined ? (dto.room?.trim() ?? null) : undefined,
+          },
+        }),
     );
   }
 
-  async remove(orgId: string, id: string) {
-    const existing = await this.prisma.withOrgContext(
-      orgId,
+  async remove(facilityId: string, id: string) {
+    const existing = await this.prisma.withFacilityContext(
+      facilityId,
       (tx: Prisma.TransactionClient) =>
         tx.resident.findUnique({ where: { id } }),
     );
     if (!existing) throw new NotFoundException('Resident not found');
     try {
-      return await this.prisma.withOrgContext(
-        orgId,
+      return await this.prisma.withFacilityContext(
+        facilityId,
         (tx: Prisma.TransactionClient) => tx.resident.delete({ where: { id } }),
       );
     } catch (err: unknown) {

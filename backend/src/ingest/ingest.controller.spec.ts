@@ -25,7 +25,7 @@ function req(): RequestWithIngestCamera {
   return {
     ingestCamera: {
       id: 'cam-1',
-      orgId: 'org-1',
+      facilityId: 'facility-1',
       residentId: 'res-1',
       ingestKeyId: 'key-1',
     },
@@ -35,7 +35,7 @@ function req(): RequestWithIngestCamera {
 function body(overrides: Record<string, unknown> = {}) {
   return {
     resident_id: 'res-1',
-    facility_id: 'org-1',
+    facility_id: 'facility-1',
     probability: '0.9',
     detected_at: new Date().toISOString(),
     type: 'fall',
@@ -61,7 +61,7 @@ describe('IngestController', () => {
       request.ingestCamera,
       expect.objectContaining({
         resident_id: 'res-1',
-        facility_id: 'org-1',
+        facility_id: 'facility-1',
         probability: 0.9,
         type: 'fall',
       }),
@@ -84,9 +84,9 @@ describe('IngestController', () => {
     const { controller, recordHeartbeat, recordCameraHeartbeat } = setup();
 
     await expect(controller.heartbeat(req())).resolves.toEqual({ ok: true });
-    expect(recordHeartbeat).toHaveBeenCalledWith('org-1', 'cam-1');
+    expect(recordHeartbeat).toHaveBeenCalledWith('facility-1', 'cam-1');
     expect(recordCameraHeartbeat).toHaveBeenCalledWith(
-      'org-1',
+      'facility-1',
       'cam-1',
       'res-1',
     );
