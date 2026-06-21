@@ -6,11 +6,11 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 |---|---|---|---|---|---|
 | GET | `/auth/kakao/login` | None | No body. | `302` redirect to Kakao OAuth authorize URL; sets OAuth state cookie. | Current |
 | GET | `/auth/kakao/callback` | OAuth state cookie | Query: `code`, `state`. | `302` redirect to frontend `/dashboard` when user has a facility, otherwise `/onboarding`; sets session cookie and clears OAuth state cookie. | Current |
-| GET | `/auth/session` | Session cookie validation without rotation | No body. | `{ user }` for valid session; unauthenticated sessions are rejected by session validation semantics. | Current |
+| GET | `/auth/session` | Session cookie validation; refreshes (rotates) the session cookie when the token is due for rotation | No body. | `{ user }` for valid session; unauthenticated sessions are rejected by session validation semantics. | Current |
 | POST | `/auth/logout` | `SessionGuard` | No body. | `204` empty; revokes session and clears session cookie. | Current |
 | POST | `/api/facilities` | `SessionGuard` | `{ facilityName: string, businessRegistrationNumber?: string or null }` | `{ user }` with refreshed facility-bearing session cookie; user includes `facilityId`. | Current onboarding |
 | GET | `/api/facilities/current` | `SessionGuard`, `RequireFacilityGuard` | No body. | Current facility for caller. | Current |
-| PATCH | `/api/facilities/current` | `SessionGuard`, `RequireFacilityGuard` | Partial `{ name?: string, address?: string or null, phone?: string or null, code?: string }` | Updated current facility. | Current |
+| PATCH | `/api/facilities/current` | `SessionGuard`, `RequireFacilityGuard` | Partial `{ name?: string, address?: string or null, phone?: string or null }`. `code` is immutable — it is not part of the update and is ignored if sent. | Updated current facility. | Current |
 | GET | `/api/floors` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body. | Floor list for caller facility. | Current |
 | POST | `/api/floors` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ name?: string, orderIndex?: number, isActive?: boolean }` | Created floor. | Current; `409` when `name` is missing |
 | PATCH | `/api/floors/:floorId` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Partial `{ name?: string, orderIndex?: number, isActive?: boolean }` | Updated floor. | Current |
@@ -50,6 +50,8 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 | GET | `/api/alerts/:alertId/snapshot` | `SessionGuard`, `RequireFacilityGuard` | Path `alertId`. | Snapshot bytes with private cache headers; facility-scoped alert ownership checked. | Current |
 | PUT | `/api/alerts/:alertId/snapshot` | `SessionGuard`, `RequireFacilityGuard` | Raw image body; content-type one of `image/jpeg`, `image/png`, `application/octet-stream`, `multipart/form-data`; max 2 MiB. | `201 { snapshotKey }`; server stores bytes under server-derived key. | Current |
 | GET | `/api/sse` | `SessionGuard`, `RequireFacilityGuard` | Header `Last-Event-ID?`; session cookie. | `text/event-stream`; alert/status/session frames. | Current |
+| GET | `/api/protected-probe` | `SessionGuard` | No body. | `{ user }`; refreshes the rotated session cookie when due. Internal/test probe for the session guard (exercised by `backend/test/auth.spec.ts`). | Current (internal/test) |
+| GET | `/api/facility-protected-probe` | `SessionGuard`, `RequireFacilityGuard` | No body. | `{ facilityId }`; refreshes the rotated session cookie when due. Internal/test probe for the facility guard. | Current (internal/test) |
 | GET | `/api/space-statuses` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body. | `501 { error: "not_implemented", message: "space-statuses is not implemented yet" }`. | Skeleton (501) |
 | GET | `/api/detection-events` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body. | `501 { error: "not_implemented", message: "detection-events is not implemented yet" }`. | Skeleton (501) |
 | PATCH | `/api/detection-events/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `id`; body shape deferred. | `501 { error: "not_implemented", message: "detection-events is not implemented yet" }`. | Skeleton (501) |
