@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Superseded by ADR-056 (ml/ edge-device relayout, issue #268): frame intake moves from `ml/util/` to `ml/sources/`, and the `Frame`/`FrameSource` stream contract moves to `ml/contracts/frame.py`. `ml/util/` is removed. Body preserved as historical record.
 
 ## Date
 
