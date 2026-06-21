@@ -9,6 +9,7 @@ interface AuthState {
   error: string | null;
   init: () => void;
   login: (email: string, password: string) => Promise<void>;
+  kakaoLogin: () => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -28,6 +29,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const session = await authService.login(email, password);
       set({ user: session.user, loading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+      throw e;
+    }
+  },
+
+  kakaoLogin: async () => {
+    set({ loading: true, error: null });
+    try {
+      const session = await authService.kakaoLogin();
+      set({ user: session.user, loading: false });
+      return session.user;
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
       throw e;
