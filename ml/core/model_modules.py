@@ -4,7 +4,7 @@ from typing import Final
 
 from contracts.artifacts import WEIGHTS_DIR, pose_weight_filename, pose_weight_path  # noqa: F401
 from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
-from core.yolo_runtime import YoloPoseRunner
+from runners.yolo_pose import YoloPoseRunner
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
 
