@@ -70,7 +70,7 @@ class BedDetector:
 def _build_beds(instances: tuple[tuple[object, ...], ...]) -> tuple[BoundingBox, ...]:
     """Dedup bed bboxes (no hard cap, issue #244) and attach each surviving box's
     mask polygon by best bbox overlap (issue #243)."""
-    from core.yolo_runtime import dedupe_bed_boxes
+    from runners.yolo_bed_seg import dedupe_bed_boxes
 
     bbox5 = tuple(tuple(inst[:5]) for inst in instances)
     deduped = dedupe_bed_boxes(bbox5)
@@ -123,7 +123,7 @@ def _default_runner() -> BedRunner:
     Imported lazily so importing this module (e.g. for the stubbed unit tests)
     does not pull in ultralytics.
     """
-    from core.yolo_runtime import YoloBedSegRunner
+    from runners.yolo_bed_seg import YoloBedSegRunner
 
     BED_WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
     return YoloBedSegRunner(model_path=str(bed_weight_path()))
