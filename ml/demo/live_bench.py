@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> None:
 
     from core.classifiers import ClassifierParams
     from demo.demo_ui import build_model
-    from util.frame_source import VideoFileSource
+    from sources import VideoFileSource
 
     # Resolve video path.
     if args.video:
