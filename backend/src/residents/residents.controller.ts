@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
+  Put,
+  Query,
   Req,
   UseGuards,
   UseInterceptors,
@@ -23,8 +25,16 @@ export class ResidentsController {
   constructor(private readonly service: ResidentsService) {}
 
   @Get()
-  list(@Req() req: RequestWithAuth) {
-    return this.service.list(requireFacilityId(req));
+  list(
+    @Req() req: RequestWithAuth,
+    @Query()
+    query: { isFocusResident?: string; spaceId?: string; active?: string },
+  ) {
+    return this.service.list(requireFacilityId(req), {
+      isFocusResident: parseBoolean(query.isFocusResident),
+      spaceId: query.spaceId,
+      active: parseBoolean(query.active),
+    });
   }
 
   @Get(':id')
@@ -33,21 +43,15 @@ export class ResidentsController {
   }
 
   @Post()
-  create(
-    @Req() req: RequestWithAuth,
-    @Body() body: { name?: string; room?: string },
-  ) {
-    return this.service.create(requireFacilityId(req), {
-      name: body.name ?? '',
-      room: body.room,
-    });
+  create(@Req() req: RequestWithAuth, @Body() body: Record<string, unknown>) {
+    return this.service.create(requireFacilityId(req), body as never);
   }
 
   @Patch(':id')
   update(
     @Req() req: RequestWithAuth,
     @Param('id') id: string,
-    @Body() body: { name?: string; room?: string },
+    @Body() body: Record<string, unknown>,
   ) {
     return this.service.update(requireFacilityId(req), id, body);
   }
@@ -56,10 +60,29 @@ export class ResidentsController {
   remove(@Req() req: RequestWithAuth, @Param('id') id: string) {
     return this.service.remove(requireFacilityId(req), id);
   }
+
+  @Get(':id/assignment')
+  currentAssignment(@Req() req: RequestWithAuth, @Param('id') id: string) {
+    return this.service.currentAssignment(requireFacilityId(req), id);
+  }
+
+  @Put(':id/assignment')
+  move(
+    @Req() req: RequestWithAuth,
+    @Param('id') id: string,
+    @Body() body: { spaceId?: string; zoneId?: string | null },
+  ) {
+    return this.service.move(requireFacilityId(req), id, body);
+  }
 }
 
 function requireFacilityId(req: RequestWithAuth): string {
   const facilityId = req.user?.facilityId;
   if (!facilityId) throw new ForbiddenException('Facility context required');
   return facilityId;
+}
+
+function parseBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  return value === 'true';
 }
