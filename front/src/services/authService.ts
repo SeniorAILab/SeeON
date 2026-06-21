@@ -98,19 +98,14 @@ export const authService = {
    * 카카오 로그인 (mock). 첫 클릭 = 가입(marker 생성), 이후 = 로그인.
    * db.users 는 상수로부터 idempotent upsert → 가입 반복/중복 없음.
    *
-   * ★ 실제 연동 지점(deferred) ★
-   *   USE_MOCK=false 가 되면 이 함수 한 곳만 백엔드 카카오 OAuth 로 교체한다:
-   *     window.location.assign(`${import.meta.env.VITE_API_BASE_URL}/auth/kakao/login`)
-   *   → 백엔드 GET /auth/kakao/login → 카카오 authorize → GET /auth/kakao/callback
-   *     이 httpOnly 쿠키(JWT) 세션을 설정하고 프론트로 리다이렉트. 이후 복원은
-   *     GET /auth/session 으로 전환(현재 localStorage bearer 와 상이 → 보류).
-   *   서버 부팅: pnpm db:up → pnpm prisma:generate → prisma:migrate → prisma:seed
-   *     → pnpm dev:backend(:8080) + pnpm dev:front(:3000).
-   *   (실 백엔드 OAuth 연동·쿠키 세션 restore·권한 정합은 이번 범위 밖 — 별도 이슈)
+   * USE_MOCK=false 면 아래 분기가 백엔드 카카오 OAuth 로 위임한다.
+   * 쿠키 세션 복원(GET /auth/session)·권한 정합은 별도 이슈(본 변경 범위 밖).
    */
   async kakaoLogin(): Promise<AuthSession> {
     if (!USE_MOCK) {
-      throw new Error("실 백엔드 카카오 로그인은 아직 연동되지 않았습니다(보류).");
+      const base = import.meta.env.VITE_API_BASE_URL ?? "";
+      window.location.assign(`${base}/auth/kakao/login`);
+      return new Promise<AuthSession>(() => {});
     }
     // 첫 클릭 = 가입(marker 없음), 이후 = 로그인. db upsert 는 멱등.
     const firstTime = !hasKakaoSignup();
