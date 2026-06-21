@@ -85,7 +85,7 @@ These routes are current. Product resource routes are facility-scoped via `Sessi
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/facilities/current` | none | current facility |
-| PATCH | `/api/facilities/current` | partial `{ name?: string, address?: string or null, phone?: string or null, code?: string }` | updated facility |
+| PATCH | `/api/facilities/current` | partial `{ name?: string, address?: string or null, phone?: string or null }` (`code` is immutable — ignored if sent) | updated facility |
 
 ### Floors
 
