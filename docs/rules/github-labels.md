@@ -25,6 +25,6 @@ missing, but the label should always be set explicitly.
 |-------|---------|
 | `domain: ml` | ML training, inference, model artifacts |
 | `domain: backend` | NestJS API / KakaoTalk webhooks |
-| `domain: frontend` | Next.js dashboard |
+| `domain: frontend` | Vite + React dashboard |
 | `domain: infra` | Deployment, CI/CD, Docker |
 | `domain: data` | Data pipeline, preprocessing, labeling |
