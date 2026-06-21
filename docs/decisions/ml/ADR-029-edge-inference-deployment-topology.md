@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Complements ADR-023 (ML returns signals, backend owns side effects) and ADR-048 (concrete `/predict` window contract); does not supersede either. This ADR adds the *deployment topology* clause those ADRs left open: it fixes **where** the pose→classification pipeline runs and **what** crosses the site boundary, which ADR-022/023/048 deliberately do not address.
+Accepted. Complements ADR-023 (ML returns signals, backend owns side effects) and ADR-048 (concrete `/debug/predict/window` window contract); does not supersede either. This ADR adds the *deployment topology* clause those ADRs left open: it fixes **where** the pose→classification pipeline runs and **what** crosses the site boundary, which ADR-022/023/048 deliberately do not address.
 
 ## Date
 
@@ -10,7 +10,7 @@ Accepted. Complements ADR-023 (ML returns signals, backend owns side effects) an
 
 ## Context
 
-ADR-022 split ML serving from training, ADR-023 fixed the ML-output vs backend-policy ownership boundary, and ADR-048 fixed the concrete `/predict` window contract. None of them decided the physical deployment topology: when this scales to multiple nursing homes, does inference run centrally in the cloud over streamed video, or locally at each site?
+ADR-022 split ML serving from training, ADR-023 fixed the ML-output vs backend-policy ownership boundary, and ADR-048 fixed the concrete `/debug/predict/window` window contract. None of them decided the physical deployment topology: when this scales to multiple nursing homes, does inference run centrally in the cloud over streamed video, or locally at each site?
 
 The requirement that forces the decision is multi-tenant scale-out. A production site runs several HD CCTV feeds (RTSP) continuously, the alert is safety-critical (a fall must surface in seconds), and the input is resident video — among the most privacy-sensitive data a facility holds. Centralizing inference would mean streaming every site's raw video to a remote GPU fleet 24/7.
 
@@ -42,20 +42,20 @@ The hybrid edge-inference + central-policy split is the multi-tenant industry st
 |---|---|
 | Where inference runs (per-site edge) and what crosses the site boundary (signed events, never video) | ADR-029 |
 | ML output vs backend product policy/side effects | ADR-023 |
-| Concrete `/predict` window request/response geometry + retained backend prediction seam | ADR-048 |
+| Concrete `/debug/predict/window` window request/response geometry + retained backend prediction seam | ADR-048 |
 | ML-internal serving/training lifecycle and uv dependency-group boundary | ADR-022 |
 
 ## Implementation status
 
 Verified in code 2026-06-19. The decision is partially realized; the gap is topology, not capability.
 
-The **live alert path is fully implemented and E2E-verified**: the Streamlit demo acts as the edge-node prototype, runs inference **in-process**, and pushes the signed event to `POST /ingest/alerts` ([`ml/core/alert_client.py`](../../../ml/core/alert_client.py)); the backend then applies policy and fans out to KakaoTalk. This already satisfies signal-only egress — the demo sends the event, not video.
+The **live alert path is fully implemented and E2E-verified**: the Streamlit demo acts as the edge-node prototype, extracts pose locally, classifies through real ml-serving HTTP via `serving.client.ServingFallClassifier` → `POST /debug/predict/window`, and pushes the signed event to `POST /ingest/alerts` ([`ml/core/alert_client.py`](../../../ml/core/alert_client.py)); the backend then applies policy and fans out to KakaoTalk. This already satisfies signal-only egress — the demo sends the event, not video.
 
-The serving `POST /predict` endpoint exists and accepts a pre-extracted pose `window` ([`ml/serving/main.py`](../../../ml/serving/main.py), contract in ADR-048), which is exactly what makes the keypoints-only / no-video edge path possible. It is **not on the live alert path** today: the demo infers in-process rather than calling `/predict` over the network.
+Serving now boots through an eager lifespan: config validation, device selection, model registry warmup, runtime services, source resolution, and camera workers. A model-load failure records `model.load_failed` and makes `/health/ready` not-ready while the process stays live; camera failures record `camera.offline` and degrade status without blocking readiness when the model loaded.
 
-The backend carries a **dormant prediction seam** (the D2-O1 owner from ADR-048): `MlServingPredictionAdapter` calls `ML_SERVING_URL` + `/predict` and is wired via `ALERT_PREDICTION_PORT`, but `AlertEventsService.ensureOutboxForIngest` does **not** call `predict()` — it trusts the `probability` already in the ingest payload (the edge already classified). The seam is retained, per its own code comment, so "the backend-owned alert policy can consume ML predictions again" if a future topology needs backend-pull; it is not invoked on the current edge-push path. This ADR records that the edge-push topology is the chosen one and the backend-pull seam is a deliberately parked alternative.
+The backend carries a **dormant prediction seam** (the D2-O1 owner from ADR-048): `MlServingPredictionAdapter` historically calls `ML_SERVING_URL` + `/predict`; serving keeps `/predict` as a temporary compatibility alias while the canonical window route is `/debug/predict/window`. `AlertEventsService.ensureOutboxForIngest` does **not** call `predict()` — it trusts the `probability` already in the ingest payload (the edge already classified). The seam is retained, per its own code comment, so "the backend-owned alert policy can consume ML predictions again" if a future topology needs backend-pull; it is not invoked on the current edge-push path. This ADR records that the edge-push topology is the chosen one and the backend-pull seam is a deliberately parked alternative.
 
-What is **not yet built**: deployment of inference onto dedicated per-site edge hardware (today it is Streamlit in-process), and the deferred items below.
+What is **not yet built**: deployment of inference onto dedicated per-site edge hardware, and the deferred items below.
 
 ## Alternatives Considered
 
@@ -89,7 +89,7 @@ What is **not yet built**: deployment of inference onto dedicated per-site edge 
 
 - Per-site edge hardware is a field-deployed fleet to provision, monitor, and update — a real operational cost the cloud option avoids.
 - Model updates must reach edge devices rather than a single cloud deployment.
-- The current demo (in-process inference) does not yet exercise the over-the-network `/predict` edge path, so that integration remains unverified until edge hardware exists.
+- The demo now exercises the over-the-network `/debug/predict/window` edge path; dedicated per-site edge hardware deployment remains unbuilt.
 
 **Deferred (future ADRs / plans):**
 
