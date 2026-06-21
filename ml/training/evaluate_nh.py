@@ -229,8 +229,8 @@ def _extract_track_poses(
     """
     import cv2
 
-    from core.contract import BoundingBox
-    from core.tracking import GreedyIouTracker
+    from contracts.observation import BoundingBox
+    from training._tracking import GreedyIouTracker
     from training.extract_poses import normalize_person_keypoints
 
     cap = cv2.VideoCapture(str(video_path))
@@ -308,7 +308,7 @@ def _sha256_file(path: Path) -> str:
 
 def _resolve_pose_weight(pose_size: str) -> tuple[Path, str, str]:
     """Resolve and hash the configured YOLO pose weight for *pose_size*."""
-    from core.model_modules import pose_weight_filename, pose_weight_path
+    from contracts.artifacts import pose_weight_filename, pose_weight_path
 
     if pose_size not in POSE_SIZE_CHOICES:
         raise ValueError(
@@ -361,7 +361,7 @@ def _ensure_track_poses(
         )
 
     try:
-        from core.yolo_runtime import YoloPoseRunner
+        from runners.yolo_pose import YoloPoseRunner
 
         weight_path, _weight_filename, _weight_sha256 = _resolve_pose_weight(pose_size)
         runner = YoloPoseRunner(model_path=str(weight_path))

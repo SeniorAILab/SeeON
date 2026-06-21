@@ -41,9 +41,9 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from core.model_modules import pose_weight_path
-from core.yolo_runtime import YoloPoseRunner
+from contracts.artifacts import pose_weight_path
 from features.pose_normalization import normalize_person_keypoints
+from runners.yolo_pose import YoloPoseRunner
 from training import config
 
 log = logging.getLogger(__name__)
