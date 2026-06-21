@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes ADR-026 terminology: seam → contract.
+Accepted. Supersedes ADR-026 terminology: seam → contract. Superseded by ADR-057 (ml/ edge-device relayout, issue #268): the model contract becomes `FrameModel`/`PoseRunner`/`BedRunner` producing `FrameObservation` (with `WindowModel`/`FallWindowRunner` → `ModelScore`), a `ModelRegistry` is introduced, and `DetectionResult` is superseded by `FrameObservation`. Body preserved as historical record.
 
 ## Date
 
