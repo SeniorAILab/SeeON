@@ -35,7 +35,7 @@ class _LimitedSource:
 
 
 def measure_pipeline(source: Any, model: Any) -> dict[str, float | int]:
-    """Pure measurement core: drive source through model, return metrics dict.
+    """Pure measurement loop: drive source through model, return metrics dict.
 
     Takes any FrameSource-compatible source and any ModelModule-compatible model
     so the function is testable with fakes without loading real weights.
@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> None:
     # pythonpath=["."]] in pyproject.toml covers pytest; this covers __main__.
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-    from core.classifiers import ClassifierParams
+    from demo.classifiers import ClassifierParams
     from demo.demo_ui import build_model
     from sources import VideoFileSource
 

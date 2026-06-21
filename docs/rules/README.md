@@ -28,9 +28,10 @@ Collectively Exhaustive — with respect to the decisions it records.
   ADRs must not overlap or relitigate the same choice. When a new ADR touches an
   area an existing ADR owns, it must explicitly state what it does **not**
   reopen, and scope itself to the genuinely new decision. (Example: ADR-006
-  places the frame-source intake in `ml/util/` and explicitly excludes the
-  model-contract placement and demo-UX, which belong to ADR-050 and the plan
-  respectively.)
+  placed the frame-source intake in `ml/util/` and explicitly excluded the
+  model-contract placement and demo-UX — now superseded by ADR-056, which moves
+  intake to `ml/sources/` in the edge-device relayout; the principle still
+  holds.)
 - **Collectively Exhaustive.** Within an ADR, the decision is recorded in full:
   the context that forced it, the option chosen, the alternatives weighed and
   why they were rejected, and the trade-offs accepted. A reader should not need

@@ -19,7 +19,7 @@ from typing import Final, Protocol
 
 from numpy.typing import NDArray
 
-from core.contract import BoundingBox, Frame
+from contracts import BoundingBox, Frame
 
 # bed-localization weight cache — a function axis under ml/models/ alongside
 # pose/ and fall/ (docs/rules/ml-models.md; gitignored, never committed).

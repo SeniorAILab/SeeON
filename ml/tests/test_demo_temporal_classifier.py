@@ -16,8 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.classifiers import CLASSIFIER_REGISTRY
-from core.contract import (
+from contracts import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
     BoundingBox,
@@ -25,7 +24,8 @@ from core.contract import (
     Frame,
     FrameObservation,
 )
-from core.temporal_module import (
+from demo.classifiers import CLASSIFIER_REGISTRY
+from demo.temporal_module import (
     TEMPORAL_MODEL_KEYS,
     TemporalFallClassifierModule,
     temporal_artifact_available,
@@ -217,7 +217,7 @@ class TestTemporalFallClassifierModule:
         assert result.keypoints == ()
 
     def test_satisfies_model_module_protocol(self, tmp_path: Path) -> None:
-        from core.contract import ModelModule
+        from contracts import ModelModule
 
         _build_rf_artifact(tmp_path)
         module = _load_module(tmp_path)

@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from util.frame_source import Frame, FrameSource, VideoFileSource
+from sources import Frame, FrameSource, VideoFileSource
 
 # ---------------------------------------------------------------------------
 # Helpers

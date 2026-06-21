@@ -2,7 +2,7 @@
 
 ADR-057 keeps model swaps constrained to the runner implementation, model
 artifact, and config wiring; callers select a task and receive the configured
-runner without importing legacy core/serving modules.
+runner without importing lower-level serving modules directly.
 """
 
 from __future__ import annotations

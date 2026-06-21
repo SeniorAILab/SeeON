@@ -9,7 +9,7 @@ These pages describe the contract **as implemented** (issue #216 / PR #217): the
 - [Route inventory](./route-inventory.md) — all backend dashboard/auth/ingest routes plus explicitly removed routes.
 - [Edge ingest API](./edge-ingest-api.md) — HMAC camera ingest for alerts and heartbeat.
 - [Dashboard API](./dashboard-api.md) — authenticated dashboard read-model and CRUD APIs.
-- [ML serving API](./ml-serving-api.md) — FastAPI `/predict` window contract and `/health`.
+- [ML serving API](./ml-serving-api.md) — FastAPI `/debug/predict/window` canonical window contract, `/debug/predict/source` debug/source mode, `/health/live`, `/health/ready`, `/status`, and `/models`. Bare `POST /predict` is removed.
 - [Realtime events](./realtime-events.md) — dashboard SSE stream frame contract.
 - [Kakao delivery API](./kakao-delivery-api.md) — outbox, delivery attempts, and Kakao send-to-me semantics.
 
@@ -32,4 +32,4 @@ Do not create a root `contracts/` directory. Contract ownership stays under `doc
 
 ## Removed routes
 
-Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events` (→ `/ingest/alerts`, ADR-047), `POST /orgs` (→ `/api/orgs`), `GET/PUT /api/snapshots/:alertId` (→ `/api/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`).
+Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events` (→ `/ingest/alerts`, ADR-047), `POST /orgs` (→ `/api/orgs`), `GET/PUT /api/snapshots/:alertId` (→ `/api/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), and ML serving `POST /predict` (→ `POST /debug/predict/window` for canonical window inference or `POST /debug/predict/source` for bounded debug/source inference).

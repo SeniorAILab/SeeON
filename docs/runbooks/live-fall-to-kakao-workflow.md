@@ -11,7 +11,7 @@
 ```
 [웹캠]
   └─ Streamlit 데모(ml/demo/app.py): YOLO pose → 낙상 분류 → FallEventLatch (정상→낙상 rising edge)
-       └─ AlertClient.send(event_type="fall", detected_at, confidence)        (ml/core/alert_client.py)
+       └─ AlertClient.send(event_type="fall", detected_at, confidence)        (ml/events/publisher.py)
             └─ HMAC POST /ingest/alerts                                        (X-Ingest-Key-Id / X-Signature / X-Ingest-Timestamp)
                  canonical = resident_id|facility_id|type|detected_at
                  signing  = HMAC-SHA256(key=sha256(secret), canonical)
@@ -207,7 +207,7 @@ pnpm --filter backend demo:bind <원장_kakaoId>             # demo-org-01 수�
 > set -a; . ml/.env; set +a
 > uv run --directory ml python - <<'PY'
 > import datetime as dt
-> from core.alert_client import AlertClient
+> from events import AlertClient
 > c = AlertClient.from_env(source_id="demo-cam-01"); assert c
 > c.send(event_type="fall",
 >        detected_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds").replace("+00:00","Z"),

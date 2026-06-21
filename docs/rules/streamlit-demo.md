@@ -16,9 +16,11 @@ add knobs that duplicate model-contract internals.
 
 - **Classifier selectbox** — `select_classifier_spec()` from `demo.demo_ui`;
   renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`. The registry is
-  derived from `training.models.catalog.CATALOG`: every model family whose
+  derived from `training.models.catalog.CATALOG`: every temporal model family whose
   trained artifact exists on disk is exposed automatically — never hand-list
-  families in the demo.
+  families in the demo. Fall classification is serving-only: temporal modules use
+  `serving.client.ServingFallClassifier` → `POST /debug/predict/window`;
+  `rule_based` is not a selectable classifier.
 - **판정 임계값 slider** — `select_decision_threshold(spec)` from
   `demo.demo_ui`; shown for available temporal models only. Default comes from
   `demo.thresholds.default_threshold` (NH-measured operating point where one
@@ -28,7 +30,7 @@ add knobs that duplicate model-contract internals.
   is overwritten on retrain and never carries NH-derived numbers.
 - **Detection-parameter expander** — `select_classifier_params()` from
   `demo.demo_ui`; "탐지 파라미터" expander (collapsed by default) exposing
-  `conf`, `window`, `stride`, `sustained_down_sec`.
+  `conf`, `window`, `stride`.
 - **YOLO26-pose size selectbox** — inside `render_live_controls()`; uses
   `POSE_MODEL_SIZE_LABELS` for human-readable hardware-cost labels (e.g.
   `nano · fastest`, `large · accurate`).
@@ -124,15 +126,16 @@ framework internals.
 ## 7. Operational notes
 
 - **First-select latency.** `yolo26{s,m,l,x}-pose.pt` weights download on first
-  selection and are large. They cache to `ml/weights/` (not the `ml/` root) via
+  selection and are large. They cache to `ml/models/pose/` (not the `ml/` root) via
   `pose_weight_path(size)` — see [ml-filesystem-layout.md](./ml-filesystem-layout.md)
   and ADR-015. `*.pt` is gitignored — never commit weights. Expect a one-time
   download delay when a size is picked for the first time.
 - **Import contract.** `streamlit run demo/app.py` only puts `ml/demo/` on the
   path; pytest uses `pythonpath=["."]` = `ml/`. `app.py` bootstraps `sys.path`
   with the `ml/` root so both resolve the same package-qualified imports
-  (`from demo.x import …`, `from util.x import …`). Do not reintroduce
-  `try/except ModuleNotFoundError` dual-import shims.
+  (`from demo.x import …`, `from sources.x import …`, `from serving.client import …`).
+  Do not reintroduce `core`/`util` imports or `try/except ModuleNotFoundError`
+  dual-import shims.
 - **Never fabricate data.** Nothing in the demo may paint keypoints, boxes, or
   labels that did not come from a real model inference (ADR-027).
 
@@ -157,7 +160,9 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
   [the live-fall runbook](../runbooks/live-fall-to-kakao-workflow.md)).
 - Add an `if demo:` branch, a mock, or a silent fallback that diverges the demo
   from production. If a dependency (serving, DB, backend) is down, the demo
-  **fails loudly** — it does not quietly degrade to a fake path.
+  **fails loudly** — it does not quietly degrade to a fake path. When
+  `FALL_SERVING_URL` is unset, temporal fall classification raises `RuntimeError`;
+  there is no in-process fallback.
 
 **Allowed (not a bypass):** pose extraction stays **edge-local** in the demo —
 it feeds the overlay and forms the `[T][51]` window sent to

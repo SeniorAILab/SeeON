@@ -133,12 +133,6 @@ def predict_source(req: PredictRequest, request: Request) -> PredictResponse:
     return _predict(req, request)
 
 
-@router.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest, request: Request) -> PredictResponse:
-    """Temporary Slice 11 removal alias for window-mode callers."""
-    return _predict(req, request)
-
-
 def _predict(req: PredictRequest, request: Request) -> PredictResponse:
     try:
         model = _model(request)

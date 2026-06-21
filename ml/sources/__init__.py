@@ -1,3 +1,4 @@
+from contracts.frame import Frame, FrameSource
 from sources.registry import (
     DEFAULT_MAX_DURATION_SEC,
     DEFAULT_SOURCE_BASE_DIR,
@@ -15,6 +16,8 @@ from sources.video_file import VideoFileSource
 from sources.webcam import CameraSource
 
 __all__ = [
+    "Frame",
+    "FrameSource",
     "VideoFileSource",
     "CameraSource",
     "RTSPSource",
