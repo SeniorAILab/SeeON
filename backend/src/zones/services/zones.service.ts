@@ -5,22 +5,18 @@ import {
 } from '@nestjs/common';
 import { ZoneType } from '@prisma/client';
 import type { Zone } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service.js';
 import type { CreateZoneDto, UpdateZoneDto } from '../dto/zone.dto.js';
-
-interface ZoneFilters {
-  spaceId?: string;
-  type?: ZoneType;
-}
+import {
+  ZonesRepository,
+  type ZoneFilters,
+} from '../repositories/zones.repository.js';
 
 @Injectable()
 export class ZonesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly zonesRepository: ZonesRepository) {}
 
   async list(facilityId: string, filters: ZoneFilters = {}) {
-    const zones = await this.prisma.withFacilityContext(facilityId, (tx) =>
-      tx.zone.findMany({ where: filters, orderBy: { orderIndex: 'asc' } }),
-    );
+    const zones = await this.zonesRepository.list(facilityId, filters);
     return zones.map(presentZone);
   }
 
@@ -43,40 +39,30 @@ export class ZonesService {
         error: 'conflict',
         message: 'type is required',
       });
-    const zone = await this.prisma.withFacilityContext(facilityId, (tx) =>
-      tx.zone.create({
-        data: {
-          facilityId,
-          spaceId,
-          name,
-          type,
-          orderIndex: dto.orderIndex ?? 0,
-        },
-      }),
-    );
+    const zone = await this.zonesRepository.create(facilityId, {
+      facilityId,
+      spaceId,
+      name,
+      type,
+      orderIndex: dto.orderIndex ?? 0,
+    });
     return presentZone(zone);
   }
 
   async update(facilityId: string, id: string, dto: UpdateZoneDto) {
     await this.ensureExists(facilityId, id);
     const data = normalizeZoneUpdate(dto);
-    const zone = await this.prisma.withFacilityContext(facilityId, (tx) =>
-      tx.zone.update({ where: { id }, data }),
-    );
+    const zone = await this.zonesRepository.update(facilityId, id, data);
     return presentZone(zone);
   }
 
   async remove(facilityId: string, id: string) {
     await this.ensureExists(facilityId, id);
-    await this.prisma.withFacilityContext(facilityId, (tx) =>
-      tx.zone.delete({ where: { id } }),
-    );
+    await this.zonesRepository.delete(facilityId, id);
   }
 
   private async ensureExists(facilityId: string, id: string) {
-    const zone = await this.prisma.withFacilityContext(facilityId, (tx) =>
-      tx.zone.findUnique({ where: { id } }),
-    );
+    const zone = await this.zonesRepository.findById(facilityId, id);
     if (!zone)
       throw new NotFoundException({
         error: 'not_found',
