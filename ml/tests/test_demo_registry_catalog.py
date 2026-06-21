@@ -47,12 +47,10 @@ class TestCatalogLockstep:
 
     def test_classifier_registry_covers_all_temporal_keys(self) -> None:
         registry_keys = {spec.key for spec in CLASSIFIER_REGISTRY}
-        assert registry_keys == {"rule_based", *TEMPORAL_MODEL_KEYS}
+        assert registry_keys == set(TEMPORAL_MODEL_KEYS)
 
     def test_unavailable_spec_marked_준비중(self) -> None:
         for spec in CLASSIFIER_REGISTRY:
-            if spec.key == "rule_based":
-                continue
             assert spec.display_name.endswith("(준비중)") != spec.available
 
 

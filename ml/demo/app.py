@@ -38,7 +38,6 @@ from demo.demo_ui import (  # noqa: E402
     select_decision_threshold,
 )
 from demo.live_view import (  # noqa: E402
-    DetectionLossMonitor,
     FallEventLatch,
     iter_live_frames,
     render_due,
@@ -215,7 +214,6 @@ def _render_live_viewer(
     processed = 0
     last_painted_fall = False
     latch = FallEventLatch()
-    loss_monitor = DetectionLossMonitor()
     source_id = _source_id_for_selection(selected_source, camera_index)
     alert_client = AlertClient.from_env(source_id=source_id)
     bed_detector = BedDetector()
@@ -252,12 +250,6 @@ def _render_live_viewer(
                 if alert_client is not None:
                     alert_client.send(event_type="bed-exit", detected_at=detected_at)
                 bed_event_ph.warning(_bed_exit_badge_text(status))
-            if loss_monitor.update(pose_count=status.pose_count, time_sec=frame_time_sec):
-                if alert_client is not None:
-                    alert_client.send(
-                        event_type="detection-lost",
-                        detected_at=detected_at,
-                    )
             if render_due(
                 processed,
                 RENDER_FRAME_STRIDE,

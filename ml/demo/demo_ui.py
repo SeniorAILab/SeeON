@@ -6,12 +6,11 @@ from typing import Literal
 import streamlit as st
 
 from contracts import ModelModule
-from demo.classifier_module import FallClassifierModule
 from demo.classifiers import (
     CLASSIFIER_REGISTRY,
     ClassifierParams,
     ClassifierSpec,
-    build_classifier,
+    available_classifier_keys,
 )
 from demo.model_modules import POSE_MODEL_SIZE_LABELS, POSE_MODEL_SIZES, YoloPoseModule
 from demo.playback_status import CurrentPlaybackStatus
@@ -25,7 +24,6 @@ from demo.ui_labels import (
     DETECTION_PARAMS_LABEL,
     POSE_SKELETON_LABEL,
     STRIDE_FRAMES_LABEL,
-    SUSTAINED_FALL_SECONDS_LABEL,
     WINDOW_FRAMES_LABEL,
     YOLO_SIZE_LABEL,
 )
@@ -98,8 +96,11 @@ def build_model(
         from demo.temporal_module import build_temporal_model
 
         return build_temporal_model(classifier_key, pose, threshold_override=decision_threshold)
-    classifier = build_classifier(classifier_key, classifier_params)
-    return FallClassifierModule(pose_module=pose, classifier=classifier)
+    raise ValueError(
+        f"Unsupported classifier key {classifier_key!r}: demo fall classification is "
+        "serving-only via temporal models. "
+        f"Available: {available_classifier_keys()}"
+    )
 
 
 def render_live_controls(
@@ -154,7 +155,10 @@ def select_classifier_spec() -> ClassifierSpec:
         format_func=lambda spec: spec.display_name,
     )
     if not selected_spec.available:
-        st.info("규칙기반 분류만 현재 지원됩니다. 선택한 모델은 준비중입니다.")
+        st.info(
+            "선택한 모델 아티펙트가 없습니다 (준비중). "
+            "학습된 temporal 모델만 서빙을 통해 분류합니다."
+        )
     return selected_spec
 
 
@@ -195,12 +199,8 @@ def select_classifier_params() -> ClassifierParams:
         )
         window = col1.number_input(WINDOW_FRAMES_LABEL, min_value=1, value=60, step=1)
         stride_param = col2.number_input(STRIDE_FRAMES_LABEL, min_value=1, value=15, step=1)
-        sustained = col2.number_input(
-            SUSTAINED_FALL_SECONDS_LABEL, min_value=0.1, max_value=30.0, value=2.0, step=0.1
-        )
     return ClassifierParams(
         confidence=float(conf),
         window=int(window),
         stride=int(stride_param),
-        sustained_down_sec=float(sustained),
     )
