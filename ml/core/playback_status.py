@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 try:
-    from core.contract import DetectionResult
+    from core.contract import FrameObservation
 except ModuleNotFoundError:
-    from contract import DetectionResult  # type: ignore[no-redef]
+    from contract import FrameObservation  # type: ignore[no-redef]
 
 
 BedExitEvents = tuple[object, ...]
@@ -25,7 +25,7 @@ class CurrentPlaybackStatus:
 
 
 def current_playback_status(
-    result: DetectionResult,
+    result: FrameObservation,
     pose_count: int,
     time_sec: float,
 ) -> CurrentPlaybackStatus:

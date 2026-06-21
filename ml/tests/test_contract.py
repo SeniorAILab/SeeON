@@ -5,7 +5,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from core.contract import BoundingBox, DetectionLabel, DetectionResult, ModelModule
+from core.contract import (
+    BoundingBox,
+    DetectionLabel,
+    DetectionResult,
+    FrameObservation,
+    ModelModule,
+)
 from util.frame_source import Frame, VideoFileSource
 
 # ---------------------------------------------------------------------------
@@ -25,12 +31,12 @@ def _write_tiny_video(path: Path, frame_count: int = 6, fps: float = 6.0) -> Pat
 
 
 class _FakeModule:
-    """Minimal ModelModule that returns a fixed DetectionResult."""
+    """Minimal ModelModule that returns a fixed FrameObservation."""
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         box = BoundingBox(x1=0, y1=0, x2=10, y2=10, confidence=0.9)
         label = DetectionLabel(text="fall", confidence=0.9, is_fall=True)
-        return DetectionResult(boxes=(box,), labels=(label,))
+        return FrameObservation(detections=((box,), (label,)))
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +73,7 @@ def test_fake_module_satisfies_model_module_protocol() -> None:
     assert isinstance(module, ModelModule)
     result = module.predict(frame)
 
-    assert isinstance(result, DetectionResult)
+    assert isinstance(result, FrameObservation)
     assert len(result.boxes) == 1
     assert result.boxes[0].x2 == 10
     assert result.labels[0].text == "fall"
@@ -81,5 +87,5 @@ def test_fake_module_over_video_file_source_yields_results(tmp_path: Path) -> No
     results = [module.predict(frame) for frame in VideoFileSource(video_path)]
 
     assert len(results) == 4
-    assert all(isinstance(r, DetectionResult) for r in results)
+    assert all(isinstance(r, FrameObservation) for r in results)
     assert all(len(r.boxes) == 1 for r in results)

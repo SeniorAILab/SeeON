@@ -8,8 +8,8 @@ from core.contract import (
     FALL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
-    DetectionResult,
     Frame,
+    FrameObservation,
     ModelModule,
 )
 
@@ -24,22 +24,25 @@ def _kpts_17_blank() -> tuple[tuple[int, int, float], ...]:
 
 
 class _FakePoseModule:
-    """Pose module stub returning a fixed DetectionResult."""
+    """Pose module stub returning a fixed FrameObservation."""
 
     def __init__(self, box: BoundingBox) -> None:
         self._box = box
 
-    def predict(self, frame: Frame) -> DetectionResult:
-        return DetectionResult(
-            boxes=(self._box,),
-            labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
-            keypoints=(_kpts_17_blank(),),
+    def predict(self, frame: Frame) -> FrameObservation:
+        return FrameObservation(
+            detections=(
+                (self._box,),
+                (DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+            ),
+            poses=(_kpts_17_blank(),),
+            regions=((), ()),
         )
 
 
 class _EmptyPoseModule:
-    def predict(self, frame: Frame) -> DetectionResult:
-        return DetectionResult()
+    def predict(self, frame: Frame) -> FrameObservation:
+        return FrameObservation(detections=((), ()), poses=(), regions=((), ()))
 
 
 def _wide_low_box() -> BoundingBox:
@@ -109,14 +112,17 @@ class TestFallClassifierModule:
         large_box = _wide_low_box()
 
         class _TwoPersonPoseModule:
-            def predict(self, frame: Frame) -> DetectionResult:
-                return DetectionResult(
-                    boxes=(small_box, large_box),
-                    labels=(
-                        DetectionLabel(text="person", confidence=0.5, is_fall=False),
-                        DetectionLabel(text="person", confidence=0.9, is_fall=False),
+            def predict(self, frame: Frame) -> FrameObservation:
+                return FrameObservation(
+                    detections=(
+                        (small_box, large_box),
+                        (
+                            DetectionLabel(text="person", confidence=0.5, is_fall=False),
+                            DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                        ),
                     ),
-                    keypoints=(_kpts_17_blank(), _kpts_17_blank()),
+                    poses=(_kpts_17_blank(), _kpts_17_blank()),
+                    regions=((), ()),
                 )
 
         params = ClassifierParams(sustained_down_sec=2.0)
