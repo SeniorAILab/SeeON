@@ -39,7 +39,6 @@ from demo.ui_labels import (
     POSE_SKELETON_LABEL,
     ROLE_SELECT_LABEL,
     STRIDE_FRAMES_LABEL,
-    SUSTAINED_FALL_SECONDS_LABEL,
     UPLOAD_VIDEO_LABEL,
     VIDEO_SELECT_LABEL,
     WINDOW_FRAMES_LABEL,
@@ -60,7 +59,6 @@ _DETECTION_PARAM_VALUES = [
     pytest.param(CONFIDENCE_THRESHOLD_LABEL, 0.25, id="conf"),
     pytest.param(WINDOW_FRAMES_LABEL, 30, id="window"),
     pytest.param(STRIDE_FRAMES_LABEL, 5, id="stride"),
-    pytest.param(SUSTAINED_FALL_SECONDS_LABEL, 3.0, id="sustained"),
 ]
 
 _OVERLAY_VALUES = [
@@ -233,21 +231,26 @@ def test_classifier_selectbox_all_options_selectable_no_crash() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_threshold_slider_absent_for_rule_based_default() -> None:
+def test_rule_based_absent_and_default_available_temporal_shows_threshold_slider() -> None:
+    from demo.classifiers import CLASSIFIER_REGISTRY
+
     at = _boot()
     assert_no_exception(at)
     clf_sb = find_labeled(at.selectbox, CLASSIFIER_SELECT_LABEL, "selectbox")
-    # rule_based is index 0 (the default).
-    assert clf_sb.index == 0, f"Expected rule_based at index 0, got {clf_sb.index}"
-    assert len(at.slider) == 0, "Threshold slider must not appear for rule_based classifier"
+
+    assert all(spec.key != "rule_based" for spec in CLASSIFIER_REGISTRY)
+    assert all("rule" not in str(option).lower() for option in clf_sb.options)
+    selected_spec = CLASSIFIER_REGISTRY[clf_sb.index]
+    if not selected_spec.available:
+        pytest.skip("Default temporal model is not available on this machine")
+    assert len(at.slider) == 1
+    assert at.slider[0].label == DECISION_THRESHOLD_LABEL
 
 
 def test_threshold_slider_present_for_available_temporal_model() -> None:
     from demo.classifiers import CLASSIFIER_REGISTRY
 
-    temporal_available = [
-        spec for spec in CLASSIFIER_REGISTRY if spec.key != "rule_based" and spec.available
-    ]
+    temporal_available = [spec for spec in CLASSIFIER_REGISTRY if spec.available]
     if not temporal_available:
         pytest.skip("No available temporal models on this machine")
 
@@ -269,9 +272,7 @@ def test_threshold_slider_present_for_available_temporal_model() -> None:
 def test_threshold_slider_accepts_custom_value() -> None:
     from demo.classifiers import CLASSIFIER_REGISTRY
 
-    temporal_available = [
-        spec for spec in CLASSIFIER_REGISTRY if spec.key != "rule_based" and spec.available
-    ]
+    temporal_available = [spec for spec in CLASSIFIER_REGISTRY if spec.available]
     if not temporal_available:
         pytest.skip("No available temporal models on this machine")
 
@@ -303,8 +304,7 @@ def test_detection_params_all_four_number_inputs_present() -> None:
         CONFIDENCE_THRESHOLD_LABEL,
         WINDOW_FRAMES_LABEL,
         STRIDE_FRAMES_LABEL,
-        SUSTAINED_FALL_SECONDS_LABEL,
-    }
+        }
     assert expected <= set(labels(at.number_input)), (
         f"Missing number_input widgets: {expected - set(labels(at.number_input))}"
     )

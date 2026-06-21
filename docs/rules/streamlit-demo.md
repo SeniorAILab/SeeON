@@ -16,9 +16,11 @@ add knobs that duplicate model-contract internals.
 
 - **Classifier selectbox** — `select_classifier_spec()` from `demo.demo_ui`;
   renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`. The registry is
-  derived from `training.models.catalog.CATALOG`: every model family whose
+  derived from `training.models.catalog.CATALOG`: every temporal model family whose
   trained artifact exists on disk is exposed automatically — never hand-list
-  families in the demo.
+  families in the demo. Fall classification is serving-only: temporal modules use
+  `serving.client.ServingFallClassifier` → `POST /debug/predict/window`;
+  `rule_based` is not a selectable classifier.
 - **판정 임계값 slider** — `select_decision_threshold(spec)` from
   `demo.demo_ui`; shown for available temporal models only. Default comes from
   `demo.thresholds.default_threshold` (NH-measured operating point where one
@@ -28,7 +30,7 @@ add knobs that duplicate model-contract internals.
   is overwritten on retrain and never carries NH-derived numbers.
 - **Detection-parameter expander** — `select_classifier_params()` from
   `demo.demo_ui`; "탐지 파라미터" expander (collapsed by default) exposing
-  `conf`, `window`, `stride`, `sustained_down_sec`.
+  `conf`, `window`, `stride`.
 - **YOLO26-pose size selectbox** — inside `render_live_controls()`; uses
   `POSE_MODEL_SIZE_LABELS` for human-readable hardware-cost labels (e.g.
   `nano · fastest`, `large · accurate`).
@@ -158,7 +160,9 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
   [the live-fall runbook](../runbooks/live-fall-to-kakao-workflow.md)).
 - Add an `if demo:` branch, a mock, or a silent fallback that diverges the demo
   from production. If a dependency (serving, DB, backend) is down, the demo
-  **fails loudly** — it does not quietly degrade to a fake path.
+  **fails loudly** — it does not quietly degrade to a fake path. When
+  `FALL_SERVING_URL` is unset, temporal fall classification raises `RuntimeError`;
+  there is no in-process fallback.
 
 **Allowed (not a bypass):** pose extraction stays **edge-local** in the demo —
 it feeds the overlay and forms the `[T][51]` window sent to
