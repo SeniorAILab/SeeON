@@ -2,25 +2,11 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, runtime_checkable
 
 import cv2
-import numpy as np
-from numpy.typing import NDArray
 
-
-@dataclass(frozen=True, slots=True)
-class Frame:
-    index: int
-    time_sec: float
-    image: NDArray[np.uint8]
-
-
-@runtime_checkable
-class FrameSource(Protocol):
-    def __iter__(self) -> Iterator[Frame]: ...
+from contracts.frame import Frame, FrameSource
 
 
 class VideoFileSource:
@@ -107,3 +93,5 @@ class CameraSource:
                 frame_index += 1
         finally:
             capture.release()
+
+__all__ = ["Frame", "FrameSource", "VideoFileSource", "CameraSource"]

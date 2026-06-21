@@ -43,6 +43,7 @@ from numpy.typing import NDArray
 
 from core.model_modules import pose_weight_path
 from core.yolo_runtime import YoloPoseRunner
+from features.pose_normalization import normalize_person_keypoints
 from training import config
 
 log = logging.getLogger(__name__)
@@ -103,59 +104,7 @@ def discover_clips(input_dir: Path) -> list[ClipRef]:
     return clips
 
 
-# ---------------------------------------------------------------------------
-# Pure keypoint normalisation (YOLO-free, unit-testable)
-# ---------------------------------------------------------------------------
-
-
-def normalize_person_keypoints(
-    pose_detections: tuple,
-    frame_w: int,
-    frame_h: int,
-    conf_threshold: float,
-) -> NDArray[np.float32]:
-    """Convert raw pose detections to a normalised float32 array of shape (17, 3).
-
-    This function is pure (no I/O, no model) so unit tests can exercise
-    normalisation, no-person zeroing, and confidence gating without loading YOLO.
-
-    Args:
-        pose_detections: The first element of the tuple returned by
-            ``YoloPoseRunner.predict_full()``.  Each entry is a tuple of 17
-            ``(x_int, y_int, conf)`` tuples.  An empty tuple means no person
-            was detected.
-        frame_w:         Frame width in pixels — used to normalise x to [0, 1].
-        frame_h:         Frame height in pixels — used to normalise y to [0, 1].
-        conf_threshold:  Keypoints with ``conf < conf_threshold`` are zeroed
-            entirely (x=0, y=0, conf=0) so the downstream ``conf > 0`` filter
-            cannot produce false velocity spikes from low-confidence detections.
-
-    Returns:
-        ``np.float32`` array of shape ``(17, 3)`` containing ``(x_norm, y_norm, conf)``.
-        All zeros when no person is detected or when a keypoint fails the
-        confidence gate.
-    """
-    # === 단계 3: COCO-17 키포인트 정규화 — 픽셀 좌표→[0,1], 저신뢰 키포인트 제로화 ===
-    out = np.zeros((config.N_KEYPOINTS, config.KPT_DIMS), dtype=np.float32)
-
-    person = pose_detections[0] if len(pose_detections) > 0 else None
-    if person is None:
-        return out
-
-    for i, (x_int, y_int, conf) in enumerate(person):
-        if i >= config.N_KEYPOINTS:
-            break
-        if conf < conf_threshold:
-            # Zero x, y, AND conf so `conf > 0` downstream excludes this keypoint.
-            out[i] = (0.0, 0.0, 0.0)
-        else:
-            out[i] = (
-                float(x_int) / frame_w,
-                float(y_int) / frame_h,
-                float(conf),
-            )
-
-    return out
+# Pure keypoint normalisation lives in features.pose_normalization.
 
 
 # ---------------------------------------------------------------------------
