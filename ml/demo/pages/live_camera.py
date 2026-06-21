@@ -19,8 +19,8 @@ from demo.demo_ui import (  # noqa: E402
     select_classifier_spec,
 )
 from demo.live_view import iter_live_frames  # noqa: E402
+from sources import CameraSource  # noqa: E402
 from util.camera_probe import probe_cameras  # noqa: E402
-from util.frame_source import CameraSource  # noqa: E402
 
 CAMERA_PLAYING_KEY = "camera_playing"
 
