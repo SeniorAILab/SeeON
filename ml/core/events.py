@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from core.bed_exit import BedExitEvent
+from domains.bed_exit.schema import BedExitEvent
+from domains.fall.detector import FallEventLatch
+
+__all__ = ["BedExitLatch", "DetectionLossMonitor", "FallEventLatch", "render_due"]
 
 
 def render_due(
@@ -10,54 +13,14 @@ def render_due(
     is_fall: bool,
     last_painted_fall: bool,
 ) -> bool:
-    """Decide whether the UI should repaint for this processed frame.
-
-    Inference always runs on every consecutive frame (train/serve parity,
-    ADR-013); only *painting* is decimated to every ``render_stride``-th
-    frame. A change in fall state repaints immediately so decimation can
-    never delay an alarm — in either direction.
-    """
+    """Decide whether the UI should repaint for this processed frame."""
     if is_fall != last_painted_fall:
         return True
     return frame_count % max(1, render_stride) == 0
 
 
-class FallEventLatch:
-    """Latch fall *events* out of the per-frame fall signal.
-
-    The per-window classifier honestly returns to 정상 once the fall motion
-    exits its window — correct trained semantics, but the "a fall happened"
-    fact would vanish from screen. This helper detects rising edges
-    (정상→낙상) and remembers the first onset time and total onset count so
-    the UI can keep a latched badge. Pure aggregation of real inference
-    outputs — it never invents a fall (ADR-027). Product-grade alerting
-    (ack flow, notifications) is backend scope (ADR-023).
-    """
-
-    def __init__(self) -> None:
-        self.event_count: int = 0
-        self.first_event_sec: float | None = None
-        self._prev_fall: bool = False
-
-    def update(self, is_fall: bool, time_sec: float) -> bool:
-        """Feed one frame's fall state; return True on a rising edge (new event)."""
-        onset = is_fall and not self._prev_fall
-        if onset:
-            self.event_count += 1
-            if self.first_event_sec is None:
-                self.first_event_sec = time_sec
-        self._prev_fall = is_fall
-        return onset
-
-
 class BedExitLatch:
-    """Latch bed-exit events out of the per-frame bed-exit monitor output.
-
-    Bed-exit monitor events are discrete facts. This helper records only real
-    rising-edge ``(person_id, bed_id)`` events, dedupes sustained duplicate
-    frames, and remembers the first event time and total count for callers that
-    need a stable badge or alert trigger.
-    """
+    """Latch bed-exit events out of the per-frame bed-exit monitor output."""
 
     def __init__(self) -> None:
         self.event_count: int = 0
