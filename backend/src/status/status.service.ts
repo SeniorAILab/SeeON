@@ -8,9 +8,9 @@ const CAMERA_ONLINE_TIMEOUT_MS = 30_000;
 export class StatusService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listByOrg(orgId: string) {
-    const statuses = await this.prisma.withOrgContext(
-      orgId,
+  async listByFacility(facilityId: string) {
+    const statuses = await this.prisma.withFacilityContext(
+      facilityId,
       (tx: Prisma.TransactionClient) =>
         tx.residentStatus.findMany({
           include: { resident: { select: { name: true, room: true } } },
@@ -19,9 +19,9 @@ export class StatusService {
     return statuses.map((s) => this._decayOnline(s));
   }
 
-  async getByResident(orgId: string, residentId: string) {
-    const s = await this.prisma.withOrgContext(
-      orgId,
+  async getByResident(facilityId: string, residentId: string) {
+    const s = await this.prisma.withFacilityContext(
+      facilityId,
       (tx: Prisma.TransactionClient) =>
         tx.residentStatus.findUnique({
           where: { residentId },
@@ -50,28 +50,30 @@ export class StatusService {
    * The 30s decay still applies on read via _decayOnline.
    */
   async recordCameraHeartbeat(
-    orgId: string,
+    facilityId: string,
     cameraId: string,
     residentId: string | null,
   ): Promise<void> {
     if (!residentId) return; // camera not assigned to a resident
     const now = new Date();
-    await this.prisma.withOrgContext(orgId, (tx: Prisma.TransactionClient) =>
-      tx.residentStatus.upsert({
-        where: { residentId },
-        create: {
-          orgId,
-          residentId,
-          cameraOnline: true,
-          lastSeenAt: now,
-          sourceId: cameraId,
-        },
-        update: {
-          cameraOnline: true,
-          lastSeenAt: now,
-          sourceId: cameraId,
-        },
-      }),
+    await this.prisma.withFacilityContext(
+      facilityId,
+      (tx: Prisma.TransactionClient) =>
+        tx.residentStatus.upsert({
+          where: { residentId },
+          create: {
+            facilityId,
+            residentId,
+            cameraOnline: true,
+            lastSeenAt: now,
+            sourceId: cameraId,
+          },
+          update: {
+            cameraOnline: true,
+            lastSeenAt: now,
+            sourceId: cameraId,
+          },
+        }),
     );
   }
 }

@@ -14,11 +14,11 @@ import { AppModule } from '../src/app.module';
  *   (Alert read-model + ResidentStatus + SSE) AND AlertEventsService.ensureOutboxForIngest
  *   (AlertEvent + per-recipient DeliveryAttempt outbox).
  *
- * Kakao fan-out is intentionally empty here (no org user holds an encrypted
+ * Kakao fan-out is intentionally empty here (no facility user holds an encrypted
  * talk_message token), which is the honest "Kakao delivery UNAVAILABLE" state —
  * the per-recipient send path is covered by alert-events.service unit tests.
  */
-const ORG = 'e2e-ingest-org';
+const FACILITY = 'e2e-ingest-facility';
 const RES = 'e2e-ingest-res';
 const CAM = 'e2e-ingest-cam';
 const KEY_ID = 'e2e-ingest-keyid';
@@ -40,11 +40,11 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
       });
     }
     await direct.alertEvent.deleteMany({ where: { sourceId: CAM } });
-    await direct.alert.deleteMany({ where: { orgId: ORG } });
-    await direct.residentStatus.deleteMany({ where: { orgId: ORG } });
-    await direct.camera.deleteMany({ where: { orgId: ORG } });
-    await direct.resident.deleteMany({ where: { orgId: ORG } });
-    await direct.organization.deleteMany({ where: { id: ORG } });
+    await direct.alert.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.residentStatus.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.camera.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.resident.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.facility.deleteMany({ where: { id: FACILITY } });
   }
 
   beforeAll(async () => {
@@ -57,16 +57,21 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
       datasources: { db: { url: process.env.DIRECT_URL } },
     });
     await cleanup();
-    await direct.organization.create({
-      data: { id: ORG, name: 'E2E Ingest Org' },
+    await direct.facility.create({
+      data: { id: FACILITY, name: 'E2E Ingest Facility' },
     });
     await direct.resident.create({
-      data: { id: RES, orgId: ORG, name: 'E2E Resident', room: 'E2E' },
+      data: {
+        id: RES,
+        facilityId: FACILITY,
+        name: 'E2E Resident',
+        room: 'E2E',
+      },
     });
     await direct.camera.create({
       data: {
         id: CAM,
-        orgId: ORG,
+        facilityId: FACILITY,
         residentId: RES,
         label: 'E2E Cam',
         ingestKeyId: KEY_ID,
@@ -91,7 +96,7 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
     const detectedAt = new Date().toISOString();
     const body = {
       resident_id: RES,
-      facility_id: ORG,
+      facility_id: FACILITY,
       probability: 0.95,
       detected_at: detectedAt,
       type: 'fall',
@@ -116,8 +121,10 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
       .expect(201);
     expect((res.body as { status: string }).status).toBe('created');
 
-    // Alert read-model row created, org-scoped.
-    const alerts = await direct.alert.findMany({ where: { orgId: ORG } });
+    // Alert read-model row created, facility-scoped.
+    const alerts = await direct.alert.findMany({
+      where: { facilityId: FACILITY },
+    });
     expect(alerts).toHaveLength(1);
     expect(alerts[0]?.residentId).toBe(RES);
     expect(alerts[0]?.cameraId).toBe(CAM);
@@ -135,7 +142,7 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
     });
     expect(events).toHaveLength(1);
 
-    // No org user holds a Kakao token -> per-user fan-out empty (Kakao UNAVAILABLE).
+    // No facility user holds a Kakao token -> per-user fan-out empty (Kakao UNAVAILABLE).
     const attempts = await direct.deliveryAttempt.findMany({
       where: { alertEventId: events[0]?.id },
     });
@@ -151,7 +158,7 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
       .set('x-ingest-timestamp', detectedAt)
       .send({
         resident_id: RES,
-        facility_id: ORG,
+        facility_id: FACILITY,
         probability: 0.95,
         detected_at: detectedAt,
         type: 'fall',

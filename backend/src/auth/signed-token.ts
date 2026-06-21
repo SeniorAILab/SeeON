@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export interface SessionTokenPayload {
   sessionId: string;
   userId: string;
-  orgId: string | null;
+  facilityId: string | null;
   sessionVersion: number;
   iat: number;
   exp: number;
@@ -58,7 +58,7 @@ export function verifySignedSessionToken(
     typeof parsed.sessionVersion !== 'number' ||
     typeof parsed.iat !== 'number' ||
     typeof parsed.exp !== 'number' ||
-    !(typeof parsed.orgId === 'string' || parsed.orgId === null)
+    !(typeof parsed.facilityId === 'string' || parsed.facilityId === null)
   ) {
     return null;
   }
