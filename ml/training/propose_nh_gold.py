@@ -350,8 +350,8 @@ def main(argv: list[str] | None = None) -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    from core.model_modules import pose_weight_path
-    from core.yolo_runtime import YoloPoseRunner
+    from contracts.artifacts import pose_weight_path
+    from runners.yolo_pose import YoloPoseRunner
 
     videos = sorted(NH_PROCESSED_DIR.glob("*.mp4")) + sorted(NH_PROCESSED_DIR.glob("*.avi"))
     if args.stems:

@@ -9,6 +9,7 @@ from typing import Protocol
 
 import numpy as np
 
+from contracts.model import DEFAULT_FALL_CONFIDENCE_THRESHOLD
 from core.contract import DetectionResult, ModelModule
 from core.model_modules import YoloPoseModule, pose_weight_path
 from serving.model import FallDetector
@@ -122,11 +123,10 @@ def normalize_primary_person(
     best_idx = max(range(len(result.boxes)), key=lambda idx: _box_area(result.boxes[idx]))
     if best_idx >= len(result.keypoints):
         return None
-    from training import config
-    from training.extract_poses import normalize_person_keypoints
+    from features.pose_normalization import normalize_person_keypoints
 
     arr = normalize_person_keypoints(
-        (result.keypoints[best_idx],), frame_w, frame_h, config.CONF_THRESHOLD
+        (result.keypoints[best_idx],), frame_w, frame_h, DEFAULT_FALL_CONFIDENCE_THRESHOLD
     )
     if not np.asarray(arr).any():
         return None
@@ -134,7 +134,7 @@ def normalize_primary_person(
 
 
 def window_to_features(window: list[np.ndarray]) -> np.ndarray:
-    from training.data.features import extract_window_features
+    from features.window_features import extract_window_features
 
     arr = np.asarray(window, dtype=np.float32)
     return np.asarray(extract_window_features(arr), dtype=np.float32)
