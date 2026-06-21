@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Extends ADR-023 by fixing the concrete `/predict` request/response contract and retaining backend product-policy ownership.
+Accepted. Extends ADR-023 by fixing the concrete `/debug/predict/window` request/response contract and retaining backend product-policy ownership. `/predict` is a temporary compatibility alias only.
 
 ## Date
 
@@ -12,13 +12,13 @@ Accepted. Extends ADR-023 by fixing the concrete `/predict` request/response con
 
 ADR-023 establishes the ownership boundary: ML predicts, while backend owns alert policy, persistence, deduplication, rate limiting, delivery, and product side effects. The refactor needs the concrete serving contract to be equally explicit so backend and ML do not drift on request geometry or response fields.
 
-G-R1 geometry verification confirmed R1-A: the request window is a temporal COCO-17 pose tensor flattened per frame, with shape `[T][51]`. Each frame contains 17 keypoints and each keypoint contributes `[x, y, conf]`; coordinates are normalized like training via `normalize_person_keypoints`, and `conf` is in `[0, 1]`. ML reshapes `[T,51]` to `[T,17,3]`, applies `ml/training/data/features.extract_window_features`, and classifies the resulting 45-dimensional feature vector with `ml/serving/model.FallDetector.predict`.
+G-R1 geometry verification confirmed R1-A: the request window is a temporal COCO-17 pose tensor flattened per frame, with shape `[T][51]`. Each frame contains 17 keypoints and each keypoint contributes `[x, y, conf]`; coordinates are normalized like training via `normalize_person_keypoints`, and `conf` is in `[0, 1]`. ML reshapes `[T,51]` to `[T,17,3]`, applies the ML-owned L0 window feature kernel (`features.window_features.extract_window_features`), and classifies the resulting 45-dimensional feature vector with the fall runner (`runners.sklearn_fall`; the legacy `serving.model.FallDetector` symbol remains a compatibility shim). Post-relayout the feature kernel and pose normalization are L0 (`features/`), not the retired `ml/training/data/features` path (issue #268).
 
 The retained backend prediction seam owner is D2-O1: `AlertsModule`, `prediction.port.ts`, and `ml-serving-prediction.adapter.ts`. That seam remains the future extension point for backend consumption of ML predictions.
 
 ## Decision
 
-The backend sends a pose window to ML serving `POST /predict`; ML returns model prediction fields; backend applies product policy.
+The backend sends a pose window to ML serving `POST /debug/predict/window`; ML returns model prediction fields; backend applies product policy. The window payload and response contract are unchanged from the original `/predict` route.
 
 Request contract:
 
@@ -31,8 +31,8 @@ Request contract:
 ML serving behavior:
 
 - Reshape `[T,51]` to `[T,17,3]`.
-- Convert the pose window to features through `ml/training/data/features.extract_window_features`.
-- Feed the 45-dimensional feature vector to `ml/serving/model.FallDetector.predict`.
+- Convert the pose window to features through the ML-owned L0 window feature kernel `features.window_features.extract_window_features`.
+- Feed the 45-dimensional feature vector to the fall runner (`runners.sklearn_fall`; `serving.model.FallDetector` is a compatibility shim).
 - Return at least `fall_probability`, `operating_threshold`, and `is_fall`.
 
 Response contract:
