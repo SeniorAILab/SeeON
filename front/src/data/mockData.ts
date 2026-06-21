@@ -69,10 +69,10 @@ function sp(
   name: string,
   type: SpaceType,
   capacity: number,
-  cameraId: string,
+  cameraId: string | null,
   assignedStaff: string
 ): Space {
-  return { id, facilityId: FAC, floorId, name, type, capacity, cameraId, isActive: true, assignedStaff };
+  return { id, facilityId: FAC, floorId, name, type, capacity, cameraId: cameraId ?? null, isActive: true, assignedStaff };
 }
 
 // 호실 10개 + 공용공간 4개 = 14

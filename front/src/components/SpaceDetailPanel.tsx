@@ -143,7 +143,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
           <section>
             <h3 className="mb-2 text-sm font-semibold text-ink">공간 정보</h3>
             <dl className="space-y-1.5 rounded-xl border border-border p-3 text-sm">
-              <Row icon={Camera} label="연결 카메라" value={space.cameraId} />
+              <Row icon={Camera} label="연결 카메라" value={space.cameraId ?? "미연결"} />
               <Row icon={Users} label="수용 인원" value={`${space.capacity}명`} />
               <Row icon={UserCog} label="담당 직원" value={space.assignedStaff ?? "미지정"} />
             </dl>
