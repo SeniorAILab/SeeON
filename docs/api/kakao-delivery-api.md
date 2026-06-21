@@ -35,12 +35,12 @@ Duplicate-repair semantics:
 
 ## Recipient fan-out
 
-`findKakaoRecipients(orgId)` selects org users with a stored encrypted Kakao token:
+`findKakaoRecipients(facilityId)` selects facility users with a stored encrypted Kakao token:
 
-- `User.orgId == alert orgId`
+- `User.facilityId == alert facilityId`
 - `KakaoIdentity.accessTokenCipher != null`
 
-The target fan-out is per user: each eligible org user gets one `DeliveryAttempt` with `recipientUserId` and channel `KAKAO_SEND_TO_ME`.
+The target fan-out is per user: each eligible facility user gets one `DeliveryAttempt` with `recipientUserId` and channel `KAKAO_SEND_TO_ME`.
 
 Missing token means no recipient attempt for that user. It is delivery `UNAVAILABLE` for Kakao, not dashboard failure, and must not be reported as sent.
 
