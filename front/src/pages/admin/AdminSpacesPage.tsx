@@ -27,7 +27,7 @@ function emptyDraft(facilityId: string, floorId: string): Draft {
     name: "",
     type: "ROOM",
     capacity: 4,
-    cameraId: "",
+    cameraId: null,
     isActive: true,
     assignedStaff: "",
   };
@@ -140,9 +140,9 @@ export function AdminSpacesPage() {
             </Field>
             <Field label="카메라 ID" hint="AI 페이로드의 cameraId 와 매칭됩니다.">
               <Input
-                value={draft.cameraId}
+                value={draft.cameraId ?? ""}
                 placeholder="예: CAM-2F-204"
-                onChange={(e) => setDraft({ ...draft, cameraId: e.target.value })}
+                onChange={(e) => setDraft({ ...draft, cameraId: e.target.value || null })}
               />
             </Field>
             <Field label="담당 직원">
@@ -189,7 +189,7 @@ export function AdminSpacesPage() {
                 <td className="px-4 py-2.5 font-medium text-ink">{s.name}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{floorName(s.floorId)}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{spaceTypeLabel[s.type]}</td>
-                <td className="px-4 py-2.5 font-mono text-xs text-ink-soft">{s.cameraId}</td>
+                <td className="px-4 py-2.5 font-mono text-xs text-ink-soft">{s.cameraId ?? "미연결"}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{s.capacity}명</td>
                 <td className="px-4 py-2.5">
                   <span

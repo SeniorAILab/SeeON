@@ -41,3 +41,8 @@ New tenant-table enrollment is deferred to PR2/PR3.
 - Existing data survives the migration without copy/delete operations.
 - Policy, function, test, and raw SQL references must use facility terminology.
 - Future tenant tables must use `facility_id`, RLS policies on `app.facility_id`, and the `withFacilityContext` access pattern.
+
+
+## PR2 Amendment: placement tenant tables
+
+`Floor`, `Space`, and `Zone` are now tenant tables. Their migrations enable and force RLS, define `tenant_isolation` on `facility_id = current_setting('app.facility_id', true)::text`, grant CRUD privileges to `fall_app`, and enroll the Prisma models in `TENANT_MODELS`. Facility remains outside RLS as the tenant root.
