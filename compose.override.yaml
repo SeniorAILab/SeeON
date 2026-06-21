@@ -1,4 +1,5 @@
 # macOS bind-mount watching is best-effort; native host development remains the daily default.
+# Dev overlay for the host stack (db + backend + front). ML lives on the edge — see compose.edge.yaml.
 services:
   backend:
     profiles: [full]
@@ -12,15 +13,6 @@ services:
       - /app/backend/node_modules
     command: ["pnpm", "--filter", "backend", "exec", "nest", "start", "--watch"]
 
-  ml-serving:
-    profiles: [full]
-    build:
-      target: dev
-    volumes:
-      - ./ml:/app/ml
-      - /app/ml/.venv
-    command: ["uv", "run", "--directory", "ml", "uvicorn", "serving.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
-
   front:
     profiles: [full]
     build:
@@ -29,5 +21,4 @@ services:
       - .:/app
       - /app/node_modules
       - /app/front/node_modules
-      - /app/front/.next
-    command: ["pnpm", "--filter", "front", "exec", "next", "dev", "-H", "0.0.0.0", "-p", "3000"]
+    command: ["pnpm", "--filter", "front", "exec", "vite", "--host", "0.0.0.0", "--port", "3000"]
