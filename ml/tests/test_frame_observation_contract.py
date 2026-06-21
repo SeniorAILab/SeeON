@@ -28,6 +28,11 @@ def test_frame_observation_round_trips_representative_detection_result() -> None
     assert observation.detections == (result.boxes, result.labels)
     assert observation.poses == result.keypoints
     assert observation.regions == (result.bed_boxes, result.bed_exit_statuses)
+    assert observation.boxes == result.boxes
+    assert observation.labels == result.labels
+    assert observation.keypoints == result.keypoints
+    assert observation.bed_boxes == result.bed_boxes
+    assert observation.bed_exit_statuses == result.bed_exit_statuses
     assert observation.to_detection_result() == result
     assert FrameObservation.from_detection_result(observation.to_detection_result()) == observation
 

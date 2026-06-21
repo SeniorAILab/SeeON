@@ -1,10 +1,10 @@
 """Tests for the temporal fall-classifier demo adapter (Step 7).
 
 RF path only — avoids torch.  Covers:
-- TemporalFallClassifierModule predict() returns DetectionResult
+- TemporalFallClassifierModule predict() returns FrameObservation
 - Before the buffer fills the label stays NORMAL_LABEL_TEXT (no-fall)
 - Once the buffer fills on a fall-pattern window the label fires FALL_LABEL_TEXT
-- No-person pose → empty DetectionResult
+- No-person pose → empty FrameObservation
 - temporal_artifact_available() is False for non-existent artifact
 - CLASSIFIER_REGISTRY availability is linked to artifact presence
 """
@@ -22,8 +22,8 @@ from core.contract import (
     NORMAL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
-    DetectionResult,
     Frame,
+    FrameObservation,
 )
 from core.temporal_module import (
     TEMPORAL_MODEL_KEYS,
@@ -67,20 +67,23 @@ def _fall_kpts(frame_index: int) -> tuple[tuple[int, int, float], ...]:
 class _FakePoseForFall:
     """Fake pose module returning fall-pattern keypoints (no YOLO)."""
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         kpts = _fall_kpts(frame.index)
-        return DetectionResult(
-            boxes=(BoundingBox(x1=0, y1=0, x2=_FRAME_W, y2=_FRAME_H, confidence=0.9),),
-            labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
-            keypoints=(kpts,),
+        return FrameObservation(
+            detections=(
+                (BoundingBox(x1=0, y1=0, x2=_FRAME_W, y2=_FRAME_H, confidence=0.9),),
+                (DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+            ),
+            poses=(kpts,),
+            regions=((), ()),
         )
 
 
 class _EmptyPose:
     """Fake pose module that never detects a person."""
 
-    def predict(self, frame: Frame) -> DetectionResult:
-        return DetectionResult()
+    def predict(self, frame: Frame) -> FrameObservation:
+        return FrameObservation(detections=((), ()), poses=(), regions=((), ()))
 
 
 def _build_rf_artifact(tmp_path: Path, window: int = 30, stride: int = 5) -> Path:
@@ -155,7 +158,7 @@ class TestTemporalFallClassifierModule:
         _build_rf_artifact(tmp_path)
         module = _load_module(tmp_path)
         result = module.predict(_frame(0))
-        assert isinstance(result, DetectionResult)
+        assert isinstance(result, FrameObservation)
 
     def test_before_buffer_fills_label_is_normal(self, tmp_path: Path) -> None:
         """Feed window-1 frames: buffer not full → _last_prob==0 → label stays NORMAL_LABEL_TEXT."""
@@ -196,7 +199,7 @@ class TestTemporalFallClassifierModule:
         assert 0.0 <= result.labels[0].confidence <= 1.0  # type: ignore[union-attr]
 
     def test_no_person_returns_empty_detection_result(self, tmp_path: Path) -> None:
-        """When pose detects no person, predict returns empty DetectionResult."""
+        """When pose detects no person, predict returns empty FrameObservation."""
         _build_rf_artifact(tmp_path)
         meta = load_metadata(tmp_path)
         rf = RandomForestFallClassifier.load(tmp_path)
@@ -278,16 +281,19 @@ class _TwoPersonFakePose:
     BOX_A = BoundingBox(x1=0, y1=0, x2=100, y2=200, confidence=0.9)
     BOX_B = BoundingBox(x1=400, y1=0, x2=640, y2=480, confidence=0.9)
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         kpts_a = _fall_kpts(frame.index)
         kpts_b = _make_kpts(320, 240, conf=0.9)
-        return DetectionResult(
-            boxes=(self.BOX_A, self.BOX_B),
-            labels=(
-                DetectionLabel(text="person", confidence=0.9, is_fall=False),
-                DetectionLabel(text="person", confidence=0.9, is_fall=False),
+        return FrameObservation(
+            detections=(
+                (self.BOX_A, self.BOX_B),
+                (
+                    DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                    DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                ),
             ),
-            keypoints=(kpts_a, kpts_b),
+            poses=(kpts_a, kpts_b),
+            regions=((), ()),
         )
 
 
@@ -300,22 +306,28 @@ class _DisappearingBPose:
     def __init__(self, b_disappears_after: int) -> None:
         self._threshold = b_disappears_after
 
-    def predict(self, frame: Frame) -> DetectionResult:
+    def predict(self, frame: Frame) -> FrameObservation:
         kpts_a = _fall_kpts(frame.index)
         if frame.index < self._threshold:
             kpts_b = _make_kpts(320, 240, conf=0.9)
-            return DetectionResult(
-                boxes=(self.BOX_A, self.BOX_B),
-                labels=(
-                    DetectionLabel(text="person", confidence=0.9, is_fall=False),
-                    DetectionLabel(text="person", confidence=0.9, is_fall=False),
+            return FrameObservation(
+                detections=(
+                    (self.BOX_A, self.BOX_B),
+                    (
+                        DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                        DetectionLabel(text="person", confidence=0.9, is_fall=False),
+                    ),
                 ),
-                keypoints=(kpts_a, kpts_b),
+                poses=(kpts_a, kpts_b),
+                regions=((), ()),
             )
-        return DetectionResult(
-            boxes=(self.BOX_A,),
-            labels=(DetectionLabel(text="person", confidence=0.9, is_fall=False),),
-            keypoints=(kpts_a,),
+        return FrameObservation(
+            detections=(
+                (self.BOX_A,),
+                (DetectionLabel(text="person", confidence=0.9, is_fall=False),),
+            ),
+            poses=(kpts_a,),
+            regions=((), ()),
         )
 
 
@@ -326,7 +338,7 @@ class _DisappearingBPose:
 
 class TestMultiPersonTemporalModule:
     def test_two_person_all_boxes_in_result(self, tmp_path: Path) -> None:
-        """All detected boxes, labels, and keypoints are present in the DetectionResult."""
+        """All detected boxes, labels, and keypoints are present in the FrameObservation."""
         _build_rf_artifact(tmp_path)
         meta = load_metadata(tmp_path)
         rf = RandomForestFallClassifier.load(tmp_path)

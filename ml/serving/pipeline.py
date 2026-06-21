@@ -10,7 +10,7 @@ from typing import Protocol
 import numpy as np
 
 from contracts.model import DEFAULT_FALL_CONFIDENCE_THRESHOLD
-from core.contract import DetectionResult, ModelModule
+from core.contract import FrameObservation, ModelModule
 from core.model_modules import YoloPoseModule, pose_weight_path
 from serving.model import FallDetector
 from util.frame_source import FrameSource, VideoFileSource
@@ -116,7 +116,7 @@ class FallPipeline:
 
 
 def normalize_primary_person(
-    result: DetectionResult, frame_w: int, frame_h: int
+    result: FrameObservation, frame_w: int, frame_h: int
 ) -> np.ndarray | None:
     if not result.boxes or not result.keypoints:
         return None

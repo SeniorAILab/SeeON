@@ -13,7 +13,7 @@ from core.contract import (
     NORMAL_LABEL_TEXT,
     BoundingBox,
     DetectionLabel,
-    DetectionResult,
+    FrameObservation,
 )
 from util.frame_source import Frame
 
@@ -22,10 +22,10 @@ def _fake_frame(width: int = 320, height: int = 240) -> Frame:
     return Frame(index=0, time_sec=0.0, image=np.zeros((height, width, 3), dtype=np.uint8))
 
 
-def _single_box_result() -> DetectionResult:
+def _single_box_result() -> FrameObservation:
     box = BoundingBox(x1=10, y1=10, x2=110, y2=210, confidence=0.9)
     label = DetectionLabel(text="person", confidence=0.9, is_fall=False)
-    return DetectionResult(boxes=(box,), labels=(label,), keypoints=((),))
+    return FrameObservation(detections=((box,), (label,)), poses=((),), regions=((), ()))
 
 
 def _make_module(is_fall: bool, confidence: float = 1.0) -> FallClassifierModule:
@@ -71,10 +71,8 @@ def test_nonprimary_persons_keep_person_text() -> None:
     box_b = BoundingBox(x1=200, y1=0, x2=250, y2=50, confidence=0.8)  # smaller → secondary
 
     label = DetectionLabel(text="person", confidence=0.8, is_fall=False)
-    pose_result = DetectionResult(
-        boxes=(box_a, box_b),
-        labels=(label, label),
-        keypoints=((), ()),
+    pose_result = FrameObservation(
+        detections=((box_a, box_b), (label, label)), poses=((), ()), regions=((), ())
     )
 
     pose_module = MagicMock()

@@ -8,6 +8,7 @@ from contracts.observation import (
     BoundingBox,
     DetectionLabel,
     DetectionResult,
+    FrameObservation,
 )
 from util.frame_source import CameraSource, VideoFileSource
 
@@ -21,6 +22,7 @@ __all__ = [
     "BoundingBox",
     "DetectionLabel",
     "DetectionResult",
+    "FrameObservation",
     "ModelModule",
     "FALL_LABEL_TEXT",
     "NORMAL_LABEL_TEXT",

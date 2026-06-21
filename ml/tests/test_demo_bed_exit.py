@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from core.bed_exit import BedExitMonitor
-from core.contract import BoundingBox, DetectionLabel, DetectionResult, Frame
+from core.contract import BoundingBox, DetectionLabel, Frame, FrameObservation
 from demo.live_view import iter_live_frames
 
 
@@ -115,12 +115,15 @@ def test_iter_live_frames_runs_bed_detector_once_and_carries_cached_beds() -> No
             return (bed,)
 
     class FakeModel:
-        def predict(self, frame: Frame) -> DetectionResult:
+        def predict(self, frame: Frame) -> FrameObservation:
             person = box(0, 0, 4, 4)
-            return DetectionResult(
-                boxes=(person,),
-                labels=(DetectionLabel(text="person", confidence=0.8, is_fall=False),),
-                keypoints=(),
+            return FrameObservation(
+                detections=(
+                    (person,),
+                    (DetectionLabel(text="person", confidence=0.8, is_fall=False),),
+                ),
+                poses=(),
+                regions=((), ()),
             )
 
     detector = FakeDetector()

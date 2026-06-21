@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.contract import DetectionResult
+from core.contract import FrameObservation
 
 # COCO-17 keypoint indices used for torso orientation
 _LEFT_SHOULDER = 5
@@ -31,9 +31,9 @@ _NO_PERSON = FrameFeatures(
 
 
 def extract_frame_features(
-    result: DetectionResult, frame_height: int, frame_width: int
+    result: FrameObservation, frame_height: int, frame_width: int
 ) -> FrameFeatures:
-    """Extract pose-based fall-risk features from a single DetectionResult.
+    """Extract pose-based fall-risk features from a single FrameObservation.
 
     Picks the largest-area bounding box as the primary person and aligns its
     index with ``result.keypoints``. Returns a zero-filled FrameFeatures with
@@ -46,8 +46,7 @@ def extract_frame_features(
     best_idx = max(
         range(len(result.boxes)),
         key=lambda i: (
-            (result.boxes[i].x2 - result.boxes[i].x1)
-            * (result.boxes[i].y2 - result.boxes[i].y1)
+            (result.boxes[i].x2 - result.boxes[i].x1) * (result.boxes[i].y2 - result.boxes[i].y1)
         ),
     )
     box = result.boxes[best_idx]
