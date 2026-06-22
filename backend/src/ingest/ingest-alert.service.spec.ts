@@ -23,7 +23,7 @@ function setup() {
     Promise<{
       alertSeq: bigint;
       id: string;
-      resident?: { name: string; room: string | null } | null;
+      resident?: { name: string } | null;
       space?: { name: string } | null;
     }>,
     [WriteAlertInput]
@@ -173,7 +173,7 @@ describe('IngestAlertService', () => {
     writeAlert.mockResolvedValue({
       alertSeq: 7n,
       id: 'a1',
-      resident: { name: '홍길동', room: '302호' },
+      resident: { name: '홍길동' },
       space: { name: '402호' },
     });
 
@@ -193,7 +193,7 @@ describe('IngestAlertService', () => {
     );
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
     expect(idempotencyKey).toMatch(/^[0-9a-f]{64}$/);
-    // AC8: resident name/room from the alert-writer join thread to the outbox
+    // AC8: resident name/space room from the alert-writer join thread to the outbox
     // without changing the ML ingest DTO.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith({
       facilityId: 'facility-1',
@@ -249,7 +249,7 @@ describe('IngestAlertService', () => {
     writeAlert.mockResolvedValue({
       alertSeq: 8n,
       id: 'bed-exit-alert-1',
-      resident: { name: '김영희', room: null },
+      resident: { name: '김영희' },
       space: { name: '재활실' },
     });
 
@@ -292,7 +292,7 @@ describe('IngestAlertService', () => {
           findFirst: () => ({
             alertSeq: 3n,
             id: 'a-dup',
-            resident: { name: '박철수', room: '101호' },
+            resident: { name: '박철수' },
             space: { name: '201호' },
           }),
         },

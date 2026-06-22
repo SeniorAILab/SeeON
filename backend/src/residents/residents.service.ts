@@ -14,7 +14,6 @@ import {
 
 export interface CreateResidentDto {
   name: string;
-  room?: string | null;
   spaceId?: string;
   zoneId?: string | null;
   gender?: string | null;
@@ -26,7 +25,6 @@ export interface CreateResidentDto {
 
 export interface UpdateResidentDto {
   name?: string;
-  room?: string | null;
   gender?: string | null;
   age?: number | null;
   diagnosisTags?: string[];
@@ -39,7 +37,6 @@ type ResidentWithAssignments = {
   id: string;
   facilityId: string;
   name: string;
-  room: string | null;
   gender: string | null;
   age: number | null;
   diagnosisTags: string[];
@@ -78,7 +75,6 @@ export class ResidentsService {
         facilityId,
         {
           name,
-          room: dto.room !== undefined ? normalizeNullable(dto.room) : null,
           gender:
             dto.gender !== undefined
               ? normalizeNullable(dto.gender)
@@ -103,7 +99,6 @@ export class ResidentsService {
     try {
       const resident = await this.residents.update(facilityId, id, {
         name: dto.name?.trim() ?? undefined,
-        room: dto.room !== undefined ? normalizeNullable(dto.room) : undefined,
         gender:
           dto.gender !== undefined ? normalizeNullable(dto.gender) : undefined,
         age: dto.age ?? undefined,
@@ -180,7 +175,6 @@ export function presentResident(
     fallRiskBaseline: resident.fallRiskBaseline,
     isFocusResident: resident.isFocusResident,
     isActive: resident.isActive,
-    room: resident.room,
     createdAt: resident.createdAt.toISOString(),
     ...(detail
       ? { currentAssignment: assignment ? presentAssignment(assignment) : null }
