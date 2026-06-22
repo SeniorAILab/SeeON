@@ -13,14 +13,15 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   initialized: false,
   loading: false,
   error: null,
 
-  init: () => {
-    const session = authService.restore();
+  init: async () => {
+    if (get().initialized) return;
+    const session = await authService.bootstrap();
     set({ user: session?.user ?? null, initialized: true });
   },
 

@@ -2,7 +2,7 @@
 import { db } from "./db";
 import { setAuthToken, USE_MOCK } from "./apiClient";
 import { delay } from "@/lib/utils";
-import type { AuthSession, User } from "@/types";
+import type { AuthSession, Role, User } from "@/types";
 
 const STORAGE_KEY = "senai.session";
 
@@ -98,19 +98,14 @@ export const authService = {
    * 카카오 로그인 (mock). 첫 클릭 = 가입(marker 생성), 이후 = 로그인.
    * db.users 는 상수로부터 idempotent upsert → 가입 반복/중복 없음.
    *
-   * ★ 실제 연동 지점(deferred) ★
-   *   USE_MOCK=false 가 되면 이 함수 한 곳만 백엔드 카카오 OAuth 로 교체한다:
-   *     window.location.assign(`${import.meta.env.VITE_API_BASE_URL}/auth/kakao/login`)
-   *   → 백엔드 GET /auth/kakao/login → 카카오 authorize → GET /auth/kakao/callback
-   *     이 httpOnly 쿠키(JWT) 세션을 설정하고 프론트로 리다이렉트. 이후 복원은
-   *     GET /auth/session 으로 전환(현재 localStorage bearer 와 상이 → 보류).
-   *   서버 부팅: pnpm db:up → pnpm prisma:generate → prisma:migrate → prisma:seed
-   *     → pnpm dev:backend(:8080) + pnpm dev:front(:3000).
-   *   (실 백엔드 OAuth 연동·쿠키 세션 restore·권한 정합은 이번 범위 밖 — 별도 이슈)
+   * USE_MOCK=false 면 아래 분기가 백엔드 카카오 OAuth 로 위임한다.
+   * 쿠키 세션 복원(GET /auth/session)·권한 정합은 별도 이슈(본 변경 범위 밖).
    */
   async kakaoLogin(): Promise<AuthSession> {
     if (!USE_MOCK) {
-      throw new Error("실 백엔드 카카오 로그인은 아직 연동되지 않았습니다(보류).");
+      const base = import.meta.env.VITE_API_BASE_URL ?? "";
+      window.location.assign(`${base}/auth/kakao/login`);
+      return new Promise<AuthSession>(() => {});
     }
     // 첫 클릭 = 가입(marker 없음), 이후 = 로그인. db upsert 는 멱등.
     const firstTime = !hasKakaoSignup();
@@ -126,6 +121,15 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
+    if (!USE_MOCK) {
+      const base = import.meta.env.VITE_API_BASE_URL ?? "";
+      await fetch(`${base}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+      setAuthToken(null);
+      return;
+    }
     setAuthToken(null);
     localStorage.removeItem(STORAGE_KEY);
     // 카카오 가입 marker 는 유지 → 재로그인 시 가입 반복 방지.
@@ -164,5 +168,46 @@ export const authService = {
     }
     setAuthToken(session.token);
     return session;
+  },
+
+  /** 실 백엔드 쿠키 세션 복원: GET /auth/session → User 매핑 (USE_MOCK=false). */
+  async restoreFromBackend(): Promise<AuthSession | null> {
+    const base = import.meta.env.VITE_API_BASE_URL ?? "";
+    try {
+      const res = await fetch(`${base}/auth/session`, {
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as {
+        user?: {
+          id: string;
+          nickname?: string | null;
+          role?: string | null;
+          facilityId?: string | null;
+        } | null;
+      };
+      if (!body.user) return null;
+      const u = body.user;
+      const role: Role =
+        u.role === "OWNER" || u.role === "ADMIN" ? "FACILITY_ADMIN" : "STAFF";
+      setAuthToken(null);
+      return {
+        user: {
+          id: u.id,
+          name: u.nickname?.trim() || "카카오 사용자",
+          email: "",
+          role,
+          facilityId: u.facilityId ?? null,
+        },
+        token: "",
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /** 부팅 복원: mock 은 localStorage, 실모드는 백엔드 쿠키 세션. */
+  async bootstrap(): Promise<AuthSession | null> {
+    return USE_MOCK ? this.restore() : this.restoreFromBackend();
   },
 };
