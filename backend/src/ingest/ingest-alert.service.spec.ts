@@ -51,6 +51,7 @@ function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
     id: 'cam-1',
     facilityId: 'facility-1',
     residentId: 'res-1',
+    spaceId: 'space-1',
     ingestKeyId: 'key-1',
     ...overrides,
   };
