@@ -44,7 +44,6 @@ function sign(body: Record<string, unknown>): string {
 const cameraRow = {
   id: 'cam-1',
   facilityId: 'facility-1',
-  residentId: 'res-1',
   spaceId: 'space-1',
   ingestKeyId: 'key-1',
   ingestSecretHash: SECRET,
@@ -109,7 +108,6 @@ describe('HmacIngestGuard', () => {
     expect(req.ingestCamera).toEqual({
       id: 'cam-1',
       facilityId: 'facility-1',
-      residentId: 'res-1',
       spaceId: 'space-1',
       ingestKeyId: 'key-1',
     });

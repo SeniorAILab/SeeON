@@ -50,7 +50,6 @@ function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
   return {
     id: 'cam-1',
     facilityId: 'facility-1',
-    residentId: 'res-1',
     spaceId: 'space-1',
     ingestKeyId: 'key-1',
     ...overrides,
@@ -138,12 +137,17 @@ describe('IngestAlertService', () => {
     ).rejects.toBeInstanceOf(TenantMismatchException);
   });
 
-  it('rejects assigned resident mismatches', async () => {
-    const { service } = setup();
+  it('does not require the ingest resident_id to match legacy camera residentId', async () => {
+    const { service, writeAlert } = setup();
+    writeAlert.mockResolvedValue({
+      alertSeq: 7n,
+      id: 'a1',
+      resident: null,
+    });
 
     await expect(
       service.ingestAlert(camera(), body({ resident_id: 'other-resident' })),
-    ).rejects.toBeInstanceOf(TenantMismatchException);
+    ).resolves.toEqual({ alertSeq: '7', id: 'a1', status: 'created' });
   });
 
   it('writes created alerts with idempotency, outbox, and threaded resident context', async () => {
