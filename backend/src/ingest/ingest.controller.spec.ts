@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { CamerasService } from '../cameras/cameras.service';
+import type { CamerasService } from '../cameras/cameras.service';
 import { IngestController } from './ingest.controller';
-import { IngestAlertService } from './ingest-alert.service';
+import type { IngestAlertService } from './ingest-alert.service';
 import type { RequestWithIngestCamera } from './hmac.guard';
 
 function setup() {

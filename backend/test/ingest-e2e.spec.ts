@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -114,7 +114,7 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
   afterAll(async () => {
     await cleanup();
     await direct.$disconnect();
-    await app?.close();
+    await app.close();
   });
 
   it('creates Alert + ResidentStatus(FALL) + AlertEvent for a valid HMAC fall ingest', async () => {
