@@ -81,7 +81,6 @@ export interface Space {
   name: string; // 예: 201호
   type: SpaceType;
   capacity: number;
-  cameraId: string | null; // 예: CAM-2F-201, 미배정 시 null
   isActive: boolean;
   assignedStaff?: string; // 담당 직원
 }
