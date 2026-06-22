@@ -13,7 +13,7 @@ Those concerns are stored separately, but they are not separate domains and they
 
 - Controller: `backend/src/ingest/ingest.controller.ts`.
 - Auth: `HmacIngestGuard` verifies camera HMAC headers.
-- Tenant coherence: camera organization must match payload `facility_id`; assigned camera resident must match payload `resident_id`.
+- Tenant coherence: camera facility must match payload `facility_id`; target relationships and FK directions are canonicalized in [data-model.md](./data-model.md).
 - Idempotency: backend derives a key from camera id, detected timestamp, and event type.
 - Edge `snapshot_url` is ignored for SSRF safety; snapshots are server-owned uploads/keys.
 
@@ -31,14 +31,14 @@ A valid `/ingest/alerts` event performs both write concerns for the same domain 
 - `ResidentStatus` current state (`NORMAL`, `WARNING`, or `FALL`) derived from probability thresholds.
 - SSE emissions after commit: unnamed alert event and named `event: status` update.
 
-`Alert` is the dashboard-facing read model. It is org-scoped/RLS-protected and provides `alertSeq`, the SSE `Last-Event-ID` replay cursor.
+`Alert` is the dashboard-facing read model. It is facility-scoped/RLS-protected and provides `alertSeq`, the SSE `Last-Event-ID` replay cursor. Relationship cardinality and room anchoring are canonicalized in [data-model.md](./data-model.md).
 
 ### Concern 2: notification outbox
 
 `AlertEventsService.ensureOutboxForIngest()` writes/repairs:
 
 - `AlertEvent` outbox row keyed by `(sourceId, externalEventId)`.
-- One `DeliveryAttempt` per Kakao recipient in the organization.
+- One `DeliveryAttempt` per Kakao recipient in the facility.
 - Kakao send-to-me fan-out for pending attempts only.
 
 `AlertEvent` and `DeliveryAttempt` are backend-owned outbox tables, not tenant list/read models. They are non-RLS because they are delivery infrastructure keyed by ingest source and external event id.
@@ -57,7 +57,7 @@ Do not model these as two separate alert domains. A live ingest that updates onl
 
 ## Kakao fan-out
 
-Kakao self-notification is backend-owned delivery policy. The ingest path calls `ensureOutboxForIngest`, which finds Kakao recipients for the organization and dispatches one send-to-me attempt per recipient. The Kakao adapter may report sent, transient failure, or terminal operator-action failure; it must never fake success.
+Kakao self-notification is backend-owned delivery policy. The ingest path calls `ensureOutboxForIngest`, which finds Kakao recipients for the facility and dispatches one send-to-me attempt per recipient. The Kakao adapter may report sent, transient failure, or terminal operator-action failure; it must never fake success.
 
 ## ML prediction contract
 
