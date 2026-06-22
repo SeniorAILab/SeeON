@@ -1,25 +1,6 @@
 #!/usr/bin/env sh
 # check-schema-migration.sh — Prisma 스키마↔마이그레이션 결합(coupling) 검사.
-#
-# 목적: backend/prisma/schema.prisma 가 바뀌었는데 동반 마이그레이션
-#   (backend/prisma/migrations/*/migration.sql) 이 없으면 거부한다. 스키마만 바꾸고
-#   마이그레이션을 빠뜨리면 'prisma migrate deploy' 가 깨지거나 DB/코드가 어긋난다.
-#
-# 이 검사는 ESLint로 잡을 수 없는 "배포 계약(contract)" 이므로 lint가 아니라 스크립트로
-# 둔다. ADR-008 단일소스 패턴: .githooks/pre-commit 와 CI 가 이 스크립트 하나를 호출한다
-# (로직을 어디서도 재구현하지 않는다). 에이전트 pre-edit 훅에는 넣지 않는다 — 스키마만
-# 스테이지된 동안 모든 셸/편집을 막아 데드락을 유발할 수 있고, pre-commit 이 이미 전 벤더를
-# 커밋 시점에 커버하기 때문이다.
-#
-# 주의: tenant 격리는 여기서 검사하지 않는다. Postgres RLS + PrismaService 런타임
-#   가드(withFacilityContext/$allOperations)가 구조적 SoT다 — README.md 참고.
-#
-# 사용법:
-#   check-schema-migration.sh staged          # 스테이지된 변경(.githooks/pre-commit)
-#   check-schema-migration.sh base <ref>       # <ref>...HEAD diff (CI)
-#   check-schema-migration.sh auto             # CI면 base, 아니면 staged (기본값)
-#
-# 종료코드: 0=통과, 1=위반(스키마 변경 + 마이그레이션 누락) 또는 도구 오류.
+# 사용법·종료코드·근거(ADR-008 단일소스, ADR-016)는 scripts/backend-guard/README.md 참고.
 set -eu
 
 _bg_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
