@@ -11,7 +11,6 @@ export interface ResidentFilters {
 
 export interface ResidentCreateData {
   name: string;
-  room?: string | null;
   gender?: string | null;
   age?: number | null;
   diagnosisTags?: string[];

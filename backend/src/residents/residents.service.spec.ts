@@ -3,7 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { ResidentsRepository } from './residents.repository';
+import type { ResidentsRepository } from './residents.repository';
 import { ResidentsService } from './residents.service';
 
 const now = new Date('2026-06-21T00:00:00.000Z');
@@ -13,7 +13,7 @@ function resident(overrides = {}) {
     id: 'r1',
     facilityId: 'facility-1',
     name: 'Kim',
-    room: '201',
+    room: 'legacy',
     gender: null,
     age: null,
     diagnosisTags: [],
@@ -60,9 +60,10 @@ describe('ResidentsService', () => {
     ).resolves.toEqual([
       expect.objectContaining({ id: 'r1', roomId: 'space-1', isActive: true }),
     ]);
-    expect(repo.list).toHaveBeenCalledWith('facility-1', {
-      spaceId: 'space-1',
-    });
+    expect(repo.list.mock.calls).toContainEqual([
+      'facility-1',
+      { spaceId: 'space-1' },
+    ]);
   });
 
   it('create requires spaceId before repository createWithPlacement', async () => {
@@ -70,7 +71,7 @@ describe('ResidentsService', () => {
     await expect(
       service.create('facility-1', { name: 'Kim' }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(repo.createWithPlacement).not.toHaveBeenCalled();
+    expect(repo.createWithPlacement.mock.calls).toHaveLength(0);
   });
 
   it('create=place delegates one repository call with trimmed resident data', async () => {
@@ -79,18 +80,17 @@ describe('ResidentsService', () => {
     await expect(
       service.create('facility-1', {
         name: '  Kim  ',
-        room: '  201 ',
         spaceId: 'space-1',
       }),
     ).resolves.toEqual(
       expect.objectContaining({ id: 'r1', roomId: 'space-1' }),
     );
-    expect(repo.createWithPlacement).toHaveBeenCalledWith(
+    expect(repo.createWithPlacement.mock.calls).toContainEqual([
       'facility-1',
-      expect.objectContaining({ name: 'Kim', room: '201' }),
+      expect.objectContaining({ name: 'Kim' }),
       'space-1',
       null,
-    );
+    ]);
   });
 
   it('rejects blank name on create', async () => {
