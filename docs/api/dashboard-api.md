@@ -102,8 +102,8 @@ These routes are current. Product resource routes are facility-scoped via `Sessi
 |---|---|---|---|
 | GET | `/api/spaces?floorId=&type=&isActive=` | none | space list, optionally filtered |
 | GET | `/api/spaces/:spaceId` | none | one space |
-| POST | `/api/spaces` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, cameraId?: string or null, isActive?: boolean, assignedStaff?: string or null }` | created space |
-| PATCH | `/api/spaces/:spaceId` | partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, cameraId?: string or null, isActive?: boolean, assignedStaff?: string or null }` | updated space |
+| POST | `/api/spaces` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | created space; camera placement uses `Camera.spaceId` |
+| PATCH | `/api/spaces/:spaceId` | partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | updated space; camera placement uses camera APIs |
 | DELETE | `/api/spaces/:spaceId` | none | soft-deleted space body (`200`) |
 
 ### Zones
@@ -138,8 +138,8 @@ Assignment responses use `{ id, facilityId, residentId, spaceId, zoneId, active,
 |---|---|---|---|
 | GET | `/api/cameras` | none | camera list |
 | GET | `/api/cameras/:id` | none | one camera |
-| POST | `/api/cameras` | `{ label: string, residentId?: string }` | created camera |
-| PATCH | `/api/cameras/:id` | partial `{ label?: string, residentId?: string }` | updated camera |
+| POST | `/api/cameras` | `{ label: string, spaceId: string }` | created camera |
+| PATCH | `/api/cameras/:id` | partial `{ label?: string, spaceId?: string }` | updated camera |
 | DELETE | `/api/cameras/:id` | none | delete result |
 
 ### Guardians
