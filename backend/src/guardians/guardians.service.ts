@@ -5,19 +5,10 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-
-export interface CreateGuardianDto {
-  residentId: string;
-  name: string;
-  phone: string;
-  relation?: string;
-}
-
-export interface UpdateGuardianDto {
-  name?: string;
-  phone?: string;
-  relation?: string | null;
-}
+import type {
+  CreateGuardianDto,
+  UpdateGuardianDto,
+} from './dto/guardian.dto.js';
 
 @Injectable()
 export class GuardiansService {

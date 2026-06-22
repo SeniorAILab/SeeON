@@ -1,4 +1,4 @@
-import { ResidentsRepository } from './residents.repository';
+import type { ResidentsRepository } from './residents.repository';
 import { ResidentsService } from './residents.service';
 
 const now = new Date('2026-06-21T00:00:00.000Z');
@@ -25,7 +25,7 @@ describe('ResidentsService move', () => {
     await expect(service.move('f1', 'r1', { spaceId: 's1' })).resolves.toEqual(
       expect.objectContaining({ id: 'a1', active: true }),
     );
-    expect(repo.move).toHaveBeenCalledTimes(1);
+    expect(repo.move.mock.calls).toHaveLength(1);
   });
 
   it('different-target move presents the newly active assignment', async () => {
