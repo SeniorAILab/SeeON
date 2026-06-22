@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   DEFAULT_REFRESH_WINDOW_SECONDS,
   DEFAULT_SESSION_TTL_SECONDS,
+  hasRbacCapability,
 } from './auth.constants';
 import {
   createSignedSessionToken,
@@ -41,6 +42,9 @@ export class SessionService implements OnModuleInit {
       'id' | 'facilityId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
     >,
   ): Promise<{ token: string; maxAgeSeconds: number; session: ServerSession }> {
+    if (!hasRbacCapability(user.role, 'personalLogin')) {
+      throw new UnauthorizedException('Role cannot create a personal session');
+    }
     const ttlSeconds = this.sessionTtlSeconds();
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAt = new Date((nowSeconds + ttlSeconds) * 1000);

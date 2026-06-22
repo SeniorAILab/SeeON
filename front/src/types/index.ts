@@ -6,6 +6,7 @@
 // ---------- 열거형(Enum) ----------
 
 export type Role = "SUPER_ADMIN" | "FACILITY_ADMIN" | "STAFF" | "VIEWER";
+export type BackendRole = "SUPER_ADMIN" | "ADMIN" | "CAREGIVER";
 
 export type SpaceType =
   | "ROOM"

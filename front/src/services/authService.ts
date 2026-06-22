@@ -2,7 +2,7 @@
 import { db } from "./db";
 import { setAuthToken, USE_MOCK } from "./apiClient";
 import { delay } from "@/lib/utils";
-import type { AuthSession, Role, User } from "@/types";
+import type { AuthSession, BackendRole, Role, User } from "@/types";
 
 const STORAGE_KEY = "senai.session";
 
@@ -19,6 +19,21 @@ const KAKAO_SENTINEL_PASSWORD = "__kakao_oauth_no_password__";
 const KAKAO_MOCK_FACILITY_ID = "fac_happy_nokyang";
 
 type StoredUser = User & { password: string };
+
+export function mapBackendRoleToFrontRole(
+  role: BackendRole | string | null | undefined
+): Role {
+  switch (role) {
+    case "SUPER_ADMIN":
+      return "SUPER_ADMIN";
+    case "ADMIN":
+      return "FACILITY_ADMIN";
+    case "CAREGIVER":
+      return "STAFF";
+    default:
+      return "STAFF";
+  }
+}
 
 interface KakaoMockMarker {
   version: number;
@@ -188,8 +203,7 @@ export const authService = {
       };
       if (!body.user) return null;
       const u = body.user;
-      const role: Role =
-        u.role === "OWNER" || u.role === "ADMIN" ? "FACILITY_ADMIN" : "STAFF";
+      const role = mapBackendRoleToFrontRole(u.role);
       setAuthToken(null);
       return {
         user: {
