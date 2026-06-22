@@ -1,6 +1,6 @@
 import { createServer, type Server, type IncomingMessage } from 'node:http';
 
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 
 import {
   MlServingPredictionAdapter,
@@ -8,7 +8,7 @@ import {
 } from './ml-serving-prediction.adapter.js';
 
 describe('MlServingPredictionAdapter', () => {
-  let server: Server;
+  let server: Server | undefined;
   let receivedPath: string | undefined;
   let receivedBody: unknown;
 
