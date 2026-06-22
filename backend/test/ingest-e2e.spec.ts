@@ -73,7 +73,6 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
         id: RES,
         facilityId: FACILITY,
         name: 'E2E Resident',
-        room: 'E2E',
       },
     });
     await direct.floor.create({
@@ -98,7 +97,6 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
       data: {
         id: CAM,
         facilityId: FACILITY,
-        residentId: RES,
         spaceId: SPACE,
         label: 'E2E Cam',
         ingestKeyId: KEY_ID,
