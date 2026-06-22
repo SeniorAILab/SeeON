@@ -32,7 +32,6 @@ const residentInclude = {
 const residentDetailInclude = {
   residentStatus: true,
   guardians: true,
-  cameras: true,
   assignments: { where: { endedAt: null }, take: 1 },
 } satisfies Prisma.ResidentInclude;
 
