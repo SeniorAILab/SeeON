@@ -1,4 +1,4 @@
-import { ZoneType } from '@prisma/client';
+export type ZoneType = 'BED' | 'AREA';
 export interface CreateZoneDto {
   spaceId?: string;
   name?: string;
