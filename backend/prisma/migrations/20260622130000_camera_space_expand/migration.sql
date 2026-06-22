@@ -1,7 +1,5 @@
 -- Camera.spaceId expand: nullable room anchor with strict Space.cameraId backfill.
 
-ALTER TABLE cameras ADD COLUMN space_id TEXT;
-
 DO $$
 DECLARE
   duplicate_same_facility INTEGER;
@@ -40,6 +38,7 @@ BEGIN
       duplicate_same_facility, missing_claim, stale_claim, cross_facility_claim;
   END IF;
 END $$;
+ALTER TABLE cameras ADD COLUMN space_id TEXT;
 
 UPDATE cameras c
 SET space_id = s.id

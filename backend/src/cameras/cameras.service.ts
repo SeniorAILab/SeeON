@@ -67,6 +67,12 @@ export class CamerasService {
     if (dto.label !== undefined && !dto.label.trim()) {
       throw new ConflictException('label is required');
     }
+    if (
+      dto.spaceId !== undefined &&
+      (typeof dto.spaceId !== 'string' || !dto.spaceId.trim())
+    ) {
+      throw new ConflictException('spaceId is required');
+    }
     try {
       const camera = await this.prisma.withFacilityContext(
         facilityId,
@@ -77,7 +83,8 @@ export class CamerasService {
               label: dto.label?.trim(),
               residentId:
                 dto.residentId === undefined ? undefined : dto.residentId,
-              spaceId: dto.spaceId === undefined ? undefined : dto.spaceId,
+              spaceId:
+                dto.spaceId === undefined ? undefined : dto.spaceId.trim(),
             },
           }),
       );

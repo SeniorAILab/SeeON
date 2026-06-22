@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service';
 import { CamerasService } from './cameras.service';
 
 type CameraCreateArg = {
@@ -91,6 +91,18 @@ describe('CamerasService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('rejects update with blank or null spaceId', async () => {
+    const { service, camera } = setup();
+    camera.findUnique.mockResolvedValue(fullCamera);
+
+    await expect(
+      service.update('facility-1', 'c1', { spaceId: '  ' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.update('facility-1', 'c1', { spaceId: null } as never),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(camera.update).not.toHaveBeenCalled();
+  });
   it('maps unique constraint violations to ConflictException on update', async () => {
     const { service, camera } = setup();
     camera.findUnique.mockResolvedValue(fullCamera);

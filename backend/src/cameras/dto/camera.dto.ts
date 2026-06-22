@@ -6,6 +6,6 @@ export interface CreateCameraDto {
 
 export interface UpdateCameraDto {
   label?: string;
-  spaceId?: string | null;
+  spaceId?: string;
   residentId?: string | null;
 }
