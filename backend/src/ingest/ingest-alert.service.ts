@@ -3,7 +3,6 @@ import * as crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { AlertWriterService } from '../alerts/alert-writer.service.js';
 import { AlertEventsService } from '../alerts/services/alert-events.service.js';
-import type { AlertEventIngressDto } from '../alerts/dto/alert-events.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   StaleTimestampException,
