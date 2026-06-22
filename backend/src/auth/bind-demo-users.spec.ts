@@ -11,7 +11,7 @@ describe('bind demo users script helpers', () => {
     ]);
   });
 
-  it('binds users and Kakao identities to demo facility in one transaction', async () => {
+  it('binds platform users to demo facility as SUPER_ADMIN in one transaction', async () => {
     const userUpdate = Promise.resolve({});
     const identityUpdate = Promise.resolve({});
     const prisma = {
@@ -39,7 +39,7 @@ describe('bind demo users script helpers', () => {
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { kakaoId: 'kakao-1' },
-      data: { facilityId: 'demo-facility-01' },
+      data: { facilityId: 'demo-facility-01', role: 'SUPER_ADMIN' },
     });
     expect(prisma.kakaoIdentity.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
