@@ -6,7 +6,7 @@ import {
   StaleTimestampException,
   UnknownIngestKeyException,
 } from '../common/domain-errors';
-import { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service';
 import { HmacIngestGuard } from './hmac.guard';
 
 const SECRET = 'camera-hmac-secret';
@@ -65,6 +65,21 @@ function validRequest() {
     body,
   };
 }
+function roomOnlyRequest() {
+  const body = {
+    facility_id: 'facility-1',
+    type: 'fall',
+    detected_at: '2026-06-16T10:00:00.000Z',
+  };
+  return {
+    headers: {
+      'x-ingest-key-id': 'key-1',
+      'x-signature': sign(body),
+      'x-ingest-timestamp': String(Date.now()),
+    },
+    body,
+  };
+}
 
 describe('HmacIngestGuard', () => {
   it('rejects requests missing auth headers', async () => {
@@ -98,10 +113,31 @@ describe('HmacIngestGuard', () => {
       InvalidSignatureException,
     );
   });
+  it('rejects a tampered room-only signature', async () => {
+    const guard = makeGuard([cameraRow]);
+    const req = roomOnlyRequest();
+    req.headers['x-signature'] = sign({ ...req.body, resident_id: 'res-1' });
+    await expect(guard.canActivate(ctx(req))).rejects.toBeInstanceOf(
+      InvalidSignatureException,
+    );
+  });
 
   it('accepts a valid signature and attaches the verified camera', async () => {
     const guard = makeGuard([cameraRow]);
     const req = validRequest() as ReturnType<typeof validRequest> & {
+      ingestCamera?: unknown;
+    };
+    await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
+    expect(req.ingestCamera).toEqual({
+      id: 'cam-1',
+      facilityId: 'facility-1',
+      spaceId: 'space-1',
+      ingestKeyId: 'key-1',
+    });
+  });
+  it('accepts a v1 signature with an empty resident_id field for room-only alerts', async () => {
+    const guard = makeGuard([cameraRow]);
+    const req = roomOnlyRequest() as ReturnType<typeof roomOnlyRequest> & {
       ingestCamera?: unknown;
     };
     await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
