@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { authService } from "./authService";
+import { authService, mapBackendRoleToFrontRole } from "./authService";
 import { db } from "./db";
 import { facilities as seedFacilities } from "@/data/mockData";
 
@@ -101,5 +101,14 @@ describe("authService.kakaoLogin (mock)", () => {
     expect(restored).toBeNull();
     expect(localStorage.getItem("senai.session")).toBeNull();
     db.facilities = saved;
+  });
+});
+
+
+describe("mapBackendRoleToFrontRole", () => {
+  it("maps backend RBAC roles without exposing CAREGIVER as facility admin", () => {
+    expect(mapBackendRoleToFrontRole("SUPER_ADMIN")).toBe("SUPER_ADMIN");
+    expect(mapBackendRoleToFrontRole("ADMIN")).toBe("FACILITY_ADMIN");
+    expect(mapBackendRoleToFrontRole("CAREGIVER")).toBe("STAFF");
   });
 });

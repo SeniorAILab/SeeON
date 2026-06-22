@@ -14,7 +14,7 @@ type BindPrisma = {
     }) => Promise<Array<{ id: string; kakaoId: string }>>;
     update: (args: {
       where: { kakaoId: string };
-      data: { facilityId: string };
+      data: { facilityId: string; role: 'SUPER_ADMIN' };
     }) => Promise<unknown>;
   };
   kakaoIdentity: {
@@ -48,7 +48,9 @@ export async function bindDemoUsers(
     );
   }
 
-  const facility = await prisma.facility.findUnique({ where: { id: facilityId } });
+  const facility = await prisma.facility.findUnique({
+    where: { id: facilityId },
+  });
   if (!facility) {
     throw new CliInputError(
       `Demo facility ${facilityId} does not exist. Run the demo seed first.`,
@@ -71,7 +73,7 @@ export async function bindDemoUsers(
     users.flatMap((user) => [
       prisma.user.update({
         where: { kakaoId: user.kakaoId },
-        data: { facilityId },
+        data: { facilityId, role: 'SUPER_ADMIN' },
       }),
       prisma.kakaoIdentity.updateMany({
         where: { userId: user.id },
@@ -98,7 +100,9 @@ async function main(): Promise<void> {
   const prisma = createPrismaClient();
   try {
     const result = await bindDemoUsers(prisma, kakaoIds);
-    console.log(`Bound ${result.boundCount} demo user(s) to ${DEMO_FACILITY_ID}.`);
+    console.log(
+      `Bound ${result.boundCount} demo user(s) to ${DEMO_FACILITY_ID}.`,
+    );
   } finally {
     await prisma.$disconnect();
   }
