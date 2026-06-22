@@ -1,8 +1,24 @@
-# Frontend agent rules
+# Frontend agent rules — Vite 5 + React 18 + TypeScript strict dashboard (run/boot/flow in root AGENTS.md)
 
-- `front/` is Vite 5 + React 18 + TypeScript strict.
-- `src/services/*` is the API seam; components must not call the backend directly.
+## Layout
+
+```
+front/src/
+├── services/            # API seam — the ONLY place that calls the backend
+├── types/               # index.ts = frontend domain SSOT (until Phase 2)
+├── pages/ components/   # views
+├── hooks/ store/ stores/ # state
+├── lib/                 # utilities
+├── mocks/ data/         # mock runtime (USE_MOCK=true is the default)
+├── router.tsx main.tsx  # entry
+└── test/
+```
+
+## Guards
+- Components never call the backend directly — go through `src/services/*` (the API seam).
 - `src/types/index.ts` is the frontend domain SSOT until Phase 2.
-- Phase 1 defaults to mock runtime (`USE_MOCK=true`); real backend calls are forbidden.
-- Dev and preview run on port 3000 with `strictPort` per ADR-041.
-- Use pnpm only; do not create npm lockfiles.
+- Mock is default (`USE_MOCK=true`); real backend calls only when `USE_MOCK=false` (Kakao OAuth, #297).
+- `strictPort` 3000 (ADR-041); pnpm only, never an npm lockfile.
+
+## Run
+- test: `pnpm --filter front test`.
