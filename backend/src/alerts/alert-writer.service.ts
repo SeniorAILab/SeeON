@@ -24,12 +24,15 @@ export interface AlertEvent {
   facilityId: string;
   residentId: string;
   cameraId: string | null;
+  spaceId: string | null;
   type: string;
   probability: number;
   snapshotKey: string | null;
   detectedAt: Date;
   status: string;
   resident?: { name: string; room: string | null } | null;
+  space?: { name: string } | null;
+  room: string | null;
 }
 
 /** Emitted after each committed alert; carries the new ResidentStatus state. */
@@ -46,6 +49,7 @@ export interface WriteAlertInput {
   facilityId: string;
   residentId: string;
   cameraId: string | null;
+  spaceId: string | null;
   type: string;
   probability: number;
   snapshotKey: string | null;
@@ -111,6 +115,7 @@ export class AlertWriterService {
       facilityId,
       residentId,
       cameraId,
+      spaceId,
       type,
       probability,
       snapshotKey,
@@ -140,13 +145,17 @@ export class AlertWriterService {
             facilityId,
             residentId,
             cameraId: cameraId ?? undefined,
+            spaceId,
             type,
             probability,
             snapshotKey,
             detectedAt,
             idempotencyKey,
           },
-          include: { resident: { select: { name: true, room: true } } },
+          include: {
+            resident: { select: { name: true, room: true } },
+            space: { select: { name: true } },
+          },
         });
 
         // Upsert ResidentStatus.
@@ -178,12 +187,15 @@ export class AlertWriterService {
       facilityId: alert.facilityId,
       residentId: alert.residentId,
       cameraId: alert.cameraId,
+      spaceId: alert.spaceId,
       type: alert.type,
       probability: alert.probability,
       snapshotKey: alert.snapshotKey,
       detectedAt: alert.detectedAt,
       status: alert.status,
       resident: alert.resident,
+      space: alert.space,
+      room: alert.space?.name ?? alert.resident?.room ?? null,
     };
 
     // Emit alert AFTER commit (F3).

@@ -17,6 +17,7 @@ function setup() {
           id: 'a1',
           status: 'NEW',
           resident: null,
+          space: { name: 'Room 101' },
           ...data,
         }),
       ),
@@ -36,6 +37,7 @@ function input(probability: number) {
     facilityId: 'facility-1',
     residentId: 'r1',
     cameraId: 'c1',
+    spaceId: 'space-1',
     type: AlertEventTypes.fall,
     probability,
     snapshotKey: null,
@@ -53,6 +55,8 @@ describe('AlertWriterService', () => {
     const event = await service.writeAlert(input(0.9));
     expect(event.id).toBe('a1');
     expect(event.residentId).toBe('r1');
+    expect(event.spaceId).toBe('space-1');
+    expect(event.room).toBe('Room 101');
     expect(received).toHaveLength(1);
     expect(received[0].id).toBe('a1');
   });
