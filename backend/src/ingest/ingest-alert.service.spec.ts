@@ -24,6 +24,7 @@ function setup() {
       alertSeq: bigint;
       id: string;
       resident?: { name: string; room: string | null } | null;
+      space?: { name: string } | null;
     }>,
     [WriteAlertInput]
   >();
@@ -143,6 +144,7 @@ describe('IngestAlertService', () => {
       alertSeq: 7n,
       id: 'a1',
       resident: null,
+      space: { name: 'Room 101' },
     });
 
     await expect(
@@ -156,6 +158,7 @@ describe('IngestAlertService', () => {
       alertSeq: 7n,
       id: 'a1',
       resident: { name: '홍길동', room: '302호' },
+      space: { name: '402호' },
     });
 
     const result = await service.ingestAlert(camera(), body());
@@ -184,7 +187,7 @@ describe('IngestAlertService', () => {
       detectedAt: NOW,
       confidence: 0.9,
       residentName: '홍길동',
-      residentRoom: '302호',
+      residentRoom: '402호',
     });
   });
 
@@ -194,6 +197,7 @@ describe('IngestAlertService', () => {
       alertSeq: 8n,
       id: 'bed-exit-alert-1',
       resident: { name: '김영희', room: null },
+      space: { name: '재활실' },
     });
 
     const result = await service.ingestAlert(
@@ -221,7 +225,7 @@ describe('IngestAlertService', () => {
       detectedAt: NOW,
       confidence: 0.1,
       residentName: '김영희',
-      residentRoom: null,
+      residentRoom: '재활실',
     });
   });
 
@@ -236,6 +240,7 @@ describe('IngestAlertService', () => {
             alertSeq: 3n,
             id: 'a-dup',
             resident: { name: '박철수', room: '101호' },
+            space: { name: '201호' },
           }),
         },
       } as unknown as Parameters<typeof cb>[0]),
@@ -257,7 +262,7 @@ describe('IngestAlertService', () => {
         externalEventId: idempotencyKey,
         confidence: 0.9,
         residentName: '박철수',
-        residentRoom: '101호',
+        residentRoom: '201호',
       }),
     );
   });
