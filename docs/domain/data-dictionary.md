@@ -1,76 +1,100 @@
 # Domain data dictionary
 
-This dictionary names the backend domain objects used by the dashboard, ingest edge, session system, and alert delivery pipeline. Prisma model names and field names are referenced from `backend/prisma/schema.prisma`.
+This dictionary names the backend domain objects used by the dashboard, ingest edge, session system, and alert delivery pipeline. Prisma model names and field names are referenced from `backend/prisma/schema.prisma`. Relationship cardinality, FK direction, and RLS enrollment are canonicalized in [data-model.md](./data-model.md).
 
 ## Naming convention
 
-Prisma model fields are camelCase. Database table and column names are snake_case through `@map` and `@@map`.
+Prisma model fields and product `/api/*` DTOs are camelCase. Database table/column names and edge `/ingest/*` payloads are snake_case through `@map`, `@@map`, and ingest DTO boundaries.
 
 Examples:
 
-- `User.orgId` maps to `org_id`.
+- `User.facilityId` maps to `facility_id`.
 - `Camera.ingestKeyId` maps to `ingest_key_id`.
 - `Alert.alertSeq` maps to `alert_seq`.
 - `AlertEvent.externalEventId` maps to `external_event_id`.
-- Tables use `@@map`, such as `organizations`, `server_sessions`, `resident_statuses`, `alert_events`, and `delivery_attempts`.
+- Tables use `@@map`, such as `facilities`, `server_sessions`, `resident_statuses`, `alert_events`, and `delivery_attempts`.
 
 This is the single convention across all tables. New schema fields must not use camelCase database columns.
 
 ## Glossary
 
-### Organization
+### Facility
 
-Tenant/facility root. `Organization` owns residents, cameras, guardians, alerts, Kakao identities, and server sessions. It is not itself an RLS tenant-domain list surface; app-layer membership determines which organization a user can act within.
+Tenant/facility root. `Facility` owns residents, cameras, guardians, alerts, floors, spaces, zones, assignments, users, Kakao identities, and server sessions. It is not itself an RLS tenant-domain list surface; app-layer membership determines which facility a user can act within.
 
-Important fields: `id`, `name`, `businessRegistrationNumber`, `createdAt`.
+Important fields: `id`, `name`, `businessRegistrationNumber`, `code`, `address`, `phone`, `createdAt`.
 
 ### User
 
-Authenticated platform user. A user may be unbound from an organization until onboarding completes. `sessionVersion` invalidates existing sessions after account/security changes.
+Authenticated platform user. A user may be unbound from a facility until onboarding completes. `sessionVersion` invalidates existing sessions after account/security changes. Target RBAC roles are `SUPER_ADMIN`, `ADMIN`, and `CAREGIVER`; `CAREGIVER` represents the shared facility TV/monitor view, not a personal caregiver login.
 
-Important fields: `id`, `orgId`, `kakaoId`, `nickname`, `role`, `sessionVersion`.
+Important fields: `id`, `facilityId`, `kakaoId`, `nickname`, `role`, `sessionVersion`.
 
 ### KakaoIdentity
 
-Encrypted Kakao OAuth identity/token record used for self-notification. `accessTokenCipher` stores the encrypted access token; refresh tokens are not stored in this build. Alert fan-out looks for users with Kakao identity rows in the target organization.
+Encrypted Kakao OAuth identity/token record used for self-notification. `accessTokenCipher` stores the encrypted access token; refresh tokens are not stored in this build. Alert fan-out looks for users with Kakao identity rows in the target facility.
 
-Important fields: `userId`, `orgId`, `kakaoId`, `accessTokenCipher`, `tokenScope`, `tokenExpiresAt`.
+Important fields: `userId`, `facilityId`, `kakaoId`, `accessTokenCipher`, `tokenScope`, `tokenExpiresAt`.
 
 ### ServerSession
 
 Server-side session root for JWT/cookie validation, revocation, and SSE re-auth. The browser carries `app_session`; backend validates it against `ServerSession` and `User.sessionVersion`.
 
-Important fields: `id`, `userId`, `orgId`, `expiresAt`, `revokedAt`.
+Important fields: `id`, `userId`, `facilityId`, `expiresAt`, `revokedAt`.
+
+### Floor
+
+Facility floor used to group room/space dashboards and operations. Floors are tenant/RLS-scoped and own spaces through a facility-scoped FK.
+
+Important fields: `id`, `facilityId`, `name`, `orderIndex`, `isActive`.
+
+### Space
+
+Facility room or physical area. Space is the target canonical room anchor for cameras, resident placement history, zones, and alerts. Current schema still has transitional `cameraId`; target ownership is `Camera.spaceId`.
+
+Important fields: `id`, `facilityId`, `floorId`, `name`, `type`, `capacity`, `isActive`, `assignedStaff`.
+
+### Zone
+
+Named sub-area inside a space, such as a bed or area. A resident assignment may optionally point to a zone for finer placement.
+
+Important fields: `id`, `facilityId`, `spaceId`, `name`, `type`, `orderIndex`.
 
 ### Resident
 
-Tenant-domain resident shown on the dashboard and linked to cameras, guardians, alerts, and current status.
+Tenant-domain resident shown on the dashboard and linked to guardians, assignment history, alerts when the person is known, and current status. Canonical placement is `ResidentAssignment`; legacy `Resident.room` free text is not canonical placement and is removed by the room-centric remodel.
 
-Important fields: `id`, `orgId`, `name`, `room`.
+Important fields: `id`, `facilityId`, `name`, `isActive`, `gender`, `age`, `diagnosisTags`, `fallRiskBaseline`, `isFocusResident`.
+
+### ResidentAssignment
+
+Resident placement and movement history. It links one resident to one space, optionally one zone, for a time range. The current room is the active assignment; historical alert attribution uses the assignment covering the alert detection timestamp only when needed as migration evidence.
+
+Important fields: `id`, `facilityId`, `residentId`, `spaceId`, `zoneId`, `startedAt`, `endedAt`.
 
 ### Guardian
 
 Emergency contact for a resident. This is resident-linked tenant data; phone is stored in full and masked at the UI/presentation layer when needed.
 
-Important fields: `id`, `orgId`, `residentId`, `name`, `phone`, `relation`.
+Important fields: `id`, `facilityId`, `residentId`, `name`, `phone`, `relation`.
 
 ### Camera
 
-Ingest-capable edge source. `ingestKeyId` is the selector sent with ingest requests; `ingestSecretHash` is the stored SHA-256 hash of the HMAC secret and never stores the plaintext secret. A camera may be assigned to a resident or remain unassigned.
+Ingest-capable edge source. `ingestKeyId` is the selector sent with ingest requests; `ingestSecretHash` is the stored SHA-256 hash of the HMAC secret and never stores the plaintext secret. Target model assigns each camera to exactly one space through `spaceId`; legacy resident assignment is removed.
 
-Important fields: `id`, `orgId`, `residentId`, `label`, `ingestKeyId`, `ingestSecretHash`, `lastSeenAt`, `online`.
+Important fields: target `id`, `facilityId`, `spaceId`, `label`, `ingestKeyId`, `ingestSecretHash`, `lastSeenAt`, `online`.
 
 ### Alert
 
-Dashboard read-model for a detected fall/alert. `Alert` is tenant/RLS-scoped and is what REST list/detail and SSE alert frames expose. `alertSeq` is the monotonic SSE replay key used as `Last-Event-ID`; `idempotencyKey` is server-derived for exact duplicate ingest detection.
+Dashboard read-model for a detected fall/alert. `Alert` is tenant/RLS-scoped and is what REST list/detail and SSE alert frames expose. `alertSeq` is the monotonic SSE replay key used as `Last-Event-ID`; `idempotencyKey` is server-derived for exact duplicate ingest detection. Target model anchors every alert to `spaceId`; `cameraId` is source metadata and `residentId` is nullable when the person is unknown.
 
-Important fields: `id`, `alertSeq`, `orgId`, `residentId`, `cameraId`, `type`, `probability`, `snapshotKey`, `detectedAt`, `status`, `idempotencyKey`.
+Important fields: target `id`, `alertSeq`, `facilityId`, `spaceId`, `residentId`, `cameraId`, `type`, `probability`, `snapshotKey`, `detectedAt`, `status`, `idempotencyKey`.
 
 ### ResidentStatus
 
-Per-resident current-state read model. State is one of `NORMAL`, `WARNING`, or `FALL`. It also tracks whether the source camera is currently online and the last seen timestamp used by dashboard status badges.
+Per-resident current-state read model. State is one of `NORMAL`, `WARNING`, or `FALL`. It also tracks whether the source camera is currently online and the last seen timestamp used by dashboard status badges. Empty-room/unknown-person alerts do not update resident status.
 
-Important fields: `residentId`, `orgId`, `state`, `lastSeenAt`, `cameraOnline`, `sourceId`.
+Important fields: `residentId`, `facilityId`, `state`, `lastSeenAt`, `cameraOnline`, `sourceId`.
 
 ### AlertEvent
 
