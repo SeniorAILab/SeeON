@@ -1,4 +1,5 @@
 -- Alert.spaceId expand: preserve historical room anchors with verified camera or temporal assignment evidence.
+BEGIN;
 
 ALTER TABLE alerts ADD COLUMN space_id TEXT;
 
@@ -91,3 +92,5 @@ CREATE INDEX alerts_facility_id_space_id_alert_seq_idx ON alerts(facility_id, sp
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alerts FORCE ROW LEVEL SECURITY;
 GRANT SELECT,INSERT,UPDATE,DELETE ON alerts TO fall_app;
+
+COMMIT;

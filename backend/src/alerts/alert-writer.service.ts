@@ -12,7 +12,7 @@
  * so SSE streams can deliver `event: status` frames to connected clients
  * (AC5/AC6 live resident status badge).
  */
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { ResidentState } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -49,7 +49,7 @@ export interface WriteAlertInput {
   facilityId: string;
   residentId: string;
   cameraId: string | null;
-  spaceId: string | null;
+  spaceId: string;
   type: string;
   probability: number;
   snapshotKey: string | null;
@@ -104,6 +104,9 @@ export class AlertWriterService {
    * F3: assign alertSeq + commit + emit happen in causal order.
    */
   writeAlert(input: WriteAlertInput): Promise<AlertEvent> {
+    if (typeof input.spaceId !== 'string' || !input.spaceId.trim()) {
+      return Promise.reject(new BadRequestException('spaceId is required'));
+    }
     const next = this._queue.then(() => this._doWrite(input));
     // Swallow queue errors to prevent one failure from blocking the chain.
     this._queue = next.catch(() => undefined);
@@ -145,7 +148,7 @@ export class AlertWriterService {
             facilityId,
             residentId,
             cameraId: cameraId ?? undefined,
-            spaceId,
+            spaceId: spaceId.trim(),
             type,
             probability,
             snapshotKey,
@@ -195,7 +198,7 @@ export class AlertWriterService {
       status: alert.status,
       resident: alert.resident,
       space: alert.space,
-      room: alert.space?.name ?? alert.resident?.room ?? null,
+      room: alert.space === null ? alert.resident.room : alert.space.name,
     };
 
     // Emit alert AFTER commit (F3).
