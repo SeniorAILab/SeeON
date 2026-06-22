@@ -6,32 +6,15 @@ import {
 } from '@nestjs/common';
 import type { Level, ResidentAssignment } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import type {
+  CreateResidentDto,
+  UpdateResidentDto,
+} from './dto/resident.dto.js';
 
 import {
   ResidentsRepository,
   ResidentFilters,
 } from './residents.repository.js';
-
-export interface CreateResidentDto {
-  name: string;
-  spaceId?: string;
-  zoneId?: string | null;
-  gender?: string | null;
-  age?: number | null;
-  diagnosisTags?: string[];
-  fallRiskBaseline?: Level | null;
-  isFocusResident?: boolean;
-}
-
-export interface UpdateResidentDto {
-  name?: string;
-  gender?: string | null;
-  age?: number | null;
-  diagnosisTags?: string[];
-  fallRiskBaseline?: Level | null;
-  isFocusResident?: boolean;
-  isActive?: boolean;
-}
 
 type ResidentWithAssignments = {
   id: string;
