@@ -1,4 +1,4 @@
-import { ResidentAssignmentsRepository } from '../repositories/resident-assignments.repository';
+import type { ResidentAssignmentsRepository } from '../repositories/resident-assignments.repository';
 import { ResidentAssignmentsService } from './resident-assignments.service';
 
 const now = new Date('2026-06-21T00:00:00.000Z');
@@ -34,9 +34,12 @@ describe('ResidentAssignmentsService', () => {
         endedAt: null,
       },
     ]);
-    expect(repo.list).toHaveBeenCalledWith('f1', {
-      residentId: 'r1',
-      active: true,
-    });
+    expect(repo.list.mock.calls[0]).toEqual([
+      'f1',
+      {
+        residentId: 'r1',
+        active: true,
+      },
+    ]);
   });
 });
