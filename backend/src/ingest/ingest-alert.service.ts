@@ -68,7 +68,7 @@ export class IngestAlertService {
             tx.alert.findFirst({
               where: { facilityId: camera.facilityId, idempotencyKey },
               include: {
-                resident: { select: { name: true, room: true } },
+                resident: { select: { name: true } },
                 space: { select: { name: true } },
               },
             }),
@@ -96,7 +96,7 @@ export class IngestAlertService {
     input: ParsedIngestAlertBody,
     idempotencyKey: string,
     context: {
-      resident: { name: string; room: string | null } | null;
+      resident: { name: string } | null;
       space: { name: string } | null;
     } | null,
   ): Promise<void> {
@@ -108,7 +108,7 @@ export class IngestAlertService {
       detectedAt: input.detectedAt,
       confidence: input.probability,
       residentName: context?.resident?.name,
-      residentRoom: context?.space?.name ?? context?.resident?.room ?? null,
+      residentRoom: context?.space?.name ?? null,
     });
   }
 }
