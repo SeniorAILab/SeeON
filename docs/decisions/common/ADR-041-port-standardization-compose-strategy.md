@@ -2,7 +2,7 @@
 
 ## Status
 
-ACCEPTED. Host Compose topology partially superseded by [ADR-062](./ADR-062-host-edge-compose-topology.md): `ml-serving` moves to the external edge (`compose.edge.yaml`) and the host stack is db+backend+front(nginx). The port map, native-daily-development, and three-file base/override/prod pattern from this ADR remain in force.
+ACCEPTED. Host Compose topology partially superseded by [ADR-062](./ADR-062-host-edge-compose-topology.md) (`ml-serving` → external edge; host stack = db+backend+front[nginx]) and by [ADR-063](./ADR-063-native-only-dev-no-compose-override.md) (the `compose.override.yaml` container-dev overlay is removed — dev is native-only; compose is `compose.yaml` + `compose.prod.yaml` + `compose.edge.yaml`). The port map and native-daily-development principle from this ADR remain in force.
 
 ## Date
 
