@@ -49,7 +49,7 @@ export class KakaoClient implements OnModuleInit {
    */
   resolveScopes(): string {
     const raw = this.config.get<string>('KAKAO_SCOPES');
-    if (raw === undefined || raw === null) return KakaoClient.DEFAULT_SCOPE;
+    if (raw === undefined) return KakaoClient.DEFAULT_SCOPE;
     const tokens = raw
       .split(/[\s,]+/)
       .map((token) => token.trim())
