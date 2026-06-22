@@ -1,0 +1,239 @@
+# technical-report.yaml — Eldercare Fall AI 정본 기술 문서 강제 정의 (단일 소스)
+# depth가 곧 골격이다: document.<섹션 00~50> → headings.<## 헤딩> → must(필수 내용).
+# 구조는 라이프사이클 spine(배경 → 제품 → 시스템 설계 → 딜리버리 → 운영 → 보증)이다.
+# background 에는 eldercare-fall-ai 시스템 아키텍처를 depth로 박아 작성 배경지식으로 둔다.
+# 진리 원천 = 실제 code(backend/·ml/·front/) + docs + secondbrain/book 정본. 수정은 고범수 승인 하에만.
+#
+# === 현재 상태: DRAFTING ===
+# 톤 규칙은 toss/technical-writing 상위 원칙 + 고범수 세부 규칙으로 SKILL.md가 보유.
+# document의 intent/must는 실제 code/문서 근거로 채웠다. 헤딩 골격(키)은 book/*.md 의
+# ## 헤딩과 정확히 일치해야 validate.py가 통과한다(H2까지만 검증, H3는 must로 명시).
+
+meta:
+  purpose: 이 단일 YAML이 Eldercare Fall AI 정본 기술 문서(secondbrain/book/)의 전체 TOC depth를 강제한다. document의 모든 섹션·헤딩·must를 채워야 문서가 완결된다.
+  truth_source: 진리 원천은 실제 code(backend/·ml/·front/)와 docs, secondbrain/book 정본이다.
+  target: secondbrain/book/ (Eldercare Index.md + Eldercare 00 Background.md ~ 50 Assurance.md)
+  usage: technical-report 스킬이 이 파일을 읽어 섹션별 must를 체크리스트로 강제하고, background를 작성 배경지식으로 쓴다.
+  completion_bar: 이 문서만 읽고 구현 시작이 가능해야 한다(온보딩 완결). 단 이 바는 System Design·Product 섹션에 한해 적용하고, Delivery/Operations/Assurance는 현재 확보된 근거 수준의 최선 초안으로 제공한다.
+  status: DRAFTING — document intent/must를 코드 근거로 채움. 헤딩 골격 확정. 정본 확정은 고범수 승인 후.
+depth_rules:
+  depth_1: document.<섹션 00~50> — secondbrain/book/Eldercare NN *.md 한 파일
+  depth_2: '<섹션>.headings.<## 헤딩> — 그 파일의 ## 헤딩'
+  depth_3: must — 그 헤딩이 반드시 담아야 하는 내용(빠지면 미완)
+  h3_note: validate.py는 H2까지만 검증한다. ## ML 아래 ### 서브섹션은 must로 명시하고 literal ### 헤딩으로 작성한다(게이트 밖, grep 보조 확인).
+  background: background.eldercare_architecture — 문서를 쓸 때 참조하는 시스템 아키텍처 배경지식(별도 depth)
+governance:
+  intent: Index가 문서의 응집점이고 각 섹션은 승인된 정본 기술 문서로 완결되어야 한다.
+  must:
+  - 고범수 승인 하에만 확정 수정하고, 에이전트는 초안 제안 뒤 승인 후 반영한다.
+  - 일자별 노트는 원시 로그이고 이 문서는 큐레이션한 정본이므로 자동 동기화하지 않는다.
+  - 진리 원천은 실제 code와 docs이며 stale 위험이 있는 문서는 보조 참조로만 쓴다.
+  - 한국어 paragraph 중심으로 쓰고, bullet은 섹션 요약이나 atomic 나열에만 쓴다.
+  - 섹션 간 중복은 피하고 내부 인용은 wikilink, 외부 코드·repo·URL은 마크다운 링크로 연결한다.
+  - 시스템 아키텍처는 계층적 mermaid로 high-level 먼저, 내부 컴포넌트는 별도 다이어그램으로 제시한다.
+document:
+  00_background:
+    title: Eldercare 00 Background
+    file: Eldercare 00 Background.md
+    intent: 요양원 낙상 도메인(맥락·동기)과 empirical 근거(원본 인터뷰)를 설명해 이후 섹션의 Why 기반을 확립한다.
+    headings:
+      도메인과 동기:
+        intent: 요양원 낙상의 빈도·결과·현행 감시 한계를 서술한다.
+        must:
+        - 낙상이 입소자에게 미치는 임상적 결과(골절·장기입원·사망) 명시
+        - 요양보호사 1인 다수 돌봄 구조에서 상시 감시 불가 현실 서술
+        - 현재 요양원에서 낙상을 감지하는 방식의 한계 명시
+      인터뷰 원본:
+        intent: 박준호 가족 인터뷰 19개 관찰 목록을 원문 보존하고, 이 empirical 근거가 Product 요구사항 도출의 출발점임을 서술한다.
+        must:
+        - 박준호 가족 인터뷰 19개 관찰 항목 전부 포함(secondbrain/요양원 낙상 방지 AI 위험상황 조사.md ## 인터뷰 원본 기준)
+        - 인터뷰 컨텍스트(대상, 관찰 방법)와 낙상 특징 후기(반복 낙상·균형 상실) 명시
+        - '[[Eldercare 10 Product]] wikilink — 룰화 결과 참조'
+  10_product:
+    title: Eldercare 10 Product
+    file: Eldercare 10 Product.md
+    intent: 무엇을 왜 만드는지(문제 정의·요구사항·범위)를 인터뷰 기반 룰로 구체화한다.
+    headings:
+      문제 정의:
+        intent: 해결할 문제, 이해관계자, 안 풀면 생기는 결과를 서술한다.
+        must:
+        - 이해관계자 3자(CEO·요양보호사·입소자) 명시
+        - 행동 시그널 3단계(평소/주의/낙상) 탐지 목표 명시
+        - '[[Eldercare 00 Background]] wikilink — 인터뷰 원본 참조'
+      위험상황 예측 룰:
+        intent: 인터뷰에서 도출된 20개 위험상황 예측 룰을 나열하고 탐지 기능으로 매핑한다.
+        must:
+        - secondbrain/요양원 낙상 방지 AI 위험상황 조사.md ## 위험상황 예측 룰의 20개 항목 전부 포함
+        - 각 룰이 어떤 감지 기능(침상이탈 감지·휠체어 기립 감지 등)으로 구현되는지 매핑
+        - '[[Eldercare 00 Background]] wikilink — 인터뷰 원본과 연결'
+      스코프:
+        intent: In Scope / Non-goals를 명확히 구분한다.
+        must:
+        - 'In Scope: skeleton pose sequence 기반 3단계 탐지, RTSP→엣지→API→Alert 파이프라인, kakao fan-out'
+        - 'Non-goals: 원거리 예측, wearable/biosignal, 얼굴 인식, 낙상 외 이벤트'
+  20_system_design:
+    title: Eldercare 20 System Design
+    file: Eldercare 20 System Design.md
+    intent: 전체 아키텍처를 high-level mermaid로 제시하고 ML/Backend/Front 3개 하위 섹션에서 실코드 계약을 인용한다.
+    headings:
+      아키텍처 개요:
+        intent: 카메라→포즈→분류→이벤트→알림→대시보드의 단방향 파이프라인을 high-level mermaid로 표현한다.
+        must:
+        - 'mermaid 다이어그램: edge_node → ml_serving(POST /predict) → backend(POST /ingest/alerts) → kakao fan-out → front 흐름 표현'
+        - ADR-023(ML 신호만/backend 정책 소유) 인용
+        - ADR-001(모노레포), ADR-022(serving/training 경계) 참조
+      ML:
+        intent: ML 파이프라인을 Video Ingest → 데이터셋 구성 → 모델 선택 → 모델 트레이닝 → Serving 5개 ### 서브섹션으로 코드 근거로 서술한다.
+        must:
+        - '### Video Ingest (literal H3): RTSP/카메라 프레임 수신, ml/util/frame_source.py CameraSource(opencv). 미검증 세부(전용 캡처 스크립트 등)는 deferred'
+        - '### 데이터셋 구성 (literal H3): ml/data/{le2i,nursing-home,eval,uploads} 도메인-우선 레이아웃(ADR-012), ml/models 단일 루트(ADR-015) 인용'
+        - '### 모델 선택 (literal H3): YOLO26-pose(ml/core/model_modules.py, yolo26{size}-pose.pt, default size n)(ADR-025), fall 분류 전략(ADR-009)·채택 기준(ADR-017) 인용'
+        - '### 모델 트레이닝 (literal H3): ml/training/{train.py,extract_poses.py,evaluate.py,config.py}, serving/training 경계(ADR-022) 인용; 미검증 세부는 deferred'
+        - '### Serving (literal H3): ml/serving/main.py PredictRequest(source_id|upload_id|window) + PredictResponse{fall_probability,operating_threshold,is_fall} 계약, ml/serving/pipeline.py YoloPoseModule 추론 인용'
+      Backend:
+        intent: NestJS ingest/alert 파이프라인을 HMAC·dedup·kakao fan-out 계약 기준으로 서술한다.
+        must:
+        - backend/src/ingest/hmac.guard.ts — HmacIngestGuard, HMAC-SHA256, X-Ingest-Key-Id/X-Signature/X-Ingest-Timestamp ±5분 freshness
+        - backend/src/ingest/ingest-alert.service.ts — dedup/rate-limit/freshness 정책
+        - backend/src/auth/kakao.client.ts — POST kapi.kakao.com/v2/api/talk/memo/default/send, Bearer {recipient_access_token}
+        - backend/src/alerts/ — alerts.controller.ts·alerts.service.ts·ports/·repositories/ 구조 인용
+        - 'ADR-023: backend가 product policy·external side-effect 소유'
+      Front:
+        intent: front/(Vite + React 18 + react-router 앱, #257 머지, ADR-055)를 진리 원천으로 대시보드 구조를 서술한다.
+        must:
+        - front/ Vite 앱 기준 서술 — main에서 직접 읽어 인용(git fetch/show 불필요)
+        - front/src/router.tsx 라우팅, front/src/services/ API 레이어, front/src/pages/ 화면 구조 인용
+        - ALERT_DASHBOARD_URL 알림 링크 대상 역할 명시
+        - ADR-055(vite-react-front-stack) 인용. 코드 근거 확인 불가 항목은 deferred 표시
+  30_delivery:
+    title: Eldercare 30 Delivery
+    file: Eldercare 30 Delivery.md
+    intent: POC(Streamlit 데모)에서 프로덕션으로 가는 경로와 현재 배포 토폴로지를 서술한다.
+    headings:
+      POC — Streamlit 데모:
+        intent: 현재 프로토타입(Streamlit 데모)의 구조와 한계를 서술한다.
+        must:
+        - ml/util/frame_source.py CameraSource(opencv 캡처) + ml/core/alert_client.py(알림 push) 인용
+        - '데모 스코프: 추론을 in-process로 실행하는 현재 한계 명시'
+        - secondbrain/요양원 낙상 방지 AI POC.md 내용 흡수
+      배포 토폴로지:
+        intent: 엣지 추론 + 중앙 정책 아키텍처 의사결정 근거를 서술한다.
+        must:
+        - background.eldercare_architecture.deployment_topology_decision의 4개 드라이버(지연/대역폭/프라이버시/비용) 인용
+        - 프로덕션 엣지(Jetson/Hailo) = future work 명시
+        - ADR distill 후보(미결) 상태 명시
+      CI/CD:
+        intent: 현재 CI 파이프라인과 PR 게이트를 서술한다.
+        must:
+        - .github/workflows/pr-check.yml 인용
+        - 근거 부족 항목은 deferred 처리
+  40_operations:
+    title: Eldercare 40 Operations
+    file: Eldercare 40 Operations.md
+    intent: 런북·모니터링·heartbeat 계약을 현재 확보된 코드 근거 수준에서 서술한다.
+    headings:
+      런북:
+        intent: 서비스 시작/정지 절차와 First-run 설정을 서술한다.
+        must:
+        - pnpm dev:ml / pnpm dev:backend / pnpm dev:front 서비스 기동 순서
+        - backend/.env.development 필수 환경변수 목록
+        - 근거 부족 항목은 deferred 처리
+      Heartbeat:
+        intent: edge_node → backend heartbeat 계약을 서술한다.
+        must:
+        - POST /ingest/heartbeat(HmacIngestGuard, 200 {ok:true}) 계약 인용
+        - 본문 4필드 부재 시 canonical '|||' 처리 명시
+      모니터링:
+        intent: 현재 모니터링 현황과 갭을 서술한다.
+        must:
+        - 현재 구현된 모니터링 항목 명시(코드 근거 있는 것만)
+        - 갭 항목은 deferred 처리
+  50_assurance:
+    title: Eldercare 50 Assurance
+    file: Eldercare 50 Assurance.md
+    intent: 평가(RQ·결과)·threats to validity·보안/프라이버시를 현재 근거 수준에서 서술한다.
+    headings:
+      평가 (RQ · 결과):
+        intent: 검증 질문과 현재 검증 결과를 서술한다.
+        must:
+        - RQ1(낙상 탐지 정확도), RQ2(지연 요구 충족), RQ3(프라이버시 보장) 최소 3개 RQ 제시
+        - 현재 POC/Streamlit 데모에서 확인된 결과만 서술; 나머지 deferred
+      Threats to Validity:
+        intent: 현재 평가의 한계와 위협 요인을 서술한다.
+        must:
+        - LE2I 데이터셋 편향(실험실 환경 vs 실제 요양원) 명시
+        - POC 샘플 크기 한계 명시
+        - 코드 근거 없는 주장 포함 금지
+      보안 · 프라이버시:
+        intent: 입소자 영상 데이터 보호와 HMAC 인증 구조를 서술한다.
+        must:
+        - 영상이 사이트 밖으로 나가지 않는 아키텍처(keypoint만 POST /predict로 전송) 명시
+        - HmacIngestGuard HMAC-SHA256 서명 검증으로 ingest 인증 명시
+        - kakao token 암호화 저장(ADR-042 참조)
+background:
+  eldercare_architecture:
+    status: DRAFTED — backend/·ml/ 코드 직접 읽어 계약 확정(2026-06-19). front은 #257 머지로 Vite 전환(2026-06-20, ADR-055). 배포 토폴로지는 ADR-029로 distill 완료. 모델은 YOLO26-pose(ADR-025).
+    intent: 낙상 탐지·알림 파이프라인의 컴포넌트·데이터 계약·ADR 색인·배포 토폴로지 결정근거를 depth로 박아 섹션들이 인용한다.
+    components:
+      edge_node:
+        role: 사이트(병원)별 추론 디바이스. CCTV/카메라 프레임 수신 → 포즈추출(17kp) → 분류(fall 판정) → 서명 이벤트를 원격 backend로 push. 추론(serving pipeline)과 emit(thin client)은 같은 디바이스에 살되 책임 분리(ADR-023).
+        prototype: Streamlit 데모가 현재 프로토타입 — opencv 캡처(ml/util/frame_source.py CameraSource) + 알림 push(ml/core/alert_client.py). 현재는 추론을 in-process로 돌림.
+        status: 데모-스코프 프로토타입. 프로덕션 엣지 디바이스(Jetson/Hailo급)는 future work.
+      ml_serving:
+        role: FastAPI 추론 서비스(엣지 런타임). 신호만 반환하고 알림은 미발송(ADR-023). is_fall = fall_probability >= operating_threshold 계산 후 반환.
+        path: ml/serving/main.py
+      backend:
+        role: NestJS. ingest 수신·HMAC 검증·알림 정책(dedup/rate-limit/freshness)·수신자 fan-out·kakao 발송. product policy와 external side-effect 소유(ADR-023).
+        path: backend/src/{ingest,auth}
+      front:
+        role: Vite + React 18 + react-router 대시보드. 알림 메시지 link 대상(ALERT_DASHBOARD_URL). #257 머지로 Next.js → Vite 전환(ADR-055).
+        path: front/ (src/{router.tsx,pages,services,components,hooks,lib})
+        adr: docs/decisions/frontend/ADR-055-vite-react-front-stack.md
+    data_contracts:
+      predict:
+        endpoint: POST /predict (ml_serving)
+        request: PredictRequest — source_id|upload_id|window 중 정확히 1개. window=프레임당 51 floats(17kp×{x,y,conf}, conf∈[0,1]). frame_stride/max_frames(≤300)/duration_sec(≤30)/timeout_sec(≤60) 경계.
+        response: PredictResponse{model, version, fall_probability, operating_threshold, is_fall}
+        note: 알림 책임 없음. window 입력 지원 = 엣지 포즈추출 후 keypoint만 전송 가능(영상 비유출).
+      ingest_alert:
+        endpoint: POST /ingest/alerts (backend, HmacIngestGuard, 201)
+        headers: X-Ingest-Key-Id, X-Signature, X-Ingest-Timestamp(±5분 freshness)
+        body: 'resident_id, facility_id, probability∈[0,1], detected_at(ISO8601), type∈{fall,detection-lost,bed-exit}, snapshot_url(무시·SSRF)'
+        signature: HMAC-SHA256(key=SHA256(ingest_secret) hex, msg="resident_id|facility_id|type|detected_at")
+      heartbeat:
+        endpoint: POST /ingest/heartbeat (backend, HmacIngestGuard, 200 {ok:true})
+        note: 본문 4필드 부재 → canonical "|||"
+      kakao_oauth:
+        login: GET /auth/kakao/login → oauth_state 쿠키 + 302 kauth.kakao.com/oauth/authorize
+        callback: GET /auth/kakao/callback?code&state → 302 ${FRONT_ORIGIN}/dashboard|/onboarding
+        token: POST kauth.kakao.com/oauth/token (form-encoded; grant_type/client_id/redirect_uri/code[/client_secret])
+      kakao_send:
+        endpoint: POST kapi.kakao.com/v2/api/talk/memo/default/send (KAKAO_MESSAGE_ENDPOINT)
+        headers: Authorization Bearer {recipient_access_token}, x-www-form-urlencoded
+        body: template_object={object_type:text, text:한국어≤180자, link:{web_url,mobile_web_url}}
+    adr_index:
+      ADR-001: 모노레포 구성(backend/ml/front) — docs/decisions/common/ADR-001-polyglot-monorepo.md
+      ADR-022: ML serving/training 라이프사이클 경계 — docs/decisions/ml/ADR-022-ml-serving-training-lifecycle.md
+      ADR-023: ML은 신호만 반환 / backend가 prediction boundary 소유 — docs/decisions/common/ADR-023-ml-backend-prediction-boundary.md
+      ADR-025: YOLO26-pose 프레임워크 채택 — docs/decisions/ml/ADR-025-yolo26-pose-framework-adoption.md
+      ADR-029: per-site 엣지 추론 배포 토폴로지 — docs/decisions/ml/ADR-029-edge-inference-deployment-topology.md
+      ADR-042: 카카오 사용자별 토큰 암호화 저장 — docs/decisions/backend/ADR-042-kakao-per-user-token-encrypted-storage.md
+      ADR-055: front Vite + React 스택 채택(Next.js 대체) — docs/decisions/frontend/ADR-055-vite-react-front-stack.md
+    deployment_topology_decision:
+      decision: 포즈추출부터 분류까지 엣지 디바이스에서 수행하고, 원격 backend로는 서명된 fall 이벤트(메타데이터)만 push한다. ML serving은 신호만 반환하고 알림 정책·발송은 backend가 소유한다.
+      drivers:
+      - 지연 — 낙상 대응은 sub-100ms 요구. 클라우드 왕복은 100~500ms+ 추가(엣지 Jetson Orin 18~26ms).
+      - 대역폭 — 사이트당 다중 HD RTSP는 Gbps급. 이벤트는 kB급. 멀티 요양원 스케일에서 영상 egress는 비현실적.
+      - 프라이버시/규제 — 입소자 원본 영상이 사이트 밖으로 안 나감(GDPR/PIPL by architecture).
+      - 비용 — 24/7 영상 클라우드 GPU 추론은 온프렘 엣지 대비 한 자릿수 배 비쌈.
+      sources:
+      - NotebookLM "요양원 낙상 보호 AI"(ba3b3d80, 127 sources) — 하이브리드(엣지추론+클라우드정책)가 멀티테넌트 표준이라 확인.
+      - NVIDIA Metropolis/DeepStream — 엣지 추론→Redis 버스→별도 Analytics MS가 알람 소유. https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_Overview.html
+      - AWS Panorama / IoT Greengrass→IoT Events→SNS — 엣지 추론·중앙 정책 분리 reference impl. https://aws.amazon.com/panorama/appliance/
+      - Milestone XProtect Event Server — 알람 로직·dedup·dispatch가 추론 플러그인과 분리. https://doc.milestonesys.com/latest/en-US/standard_features/sf_mc/sf_systemoverview/mc_eventserverexplained.htm
+      - YOLOv11-SEFA on Jetson AGX Orin(낙상 탐지, MQTT 알림). https://www.nature.com/articles/s41598-026-39527-y
+      status: 연구근거 확보 후 ADR-029(per-site edge inference deployment topology)로 distill 완료. 프로덕션 엣지 하드웨어 적용은 future work.
+    deferred:
+    - 엣지 디바이스 사이징 — 병원당 단일 박스(다중 RTSP 배치추론) vs 구역별 디바이스. 카메라 수에 따른 선택.
+    - 멀티사이트 전송 — 표준은 MQTT(TLS, QoS1) 브로커. 현행은 HMAC POST. 사이트 수 증가 시 재검토.
+    - VMS 레이어(Milestone/Genetec) + 엣지 로컬 영상 저장 — 현재 없음. 실서비스 진입 시 갭.
