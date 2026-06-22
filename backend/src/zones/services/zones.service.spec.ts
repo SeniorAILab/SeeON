@@ -1,4 +1,4 @@
-import { ZonesRepository } from '../repositories/zones.repository';
+import type { ZonesRepository } from '../repositories/zones.repository';
 import { ZonesService } from './zones.service';
 
 describe('ZonesService', () => {

@@ -13,14 +13,17 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ZoneType } from '@prisma/client';
 import { FacilityContextInterceptor } from '../../auth/facility-context.interceptor.js';
 import {
   RequireFacilityGuard,
   SessionGuard,
 } from '../../auth/session.guard.js';
 import type { RequestWithAuth } from '../../auth/session.guard.js';
-import type { CreateZoneDto, UpdateZoneDto } from '../dto/zone.dto.js';
+import type {
+  CreateZoneDto,
+  UpdateZoneDto,
+  ZoneType,
+} from '../dto/zone.dto.js';
 import { ZonesService } from '../services/zones.service.js';
 
 @Controller('api/zones')
