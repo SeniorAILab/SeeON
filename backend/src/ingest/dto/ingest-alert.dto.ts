@@ -15,7 +15,7 @@ export interface IngestAlertBody {
 }
 
 export interface ParsedIngestAlertBody {
-  resident_id: string;
+  resident_id: string | null;
   facility_id: string;
   probability: number;
   detectedAt: Date;
@@ -23,7 +23,6 @@ export interface ParsedIngestAlertBody {
 }
 
 const REQUIRED_FIELDS = [
-  'resident_id',
   'facility_id',
   'probability',
   'detected_at',
@@ -64,8 +63,15 @@ export function parseIngestAlertBody(
     );
   }
 
+  const residentId =
+    typeof body.resident_id === 'string' ||
+    typeof body.resident_id === 'number' ||
+    typeof body.resident_id === 'boolean'
+      ? String(body.resident_id)
+      : null;
+
   return {
-    resident_id: String(body.resident_id),
+    resident_id: residentId && residentId.trim() ? residentId : null,
     facility_id: String(body.facility_id),
     probability,
     detectedAt,

@@ -1,16 +1,16 @@
 import { BadRequestException } from '@nestjs/common';
 
-import {
+import type {
   AlertWriterService,
-  type WriteAlertInput,
+  WriteAlertInput,
 } from '../alerts/alert-writer.service';
-import { AlertEventsService } from '../alerts/services/alert-events.service';
+import type { AlertEventsService } from '../alerts/services/alert-events.service';
 import {
   MissingFieldException,
   StaleTimestampException,
   TenantMismatchException,
 } from '../common/domain-errors';
-import { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service';
 import type { IngestCameraInfo } from './hmac.guard';
 import { IngestAlertService } from './ingest-alert.service';
 import { parseIngestAlertBody } from './dto/ingest-alert.dto';
@@ -90,6 +90,22 @@ describe('parseIngestAlertBody', () => {
       type: 'fall',
     });
   });
+  it('accepts a room-only alert body without resident_id', () => {
+    expect(
+      parseIngestAlertBody({
+        facility_id: 'facility-1',
+        probability: 0.75,
+        detected_at: NOW.toISOString(),
+        type: 'fall',
+      }),
+    ).toEqual({
+      resident_id: null,
+      facility_id: 'facility-1',
+      probability: 0.75,
+      detectedAt: NOW,
+      type: 'fall',
+    });
+  });
 
   it('accepts bed-exit alert type', () => {
     expect(body({ type: 'bed-exit' })).toEqual(
@@ -103,8 +119,8 @@ describe('parseIngestAlertBody', () => {
     expect(() => body({ type: 'foo' })).toThrow(BadRequestException);
   });
 
-  it('rejects missing required fields', () => {
-    expect(() => body({ resident_id: '' })).toThrow(MissingFieldException);
+  it('rejects missing required fields except resident_id', () => {
+    expect(() => body({ facility_id: '' })).toThrow(MissingFieldException);
   });
 
   it('rejects invalid probability', () => {
@@ -188,6 +204,43 @@ describe('IngestAlertService', () => {
       confidence: 0.9,
       residentName: '홍길동',
       residentRoom: '402호',
+    });
+  });
+  it('writes room-only alerts with null residentId and room context', async () => {
+    const { service, writeAlert, ensureOutboxForIngest } = setup();
+    writeAlert.mockResolvedValue({
+      alertSeq: 9n,
+      id: 'room-alert-1',
+      resident: null,
+      space: { name: 'Room 101' },
+    });
+
+    const result = await service.ingestAlert(
+      camera(),
+      body({ resident_id: undefined }),
+    );
+
+    expect(result).toEqual({
+      alertSeq: '9',
+      id: 'room-alert-1',
+      status: 'created',
+    });
+    expect(writeAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        residentId: null,
+        spaceId: 'space-1',
+      }),
+    );
+    const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
+    expect(ensureOutboxForIngest).toHaveBeenCalledWith({
+      facilityId: 'facility-1',
+      sourceId: 'cam-1',
+      externalEventId: idempotencyKey,
+      type: 'fall',
+      detectedAt: NOW,
+      confidence: 0.9,
+      residentName: undefined,
+      residentRoom: 'Room 101',
     });
   });
 
