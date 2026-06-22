@@ -34,12 +34,6 @@ export class IngestAlertService {
       );
     }
 
-    if (camera.residentId && camera.residentId !== input.resident_id) {
-      throw new TenantMismatchException(
-        `Camera is assigned to resident '${camera.residentId}', not '${input.resident_id}'`,
-      );
-    }
-
     const idempotencyKey = crypto
       .createHash('sha256')
       .update(`${camera.id}|${input.detectedAt.toISOString()}|${input.type}`)
@@ -84,7 +78,7 @@ export class IngestAlertService {
           existing?.resident ?? null,
         );
         return {
-          alertSeq: existing?.alertSeq?.toString() ?? '0',
+          alertSeq: existing?.alertSeq.toString() ?? '0',
           id: existing?.id ?? '',
           status: 'duplicate',
         };
