@@ -31,7 +31,12 @@ function sign(body: Record<string, unknown>): string {
     body.type,
     body.detected_at,
   ]
-    .map((v) => (v === undefined || v === null ? '' : String(v)))
+    .map((v) => {
+      if (v === undefined || v === null) return '';
+      if (typeof v === 'string') return v;
+      if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+      return '';
+    })
     .join('|');
   return crypto.createHmac('sha256', SECRET).update(canonical).digest('hex');
 }
@@ -40,6 +45,7 @@ const cameraRow = {
   id: 'cam-1',
   facilityId: 'facility-1',
   residentId: 'res-1',
+  spaceId: 'space-1',
   ingestKeyId: 'key-1',
   ingestSecretHash: SECRET,
 };
@@ -104,6 +110,7 @@ describe('HmacIngestGuard', () => {
       id: 'cam-1',
       facilityId: 'facility-1',
       residentId: 'res-1',
+      spaceId: 'space-1',
       ingestKeyId: 'key-1',
     });
   });
