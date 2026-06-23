@@ -3,13 +3,13 @@
 라이브 낙상 → 카카오 멀티유저 fan-out 알림 + 카카오 로그인/가입 + 실시간 대시보드 end-to-end 시연 절차.
 관련: 합의 계획 `.gjc/plans/ralplan/019ed409-…/pending-approval.md`, 스펙 `.gjc/specs/deep-interview-thursday-mvp-…md`.
 
-> 환경 변수 위치 규칙: **네이티브 dev(`pnpm dev:*`)는 `backend/.env.development`를 읽는다.** 루트 `.env`는 Docker Compose `${VAR}` 인터폴레이션 전용이다. 네이티브 시연에선 카카오/세션/토큰 키를 `backend/.env.development`에 둔다.
+> 환경 변수 위치 규칙: repo root `.env.local` 하나가 네이티브 backend, Vite frontend, Prisma, local Compose의 SSOT다. `backend/.env*`/`front/.env*`/`ml/.env*`는 만들지 않는다.
 
 ## 0. 외부 선행조건 (Phase 0 — 코드 아님, 사용자 수동)
 > 이게 안 되면 카카오 로그인도 알림도 동작하지 않는다. 데모 전날까지 완료할 것.
 
 - 카카오 Developers 앱: 카카오 로그인 활성화, 동의항목 `talk_message` + `profile_nickname`; **나 + 형 둘 다 앱 '팀원'(테스트 사용자) 등록**(개발 단계에선 등록 사용자만 `talk_message` 동의 가능); Redirect URI `http://localhost:8080/auth/kakao/callback`.
-- `backend/.env.development` (템플릿 `backend/.env.example` 복사 후 실값):
+- repo root `.env.local` (`.env.local.example` 복사 후 실값):
   - `KAKAO_REST_API_KEY=<실키>`, (선택) `KAKAO_CLIENT_SECRET`
   - `KAKAO_REDIRECT_URI=http://localhost:8080/auth/kakao/callback`
   - `KAKAO_TOKEN_ENC_KEY=<openssl rand -hex 32>` (per-user 토큰 암호화 키 — 더미 금지)
@@ -20,10 +20,10 @@
 ```bash
 pnpm install
 cd ml && uv sync && cd ..
-cp backend/.env.example backend/.env.development   # 위 0번 실값 채우기
+cp .env.local.example .env.local   # 위 0번 실값 채우기
 pnpm db:up
 pnpm prisma:generate
-pnpm prisma:migrate     # backend/.env.development 로드해 Phase1/3 마이그레이션 적용(migrate dev)
+pnpm prisma:migrate     # root .env.local 로드해 Phase1/3 마이그레이션 적용(migrate dev)
 pnpm prisma:seed        # demo-org-01 + 카메라(HMAC keyId/secret 콘솔 출력) + 거주자 시드
 pnpm dev:backend        # :8080
 pnpm dev:front          # :3000
@@ -38,9 +38,9 @@ pnpm dev:demo           # Streamlit 데모 (노트북 카메라 + 내부 클립 
    ```bash
    DEMO_KAKAO_IDS=<my_kakaoId>,<hyung_kakaoId> pnpm demo:bind
    ```
-   → `demo:bind`는 `backend/.env.development`(DIRECT_URL)를 로드해 두 User.orgId + KakaoIdentity.orgId = demo-org-01로 설정. (온보딩 새 org 생성에 의존하지 않음)
+   → `demo:bind`는 root `.env.local`(DIRECT_URL)를 로드해 두 User.orgId + KakaoIdentity.orgId = demo-org-01로 설정. (온보딩 새 org 생성에 의존하지 않음)
 
-## 3. ml/.env (데모 alert 발송 자격)
+## 3. `.env.edge.prod` (데모 alert 발송 자격)
 ```
 ALERT_API_URL=http://localhost:8080/ingest/alerts
 INGEST_KEY_ID=<시드 출력 keyId, 예 demo-cam-01-keyid>
@@ -77,7 +77,7 @@ DEMO_FACILITY_ID=demo-org-01
 이 브랜치(`feat/226`)가 위 절차에 더하는 델타. 관련: ADR-051(scope), ADR-052(메시지 DTO/포맷), ADR-053(수신자 모델).
 
 - **콘솔 동의항목 부담 감소**: scope 기본값이 이제 `talk_message`만이다(`KakaoClient.resolveScopes`). **`profile_nickname` 동의항목은 더 이상 필수가 아니다** — 닉네임이 필요해 일부러 켤 때만 `KAKAO_SCOPES="talk_message profile_nickname"`로 opt-in. profile_nickname 미동의로 인한 `invalid_scope`가 사라진다. (닉네임 미수집 시 `Kakao User`로 폴백.)
-- **env 추가**(`backend/.env.development`):
+- **env 추가**(root `.env.local`):
   - `# KAKAO_SCOPES=talk_message` (생략 시 기본 talk_message)
   - `ALERT_DASHBOARD_URL=http://localhost:3000` — 카카오 메시지의 대시보드 링크. **카카오 앱 Web 플랫폼에 이 도메인을 등록**해야 text 템플릿 link가 렌더된다(로컬은 등록 도메인/터널 필요). 미등록 시 발송 4xx 또는 링크 미작동.
   - (선택) `KAKAO_MESSAGE_LINK_URL`(링크 우선순위 > ALERT_DASHBOARD_URL), `KAKAO_MESSAGE_ENDPOINT`.
