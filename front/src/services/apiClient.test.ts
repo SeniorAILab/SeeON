@@ -7,7 +7,7 @@ function okJsonResponse(body: unknown): Response {
   });
 }
 
-describe("apiClient.request", () => {
+describe("apiClient.requestJson", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
@@ -22,8 +22,8 @@ describe("apiClient.request", () => {
       .mockResolvedValue(okJsonResponse({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { request } = await import("./apiClient");
-    await request<{ ok: boolean }>("/protected-probe");
+    const { requestJson } = await import("./apiClient");
+    await requestJson("/protected-probe");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8080/api/protected-probe",
@@ -38,8 +38,8 @@ describe("apiClient.request", () => {
       .mockResolvedValue(okJsonResponse({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { request } = await import("./apiClient");
-    await request<{ ok: boolean }>("/public-probe", { credentials: "omit" });
+    const { requestJson } = await import("./apiClient");
+    await requestJson("/public-probe", { credentials: "omit" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/public-probe",
