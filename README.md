@@ -79,7 +79,6 @@ On macOS, prefer the native `pnpm dev:*` loop for daily frontend/backend/ML work
 | `pnpm db:up` | `docker compose up -d db` — start PostgreSQL |
 | `pnpm db:down` | `docker compose down` — stop all Compose services |
 | `pnpm compose:local:up` | Full local host stack (db+backend+front[nginx], `.env.local`, `--profile full`) |
-| `pnpm compose:full` | Backward-compatible alias for `pnpm compose:local:up` |
 | `pnpm compose:prod:up` | Production-shaped full host stack (`compose.yaml` + `compose.prod.yaml`, `.env.host.prod`) |
 | `pnpm prisma:generate` | Regenerate Prisma client from `schema.prisma` |
 | `pnpm prisma:migrate` | Run Prisma migrations (`migrate dev`) |
