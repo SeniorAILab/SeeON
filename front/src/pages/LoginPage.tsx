@@ -8,6 +8,7 @@ import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
 import { defaultPathForUser } from "@/lib/routeAccess";
+import { USE_MOCK } from "@/services/apiClient";
 
 const DEMO_ACCOUNTS = [
   { label: "시설 관리자", email: "admin@sen.ai" },
@@ -34,8 +35,8 @@ export function LoginPage() {
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
   const setTheme = useUiStore((s) => s.setTheme);
 
-  const [email, setEmail] = useState("staff@sen.ai");
-  const [password, setPassword] = useState("1234");
+  const [email, setEmail] = useState(USE_MOCK ? "staff@sen.ai" : "");
+  const [password, setPassword] = useState(USE_MOCK ? "1234" : "");
 
   // 로그인 화면은 항상 밝게
   useEffect(() => {
@@ -87,60 +88,72 @@ export function LoginPage() {
             카카오 로그인
           </button>
 
-          <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
-            <span className="h-px flex-1 bg-border" />
-            또는 이메일로 로그인
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {USE_MOCK && (
+            <>
+              <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+                <span className="h-px flex-1 bg-border" />
+                또는 이메일로 로그인
+                <span className="h-px flex-1 bg-border" />
+              </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="이메일">
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@facility.com"
-                autoComplete="username"
-              />
-            </Field>
-            <Field label="비밀번호">
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </Field>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Field label="이메일">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@facility.com"
+                    autoComplete="username"
+                  />
+                </Field>
+                <Field label="비밀번호">
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                </Field>
 
-            {error && (
+                {error && (
+                  <p className="rounded-lg bg-status-dangerBg px-3 py-2 text-sm text-status-danger">
+                    {error}
+                  </p>
+                )}
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "로그인 중..." : "로그인"}
+                </Button>
+              </form>
+
+              <div className="mt-5 border-t border-border pt-4">
+                <p className="mb-2 text-xs text-gray-400">데모 계정 (비밀번호 1234)</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {DEMO_ACCOUNTS.map((a) => (
+                    <button
+                      key={a.email}
+                      onClick={() => {
+                        setEmail(a.email);
+                        setPassword("1234");
+                      }}
+                      className="rounded-lg border border-border px-2 py-1.5 text-left text-xs text-ink-soft hover:border-brand/40 hover:bg-brand-soft"
+                    >
+                      <div className="font-medium text-ink">{a.label}</div>
+                      <div className="truncate text-gray-400">{a.email}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {!USE_MOCK && error && (
+            <div className="mt-4">
               <p className="rounded-lg bg-status-dangerBg px-3 py-2 text-sm text-status-danger">
                 {error}
               </p>
-            )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "로그인 중..." : "로그인"}
-            </Button>
-          </form>
-
-          <div className="mt-5 border-t border-border pt-4">
-            <p className="mb-2 text-xs text-gray-400">데모 계정 (비밀번호 1234)</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {DEMO_ACCOUNTS.map((a) => (
-                <button
-                  key={a.email}
-                  onClick={() => {
-                    setEmail(a.email);
-                    setPassword("1234");
-                  }}
-                  className="rounded-lg border border-border px-2 py-1.5 text-left text-xs text-ink-soft hover:border-brand/40 hover:bg-brand-soft"
-                >
-                  <div className="font-medium text-ink">{a.label}</div>
-                  <div className="truncate text-gray-400">{a.email}</div>
-                </button>
-              ))}
             </div>
-          </div>
+          )}
         </Card>
 
         <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">

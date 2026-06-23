@@ -82,6 +82,11 @@ function ensureMockKakaoUser(): StoredUser {
 
 export const authService = {
   async login(email: string, password: string): Promise<AuthSession> {
+    if (!USE_MOCK) {
+      await delay(null, 200);
+      throw new Error("이메일 로그인은 데모 모드에서만 사용할 수 있습니다. 카카오 로그인을 사용해주세요.");
+    }
+
     const found = db.users.find(
       (u) =>
         // 카카오 mock 사용자는 이메일/비번 경로에서 제외(우회 차단)
