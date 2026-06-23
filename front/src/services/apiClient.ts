@@ -25,8 +25,11 @@ export async function requestJson(
   options: RequestInit = {},
   clientOptions?: ApiClientOptions
 ): Promise<unknown> {
+  const credentials: RequestCredentials | undefined =
+    options.credentials ?? (!USE_MOCK ? "include" : undefined);
   const res = await fetch(buildApiUrl(path, clientOptions), {
     ...options,
+    ...(credentials ? { credentials } : {}),
     headers: {
       "Content-Type": "application/json",
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
@@ -45,8 +48,11 @@ export async function requestNoContent(
   options: RequestInit = {},
   clientOptions?: ApiClientOptions
 ): Promise<void> {
+  const credentials: RequestCredentials | undefined =
+    options.credentials ?? (!USE_MOCK ? "include" : undefined);
   const res = await fetch(buildApiUrl(path, clientOptions), {
     ...options,
+    ...(credentials ? { credentials } : {}),
     headers: {
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...options.headers,

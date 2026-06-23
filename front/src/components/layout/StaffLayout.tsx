@@ -6,6 +6,7 @@ import { LogoMark } from "@/components/Logo";
 import { useAuthStore, canAdmin } from "@/store/authStore";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
+import { ADMIN_HOME_PATH } from "@/lib/routeAccess";
 
 // 직원용 메뉴는 최대 3개만.
 const NAV = [
@@ -73,7 +74,7 @@ export function StaffLayout() {
             </button>
             {canAdmin(user) && (
               <button
-                onClick={() => navigate("/admin/facility")}
+                onClick={() => navigate(ADMIN_HOME_PATH)}
                 className="ml-1 inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
               >
                 <Settings className="h-5 w-5" />

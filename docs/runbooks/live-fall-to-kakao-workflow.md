@@ -57,10 +57,10 @@
   GRANT ALL PRIVILEGES ON DATABASE fall_dev TO fall_app;
   ALTER ROLE fall BYPASSRLS;   -- seed.ts가 DIRECT_URL로 RLS 우회 시드 (런타임 fall_app은 그대로 NOBYPASSRLS)
   ```
-- `pnpm --filter backend exec -- dotenv -e .env.development -- prisma migrate deploy`
-- 시드: `pnpm prisma:seed` → demo-org-01 + 거주자(홍길동/demo-res-01 …) + 카메라(`Cam 01 secret=… keyId=demo-cam-01-keyid`) 출력 → **secret 보관**(ml/.env에 사용).
+- `( cd backend && pnpm exec dotenv -e ../.env.local -- prisma migrate deploy )`
+- 시드: `pnpm prisma:seed` → demo-org-01 + 거주자(홍길동/demo-res-01 …) + 카메라(`Cam 01 secret=… keyId=demo-cam-01-keyid`) 출력 → **secret 보관**(.env.edge.prod에 사용).
 
-### 3.2 backend/.env.development
+### 3.2 repo root .env.local
 ```
 DATABASE_URL=postgresql://fall_app:****@localhost:5432/fall_dev?schema=public
 DIRECT_URL=postgresql://fall:****@localhost:5432/fall_dev
@@ -83,7 +83,7 @@ SESSION_JWT_SECRET=<32자+>
 2. 원장 kakaoId 확인 후: `pnpm --filter backend demo:bind <kakaoId>` → 원장을 demo-org-01 수신자로 바인딩.
    - 검증: `users.org_id = kakao_identities.org_id = demo-org-01`, `kakao_identities.access_token_cipher`가 `v1:…`(암호화), `token_scope=talk_message`.
 
-### 3.5 ml/.env (데모 발송 자격)
+### 3.5 .env.edge.prod (데모 발송 자격)
 ```
 ALERT_API_URL=http://localhost:8080/ingest/alerts
 INGEST_KEY_ID=demo-cam-01-keyid          # seed가 만든 Cam 01 keyId
@@ -96,13 +96,13 @@ DEMO_FACILITY_ID=demo-org-01
 
 ```bash
 pnpm db:up                       # DB
-pnpm dev:backend                 # :8080 (backend/.env.development 자동 로드)
+pnpm dev:backend                 # :8080 (repo-root .env.local 자동 로드)
 pnpm dev:front                   # :3000 (same-origin 로그인/대시보드)
-# 데모는 ml/.env를 환경에 로드해서 띄운다 (uv는 .env 자동 로드 안 함):
-set -a; . ml/.env; set +a
+# 데모는 .env.edge.prod를 환경에 로드해서 띄운다 (uv는 .env 자동 로드 안 함):
+set -a; . .env.edge.prod; set +a
 pnpm dev:demo                    # Streamlit :8501 — AlertClient.from_env가 위 env로 활성
 ```
-> ml/.env가 환경에 없으면 `AlertClient.from_env`가 `None`(alert-less) → 낙상 쳐도 발송 안 됨. 반드시 로드.
+> .env.edge.prod가 환경에 없으면 `AlertClient.from_env`가 `None`(alert-less) → 낙상 쳐도 발송 안 됨. 반드시 로드.
 > Streamlit 첫 실행 이메일 프롬프트는 `~/.streamlit/credentials.toml`에 `[general]\nemail=""` 두면 스킵. 백그라운드는 `--server.headless=true`.
 
 ## 5. 내일 시나리오 — 실시간 웹캠 → 카톡
@@ -131,7 +131,7 @@ SELECT recipient_user_id, status, provider_reference, failure_class, last_error,
 | 콜백 후 "Invalid OAuth state" | `127.0.0.1`로 들어옴 → **`localhost`로** (oauth_state 쿠키 호스트 일치) |
 | 카톡 안 옴, alert_events는 생김 | 토큰 만료/복호 실패 → `delivery_attempts.terminal_reason` 확인 → 원장 재로그인. per-recipient 격리라 한 명 실패가 다른 발송 안 막음 |
 | 카톡 오나 링크 안 열림 | `ALERT_DASHBOARD_URL` 도메인이 카카오 콘솔 Web 플랫폼에 등록됐는지 |
-| 낙상 쳐도 alert_events 0건 | (a) ml/.env 미로드(AlertClient alert-less) (b) HMAC 401: 서명키 = `sha256(secret)` 확인, detected_at 5분 freshness (c) 임계값 미발화 |
+| 낙상 쳐도 alert_events 0건 | (a) .env.edge.prod 미로드(AlertClient alert-less) (b) HMAC 401: 서명키 = `sha256(secret)` 확인, detected_at 5분 freshness (c) 임계값 미발화 |
 | 시드 RLS(42501) | 시드는 `DIRECT_URL`(롤 `fall`)로 도는데 `fall`에 BYPASSRLS 필요(§3.1) |
 
 ## 8. 관련 산출물
@@ -163,11 +163,11 @@ ALTER ROLE fall BYPASSRLS;          -- 시드/마이그레이션 전용. fall_ap
 SQL
 
 # ── C. env 파일 ──────────────────────────────────────────────────────────────
-cp backend/.env.example backend/.env.development   # 그리고 §3.2 값 채우기 (실 카카오 키 + KAKAO_TOKEN_ENC_KEY)
-grep -q '^KAKAO_TOKEN_ENC_KEY=' backend/.env.development \
-  || echo "KAKAO_TOKEN_ENC_KEY=$(openssl rand -hex 32)" >> backend/.env.development
-# ml/.env (§3.5) — INGEST_SECRET/KEY_ID는 아래 seed 출력값 사용
-cat > ml/.env <<'ENV'
+cp .env.local.example .env.local                              # 그리고 §3.2 값 채우기 (실 카카오 키 + KAKAO_TOKEN_ENC_KEY)
+grep -q '^KAKAO_TOKEN_ENC_KEY=' .env.local \
+  || echo "KAKAO_TOKEN_ENC_KEY=$(openssl rand -hex 32)" >> .env.local
+# .env.edge.prod (§3.5) — INGEST_SECRET/KEY_ID는 아래 seed 출력값 사용
+cat > .env.edge.prod <<'ENV'
 ALERT_API_URL=http://localhost:8080/ingest/alerts
 INGEST_KEY_ID=demo-cam-01-keyid
 INGEST_SECRET=<seed가 출력한 Cam 01 raw secret>
@@ -177,16 +177,16 @@ ENV
 
 # ── D. 마이그레이션 + 시드 ────────────────────────────────────────────────────
 ( cd backend && npx prisma generate )
-( cd backend && npx dotenv -e .env.development -- prisma migrate deploy )
-( cd backend && npx dotenv -e .env.development -- prisma migrate status )   # "up to date" 확인
-pnpm prisma:seed                                   # demo-org-01/거주자/카메라 — "Cam 01 secret=… keyId=…" 출력 → ml/.env에 반영
+( cd backend && npx dotenv -e ../.env.local -- prisma migrate deploy )
+( cd backend && npx dotenv -e ../.env.local -- prisma migrate status )   # "up to date" 확인
+pnpm prisma:seed                                   # demo-org-01/거주자/카메라 — "Cam 01 secret=… keyId=…" 출력 → .env.edge.prod에 반영
 #   (시드가 42501 RLS로 막히면: psql "<PGADMIN>" -c "ALTER ROLE fall BYPASSRLS;" 후 재시드)
 
 # ── E. 서비스 기동 ───────────────────────────────────────────────────────────
 ( cd backend && nohup pnpm start > /tmp/be.log 2>&1 & )    # :8080
 nohup pnpm dev:front > /tmp/fe.log 2>&1 &                  # :3000
 printf '[general]\nemail = ""\n' > ~/.streamlit/credentials.toml   # Streamlit 첫실행 프롬프트 스킵
-set -a; . ml/.env; set +a                                  # ★ uv는 .env 자동 로드 안 함 — 데모에 ingest 자격 주입
+set -a; . .env.edge.prod; set +a                                        # ★ uv는 .env 자동 로드 안 함 — 데모에 ingest 자격 주입
 STREAMLIT_SERVER_HEADLESS=true \
   nohup uv run --directory ml --group demo streamlit run demo/app.py --server.headless=true --server.port=8501 > /tmp/demo.log 2>&1 &
 
@@ -204,7 +204,7 @@ pnpm --filter backend demo:bind <원장_kakaoId>             # demo-org-01 수�
 
 > **(테스트 전용, 웹캠 없이) 실제 클라이언트로 낙상 1건 발사** — 우회 아님(데모가 쓰는 `AlertClient` 그대로):
 > ```bash
-> set -a; . ml/.env; set +a
+> set -a; . .env.edge.prod; set +a
 > uv run --directory ml python - <<'PY'
 > import datetime as dt
 > from events import AlertClient
