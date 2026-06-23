@@ -4,9 +4,9 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
 
 ## Auth and onboarding flow
 
-1. Browser opens `GET /auth/kakao/login`.
-2. Backend sets the OAuth state cookie and redirects to Kakao with scopes including `talk_message profile_nickname`.
-3. Kakao redirects to `GET /auth/kakao/callback?code=...&state=...`.
+1. The browser authenticates through either `POST /auth/login` with email/password or `GET /auth/kakao/login`.
+2. For email/password, the backend validates the password hash and sets the same session cookie used by OAuth.
+3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with scopes including `talk_message profile_nickname`, then receives `GET /auth/kakao/callback?code=...&state=...`.
 4. Backend validates state, exchanges the code, stores/updates Kakao identity, sets the session cookie, then redirects:
    - `/dashboard` when the user already has a facility.
    - `/onboarding` when the user needs to create one.

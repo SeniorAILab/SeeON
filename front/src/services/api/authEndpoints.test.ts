@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFacilityEndpoint,
+  loginEndpoint,
   mapBackendRoleToFrontRole,
   parseAuthSessionResponse,
 } from "./authEndpoints";
@@ -21,6 +22,7 @@ describe("auth endpoint mappers", () => {
     const session = parseAuthSessionResponse({
       user: {
         id: "user-1",
+        email: "admin@sen.ai",
         nickname: " 원장 ",
         role: "ADMIN",
         facilityId: "facility-1",
@@ -31,7 +33,7 @@ describe("auth endpoint mappers", () => {
       user: {
         id: "user-1",
         name: "원장",
-        email: "",
+        email: "admin@sen.ai",
         role: "FACILITY_ADMIN",
         facilityId: "facility-1",
       },
@@ -47,6 +49,41 @@ describe("auth endpoint mappers", () => {
 
   it("keeps backend caregiver users as staff in the frontend", () => {
     expect(mapBackendRoleToFrontRole("CAREGIVER")).toBe("STAFF");
+  });
+
+  it("logs in through the backend password endpoint", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        okJsonResponse({
+          user: {
+            id: "user-1",
+            email: "admin@sen.ai",
+            nickname: "원장",
+            role: "ADMIN",
+            facilityId: "facility-1",
+          },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const session = await loginEndpoint({
+      email: "admin@sen.ai",
+      password: "1234",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/auth/login",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          email: "admin@sen.ai",
+          password: "1234",
+        }),
+      })
+    );
+    expect(session.user.email).toBe("admin@sen.ai");
   });
 
   it("creates a facility through the backend onboarding endpoint", async () => {

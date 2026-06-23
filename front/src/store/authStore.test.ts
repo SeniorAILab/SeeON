@@ -4,6 +4,7 @@ import { useAuthStore } from "./authStore";
 const authServiceMock = vi.hoisted(() => ({
   bootstrap: vi.fn(),
   createFacility: vi.fn(),
+  login: vi.fn(),
   logout: vi.fn(),
   startKakaoLogin: vi.fn(),
 }));
@@ -25,6 +26,34 @@ describe("authStore.kakaoLogin", () => {
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().loading).toBe(true);
     expect(useAuthStore.getState().error).toBeNull();
+  });
+});
+
+describe("authStore.login", () => {
+  it("stores the backend user returned by email login", async () => {
+    authServiceMock.login.mockResolvedValue({
+      user: {
+        id: "user-1",
+        name: "시설 관리자",
+        email: "admin@sen.ai",
+        role: "FACILITY_ADMIN",
+        facilityId: "facility-1",
+      },
+      token: "",
+    });
+
+    const user = await useAuthStore.getState().login({
+      email: "admin@sen.ai",
+      password: "1234",
+    });
+
+    expect(authServiceMock.login).toHaveBeenCalledWith({
+      email: "admin@sen.ai",
+      password: "1234",
+    });
+    expect(user.email).toBe("admin@sen.ai");
+    expect(useAuthStore.getState().user?.facilityId).toBe("facility-1");
+    expect(useAuthStore.getState().loading).toBe(false);
   });
 });
 

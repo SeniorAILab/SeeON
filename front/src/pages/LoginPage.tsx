@@ -1,8 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
-import { Card } from "@/components/ui/primitives";
+import { Button, Card, Field, Input } from "@/components/ui/primitives";
+import { defaultPathForUser } from "@/lib/routeAccess";
+import { useFacilityStore } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 
@@ -15,10 +18,15 @@ function KakaoSymbol({ className }: { className?: string }) {
 }
 
 export function LoginPage() {
+  const navigate = useNavigate();
+  const login = useAuthStore((s) => s.login);
   const kakaoLogin = useAuthStore((s) => s.kakaoLogin);
   const error = useAuthStore((s) => s.error);
   const loading = useAuthStore((s) => s.loading);
+  const resolveForUser = useFacilityStore((s) => s.resolveForUser);
   const setTheme = useUiStore((s) => s.setTheme);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     document.documentElement.classList.remove("dark");
@@ -28,6 +36,19 @@ export function LoginPage() {
 
   function handleKakaoLogin() {
     kakaoLogin();
+  }
+
+  async function handleEmailLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const user = await login({ email, password });
+      resolveForUser(user.facilityId);
+      navigate(defaultPathForUser(user), { replace: true });
+    } catch (caught) {
+      if (!(caught instanceof Error)) {
+        throw caught;
+      }
+    }
   }
 
   return (
@@ -50,6 +71,46 @@ export function LoginPage() {
             <KakaoSymbol className="h-4 w-4" />
             {loading ? "이동 중..." : "카카오 로그인"}
           </button>
+
+          <div className="my-4 flex items-center gap-3 text-xs text-ink-faint">
+            <span className="h-px flex-1 bg-border" />
+            또는 이메일로 로그인
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <Field label="이메일">
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                aria-label="이메일"
+                placeholder="name@facility.com"
+                autoComplete="username"
+                required
+              />
+            </Field>
+
+            <Field label="비밀번호">
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                aria-label="비밀번호"
+                placeholder="비밀번호"
+                autoComplete="current-password"
+                required
+              />
+            </Field>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !email.trim() || !password}
+            >
+              {loading ? "로그인 중..." : "이메일로 로그인"}
+            </Button>
+          </form>
 
           {error && (
             <div className="mt-4">
