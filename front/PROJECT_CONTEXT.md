@@ -150,7 +150,7 @@ Facility 1─* AlertRule    User *─1 Facility
 
 모든 화면은 `services/*`만 호출하고, 현재는 `db.ts`(인메모리)를 읽는다. 실제 백엔드 도입 시 service 내부만 `apiClient.request(...)`로 교체.
 
-- **`apiClient.ts`**: `VITE_USE_MOCK=false`, `VITE_API_BASE_URL` 설정 시 fetch+Bearer 동작. 엔드포인트는 `/api/auth/*`, `/api/facilities/:id/dashboard`, `/api/spaces`, `/api/floors`, `/api/events/:id/acknowledge`, `/api/ai/detection-result`, `/api/alerts/kakao/send`, `/api/events/:id/video`, `/api/videos/:id/signed-url` 등.
+- **`apiClient.ts`**: `VITE_USE_MOCK` unset/`false`가 실제 백엔드 기본값이며 `VITE_API_BASE_URL` 기본값은 `/api`. 엔드포인트는 `/api/auth/*`, `/api/facilities/:id/dashboard`, `/api/spaces`, `/api/floors`, `/api/events/:id/acknowledge`, `/api/ai/detection-result`, `/api/alerts/kakao/send`, `/api/events/:id/video`, `/api/videos/:id/signed-url` 등.
 - **`aiIngestService.ingest(payload)`** ★: AI 모델 → 백엔드 수신. payload(facilityCode, cameraId, spaceId, peopleCount, movementLevel, fallRiskLevel, eventType, aiSummary, confidence)를 받아 ① SpaceStatus 갱신 ② DetectionEvent 생성 ③ AlertRule 확인 ④ 카카오 발송 ⑤ 대시보드 반영.
 - **`kakaoService.ts`** ★: `send()` 내부만 실제 카카오 알림톡 API로 교체. 메시지 템플릿/수신자 분리됨.
 - **`videoService.ts`** ★ (보안 경계): 관리자 권한 검증 → signed URL(토큰+5분 만료) → 모든 접근 `VideoAccessLog` 기록. STAFF/VIEWER는 URL 자체를 못 받음.

@@ -109,10 +109,10 @@ src/
 
 ## ★ 향후 연동 지점 (명확화)
 
-이 MVP는 Mock으로 동작하지만, 실제 연동 시 **건드릴 파일이 격리**되어 있습니다.
+기본 개발 런타임은 실제 백엔드 모드입니다. 아직 mock 데이터에 남아 있는 화면은 실제 연동 시 **건드릴 파일이 격리**되어 있습니다.
 
 ### 1) 실제 백엔드 API
-`src/services/apiClient.ts`에서 `VITE_USE_MOCK=false`, `VITE_API_BASE_URL` 설정 → `request()`가 이미 `fetch` + Bearer 토큰으로 구현됨. 각 service 파일의 mock 호출만 `request(...)`로 교체하면 됩니다. 엔드포인트 시그니처는 요구사항 API 설계를 그대로 따릅니다 (`/api/auth/*`, `/api/facilities/:id/dashboard`, `/api/floors`, `/api/spaces`, `/api/events/:id/acknowledge` 등).
+`src/services/apiClient.ts`는 `VITE_USE_MOCK`이 unset/`false`이면 실제 백엔드 모드로 동작하고, `VITE_API_BASE_URL` 기본값은 `/api`입니다. 각 service 파일의 mock 호출만 `request(...)`로 교체하면 됩니다. 엔드포인트 시그니처는 요구사항 API 설계를 그대로 따릅니다 (`/api/auth/*`, `/api/facilities/:id/dashboard`, `/api/floors`, `/api/spaces`, `/api/events/:id/acknowledge` 등).
 
 ### 2) AI 예측 모델 → 백엔드
 `src/services/aiIngestService.ts`의 `ingest(payload)`가 수신 처리 로직입니다. 실제로는 `POST /api/ai/detection-result`가 동일 payload(`facilityCode`, `cameraId`, `spaceId`, `peopleCount`, `movementLevel`, `fallRiskLevel`, `eventType`, `aiSummary`, `confidence`)를 받아 ① SpaceStatus 업데이트 ② DetectionEvent 생성 ③ 알림 규칙 확인 ④ 카카오톡 발송 ⑤ 대시보드 반영을 수행합니다. 프론트 데모에서 이 함수로 실시간 유입을 시뮬레이션할 수 있습니다.
