@@ -9,7 +9,7 @@ import {
   TenantMismatchException,
 } from '../common/domain-errors.js';
 import type { IngestCameraInfo } from './hmac.guard.js';
-import type { ParsedIngestAlertBody } from './dto/ingest-alert.dto.js';
+import type { ParsedIngestAlertRequestDto } from './dto/ingest-alert.dto.js';
 
 const FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
 
@@ -21,7 +21,10 @@ export class IngestAlertService {
     private readonly alertEventsService: AlertEventsService,
   ) {}
 
-  async ingestAlert(camera: IngestCameraInfo, input: ParsedIngestAlertBody) {
+  async ingestAlert(
+    camera: IngestCameraInfo,
+    input: ParsedIngestAlertRequestDto,
+  ) {
     if (
       Math.abs(Date.now() - input.detectedAt.getTime()) > FRESHNESS_WINDOW_MS
     ) {
@@ -93,7 +96,7 @@ export class IngestAlertService {
 
   private async ensureOutboxForIngest(
     camera: IngestCameraInfo,
-    input: ParsedIngestAlertBody,
+    input: ParsedIngestAlertRequestDto,
     idempotencyKey: string,
     context: {
       resident: { name: string } | null;
