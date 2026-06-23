@@ -12,7 +12,7 @@ PROPOSED.
 
 `front/` was originally scaffolded as a Next.js/TypeScript browser client under [ADR-001](../common/ADR-001-polyglot-monorepo.md). During PR #257, Junho's Vite 5 + React 18 dashboard became the product frontend implementation that needed to be preserved as the single source of truth instead of maintaining a parallel Next.js starter.
 
-Phase 1 of the migration replaces the Next.js starter with the Vite app in `front/`, keeps the application mock-driven with `USE_MOCK=true`, unifies TypeScript package management under pnpm via `pnpm import` and exact pins, and preserves the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). Backend, ML, and live integration behavior are intentionally untouched in Phase 1.
+Phase 1 of the migration replaced the Next.js starter with the Vite app in `front/`, initially kept the application mock-driven with `USE_MOCK=true`, unified TypeScript package management under pnpm via `pnpm import` and exact pins, and preserved the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). After the local backend/db development infrastructure landed, the default frontend runtime moved to real backend mode (`VITE_USE_MOCK` unset or `false`). Login/session/facility onboarding is backend-direct in dev/prod via Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains for tests and demo-only surfaces while remaining dashboard/admin backend endpoint wiring is completed incrementally.
 
 This migration was stacked as atomic commits on PR #257. That is a deliberate exception to the normal issue/worktree path in [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md) and the PR size governance in [ADR-039](../common/ADR-039-pr-size-gate-threshold.md): the worktree starts from an existing PR branch, and the size gate is waived for this migration series because the change replaces a starter frontend with a pre-existing product app while keeping backend/ML behavior unchanged.
 
@@ -23,7 +23,8 @@ Make Vite 5 + React 18 the canonical product frontend stack for `front/`.
 - `front/` is the SSOT for Junho's dashboard app; the previous Next.js starter is no longer the active product frontend implementation.
 - Vite dev and preview run on port 3000 to preserve the repo-wide port contract from ADR-041.
 - The monorepo stays pnpm-based for TypeScript packages, with root workspace installation and exact package pins.
-- Phase 1 remains mock-driven and does not implement the backend-matching API contract.
+- Frontend development defaults to real backend mode. Mock mode is explicit via `VITE_USE_MOCK=true` and does not define the default dev path.
+- Frontend login in dev/prod is Kakao OAuth only; do not reintroduce email/password demo login, mock auth users, or localStorage auth sessions.
 - [ADR-001](../common/ADR-001-polyglot-monorepo.md) remains authoritative for the polyglot monorepo and pnpm workspace shape, but its frontend stack statement is partially superseded: `front/` is now Vite + React rather than Next.js.
 
 ## Decision Drivers
@@ -71,8 +72,7 @@ Rejected. ADR-041 standardizes the product frontend on port 3000. Moving the mig
 
 - ADR-001's original Next.js frontend-stack statement is partially superseded and must be read through this ADR for `front/`.
 - Any Next.js-specific assumptions in old docs or tooling are no longer valid for the product frontend.
-- Existing live Kakao dashboard and login behavior remain dark until Phase 2 backend matching is implemented.
-- Mock-driven Phase 1 can validate UI shape but not production auth, Kakao send, ingest, video, or realtime behavior.
+- Remaining mock-backed dashboard/admin services must be treated as incremental wiring debt, not as the default development environment or auth path.
 - The PR #257 migration intentionally accepts an unusual stacked-commit/size-gate exception; future work must not generalize that exception without a new decision.
 
 ## Follow-ups
