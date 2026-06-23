@@ -7,6 +7,7 @@ import { Button, Card, Field, Input } from "@/components/ui/primitives";
 import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
+import { defaultPathForUser } from "@/lib/routeAccess";
 
 const DEMO_ACCOUNTS = [
   { label: "시설 관리자", email: "admin@sen.ai" },
@@ -49,7 +50,7 @@ export function LoginPage() {
       await login(email, password);
       const user = useAuthStore.getState().user;
       resolveForUser(user?.facilityId ?? null);
-      navigate("/now");
+      if (user) navigate(defaultPathForUser(user));
     } catch {
       /* error 는 store 에서 표시 */
     }
@@ -59,7 +60,7 @@ export function LoginPage() {
     try {
       const user = await kakaoLogin();
       resolveForUser(user.facilityId ?? null);
-      navigate("/now");
+      navigate(defaultPathForUser(user));
     } catch {
       /* error 는 store 에서 표시 */
     }
