@@ -88,10 +88,32 @@ else
 fi
 
 if command -v curl >/dev/null 2>&1; then
-  curl -fsS http://127.0.0.1/ >/dev/null
+  smoke_attempt=1
+  until curl -fsS http://127.0.0.1/ >/dev/null; do
+    if [ "$smoke_attempt" -ge 12 ]; then
+      echo "Frontend smoke check failed after $smoke_attempt attempts." >&2
+      exit 1
+    fi
+    smoke_attempt=$((smoke_attempt + 1))
+    sleep 5
+  done
 fi
 
 if [ "$PRUNE_DOCKER" = "1" ]; then
+  if [ "$DEPLOY_MODE" = "image" ]; then
+    running_images="$(docker ps --format '{{.Image}}')"
+    docker images --format '{{.Repository}}:{{.Tag}}' |
+      while IFS= read -r image; do
+        case "$image" in
+          "$IMAGE_NAMESPACE/"*)
+            if printf '%s\n' "$running_images" | grep -Fx "$image" >/dev/null; then
+              continue
+            fi
+            docker image rm "$image" >/dev/null 2>&1 || true
+            ;;
+        esac
+      done
+  fi
   docker image prune -f >/dev/null
   docker builder prune -f --filter until=24h >/dev/null || true
 fi
