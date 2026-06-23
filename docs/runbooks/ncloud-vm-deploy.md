@@ -68,7 +68,11 @@ KAKAO_REDIRECT_URI=http://<retired-host>/auth/kakao/callback
 SESSION_JWT_SECRET=replace-with-at-least-32-random-chars
 KAKAO_TOKEN_ENC_KEY=replace-with-64-hex-chars
 ALERT_DASHBOARD_URL=http://<retired-host>
+AUTH_COOKIE_SECURE=false
 ```
+
+`AUTH_COOKIE_SECURE=false` is only for this temporary HTTP/IP deployment. Set it
+back to `true` when the public origin moves behind HTTPS.
 
 Generate local secret values:
 
