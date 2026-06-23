@@ -10,6 +10,6 @@ services:
     pull_policy: ${PULL_POLICY:-always}
 
   migrate:
-    image: ${MIGRATE_IMAGE:?MIGRATE_IMAGE is required}
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     build: !reset null
     pull_policy: ${PULL_POLICY:-always}

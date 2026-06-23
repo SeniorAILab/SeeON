@@ -56,19 +56,6 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
 
-      - name: Build and push migrator image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: backend/Dockerfile
-          target: migrator
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAMESPACE }}/migrate:${{ env.DEPLOY_SHA }}
-            ${{ env.IMAGE_NAMESPACE }}/migrate:latest
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,scope=backend,mode=max
-
       - name: Build and push front image
         uses: docker/build-push-action@v6
         with:
@@ -100,7 +87,6 @@ jobs:
           export IMAGE_TAG="$DEPLOY_SHA"
           export BACKEND_IMAGE="$IMAGE_NAMESPACE/backend:$DEPLOY_SHA"
           export FRONT_IMAGE="$IMAGE_NAMESPACE/front:$DEPLOY_SHA"
-          export MIGRATE_IMAGE="$IMAGE_NAMESPACE/migrate:$DEPLOY_SHA"
           docker compose -f compose.yaml -f compose.prod.yaml config >/dev/null
           COMPOSE_PROFILES=full,migrate docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml config >/dev/null
           rm -f "$tmp_env" .env
