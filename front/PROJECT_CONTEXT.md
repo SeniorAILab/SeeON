@@ -43,9 +43,10 @@ pnpm --filter front typecheck  # tsc -b
 pnpm --filter front gen:tts    # TTS mp3 사전 생성 (키 없으면 mock)
 ```
 
-로그인은 dev/prod 모두 백엔드 Kakao OAuth만 사용한다. `/auth/kakao/login`으로
-이동해 쿠키 세션을 만들고, 프론트는 `/auth/session`으로 복원한다. 시설이 없는
-첫 로그인 사용자는 `/onboarding`에서 `POST /api/facilities`로 시설을 등록한다.
+로그인은 dev/prod 모두 백엔드가 소유한다. 이메일/비밀번호는 `POST /auth/login`,
+Kakao OAuth는 `/auth/kakao/login`으로 시작하고, 두 경로 모두 같은 httpOnly 쿠키
+세션을 만든 뒤 프론트는 `/auth/session`으로 복원한다. 시설이 없는 첫 로그인
+사용자는 `/onboarding`에서 `POST /api/facilities`로 시설을 등록한다.
 
 ---
 
@@ -152,7 +153,7 @@ Facility 1─* AlertRule    User *─1 Facility
 
 모든 화면은 `services/*`만 호출한다. 로그인/세션/시설 생성은 이미 백엔드에 직접 연결되어 있고, 남은 대시보드·모니터 계열 mock 화면은 service 내부만 `apiClient.requestJson(...)`로 교체한다.
 
-- **`apiClient.ts`**: `VITE_USE_MOCK` unset/`false`가 실제 백엔드 기본값이며 `VITE_API_BASE_URL` 기본값은 `/api`. 인증 endpoint mapper는 `/auth/session`, `/auth/kakao/login`, `/api/facilities`를 담당한다. 남은 엔드포인트는 `/api/facilities/:id/dashboard`, `/api/spaces`, `/api/floors`, `/api/events/:id/acknowledge`, `/api/ai/detection-result`, `/api/alerts/kakao/send`, `/api/events/:id/video`, `/api/videos/:id/signed-url` 등.
+- **`apiClient.ts`**: `VITE_USE_MOCK` unset/`false`가 실제 백엔드 기본값이며 `VITE_API_BASE_URL` 기본값은 `/api`. 인증 endpoint mapper는 `/auth/login`, `/auth/session`, `/auth/kakao/login`, `/api/facilities`를 담당한다. 남은 엔드포인트는 `/api/facilities/:id/dashboard`, `/api/spaces`, `/api/floors`, `/api/events/:id/acknowledge`, `/api/ai/detection-result`, `/api/alerts/kakao/send`, `/api/events/:id/video`, `/api/videos/:id/signed-url` 등.
 - **`aiIngestService.ingest(payload)`** ★: AI 모델 → 백엔드 수신. payload(facilityCode, cameraId, spaceId, peopleCount, movementLevel, fallRiskLevel, eventType, aiSummary, confidence)를 받아 ① SpaceStatus 갱신 ② DetectionEvent 생성 ③ AlertRule 확인 ④ 카카오 발송 ⑤ 대시보드 반영.
 - **`kakaoService.ts`** ★: `send()` 내부만 실제 카카오 알림톡 API로 교체. 메시지 템플릿/수신자 분리됨.
 - **`videoService.ts`** ★ (보안 경계): 관리자 권한 검증 → signed URL(토큰+5분 만료) → 모든 접근 `VideoAccessLog` 기록. STAFF/VIEWER는 URL 자체를 못 받음.

@@ -6,6 +6,7 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 |---|---|---|---|---|---|
 | GET | `/auth/kakao/login` | None | No body. | `302` redirect to Kakao OAuth authorize URL; sets OAuth state cookie. | Current |
 | GET | `/auth/kakao/callback` | OAuth state cookie | Query: `code`, `state`. | `302` redirect to frontend `/dashboard` when user has a facility, otherwise `/onboarding`; sets session cookie and clears OAuth state cookie. | Current |
+| POST | `/auth/login` | None | `{ email: string, password: string }` | `{ user }` with the same backend session cookie used by Kakao login. Generic invalid credentials return `401`. | Current |
 | GET | `/auth/session` | Session cookie validation; refreshes (rotates) the session cookie when the token is due for rotation | No body. | `{ user }` for valid session; unauthenticated sessions are rejected by session validation semantics. | Current |
 | POST | `/auth/logout` | `SessionGuard` | No body. | `204` empty; revokes session and clears session cookie. | Current |
 | POST | `/api/facilities` | `SessionGuard` | `{ facilityName: string, businessRegistrationNumber?: string or null }` | `{ user }` with refreshed facility-bearing session cookie; user includes `facilityId`. | Current onboarding |

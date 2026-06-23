@@ -3,6 +3,7 @@ import { buildApiUrl, requestJson, requestNoContent } from "../apiClient";
 
 interface AuthUserResponseDto {
   id: string;
+  email?: string | null;
   nickname?: string | null;
   role?: string | null;
   facilityId?: string | null;
@@ -15,6 +16,11 @@ interface AuthSessionResponseDto {
 export interface CreateFacilityInput {
   readonly facilityName: string;
   readonly businessRegistrationNumber?: string | null;
+}
+
+export interface LoginInput {
+  readonly email: string;
+  readonly password: string;
 }
 
 export function mapBackendRoleToFrontRole(
@@ -45,6 +51,21 @@ export async function logoutEndpoint(): Promise<void> {
     },
     { apiPrefix: false }
   );
+}
+
+export async function loginEndpoint(input: LoginInput): Promise<AuthSession> {
+  const body = await requestJson(
+    "/auth/login",
+    {
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify(input),
+    },
+    { apiPrefix: false }
+  );
+  const session = parseAuthSessionResponse(body);
+  if (!session) throw new Error("로그인 응답이 올바르지 않습니다.");
+  return session;
 }
 
 export async function restoreSessionEndpoint(): Promise<AuthSession | null> {
@@ -88,8 +109,8 @@ export function parseAuthSessionResponse(body: unknown): AuthSession | null {
 function mapAuthUser(dto: AuthUserResponseDto): User {
   return {
     id: dto.id,
-    name: dto.nickname?.trim() || "카카오 사용자",
-    email: "",
+    name: dto.nickname?.trim() || "사용자",
+    email: dto.email?.trim() ?? "",
     role: mapBackendRoleToFrontRole(dto.role),
     facilityId: dto.facilityId ?? null,
   };
@@ -98,6 +119,7 @@ function mapAuthUser(dto: AuthUserResponseDto): User {
 function isAuthUserResponseDto(value: unknown): value is AuthUserResponseDto {
   if (!isRecord(value)) return false;
   if (typeof value.id !== "string" || value.id.length === 0) return false;
+  if (!isOptionalString(value.email)) return false;
   if (!isOptionalString(value.nickname)) return false;
   if (!isOptionalString(value.role)) return false;
   return isOptionalString(value.facilityId);

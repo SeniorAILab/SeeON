@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { authService } from "@/services/authService";
-import type { CreateFacilityInput } from "@/services/authService";
+import type { CreateFacilityInput, LoginInput } from "@/services/authService";
 import type { Role, User } from "@/types";
 
 interface AuthState {
@@ -9,6 +9,7 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   init: () => Promise<void>;
+  login: (input: LoginInput) => Promise<User>;
   kakaoLogin: () => void;
   createFacility: (input: CreateFacilityInput) => Promise<User>;
   logout: () => Promise<void>;
@@ -28,6 +29,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().initialized) return;
     const session = await authService.bootstrap();
     set({ user: session?.user ?? null, initialized: true });
+  },
+
+  login: async (input) => {
+    set({ loading: true, error: null });
+    try {
+      const session = await authService.login(input);
+      set({ user: session.user, loading: false });
+      return session.user;
+    } catch (error) {
+      set({ error: errorMessage(error), loading: false });
+      throw error;
+    }
   },
 
   kakaoLogin: () => {

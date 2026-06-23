@@ -11,7 +11,7 @@ type BindPrisma = {
     findMany: (args: {
       where: { kakaoId: { in: string[] } };
       select: { id: true; kakaoId: true };
-    }) => Promise<Array<{ id: string; kakaoId: string }>>;
+    }) => Promise<Array<{ id: string; kakaoId: string | null }>>;
     update: (args: {
       where: { kakaoId: string };
       data: { facilityId: string; role: 'SUPER_ADMIN' };
@@ -61,7 +61,11 @@ export async function bindDemoUsers(
     where: { kakaoId: { in: [...kakaoIds] } },
     select: { id: true, kakaoId: true },
   });
-  const found = new Set(users.map((user) => user.kakaoId));
+  const usersWithKakaoId = users.filter(
+    (user): user is { id: string; kakaoId: string } =>
+      typeof user.kakaoId === 'string',
+  );
+  const found = new Set(usersWithKakaoId.map((user) => user.kakaoId));
   const missing = kakaoIds.filter((kakaoId) => !found.has(kakaoId));
   if (missing.length > 0) {
     throw new CliInputError(
@@ -70,7 +74,7 @@ export async function bindDemoUsers(
   }
 
   await prisma.$transaction(
-    users.flatMap((user) => [
+    usersWithKakaoId.flatMap((user) => [
       prisma.user.update({
         where: { kakaoId: user.kakaoId },
         data: { facilityId, role: 'SUPER_ADMIN' },
@@ -82,7 +86,7 @@ export async function bindDemoUsers(
     ]),
   );
 
-  return { boundCount: users.length };
+  return { boundCount: usersWithKakaoId.length };
 }
 
 function createPrismaClient(): PrismaClient {

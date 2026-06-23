@@ -2,18 +2,25 @@ import { setAuthToken } from "./apiClient";
 import {
   createFacilityEndpoint,
   kakaoLoginUrl,
+  loginEndpoint,
   logoutEndpoint,
   restoreSessionEndpoint,
 } from "./api/authEndpoints";
 import type { AuthSession } from "@/types";
-import type { CreateFacilityInput } from "./api/authEndpoints";
+import type { CreateFacilityInput, LoginInput } from "./api/authEndpoints";
 
 export { mapBackendRoleToFrontRole } from "./api/authEndpoints";
-export type { CreateFacilityInput } from "./api/authEndpoints";
+export type { CreateFacilityInput, LoginInput } from "./api/authEndpoints";
 
 export const authService = {
   startKakaoLogin(): void {
     window.location.assign(kakaoLoginUrl());
+  },
+
+  async login(input: LoginInput): Promise<AuthSession> {
+    const session = await loginEndpoint(input);
+    setAuthToken(null);
+    return session;
   },
 
   async logout(): Promise<void> {
