@@ -12,6 +12,11 @@ interface AuthSessionResponseDto {
   user?: AuthUserResponseDto | null;
 }
 
+export interface CreateFacilityInput {
+  readonly facilityName: string;
+  readonly businessRegistrationNumber?: string | null;
+}
+
 export function mapBackendRoleToFrontRole(
   role: BackendRole | string | null | undefined
 ): Role {
@@ -51,6 +56,19 @@ export async function restoreSessionEndpoint(): Promise<AuthSession | null> {
     { apiPrefix: false }
   );
   return parseAuthSessionResponse(body);
+}
+
+export async function createFacilityEndpoint(
+  input: CreateFacilityInput
+): Promise<AuthSession> {
+  const body = await requestJson("/facilities", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  const session = parseAuthSessionResponse(body);
+  if (!session) throw new Error("시설 생성 응답이 올바르지 않습니다.");
+  return session;
 }
 
 export function parseAuthSessionResponse(body: unknown): AuthSession | null {
