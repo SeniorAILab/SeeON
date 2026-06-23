@@ -21,7 +21,8 @@ and starts the production compose stack.
   image, or Prisma CLI in the backend runtime image.
 - While the product database is disposable, reset the production `public` schema
   during deploy and replay committed migration SQL with Postgres `psql`.
-- Preserve the successful smoke retry and Docker image cleanup behavior.
+- Keep deploy failure explicit: no automatic smoke retry and no implicit
+  `latest` fallback. Retry remains a manual operator action.
 
 ## Acceptance
 

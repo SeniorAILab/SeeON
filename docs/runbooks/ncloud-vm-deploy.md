@@ -97,6 +97,8 @@ ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@<retired-host> \
 ```
 
 The VM deploy script does not build application images. It expects the bundle above and pulls the backend/front images from GHCR.
+`IMAGE_TAG` is required; do not run production deploys from an implicit `latest`
+fallback.
 
 Expected public URL after deploy:
 
@@ -126,6 +128,9 @@ It runs after the `CI` workflow succeeds on `main`, and through manual `workflow
 The deploy script resets the `public` schema and replays committed Prisma
 migration SQL with `psql` from the Postgres container. The backend image does
 not contain Prisma CLI or migration files.
+Deploy checks are fail-fast: the local HTTP smoke check runs once after
+`docker compose up --wait`. Retry is a manual operator action after the failure
+reason is understood.
 
 ## Operations
 
