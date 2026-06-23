@@ -29,9 +29,13 @@ approval rules.
 2. `workflow_dispatch` remains available for explicit operator deploys and
    requires a `ref` input.
 3. A merge to `main` runs CI only. It does not deploy production.
-4. Deploy images are still built by GitHub Actions and pushed to GHCR using the
-   resolved commit SHA as the deploy image tag.
-5. `latest`, fallback tags, automatic retries, and server-side image builds stay
+4. Normal release deploy images are built by GitHub Actions and pushed to GHCR
+   using the resolved commit SHA as the deploy image tag.
+5. If GitHub Actions minutes are exhausted, an operator may run the explicit
+   local manual deploy command for the same release/ref. That path builds and
+   pushes the same SHA-tagged GHCR images from a local checkout, then invokes
+   the existing VM pull-only deploy script.
+6. `latest`, fallback tags, automatic retries, and VM-side image builds stay
    forbidden.
 
 ## Alternatives Considered
@@ -53,6 +57,10 @@ approval rules.
   image tags.
 - Pre-releases do not deploy production; they can be used later for staging if a
   separate environment exists.
+- The quota-exhaustion path is an explicit operator action, not an automatic
+  fallback from a failed workflow.
+- Local manual deploys spend local compute instead of private GitHub Actions
+  minutes, while preserving the same registry and VM topology.
 
 ## References
 

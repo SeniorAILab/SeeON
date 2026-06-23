@@ -4,6 +4,7 @@ import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RouterBootstrap } from "@/components/RouterBootstrap";
 import { LoginPage } from "@/pages/LoginPage";
+import { OnboardingPage } from "@/pages/OnboardingPage";
 import { NowPage } from "@/pages/staff/NowPage";
 import { RoomsPage } from "@/pages/staff/RoomsPage";
 import { AlertsPage } from "@/pages/staff/AlertsPage";
@@ -30,6 +31,14 @@ export const router = createBrowserRouter([
     element: (
       <RouterBootstrap>
         <LoginPage />
+      </RouterBootstrap>
+    ),
+  },
+  {
+    path: "/onboarding",
+    element: (
+      <RouterBootstrap>
+        <OnboardingPage />
       </RouterBootstrap>
     ),
   },
