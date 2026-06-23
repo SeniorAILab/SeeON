@@ -133,8 +133,8 @@ before SSH deployment:
 Release deploy flow:
 
 ```bash
-gh release create v0.1.0 --target main --title "v0.1.0" --notes "Production deploy"
-gh run watch
+pnpm release:prod -- v0.1.0
+gh run watch "$(gh run list --workflow "Deploy Naver Cloud" --limit 1 --json databaseId --jq '.[0].databaseId')"
 ```
 
 The deploy script resets the `public` schema and replays committed Prisma
