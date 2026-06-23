@@ -87,7 +87,7 @@ From a local checkout:
 
 ```bash
 tar -czf /tmp/eldercare-deploy-bundle.tgz \
-  compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma
+  compose.yaml compose.prod.yaml backend/prisma
 scp -i ~/.ssh/eldercare-fall-ai-ncloud scripts/deploy/ncloud-deploy.sh deploy@101.79.18.95:/tmp/ncloud-deploy.sh
 scp -i ~/.ssh/eldercare-fall-ai-ncloud /tmp/eldercare-deploy-bundle.tgz deploy@101.79.18.95:/tmp/eldercare-deploy-bundle.tgz
 gh auth token | ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
@@ -98,7 +98,9 @@ ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
 
 The VM deploy script does not build application images. It expects the bundle above and pulls the backend/front images from GHCR.
 `IMAGE_TAG` is required; do not run production deploys from an implicit `latest`
-fallback.
+fallback. The script writes the resolved backend/front image pins into
+`/opt/eldercare-fall-ai/current/.env` so later Compose operations use the same
+images without re-exporting deploy variables.
 
 Expected public URL after deploy:
 
@@ -137,6 +139,6 @@ reason is understood.
 ```bash
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95
 cd /opt/eldercare-fall-ai/current
-COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml ps
-docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml logs --tail=100 front backend
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml ps
+docker compose -f compose.yaml -f compose.prod.yaml logs --tail=100 front backend
 ```

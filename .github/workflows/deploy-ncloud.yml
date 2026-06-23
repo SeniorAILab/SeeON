@@ -83,7 +83,7 @@ jobs:
           cp "$tmp_env" .env
           export BACKEND_IMAGE="$IMAGE_NAMESPACE/backend:$DEPLOY_SHA"
           export FRONT_IMAGE="$IMAGE_NAMESPACE/front:$DEPLOY_SHA"
-          COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml config >/dev/null
+          COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml config >/dev/null
           rm -f "$tmp_env" .env
 
       - name: Configure SSH
@@ -98,7 +98,7 @@ jobs:
           tmp_env="$(mktemp)"
           tmp_bundle="$(mktemp)"
           printf '%s\n' "$NCLOUD_ENV_FILE" > "$tmp_env"
-          tar -czf "$tmp_bundle" compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma
+          tar -czf "$tmp_bundle" compose.yaml compose.prod.yaml backend/prisma
           scp -i ~/.ssh/ncloud_deploy scripts/deploy/ncloud-deploy.sh "$NCLOUD_SSH_USER@$NCLOUD_HOST:/tmp/ncloud-deploy.sh"
           scp -i ~/.ssh/ncloud_deploy "$tmp_bundle" "$NCLOUD_SSH_USER@$NCLOUD_HOST:/tmp/eldercare-deploy-bundle.tgz"
           scp -i ~/.ssh/ncloud_deploy "$tmp_env" "$NCLOUD_SSH_USER@$NCLOUD_HOST:/tmp/eldercare.env"

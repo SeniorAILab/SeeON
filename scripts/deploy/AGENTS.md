@@ -2,7 +2,7 @@
 
 ## Overview
 `scripts/deploy/**` owns host bootstrap and VM-side deploy execution for the
-registry-image topology.
+production Compose image-pull topology.
 
 ## Where to look
 - `ncloud-bootstrap.sh` - one-time root bootstrap: Docker, `deploy` user,

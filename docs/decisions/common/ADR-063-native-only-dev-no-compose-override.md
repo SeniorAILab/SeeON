@@ -41,9 +41,9 @@ Resulting compose files: `compose.yaml` (host stack, full profile) + `compose.pr
 ## Consequences
 
 - No containerized hot-reload dev. Daily dev is native (already the policy).
-- `pnpm compose:local:up` is the local full-stack command; `pnpm compose:prod:up` is the prod-shaped host-stack command. There is no `compose:full` fallback alias.
+- `pnpm compose:local:up` is the local full-stack build command; `pnpm compose:prod:up` is the production image-pinned host-stack command. There is no `compose:full` fallback alias.
 - ADR-041's override clause and ADR-062's "base/override/prod three-file" wording are superseded for the override portion.
 
 ## Follow-ups
 
-- None required; prod overlay and edge file are unchanged.
+- 2026-06-23 update: `compose.prod.yaml` now carries the production backend/front image pins directly. The temporary registry overlay was removed; production uses `compose.yaml` + `compose.prod.yaml` only.
