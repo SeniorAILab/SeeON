@@ -49,6 +49,17 @@ describe('GuardiansService', () => {
     expect(guardian.create).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed create bodies without throwing a TypeError', async () => {
+    const { service, guardian } = setup();
+    await expect(
+      service.create('facility-1', {
+        residentId: 'res-1',
+        phone: '010',
+      } as never),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(guardian.create).not.toHaveBeenCalled();
+  });
+
   it('normalizes blank relation to null on create', async () => {
     const { service, guardian } = setup();
     guardian.create.mockResolvedValue({ id: 'g1' });

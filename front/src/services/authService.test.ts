@@ -21,7 +21,7 @@ describe("authService.kakaoLogin (mock)", () => {
     expect(session.user.role).toBe("FACILITY_ADMIN");
     expect(session.user.facilityId).toBe("fac_happy_nokyang");
     // 세션 사용자에는 password 가 노출되지 않는다.
-    expect((session.user as { password?: string }).password).toBeUndefined();
+    expect("password" in session.user).toBe(false);
     expect(db.users.filter((u) => u.id === KAKAO_ID)).toHaveLength(1);
     expect(localStorage.getItem("senai.session")).toBeTruthy();
   });

@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { ZoneType } from '@prisma/client';
 import type { Zone } from '@prisma/client';
-import type { CreateZoneDto, UpdateZoneDto } from '../dto/zone.dto.js';
+import type {
+  CreateZoneRequestDto,
+  UpdateZoneRequestDto,
+} from '../dto/zone.dto.js';
 import {
   ZonesRepository,
   type ZoneFilters,
@@ -20,7 +23,7 @@ export class ZonesService {
     return zones.map(presentZone);
   }
 
-  async create(facilityId: string, dto: CreateZoneDto) {
+  async create(facilityId: string, dto: CreateZoneRequestDto) {
     const spaceId = dto.spaceId;
     const name = dto.name?.trim();
     const type = dto.type;
@@ -49,7 +52,7 @@ export class ZonesService {
     return presentZone(zone);
   }
 
-  async update(facilityId: string, id: string, dto: UpdateZoneDto) {
+  async update(facilityId: string, id: string, dto: UpdateZoneRequestDto) {
     await this.ensureExists(facilityId, id);
     const data = normalizeZoneUpdate(dto);
     const zone = await this.zonesRepository.update(facilityId, id, data);
@@ -71,7 +74,7 @@ export class ZonesService {
   }
 }
 
-function normalizeZoneUpdate(dto: UpdateZoneDto) {
+function normalizeZoneUpdate(dto: UpdateZoneRequestDto) {
   if (dto.name !== undefined && !dto.name.trim())
     throw new ConflictException({
       error: 'conflict',

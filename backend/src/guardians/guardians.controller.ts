@@ -15,6 +15,10 @@ import {
 import { RequireFacilityGuard, SessionGuard } from '../auth/session.guard.js';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
 import type { RequestWithAuth } from '../auth/session.guard.js';
+import type {
+  CreateGuardianRequestDto,
+  UpdateGuardianRequestDto,
+} from './dto/guardian.dto.js';
 import { GuardiansService } from './guardians.service.js';
 
 @Controller('api/guardians')
@@ -34,20 +38,11 @@ export class GuardiansController {
   }
 
   @Post()
-  create(
-    @Req() req: RequestWithAuth,
-    @Body()
-    body: {
-      residentId?: string;
-      name?: string;
-      phone?: string;
-      relation?: string;
-    },
-  ) {
+  create(@Req() req: RequestWithAuth, @Body() body: CreateGuardianRequestDto) {
     return this.service.create(requireFacilityId(req), {
-      residentId: body.residentId ?? '',
-      name: body.name ?? '',
-      phone: body.phone ?? '',
+      residentId: body.residentId,
+      name: body.name,
+      phone: body.phone,
       relation: body.relation,
     });
   }
@@ -56,7 +51,7 @@ export class GuardiansController {
   update(
     @Req() req: RequestWithAuth,
     @Param('id') id: string,
-    @Body() body: { name?: string; phone?: string; relation?: string },
+    @Body() body: UpdateGuardianRequestDto,
   ) {
     return this.service.update(requireFacilityId(req), id, body);
   }

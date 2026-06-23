@@ -13,7 +13,7 @@ import {
 import type { PrismaService } from '../prisma/prisma.service';
 import type { IngestCameraInfo } from './hmac.guard';
 import { IngestAlertService } from './ingest-alert.service';
-import { parseIngestAlertBody } from './dto/ingest-alert.dto';
+import { parseIngestAlertRequestDto } from './dto/ingest-alert.dto';
 
 const NOW = new Date('2026-06-18T00:00:00.000Z');
 
@@ -58,7 +58,7 @@ function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
 }
 
 function body(overrides: Record<string, unknown> = {}) {
-  return parseIngestAlertBody({
+  return parseIngestAlertRequestDto({
     resident_id: 'res-1',
     facility_id: 'facility-1',
     probability: 0.9,
@@ -72,10 +72,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('parseIngestAlertBody', () => {
+describe('parseIngestAlertRequestDto', () => {
   it('coerces a valid ingest alert body', () => {
     expect(
-      parseIngestAlertBody({
+      parseIngestAlertRequestDto({
         resident_id: 123,
         facility_id: 'facility-1',
         probability: '0.75',
@@ -92,7 +92,7 @@ describe('parseIngestAlertBody', () => {
   });
   it('accepts a room-only alert body without resident_id', () => {
     expect(
-      parseIngestAlertBody({
+      parseIngestAlertRequestDto({
         facility_id: 'facility-1',
         probability: 0.75,
         detected_at: NOW.toISOString(),
