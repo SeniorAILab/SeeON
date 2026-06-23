@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const usage = `Usage:
-  pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--dry-run]
+  pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--platform <platform>] [--dry-run]
 
 Builds/pushes SHA-pinned production images locally, then deploys the pull-only
 Naver Cloud VM stack. Use only when the normal GitHub Actions deploy cannot run.
@@ -18,6 +18,7 @@ function parseArgs(argv) {
     dryRun: false,
     host: "<retired-host>",
     imageNamespace: "ghcr.io/goberomsu/eldercare-fall-ai",
+    imagePlatform: "linux/amd64",
     sshKey: "~/.ssh/eldercare-fall-ai-ncloud",
     user: "deploy",
   };
@@ -50,6 +51,11 @@ function parseArgs(argv) {
     }
     if (arg === "--namespace") {
       options.imageNamespace = readValue(argv, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg === "--platform") {
+      options.imagePlatform = readValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -138,20 +144,19 @@ function resolveGithubActor() {
   }
 }
 
-function buildAndPushImages({ imageNamespace, sha, dryRun }) {
+function buildAndPushImages({ imageNamespace, imagePlatform, sha, dryRun }) {
   const backendImage = `${imageNamespace}/backend:${sha}`;
   const frontImage = `${imageNamespace}/front:${sha}`;
+  const buildBase = ["build", "--platform", imagePlatform, "--target", "runner"];
 
-  run("docker", ["build", "--target", "runner", "-f", "backend/Dockerfile", "-t", backendImage, "."], {
+  run("docker", [...buildBase, "-f", "backend/Dockerfile", "-t", backendImage, "."], {
     dryRun,
   });
   run("docker", ["push", backendImage], { dryRun });
   run(
     "docker",
     [
-      "build",
-      "--target",
-      "runner",
+      ...buildBase,
       "-f",
       "front/Dockerfile",
       "--build-arg",
@@ -193,15 +198,9 @@ function packageAndDeploy({ actor, dryRun, host, imageNamespace, sha, sshKey, us
   const sshArgs = ["-i", sshKey, remote];
   const scpBaseArgs = ["-i", sshKey];
 
-  run("tar", ["-czf", bundle, "compose.yaml", "compose.prod.yaml", "backend/prisma"], {
-    dryRun,
-  });
-  run("scp", [...scpBaseArgs, "scripts/deploy/ncloud-deploy.sh", `${remote}:/tmp/ncloud-deploy.sh`], {
-    dryRun,
-  });
-  run("scp", [...scpBaseArgs, bundle, `${remote}:/tmp/eldercare-deploy-bundle.tgz`], {
-    dryRun,
-  });
+  run("tar", ["-czf", bundle, "compose.yaml", "compose.prod.yaml", "backend/prisma"], { dryRun });
+  run("scp", [...scpBaseArgs, "scripts/deploy/ncloud-deploy.sh", `${remote}:/tmp/ncloud-deploy.sh`], { dryRun });
+  run("scp", [...scpBaseArgs, bundle, `${remote}:/tmp/eldercare-deploy-bundle.tgz`], { dryRun });
 
   if (dryRun) {
     process.stdout.write(
@@ -238,18 +237,13 @@ function assertLocalInputs(options) {
 
 function main() {
   const { help, options, ref } = parseArgs(process.argv.slice(2));
-  if (help) {
-    process.stdout.write(usage);
-    return;
-  }
+  if (help) return process.stdout.write(usage);
 
   const checkedOptions = assertLocalInputs(options);
   const sha = resolveDeploySha(ref);
   const actor = resolveGithubActor();
 
-  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\n`);
-  process.stdout.write("Normal path remains GitHub Release -> Deploy Naver Cloud workflow.\n");
-  process.stdout.write("This path builds locally, pushes GHCR SHA tags, then the VM pulls only.\n");
+  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nNormal path remains GitHub Release -> Deploy Naver Cloud workflow.\nThis path builds locally, pushes GHCR SHA tags, then the VM pulls only.\nImage platform=${checkedOptions.imagePlatform}\n`);
 
   run("gh", ["auth", "status"], { dryRun: checkedOptions.dryRun });
   run("docker", ["version"], { dryRun: checkedOptions.dryRun });
@@ -268,6 +262,7 @@ function main() {
   buildAndPushImages({
     dryRun: checkedOptions.dryRun,
     imageNamespace: checkedOptions.imageNamespace,
+    imagePlatform: checkedOptions.imagePlatform,
     sha,
   });
   packageAndDeploy({
