@@ -25,8 +25,8 @@ import type {
 import { CamerasService } from '../cameras/cameras.service.js';
 import { IngestAlertService } from './ingest-alert.service.js';
 import {
-  type IngestAlertBody,
-  parseIngestAlertBody,
+  type IngestAlertRequestDto,
+  parseIngestAlertRequestDto,
 } from './dto/ingest-alert.dto.js';
 
 @Controller('ingest')
@@ -41,10 +41,10 @@ export class IngestController {
   @HttpCode(201)
   async ingestAlert(
     @Req() req: RequestWithIngestCamera,
-    @Body() body: IngestAlertBody,
+    @Body() body: IngestAlertRequestDto,
   ) {
     const camera = requireIngestCamera(req);
-    const parsedBody = parseIngestAlertBody(body);
+    const parsedBody = parseIngestAlertRequestDto(body);
     return this.ingestAlertService.ingestAlert(camera, parsedBody);
   }
   /**

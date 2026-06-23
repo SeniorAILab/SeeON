@@ -12,6 +12,7 @@ import type {
 import type { PredictionPort } from '../ports/prediction.port.js';
 
 const DEFAULT_TIMEOUT_MS = 3_000;
+const PREDICT_WINDOW_PATH = '/debug/predict/window';
 
 @Injectable()
 export class MlServingPredictionAdapter implements PredictionPort {
@@ -31,7 +32,7 @@ export class MlServingPredictionAdapter implements PredictionPort {
     if (baseUrl === undefined || baseUrl.length === 0) {
       throw new MlServingConfigError('ML_SERVING_URL');
     }
-    return new URL('/predict', baseUrl);
+    return new URL(PREDICT_WINDOW_PATH, baseUrl);
   }
 
   private timeoutMs(): number {
@@ -51,19 +52,19 @@ export class MlServingConfigError extends Error {
 
 export class MlServingHttpError extends Error {
   constructor(readonly statusCode: number) {
-    super(`ML serving /predict failed with HTTP ${statusCode}`);
+    super(`ML serving ${PREDICT_WINDOW_PATH} failed with HTTP ${statusCode}`);
   }
 }
 
 export class MlServingTimeoutError extends Error {
   constructor() {
-    super('ML serving /predict request timed out');
+    super(`ML serving ${PREDICT_WINDOW_PATH} request timed out`);
   }
 }
 
 export class MlServingResponseError extends Error {
   constructor(readonly field: string) {
-    super(`ML serving /predict response is invalid: ${field}`);
+    super(`ML serving ${PREDICT_WINDOW_PATH} response is invalid: ${field}`);
   }
 }
 
