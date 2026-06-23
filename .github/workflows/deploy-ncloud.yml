@@ -51,7 +51,6 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/backend:${{ env.DEPLOY_SHA }}
-            ${{ env.IMAGE_NAMESPACE }}/backend:latest
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
 
@@ -67,7 +66,6 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/front:${{ env.DEPLOY_SHA }}
-            ${{ env.IMAGE_NAMESPACE }}/front:latest
           cache-from: type=gha,scope=front
           cache-to: type=gha,scope=front,mode=max
 
