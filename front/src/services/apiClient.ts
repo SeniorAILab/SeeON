@@ -1,5 +1,5 @@
 export const USE_MOCK =
-  (import.meta.env.VITE_USE_MOCK ?? "true").toString() !== "false";
+  import.meta.env.VITE_USE_MOCK?.toString() === "true";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 

@@ -22,9 +22,10 @@ patterns already in the repo:
 - **Casing**: the backend product API (`/api/*`) returns camelCase matching
   `front/src/types/index.ts` (the domain SSOT) — map at the service boundary, not
   scattered across components.
-- **Mock vs real**: `apiClient.ts` switches on `VITE_USE_MOCK`; the per-resource
-  mock→real flip (`VITE_USE_MOCK=false`) is tracked as the Front-Based API Frame
-  AC10 follow-up.
+- **Mock vs real**: `apiClient.ts` defaults to real backend mode when
+  `VITE_USE_MOCK` is unset or `false`; explicit `VITE_USE_MOCK=true` is the mock
+  runtime. Remaining per-resource mock→real wiring is tracked as the
+  Front-Based API Frame AC10 follow-up.
 
 > A reusable Vite admin-CRUD hook/convention (the Vite analogue of the retired
 > `useCrud`) is **deferred** until the front mock→real wiring lands; introduce it

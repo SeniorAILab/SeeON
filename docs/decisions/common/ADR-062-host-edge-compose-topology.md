@@ -40,9 +40,9 @@ The deployment target is therefore two units: a single host running `front + bac
 
 - The front container depends on nginx and on the backend being reachable as `backend:8080` inside the host network; the edge depends on the backend's public ingest URL.
 - The edge image now packages the ML runtime sibling packages needed by both API and worker services; camera credentials stay outside git and enter only through the mounted edge-camera config.
-- Front remains mock-first (`VITE_USE_MOCK` default `true`); non-mock backend wiring is a later (Phase 2) change. The nginx proxy is forward-compatible with it.
+- Front defaults to real backend mode (`VITE_USE_MOCK` unset or `false`) so the nginx same-origin proxy is the normal local/prod path. Explicit `VITE_USE_MOCK=true` remains available for tests and demo-only mock surfaces while remaining service wiring is replaced incrementally.
 
 ## Follow-ups
 
-- Non-mock front wiring (`VITE_USE_MOCK=false`) for the host stack.
+- Replace remaining mock-backed frontend service workflows with backend endpoint calls.
 - Real production deploy execution, HMAC key provisioning/rotation, and CI for the compose lanes.
