@@ -17,14 +17,18 @@ and starts the production compose stack.
 - Keep only the permissions required for checkout, GHCR image publishing, and
   the SSH deploy step.
 - Keep the VM deploy script on image-pull mode by default.
-- Do not reintroduce server-side application image builds or a separate migrate
-  image.
+- Do not reintroduce server-side application image builds, a separate migrate
+  image, or Prisma CLI in the backend runtime image.
+- While the product database is disposable, reset the production `public` schema
+  during deploy and replay committed migration SQL with Postgres `psql`.
 - Preserve the successful smoke retry and Docker image cleanup behavior.
 
 ## Acceptance
 
 - GitHub Actions has a single clear Naver Cloud deployment path.
 - Compose registry configuration references only backend and frontend images.
+- The backend runtime image contains Prisma Client but not Prisma CLI or
+  migration files.
 - Runbook examples match the golden path and do not mention retired image names
   or workaround-only switches as normal operation.
 - Shell syntax, compose env contract, and workflow syntax checks pass.

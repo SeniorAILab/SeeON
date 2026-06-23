@@ -45,9 +45,14 @@ cd "$APP_DIR"
 docker compose $COMPOSE_FILES config >/dev/null
 COMPOSE_PROFILES=full docker compose $COMPOSE_FILES pull db backend front
 docker compose $COMPOSE_FILES up -d --wait --force-recreate db
-docker compose $COMPOSE_FILES exec -T db sh /docker-entrypoint-initdb.d/02-sync-app-role.sh
 COMPOSE_PROFILES=full docker compose $COMPOSE_FILES stop front backend >/dev/null 2>&1 || true
-COMPOSE_PROFILES=migrate docker compose $COMPOSE_FILES run --rm migrate
+docker compose $COMPOSE_FILES exec -T db sh -c \
+  'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"'
+docker compose $COMPOSE_FILES exec -T db sh /docker-entrypoint-initdb.d/02-sync-app-role.sh
+for migration in backend/prisma/migrations/*/migration.sql; do
+  docker compose $COMPOSE_FILES exec -T db sh -c \
+    'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB"' < "$migration"
+done
 COMPOSE_PROFILES=full docker compose $COMPOSE_FILES up -d --wait backend front
 
 if command -v curl >/dev/null 2>&1; then
@@ -79,5 +84,5 @@ if [ "$PRUNE_DOCKER" = "1" ]; then
   docker builder prune -f --filter until=24h >/dev/null || true
 fi
 
-COMPOSE_PROFILES=full,migrate docker compose $COMPOSE_FILES ps
+COMPOSE_PROFILES=full docker compose $COMPOSE_FILES ps
 printf 'Deploy complete. app_dir=%s image_tag=%s\n' "$APP_DIR" "$IMAGE_TAG"
