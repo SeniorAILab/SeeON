@@ -1,8 +1,14 @@
 // Auth 서비스 (mock). 실제: POST /api/auth/login, /logout, GET /api/auth/me
 import { db } from "./db";
 import { setAuthToken, USE_MOCK } from "./apiClient";
+import {
+  kakaoLoginUrl,
+  logoutEndpoint,
+  restoreSessionEndpoint,
+} from "./api/authEndpoints";
 import { delay } from "@/lib/utils";
-import type { AuthSession, BackendRole, Role, User } from "@/types";
+import type { AuthSession, User } from "@/types";
+export { mapBackendRoleToFrontRole } from "./api/authEndpoints";
 
 const STORAGE_KEY = "senai.session";
 
@@ -20,28 +26,13 @@ const KAKAO_MOCK_FACILITY_ID = "fac_happy_nokyang";
 
 type StoredUser = User & { password: string };
 
-export function mapBackendRoleToFrontRole(
-  role: BackendRole | string | null | undefined
-): Role {
-  switch (role) {
-    case "SUPER_ADMIN":
-      return "SUPER_ADMIN";
-    case "ADMIN":
-      return "FACILITY_ADMIN";
-    case "CAREGIVER":
-      return "STAFF";
-    default:
-      return "STAFF";
-  }
-}
-
 interface KakaoMockMarker {
   version: number;
   id: string;
 }
 
 function publicUser(u: User & { password?: string }): User {
-  const { password: _pw, ...rest } = u as User & { password?: string };
+  const { password: _pw, ...rest } = u;
   return rest;
 }
 
@@ -62,7 +53,8 @@ function hasKakaoSignup(): boolean {
   const raw = localStorage.getItem(KAKAO_IDENTITY_KEY);
   if (!raw) return false;
   try {
-    const m = JSON.parse(raw) as KakaoMockMarker;
+    const m: unknown = JSON.parse(raw);
+    if (!isKakaoMockMarker(m)) return false;
     return m?.version === KAKAO_IDENTITY_VERSION && m.id === KAKAO_MOCK_USER_ID;
   } catch {
     return false;
@@ -118,8 +110,7 @@ export const authService = {
    */
   async kakaoLogin(): Promise<AuthSession> {
     if (!USE_MOCK) {
-      const base = import.meta.env.VITE_API_BASE_URL ?? "";
-      window.location.assign(`${base}/auth/kakao/login`);
+      window.location.assign(kakaoLoginUrl());
       return new Promise<AuthSession>(() => {});
     }
     // 첫 클릭 = 가입(marker 없음), 이후 = 로그인. db upsert 는 멱등.
@@ -137,11 +128,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     if (!USE_MOCK) {
-      const base = import.meta.env.VITE_API_BASE_URL ?? "";
-      await fetch(`${base}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => {});
+      await logoutEndpoint().catch(() => {});
       setAuthToken(null);
       return;
     }
@@ -157,7 +144,9 @@ export const authService = {
     if (!raw) return null;
     let session: AuthSession;
     try {
-      session = JSON.parse(raw) as AuthSession;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isAuthSession(parsed)) return null;
+      session = parsed;
     } catch {
       return null;
     }
@@ -187,34 +176,11 @@ export const authService = {
 
   /** 실 백엔드 쿠키 세션 복원: GET /auth/session → User 매핑 (USE_MOCK=false). */
   async restoreFromBackend(): Promise<AuthSession | null> {
-    const base = import.meta.env.VITE_API_BASE_URL ?? "";
     try {
-      const res = await fetch(`${base}/auth/session`, {
-        credentials: "include",
-      });
-      if (!res.ok) return null;
-      const body = (await res.json()) as {
-        user?: {
-          id: string;
-          nickname?: string | null;
-          role?: string | null;
-          facilityId?: string | null;
-        } | null;
-      };
-      if (!body.user) return null;
-      const u = body.user;
-      const role = mapBackendRoleToFrontRole(u.role);
+      const session = await restoreSessionEndpoint();
+      if (!session) return null;
       setAuthToken(null);
-      return {
-        user: {
-          id: u.id,
-          name: u.nickname?.trim() || "카카오 사용자",
-          email: "",
-          role,
-          facilityId: u.facilityId ?? null,
-        },
-        token: "",
-      };
+      return session;
     } catch {
       return null;
     }
@@ -225,3 +191,27 @@ export const authService = {
     return USE_MOCK ? this.restore() : this.restoreFromBackend();
   },
 };
+
+function isKakaoMockMarker(value: unknown): value is KakaoMockMarker {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "version" in value &&
+    "id" in value &&
+    typeof value.version === "number" &&
+    typeof value.id === "string"
+  );
+}
+
+function isAuthSession(value: unknown): value is AuthSession {
+  if (typeof value !== "object" || value === null) return false;
+  if (!("user" in value) || !("token" in value)) return false;
+  const user = value.user;
+  return (
+    typeof value.token === "string" &&
+    typeof user === "object" &&
+    user !== null &&
+    "id" in user &&
+    typeof user.id === "string"
+  );
+}

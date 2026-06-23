@@ -12,7 +12,7 @@ Kakao delivery is backend-owned outbox/delivery state, not a separate alert ingr
 
 ## Outbox creation
 
-For ingest-created alerts, `ensureOutboxForIngest` builds an `AlertEventIngressDto`:
+For ingest-created alerts, `ensureOutboxForIngest` builds an `AlertEventRequestDto`:
 
 ```json
 {
@@ -108,11 +108,11 @@ or:
 
 `recordDeliveryResult` maps channel results to durable states:
 
-| Result | DeliveryAttempt status | Stored failure class | Retry |
-|---|---|---|---|
-| `sent` | `SENT` | none | no retry |
-| `failed/transient` | `RETRY_SCHEDULED` | `TRANSIENT` | `nextAttemptAt = now + retry_after_ms` or default 60s |
-| `failed/terminal_operator_action` | `TERMINAL_FAILED` | `TERMINAL_OPERATOR_ACTION` | no automatic retry |
+| Result                            | DeliveryAttempt status | Stored failure class       | Retry                                                 |
+| --------------------------------- | ---------------------- | -------------------------- | ----------------------------------------------------- |
+| `sent`                            | `SENT`                 | none                       | no retry                                              |
+| `failed/transient`                | `RETRY_SCHEDULED`      | `TRANSIENT`                | `nextAttemptAt = now + retry_after_ms` or default 60s |
+| `failed/terminal_operator_action` | `TERMINAL_FAILED`      | `TERMINAL_OPERATOR_ACTION` | no automatic retry                                    |
 
 Every recorded result increments `attemptCount`. Sent attempts store `sentAt` and `providerReference` and clear previous failure fields.
 

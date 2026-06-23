@@ -1,12 +1,12 @@
 export type ZoneType = 'BED' | 'AREA';
-export interface CreateZoneDto {
+export interface CreateZoneRequestDto {
   spaceId?: string;
   name?: string;
   type?: ZoneType;
   orderIndex?: number;
   facilityId?: string;
 }
-export interface UpdateZoneDto {
+export interface UpdateZoneRequestDto {
   spaceId?: string;
   name?: string;
   type?: ZoneType;
