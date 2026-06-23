@@ -4,7 +4,8 @@ This deploys the host stack to the Naver Cloud Ubuntu VM through the registry-im
 
 - public: `front` nginx on `:80`
 - internal only: `backend` on `:8080`, `db` on `:5432`
-- images are built in GitHub Actions and pushed to GitHub Container Registry
+- normal release images are built in GitHub Actions and pushed to GitHub Container Registry
+- if Actions minutes are exhausted, an operator can build/push the same SHA-tagged images locally
 - the VM only pulls images and runs Docker Compose
 
 ## VM
@@ -81,11 +82,42 @@ If a database password contains URL-reserved characters such as `@`, `:`, `/`,
 `APP_DB_USER=fall_app`; the Prisma migrations grant privileges to that fixed
 runtime role.
 
-## Manual deploy
+## Manual deploy when GitHub Actions cannot build
+
+The normal path is still `pnpm release:prod -- vX.Y.Z`, which publishes a
+GitHub Release and lets `.github/workflows/deploy-ncloud.yml` build/push images.
+Use the manual command below only after the Actions deploy cannot run, for
+example because private repository Actions minutes are exhausted.
+
+From a local checkout with Docker, `gh`, and SSH access:
+
+```bash
+pnpm deploy:prod:manual -- v0.1.0 --dry-run
+pnpm deploy:prod:manual -- v0.1.0
+```
+
+The command resolves the ref to an exact commit SHA, builds and pushes:
+
+- `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
+- `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
+
+The frontend image is built with `VITE_USE_MOCK=false` and `VITE_API_BASE_URL=/api`.
+The VM still does not build application images; it pulls the explicit SHA tags
+and runs `scripts/deploy/ncloud-deploy.sh`.
+
+Equivalent low-level steps, kept for debugging:
 
 From a local checkout:
 
 ```bash
+SHA="$(git rev-parse --verify v0.1.0^{commit})"
+docker build --target runner -f backend/Dockerfile -t "ghcr.io/goberomsu/eldercare-fall-ai/backend:$SHA" .
+docker push "ghcr.io/goberomsu/eldercare-fall-ai/backend:$SHA"
+docker build --target runner -f front/Dockerfile \
+  --build-arg VITE_USE_MOCK=false \
+  --build-arg VITE_API_BASE_URL=/api \
+  -t "ghcr.io/goberomsu/eldercare-fall-ai/front:$SHA" .
+docker push "ghcr.io/goberomsu/eldercare-fall-ai/front:$SHA"
 tar -czf /tmp/eldercare-deploy-bundle.tgz \
   compose.yaml compose.prod.yaml backend/prisma
 scp -i ~/.ssh/eldercare-fall-ai-ncloud scripts/deploy/ncloud-deploy.sh deploy@101.79.18.95:/tmp/ncloud-deploy.sh
@@ -93,7 +125,7 @@ scp -i ~/.ssh/eldercare-fall-ai-ncloud /tmp/eldercare-deploy-bundle.tgz deploy@1
 gh auth token | ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
   'docker login ghcr.io -u GoBeromsu --password-stdin'
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
-  'rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && IMAGE_TAG=<git-sha-or-tag> /tmp/ncloud-deploy.sh'
+  "rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && IMAGE_TAG=$SHA /tmp/ncloud-deploy.sh"
 ```
 
 The VM deploy script does not build application images. It expects the bundle above and pulls the backend/front images from GHCR.
@@ -135,6 +167,13 @@ Release deploy flow:
 ```bash
 pnpm release:prod -- v0.1.0
 gh run watch "$(gh run list --workflow "Deploy Naver Cloud" --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+If that workflow cannot build because Actions quota is exhausted, use the manual
+command against the same release tag:
+
+```bash
+pnpm deploy:prod:manual -- v0.1.0
 ```
 
 The deploy script resets the `public` schema and replays committed Prisma

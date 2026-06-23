@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { authService, mapBackendRoleToFrontRole } from "./authService";
 import { db } from "./db";
 import { facilities as seedFacilities } from "@/data/mockData";
@@ -11,6 +11,10 @@ beforeEach(() => {
   db.users = db.users.filter((u) => u.id !== KAKAO_ID);
   // 시설 시드 복구(이전 테스트가 비웠을 수 있음).
   if (db.facilities.length === 0) db.facilities = JSON.parse(JSON.stringify(seedFacilities));
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("authService.kakaoLogin (mock)", () => {
@@ -61,6 +65,17 @@ describe("authService.kakaoLogin (mock)", () => {
     await expect(
       authService.login("kakao.mock@sen.ai", "__kakao_oauth_no_password__")
     ).rejects.toThrow();
+  });
+
+  it("USE_MOCK=false 에서는 이메일/비번 mock 로그인을 차단한다", async () => {
+    vi.stubEnv("VITE_USE_MOCK", "false");
+    vi.resetModules();
+
+    const { authService: realModeAuthService } = await import("./authService");
+
+    await expect(realModeAuthService.login("staff@sen.ai", "1234")).rejects.toThrow(
+      /카카오 로그인/
+    );
   });
 
   it("바인딩 시설이 db 에 없으면 명시적으로 실패한다", async () => {
