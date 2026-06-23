@@ -4,8 +4,8 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { request } from 'node:https';
 import { dirname, resolve } from 'node:path';
 
-const DEFAULT_ENV_PATH = resolve(process.cwd(), '.env.development');
-const DEFAULT_REDIRECT_URI = 'http://localhost:3000/auth/kakao/callback';
+const DEFAULT_ENV_PATH = resolve(process.cwd(), '../.env.local');
+const DEFAULT_REDIRECT_URI = 'http://localhost:8080/auth/kakao/callback';
 const KAKAO_AUTHORIZE_URL = 'https://kauth.kakao.com/oauth/authorize';
 const KAKAO_TOKEN_URL = 'https://kauth.kakao.com/oauth/token';
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -142,12 +142,12 @@ function loadConfig(envFile: Record<string, string>): KakaoOAuthClient {
 
   if (restApiKey === undefined) {
     throw new CliInputError(
-      'Missing KAKAO_REST_API_KEY. Add it to backend/.env.development or export it.',
+      'Missing KAKAO_REST_API_KEY. Add it to repo root .env.local or export it.',
     );
   }
   if (tokenPath === undefined) {
     throw new CliInputError(
-      'Missing KAKAO_TOKEN_PATH. Add it to backend/.env.development or export it.',
+      'Missing KAKAO_TOKEN_PATH. Add it to repo root .env.local or export it.',
     );
   }
 
