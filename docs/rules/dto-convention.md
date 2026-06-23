@@ -72,4 +72,4 @@ A service type is not automatically a DTO. Service inputs may express use-case n
 
 Frontend backend calls are centralized by endpoint under `front/src/services/api/`. Endpoint files own request construction, response DTO validation, and mapping into `front/src/types` domain objects.
 
-Service files own domain workflows and consume endpoint functions, but they should not directly call backend `fetch()` or cast backend JSON. Login/session service code is backend-direct in dev/prod and must not reintroduce mock auth users or localStorage sessions. The shared `apiClient` returns `unknown` JSON; endpoint mappers must parse it into typed frontend state.
+Service files own domain workflows and consume endpoint functions, but they should not directly call backend `fetch()` or cast backend JSON. Login/session service code is backend-direct in dev/prod for email/password and Kakao OAuth, and must not reintroduce frontend mock auth users or localStorage sessions. The shared `apiClient` returns `unknown` JSON; endpoint mappers must parse it into typed frontend state.

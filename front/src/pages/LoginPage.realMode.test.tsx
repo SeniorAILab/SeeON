@@ -21,11 +21,12 @@ async function renderRealModeLogin() {
 }
 
 describe("LoginPage real backend default", () => {
-  it("shows only backend Kakao login when VITE_USE_MOCK is unset", async () => {
+  it("shows backend email login and Kakao login when VITE_USE_MOCK is unset", async () => {
     await renderRealModeLogin();
 
     expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeTruthy();
+    expect(screen.getByPlaceholderText("name@facility.com")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "이메일로 로그인" })).toBeTruthy();
     expect(screen.queryByText("데모 계정 (비밀번호 1234)")).toBeNull();
-    expect(screen.queryByRole("button", { name: "로그인" })).toBeNull();
   });
 });

@@ -22,8 +22,10 @@ front/src/
 - `src/types/index.ts` is the frontend domain SSOT until Phase 2.
 - Real backend mode is default (`VITE_USE_MOCK` unset or `false`). Mock mode
   requires explicit `VITE_USE_MOCK=true` and is for tests/demo-only surfaces.
-- Login is backend Kakao OAuth only in dev/prod. Do not reintroduce
-  email/password demo login, mock auth users, or localStorage auth sessions.
+- Login in dev/prod is backend-owned for both email/password and Kakao OAuth.
+  Both paths must mint the same httpOnly backend session cookie and restore via
+  `/auth/session`. Do not reintroduce frontend mock auth users or localStorage
+  auth sessions.
 - `strictPort` 3000 (ADR-041); pnpm only, never an npm lockfile.
 
 ## Run
