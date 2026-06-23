@@ -2,6 +2,8 @@
 slug: prod-db-url-migration-runner
 author: codex
 date: 2026-06-23
+status: superseded-by
+superseded-by: ncloud-golden-path-cleanup
 ---
 
 # Plan
