@@ -1,12 +1,18 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
-import { db } from "@/services/db";
+import { useAuthStore } from "@/store/authStore";
 
 beforeEach(() => {
   localStorage.clear();
-  db.users = db.users.filter((u) => u.id !== "u_kakao_mock");
+  useAuthStore.setState({
+    user: null,
+    loading: false,
+    error: null,
+    initialized: true,
+    kakaoLogin: vi.fn(),
+  });
 });
 
 function renderLogin() {
@@ -22,38 +28,20 @@ function renderLogin() {
 }
 
 describe("LoginPage", () => {
-  it("카드 최상단에 카카오 로그인 버튼을 표시한다", () => {
+  it("카카오 OAuth 로그인 버튼만 표시한다", () => {
     renderLogin();
     expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeTruthy();
+    expect(screen.queryByText("데모 계정 (비밀번호 1234)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "로그인" })).toBeNull();
   });
 
-  it("기존 이메일/비밀번호 폼과 데모 계정을 그대로 유지한다", () => {
+  it("카카오 버튼 클릭 시 백엔드 OAuth 시작 액션을 호출한다", () => {
+    const kakaoLogin = vi.fn();
+    useAuthStore.setState({ kakaoLogin });
     renderLogin();
-    expect(screen.getByText("이메일")).toBeTruthy();
-    expect(screen.getByText("비밀번호")).toBeTruthy();
-    expect(screen.getByText("데모 계정 (비밀번호 1234)")).toBeTruthy();
-    expect(screen.getByText("admin@sen.ai")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "로그인" })).toBeTruthy();
-  });
 
-  it("카카오 버튼 클릭 시 가입/로그인 후 관리자 대시보드로 이동한다", async () => {
-    renderLogin();
     fireEvent.click(screen.getByRole("button", { name: "카카오 로그인" }));
-    expect(await screen.findByText("ADMIN_DASHBOARD")).toBeTruthy();
-    expect(db.users.filter((u) => u.id === "u_kakao_mock")).toHaveLength(1);
-  });
 
-  it("시설 관리자 로그인 후 관리자 대시보드로 이동한다", async () => {
-    renderLogin();
-    fireEvent.click(screen.getByRole("button", { name: /시설 관리자/ }));
-    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
-    expect(await screen.findByText("ADMIN_DASHBOARD")).toBeTruthy();
-  });
-
-  it("케어 직원 로그인 후 직원 홈으로 이동한다", async () => {
-    renderLogin();
-    fireEvent.click(screen.getByRole("button", { name: /케어 직원/ }));
-    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
-    expect(await screen.findByText("NOW_PAGE")).toBeTruthy();
+    expect(kakaoLogin).toHaveBeenCalledTimes(1);
   });
 });
