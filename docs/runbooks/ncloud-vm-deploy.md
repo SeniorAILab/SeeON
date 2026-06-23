@@ -46,7 +46,7 @@ ssh root@101.79.18.95 \
   < scripts/deploy/ncloud-bootstrap.sh
 ```
 
-The script installs Docker, enables SSH/Docker, creates a `deploy` user, creates `/opt/eldercare-fall-ai`, and adds a `2G` swapfile for Docker builds on the `1 GB` VM.
+The script installs Docker, enables SSH/Docker, creates a `deploy` user, creates `/opt/eldercare-fall-ai`, and adds a `2G` swapfile for the `1 GB` VM.
 
 ## Production environment
 
@@ -93,10 +93,10 @@ scp -i ~/.ssh/eldercare-fall-ai-ncloud /tmp/eldercare-deploy-bundle.tgz deploy@1
 gh auth token | ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
   'docker login ghcr.io -u GoBeromsu --password-stdin'
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
-  'rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && SKIP_GIT_UPDATE=1 IMAGE_TAG=<git-sha-or-tag> /tmp/ncloud-deploy.sh'
+  'rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && IMAGE_TAG=<git-sha-or-tag> /tmp/ncloud-deploy.sh'
 ```
 
-For a one-time deploy of an already uploaded working tree, set `SKIP_GIT_UPDATE=1`. To force an emergency on-server build instead of pulling registry images, set `DEPLOY_MODE=build`.
+The VM deploy script does not build application images. It expects the bundle above and pulls the backend/front images from GHCR.
 
 Expected public URL after deploy:
 

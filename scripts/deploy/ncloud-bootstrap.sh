@@ -22,7 +22,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y ca-certificates curl git openssh-server docker.io
+apt-get install -y ca-certificates curl openssh-server docker.io
 apt-get install -y docker-compose-v2 || apt-get install -y docker-compose-plugin
 
 systemctl enable --now ssh
@@ -31,7 +31,7 @@ systemctl enable --now docker
 if ! id "$DEPLOY_USER" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$DEPLOY_USER"
 fi
-usermod -aG docker,sudo "$DEPLOY_USER"
+usermod -aG docker "$DEPLOY_USER"
 
 install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_ROOT" "$APP_ROOT/shared"
 
