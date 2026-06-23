@@ -1,27 +1,59 @@
-import { bindDemoUsers, parseKakaoIds } from '../../scripts/bind-demo-users';
+import {
+  bindDemoUsers,
+  parseBindArgs,
+  parseKakaoIds,
+} from '../../scripts/bind-demo-users';
 
 describe('bind demo users script helpers', () => {
-  it('parses argv before DEMO_KAKAO_IDS and deduplicates trimmed values', () => {
+  it('parses exact Kakao ids, emails, and dry-run without broad matching', () => {
     expect(
-      parseKakaoIds([' a ', 'b', 'a'], { DEMO_KAKAO_IDS: 'ignored' }),
-    ).toEqual(['a', 'b']);
+      parseBindArgs(
+        ['--dry-run', '--email', ' rhqjatn310@kakao ', ' kakao-1 ', 'kakao-1'],
+        {
+          DEMO_SUPER_ADMIN_KAKAO_ID: 'ignored',
+          DEMO_SUPER_ADMIN_KAKAO_EMAIL: 'ignored@example.com',
+        },
+      ),
+    ).toEqual({
+      dryRun: true,
+      emails: ['rhqjatn310@kakao'],
+      kakaoIds: ['kakao-1'],
+    });
+
+    expect(
+      parseBindArgs([], {
+        DEMO_SUPER_ADMIN_KAKAO_ID: 'kakao-2,kakao-2',
+        DEMO_SUPER_ADMIN_KAKAO_EMAIL: 'rhqjatn310@kakao',
+      }),
+    ).toEqual({
+      dryRun: false,
+      emails: ['rhqjatn310@kakao'],
+      kakaoIds: ['kakao-2'],
+    });
+
     expect(parseKakaoIds([], { DEMO_KAKAO_IDS: 'a, b,,a' })).toEqual([
       'a',
       'b',
     ]);
   });
 
-  it('binds platform users to demo facility as SUPER_ADMIN in one transaction', async () => {
+  it('binds only exact Kakao-backed users to 녹양역점 as SUPER_ADMIN', async () => {
     const userUpdate = Promise.resolve({});
     const identityUpdate = Promise.resolve({});
     const prisma = {
       facility: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'demo-facility-01' }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'fac_happy_nokyang' }),
       },
       user: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 'user-1', kakaoId: 'kakao-1' }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            email: 'rhqjatn310@kakao',
+            facilityId: null,
+            id: 'user-1',
+            kakaoId: 'kakao-1',
+            role: 'ADMIN',
+          },
+        ]),
         update: jest.fn().mockReturnValue(userUpdate),
       },
       kakaoIdentity: {
@@ -30,25 +62,81 @@ describe('bind demo users script helpers', () => {
       $transaction: jest.fn().mockResolvedValue([{}, {}]),
     };
 
-    await expect(bindDemoUsers(prisma, ['kakao-1'])).resolves.toEqual({
+    await expect(
+      bindDemoUsers(prisma, {
+        dryRun: false,
+        emails: ['rhqjatn310@kakao'],
+        kakaoIds: ['kakao-1'],
+      }),
+    ).resolves.toEqual({
       boundCount: 1,
+      changes: [
+        {
+          email: 'rhqjatn310@kakao',
+          id: 'user-1',
+          kakaoId: 'kakao-1',
+          nextFacilityId: 'fac_happy_nokyang',
+          nextRole: 'SUPER_ADMIN',
+          previousFacilityId: null,
+          previousRole: 'ADMIN',
+        },
+      ],
+      dryRun: false,
     });
 
     expect(prisma.facility.findUnique).toHaveBeenCalledWith({
-      where: { id: 'demo-facility-01' },
+      where: { id: 'fac_happy_nokyang' },
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
-      where: { kakaoId: 'kakao-1' },
-      data: { facilityId: 'demo-facility-01', role: 'SUPER_ADMIN' },
+      where: { id: 'user-1' },
+      data: {
+        facilityId: 'fac_happy_nokyang',
+        role: 'SUPER_ADMIN',
+        sessionVersion: { increment: 1 },
+      },
     });
     expect(prisma.kakaoIdentity.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      data: { facilityId: 'demo-facility-01' },
+      data: { facilityId: 'fac_happy_nokyang' },
     });
     expect(prisma.$transaction).toHaveBeenCalledWith([
       userUpdate,
       identityUpdate,
     ]);
+  });
+
+  it('dry-runs exact binding without mutating users', async () => {
+    const prisma = {
+      facility: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'fac_happy_nokyang' }),
+      },
+      user: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            email: 'rhqjatn310@kakao',
+            facilityId: null,
+            id: 'user-1',
+            kakaoId: 'kakao-1',
+            role: 'ADMIN',
+          },
+        ]),
+        update: jest.fn(),
+      },
+      kakaoIdentity: { updateMany: jest.fn() },
+      $transaction: jest.fn(),
+    };
+
+    await expect(
+      bindDemoUsers(prisma, {
+        dryRun: true,
+        emails: ['rhqjatn310@kakao'],
+        kakaoIds: [],
+      }),
+    ).resolves.toMatchObject({ boundCount: 1, dryRun: true });
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.kakaoIdentity.updateMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('fails honestly when facility or users are missing', async () => {
@@ -60,15 +148,17 @@ describe('bind demo users script helpers', () => {
           kakaoIdentity: { updateMany: jest.fn() },
           $transaction: jest.fn(),
         },
-        ['kakao-1'],
+        { dryRun: false, emails: [], kakaoIds: ['kakao-1'] },
       ),
-    ).rejects.toThrow('Demo facility demo-facility-01 does not exist');
+    ).rejects.toThrow('Demo facility fac_happy_nokyang does not exist');
 
     await expect(
       bindDemoUsers(
         {
           facility: {
-            findUnique: jest.fn().mockResolvedValue({ id: 'demo-facility-01' }),
+            findUnique: jest
+              .fn()
+              .mockResolvedValue({ id: 'fac_happy_nokyang' }),
           },
           user: {
             findMany: jest.fn().mockResolvedValue([]),
@@ -77,7 +167,7 @@ describe('bind demo users script helpers', () => {
           kakaoIdentity: { updateMany: jest.fn() },
           $transaction: jest.fn(),
         },
-        ['missing'],
+        { dryRun: false, emails: [], kakaoIds: ['missing'] },
       ),
     ).rejects.toThrow('Kakao user(s) not found');
   });

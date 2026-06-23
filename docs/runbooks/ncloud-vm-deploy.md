@@ -69,6 +69,10 @@ SESSION_JWT_SECRET=replace-with-at-least-32-random-chars
 KAKAO_TOKEN_ENC_KEY=replace-with-64-hex-chars
 ALERT_DASHBOARD_URL=http://101.79.18.95
 AUTH_COOKIE_SECURE=false
+DEMO_LOGIN_PASSWORD=replace-with-demo-admin-password
+# After rhqjatn310@kakao logs in once, bind by exact DB kakaoId or email.
+# DEMO_SUPER_ADMIN_KAKAO_ID=
+# DEMO_SUPER_ADMIN_KAKAO_EMAIL=rhqjatn310@kakao
 ```
 
 `AUTH_COOKIE_SECURE=false` is only for this temporary HTTP/IP deployment. Set it
@@ -180,9 +184,37 @@ command against the same release tag:
 pnpm deploy:prod:manual -- v0.1.0
 ```
 
-The deploy script resets the `public` schema and replays committed Prisma
-migration SQL with `psql` from the Postgres container. The backend image does
-not contain Prisma CLI or migration files.
+The deploy script resets the `public` schema, replays committed Prisma
+migration SQL with `psql` from the Postgres container, then runs the compiled
+backend seed once from the backend image. The seed creates 녹양역점 demo data and
+seeds `seniorsailab@gmail.com` as backend `ADMIN`; it does not create a broad
+Kakao admin policy. The backend image does not contain Prisma CLI or migration
+files.
+
+After the owner Kakao account has logged in once, bind only that exact DB row:
+
+```bash
+cd /opt/eldercare-fall-ai/current
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml run --rm backend \
+  node dist/scripts/bind-demo-users.js --dry-run --email rhqjatn310@kakao
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml run --rm backend \
+  node dist/scripts/bind-demo-users.js --email rhqjatn310@kakao
+```
+
+If Kakao does not expose that label as `User.email`, use the exact `kakaoId`
+from the `users` row instead:
+
+```bash
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml run --rm backend \
+  node dist/scripts/bind-demo-users.js --dry-run --kakao-id <actual-kakao-id>
+```
+
+Rollback an accidental bind by exact user id only:
+
+```bash
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml exec -T db sh -c \
+  'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "UPDATE users SET role='\''ADMIN'\'', facility_id='\''fac_happy_nokyang'\'', session_version=session_version+1 WHERE id='\''<exact-user-id>'\'';"'
+```
 Deploy checks are fail-fast: the local HTTP smoke check runs once after
 `docker compose up --wait`. Retry is a manual operator action after the failure
 reason is understood.

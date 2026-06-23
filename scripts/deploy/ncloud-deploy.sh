@@ -64,6 +64,7 @@ for migration in backend/prisma/migrations/*/migration.sql; do
   docker compose $COMPOSE_FILES exec -T db sh -c \
     'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB"' < "$migration"
 done
+COMPOSE_PROFILES=full docker compose $COMPOSE_FILES run --rm backend node dist/prisma/seed.js
 COMPOSE_PROFILES=full docker compose $COMPOSE_FILES up -d --wait backend front
 
 curl -fsS http://127.0.0.1/ >/dev/null
