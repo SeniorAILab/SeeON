@@ -2,6 +2,7 @@
 slug: ncloud-golden-path-cleanup
 author: codex
 date: 2026-06-23
+status: done
 ---
 
 # Plan

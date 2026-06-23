@@ -7,7 +7,7 @@ ENV_FILE="${ENV_FILE:-$APP_ROOT/shared/.env}"
 PRUNE_DOCKER="${PRUNE_DOCKER:-1}"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-ghcr.io/goberomsu/eldercare-fall-ai}"
 IMAGE_TAG="${IMAGE_TAG:-}"
-COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml -f compose.registry.yaml"
+COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml"
 BACKEND_IMAGE="${BACKEND_IMAGE:-$IMAGE_NAMESPACE/backend:$IMAGE_TAG}"
 FRONT_IMAGE="${FRONT_IMAGE:-$IMAGE_NAMESPACE/front:$IMAGE_TAG}"
 export BACKEND_IMAGE FRONT_IMAGE
@@ -45,6 +45,11 @@ fi
 
 umask 077
 cp "$ENV_FILE" "$APP_DIR/.env"
+{
+  printf '\n'
+  printf 'BACKEND_IMAGE=%s\n' "$BACKEND_IMAGE"
+  printf 'FRONT_IMAGE=%s\n' "$FRONT_IMAGE"
+} >> "$APP_DIR/.env"
 
 cd "$APP_DIR"
 
