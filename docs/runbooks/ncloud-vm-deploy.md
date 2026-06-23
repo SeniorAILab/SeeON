@@ -113,9 +113,9 @@ Workflow: `.github/workflows/deploy-ncloud.yml`
 
 It runs after the `CI` workflow succeeds on `main`, and through manual `workflow_dispatch`. The workflow builds and pushes three GHCR images before SSH deployment:
 
-- `ghcr.io/goberomsu/eldercare-fall-ai-backend:<sha>`
-- `ghcr.io/goberomsu/eldercare-fall-ai-front:<sha>`
-- `ghcr.io/goberomsu/eldercare-fall-ai-migrate:<sha>`
+- `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
+- `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
+- `ghcr.io/goberomsu/eldercare-fall-ai/migrate:<sha>`
 
 ## Operations
 

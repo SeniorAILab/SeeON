@@ -27,7 +27,7 @@ jobs:
       NCLOUD_ENV_FILE: ${{ secrets.NCLOUD_ENV_FILE }}
       DEPLOY_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-      IMAGE_REPOSITORY: ghcr.io/goberomsu/eldercare-fall-ai
+      IMAGE_NAMESPACE: ghcr.io/goberomsu/eldercare-fall-ai
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,8 +51,8 @@ jobs:
           target: runner
           push: true
           tags: |
-            ${{ env.IMAGE_REPOSITORY }}-backend:${{ env.DEPLOY_SHA }}
-            ${{ env.IMAGE_REPOSITORY }}-backend:latest
+            ${{ env.IMAGE_NAMESPACE }}/backend:${{ env.DEPLOY_SHA }}
+            ${{ env.IMAGE_NAMESPACE }}/backend:latest
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
 
@@ -64,8 +64,8 @@ jobs:
           target: migrator
           push: true
           tags: |
-            ${{ env.IMAGE_REPOSITORY }}-migrate:${{ env.DEPLOY_SHA }}
-            ${{ env.IMAGE_REPOSITORY }}-migrate:latest
+            ${{ env.IMAGE_NAMESPACE }}/migrate:${{ env.DEPLOY_SHA }}
+            ${{ env.IMAGE_NAMESPACE }}/migrate:latest
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
 
@@ -80,8 +80,8 @@ jobs:
             VITE_API_BASE_URL=/api
           push: true
           tags: |
-            ${{ env.IMAGE_REPOSITORY }}-front:${{ env.DEPLOY_SHA }}
-            ${{ env.IMAGE_REPOSITORY }}-front:latest
+            ${{ env.IMAGE_NAMESPACE }}/front:${{ env.DEPLOY_SHA }}
+            ${{ env.IMAGE_NAMESPACE }}/front:latest
           cache-from: type=gha,scope=front
           cache-to: type=gha,scope=front,mode=max
 
@@ -98,9 +98,9 @@ jobs:
           printf '%s\n' "$NCLOUD_ENV_FILE" > "$tmp_env"
           cp "$tmp_env" .env
           export IMAGE_TAG="$DEPLOY_SHA"
-          export BACKEND_IMAGE="$IMAGE_REPOSITORY-backend:$DEPLOY_SHA"
-          export FRONT_IMAGE="$IMAGE_REPOSITORY-front:$DEPLOY_SHA"
-          export MIGRATE_IMAGE="$IMAGE_REPOSITORY-migrate:$DEPLOY_SHA"
+          export BACKEND_IMAGE="$IMAGE_NAMESPACE/backend:$DEPLOY_SHA"
+          export FRONT_IMAGE="$IMAGE_NAMESPACE/front:$DEPLOY_SHA"
+          export MIGRATE_IMAGE="$IMAGE_NAMESPACE/migrate:$DEPLOY_SHA"
           docker compose -f compose.yaml -f compose.prod.yaml config >/dev/null
           COMPOSE_PROFILES=full,migrate docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml config >/dev/null
           rm -f "$tmp_env" .env
@@ -136,4 +136,4 @@ jobs:
              install -m 600 /tmp/eldercare.env /opt/eldercare-fall-ai/shared/.env && \
              rm -f /tmp/eldercare.env && \
              chmod +x /tmp/ncloud-deploy.sh && \
-             SKIP_GIT_UPDATE=1 BRANCH='$DEPLOY_BRANCH' IMAGE_REPOSITORY='$IMAGE_REPOSITORY' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
+             SKIP_GIT_UPDATE=1 BRANCH='$DEPLOY_BRANCH' IMAGE_NAMESPACE='$IMAGE_NAMESPACE' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
