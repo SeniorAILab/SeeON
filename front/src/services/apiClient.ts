@@ -22,8 +22,11 @@ export async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const credentials: RequestCredentials | undefined =
+    options.credentials ?? (!USE_MOCK ? "include" : undefined);
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    ...(credentials ? { credentials } : {}),
     headers: {
       "Content-Type": "application/json",
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
