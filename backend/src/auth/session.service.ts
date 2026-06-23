@@ -181,7 +181,13 @@ function positiveInt(raw: string | undefined, fallback: number): number {
 function toAuthenticatedUser(
   user: Pick<
     User,
-    'id' | 'facilityId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
+    | 'id'
+    | 'facilityId'
+    | 'role'
+    | 'kakaoId'
+    | 'email'
+    | 'nickname'
+    | 'sessionVersion'
   >,
 ): AuthenticatedUser {
   return {
@@ -189,6 +195,7 @@ function toAuthenticatedUser(
     facilityId: user.facilityId,
     role: user.role,
     kakaoId: user.kakaoId,
+    email: user.email,
     nickname: user.nickname,
     sessionVersion: user.sessionVersion,
   };

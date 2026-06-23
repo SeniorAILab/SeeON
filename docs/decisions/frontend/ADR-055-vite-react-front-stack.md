@@ -12,7 +12,7 @@ PROPOSED.
 
 `front/` was originally scaffolded as a Next.js/TypeScript browser client under [ADR-001](../common/ADR-001-polyglot-monorepo.md). During PR #257, Junho's Vite 5 + React 18 dashboard became the product frontend implementation that needed to be preserved as the single source of truth instead of maintaining a parallel Next.js starter.
 
-Phase 1 of the migration replaced the Next.js starter with the Vite app in `front/`, initially kept the application mock-driven with `USE_MOCK=true`, unified TypeScript package management under pnpm via `pnpm import` and exact pins, and preserved the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). After the local backend/db development infrastructure landed, the default frontend runtime moved to real backend mode (`VITE_USE_MOCK` unset or `false`). Login/session/facility onboarding is backend-direct in dev/prod via Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains for tests and demo-only surfaces while remaining dashboard/admin backend endpoint wiring is completed incrementally.
+Phase 1 of the migration replaced the Next.js starter with the Vite app in `front/`, initially kept the application mock-driven with `USE_MOCK=true`, unified TypeScript package management under pnpm via `pnpm import` and exact pins, and preserved the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). After the local backend/db development infrastructure landed, the default frontend runtime moved to real backend mode (`VITE_USE_MOCK` unset or `false`). Login/session/facility onboarding is backend-direct in dev/prod via email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains for tests and demo-only surfaces while remaining dashboard/admin backend endpoint wiring is completed incrementally.
 
 This migration was stacked as atomic commits on PR #257. That is a deliberate exception to the normal issue/worktree path in [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md) and the PR size governance in [ADR-039](../common/ADR-039-pr-size-gate-threshold.md): the worktree starts from an existing PR branch, and the size gate is waived for this migration series because the change replaces a starter frontend with a pre-existing product app while keeping backend/ML behavior unchanged.
 
@@ -24,7 +24,7 @@ Make Vite 5 + React 18 the canonical product frontend stack for `front/`.
 - Vite dev and preview run on port 3000 to preserve the repo-wide port contract from ADR-041.
 - The monorepo stays pnpm-based for TypeScript packages, with root workspace installation and exact package pins.
 - Frontend development defaults to real backend mode. Mock mode is explicit via `VITE_USE_MOCK=true` and does not define the default dev path.
-- Frontend login in dev/prod is Kakao OAuth only; do not reintroduce email/password demo login, mock auth users, or localStorage auth sessions.
+- Frontend login in dev/prod offers backend email/password and Kakao OAuth entry points; do not reintroduce frontend mock auth users or localStorage auth sessions.
 - [ADR-001](../common/ADR-001-polyglot-monorepo.md) remains authoritative for the polyglot monorepo and pnpm workspace shape, but its frontend stack statement is partially superseded: `front/` is now Vite + React rather than Next.js.
 
 ## Decision Drivers
@@ -79,10 +79,10 @@ Rejected. ADR-041 standardizes the product frontend on port 3000. Moving the mig
 
 Phase 2 must implement the deferred backend-matching contract documented in [`docs/exec-plan/active/frontend-vite-ssot-migration/phase2-backend-contract.md`](../../exec-plan/active/frontend-vite-ssot-migration/phase2-backend-contract.md). Every item below is deferred and not implemented by Phase 1:
 
-- Implement real email/password JWT login and authenticated session handling for the frontend auth service.
+- Replace remaining dashboard/admin mock-backed services with backend endpoint calls; auth login/session is already backend-direct.
 - Match frontend service comments to backend endpoints for dashboard, events, residents, zones, admin, AI ingest, Kakao, and video.
 - Reuse the product Kakao registration and send fan-out model from ADR-042, ADR-044, ADR-052, and ADR-053.
 - Treat frontend `types/index.ts` as the Phase 2 domain contract input, refining ADR-031 and ADR-037 as needed.
-- Refine the hybrid auth boundary from ADR-033 for email/password JWT plus Kakao registration/send behavior.
+- Keep the hybrid auth boundary from ADR-033 and ADR-069: email/password and Kakao both mint backend-owned sessions; Kakao tokens never reach the browser.
 - Map ML `/ingest` events into backend `DetectionEvent`, `SpaceStatus`, and delivery side effects.
 - Keep realtime SSE plus ticket behavior from ADR-034 deferred until the backend contract is ready.
