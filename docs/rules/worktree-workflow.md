@@ -45,6 +45,13 @@ git wt 17 --slug webhook-contract
 
 Examples: `feat/17-fall-webhook`, `fix/23-rtsp-timeout`, `chore/31-update-deps`
 
+Branch naming is a traceability convention, not a CI hard gate. The hard boundary is
+that work must not happen directly on a protected branch (`main`), and PRs must target
+an allowed base branch. CI also rejects same-repo PRs whose head branch is `main`,
+matching the local protected-branch guard. A misnamed non-protected head branch is
+reversible: prefer creating branches through `git wt`, and fix naming drift during
+review or periodic audit instead of blocking the PR only for its head branch name.
+
 Fan-out note: when one issue must be split into multiple PRs, keep one branch and one
 worktree per PR, keep the same issue number, and use a distinct slice slug via
 `git wt <issue#> --slug <slice-slug>`. Record the slice boundary in the PR body.
