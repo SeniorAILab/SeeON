@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes ADR-050 and the active architecture of ADR-026 (ADR-026 body preserved as historical record).
+Accepted; boot-order worker ownership partially superseded by ADR-067. Supersedes ADR-050 and the active architecture of ADR-026 (ADR-026 body preserved as historical record).
 
 Implementation status: planned; realized in Slices 1, 4, 5a, 5b, 6, 7, 8, 9, 10, 11 of the ml/ edge-device relayout (issue #268).
 
@@ -28,7 +28,7 @@ The ML edge runtime is organized around model/domain separation and fixed runner
 4. **Model registry.** `ModelRegistry` is introduced now as the task-to-runner, config-driven assembly point. A model swap changes `runners/`, the `models/` artifact, and `configs/` only; it does not change `domains/`, `runtime/`, `events/`, or `serving/`.
 5. **Edge package tree.** The ML edge tree has nine runtime packages: `contracts`, `features`, `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, and `serving`. `serving` assembles the app factory, lifespan, routes, registry, runtime services, and health/status/debug surface.
 6. **Dependency ladder.** L0 is `contracts` and `features`; L1 is `sources` and `runners`; L2 is `perception`; L3 is `domains` and `runtime`; L4 is `events`; L5 is `serving`. `training` and `serving` remain separated: serving does not import training.
-7. **Serving/lifespan boot order.** Serving loads config, selects device, loads and warms registered runners, initializes runtime services (`status_store`, `incident_manager`, outbox, publisher seam), resolves sources, starts camera workers through the camera manager, and only then reports readiness. Model load failure makes readiness not ready; source failure is camera-degraded; config failure aborts boot.
+7. **Serving/lifespan boot order.** Serving loads config, selects device, loads and warms registered runners, initializes runtime services (`status_store`, `incident_manager`, outbox, publisher seam), and resolves sources. Model load failure makes readiness not ready; source failure is camera-degraded; config failure aborts boot. Production camera workers are owned by the dedicated worker process defined in ADR-067.
 
 This ADR references [ADR-029](./ADR-029-edge-inference-deployment-topology.md) for per-site edge deployment and [ADR-023](../common/ADR-023-ml-backend-prediction-boundary.md) for the ML/backend policy boundary. ML `incident_manager` owns idempotency and cooldown only; backend policy, recipient fan-out, final deduplication, and side effects remain backend-owned.
 
@@ -44,7 +44,8 @@ These sub-decisions are part of this ADR and are guard-enforced by the relayout.
 
 | Concern | Owning ADR |
 |---|---|
-| Stream/model contract architecture, `FrameObservation` redesign, runner contracts, `ModelRegistry`, edge-runtime package layout, dependency ladder, and serving/lifespan boot order | ADR-057 |
+| Stream/model contract architecture, `FrameObservation` redesign, runner contracts, `ModelRegistry`, edge-runtime package layout, dependency ladder, and API serving/lifespan boot order | ADR-057 |
+| Production camera worker process ownership and RTSP worker boot order | ADR-067 |
 | Frame-intake code placement (`ml/sources/` plus `ml/contracts/frame.py`) | ADR-056 |
 | Per-site edge deployment topology and signal-only egress | ADR-029 |
 | ML/backend policy boundary and side-effect ownership | ADR-023 |

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from runtime.camera_manager import CameraConfig
 from serving.main import create_app, no_lifespan
 from serving.model import ModelLoadError
 
@@ -42,3 +43,32 @@ def test_health_ready_200_when_model_loads() -> None:
 
     assert response.status_code == 200
     assert response.json()["ready"] is True
+
+
+def test_fastapi_lifespan_does_not_start_camera_workers() -> None:
+    app = create_app()
+    app.state.model_loader = lambda: StubModel()
+    app.state.source_registry_loader = lambda: None
+    app.state.runner_warmup = lambda runner: runner
+    app.state.start_camera_workers = True
+    app.state.camera_configs = (
+        CameraConfig(
+            camera_id="camera-1",
+            facility_id="facility-1",
+            frame_source=_SourceThatMustNotStart(),
+            runners={},
+        ),
+    )
+
+    with TestClient(app) as client:
+        ready_response = client.get("/health/ready")
+        status_response = client.get("/status")
+
+    assert ready_response.status_code == 200
+    assert status_response.json()["ops_events"] == []
+
+
+class _SourceThatMustNotStart:
+    def __iter__(self):
+        raise AssertionError("FastAPI must not start camera workers")
+        yield

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contracts.observation import FrameObservation
 from domains.fall.schema import FallEvent
 
 
@@ -13,8 +14,29 @@ class FallEventLatch:
         self.first_event_sec: float | None = None
         self._prev_fall: bool = False
 
-    def update(self, is_fall: bool, time_sec: float) -> bool:
-        """Feed one frame's fall state; return True on a rising edge (new event)."""
+    def update(
+        self,
+        is_fall: bool | FrameObservation,
+        time_sec: float | None = None,
+    ) -> bool | tuple[dict[str, object], ...]:
+        if isinstance(is_fall, FrameObservation):
+            event = self.update_event(
+                _observation_is_fall(is_fall),
+                0.0 if time_sec is None else time_sec,
+            )
+            if event is None:
+                return ()
+            return (
+                {
+                    "domain": "fall",
+                    "event_type": "fall",
+                    "identity": event.event_count,
+                    "probability": _observation_fall_probability(is_fall),
+                    "time_sec": event.onset_sec,
+                },
+            )
+        if time_sec is None:
+            time_sec = 0.0
         onset = is_fall and not self._prev_fall
         if onset:
             self.event_count += 1
@@ -35,3 +57,14 @@ class FallEventLatch:
             onset_sec=time_sec,
             first_event_sec=first_event_sec,
         )
+
+
+def _observation_is_fall(observation: FrameObservation) -> bool:
+    return any(label.is_fall for label in observation.labels)
+
+
+def _observation_fall_probability(observation: FrameObservation) -> float:
+    return max(
+        (label.confidence for label in observation.labels if label.is_fall),
+        default=1.0,
+    )

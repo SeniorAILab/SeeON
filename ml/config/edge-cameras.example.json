@@ -1,0 +1,50 @@
+{
+  "alert_api_url": "https://backend.example.com/ingest/alerts",
+  "heartbeat_api_url": "https://backend.example.com/ingest/heartbeat",
+  "cameras": [
+    {
+      "camera_id": "camera-1",
+      "facility_id": "facility-demo",
+      "resident_id": null,
+      "rtsp_url": "rtsp://camera-1.example.local:554/trackID=2",
+      "ingest_key_id": "camera-1-key-id",
+      "ingest_secret": "replace-with-camera-1-secret",
+      "heartbeat_interval_sec": 30,
+      "frame_stride": 1,
+      "label": "Room 1"
+    },
+    {
+      "camera_id": "camera-2",
+      "facility_id": "facility-demo",
+      "resident_id": null,
+      "rtsp_url": "rtsp://camera-2.example.local:554/trackID=2",
+      "ingest_key_id": "camera-2-key-id",
+      "ingest_secret": "replace-with-camera-2-secret",
+      "heartbeat_interval_sec": 30,
+      "frame_stride": 1,
+      "label": "Room 2"
+    },
+    {
+      "camera_id": "camera-3",
+      "facility_id": "facility-demo",
+      "resident_id": null,
+      "rtsp_url": "rtsp://camera-3.example.local:554/trackID=2",
+      "ingest_key_id": "camera-3-key-id",
+      "ingest_secret": "replace-with-camera-3-secret",
+      "heartbeat_interval_sec": 30,
+      "frame_stride": 1,
+      "label": "Room 3"
+    },
+    {
+      "camera_id": "camera-4",
+      "facility_id": "facility-demo",
+      "resident_id": null,
+      "rtsp_url": "rtsp://camera-4.example.local:554/trackID=2",
+      "ingest_key_id": "camera-4-key-id",
+      "ingest_secret": "replace-with-camera-4-secret",
+      "heartbeat_interval_sec": 30,
+      "frame_stride": 1,
+      "label": "Room 4"
+    }
+  ]
+}
