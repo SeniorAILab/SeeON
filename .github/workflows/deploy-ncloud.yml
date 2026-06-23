@@ -1,0 +1,139 @@
+name: Deploy Naver Cloud
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ncloud-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    name: Deploy production VM
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      NCLOUD_HOST: ${{ vars.NCLOUD_HOST || '<retired-host>' }}
+      NCLOUD_SSH_USER: ${{ vars.NCLOUD_SSH_USER || 'deploy' }}
+      NCLOUD_SSH_PRIVATE_KEY: ${{ secrets.NCLOUD_SSH_PRIVATE_KEY }}
+      NCLOUD_ENV_FILE: ${{ secrets.NCLOUD_ENV_FILE }}
+      DEPLOY_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      IMAGE_REPOSITORY: ghcr.io/goberomsu/eldercare-fall-ai
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: runner
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}-backend:${{ env.DEPLOY_SHA }}
+            ${{ env.IMAGE_REPOSITORY }}-backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Build and push migrator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: migrator
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}-migrate:${{ env.DEPLOY_SHA }}
+            ${{ env.IMAGE_REPOSITORY }}-migrate:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Build and push front image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: front/Dockerfile
+          target: runner
+          build-args: |
+            VITE_USE_MOCK=false
+            VITE_API_BASE_URL=/api
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}-front:${{ env.DEPLOY_SHA }}
+            ${{ env.IMAGE_REPOSITORY }}-front:latest
+          cache-from: type=gha,scope=front
+          cache-to: type=gha,scope=front,mode=max
+
+      - name: Validate deployment inputs
+        run: |
+          test -n "$NCLOUD_HOST" || { echo "NCLOUD_HOST is required"; exit 1; }
+          test -n "$NCLOUD_SSH_USER" || { echo "NCLOUD_SSH_USER is required"; exit 1; }
+          test -n "$NCLOUD_SSH_PRIVATE_KEY" || { echo "NCLOUD_SSH_PRIVATE_KEY secret is required"; exit 1; }
+          test -n "$NCLOUD_ENV_FILE" || { echo "NCLOUD_ENV_FILE secret is required"; exit 1; }
+
+      - name: Validate Compose production config
+        run: |
+          tmp_env="$(mktemp)"
+          printf '%s\n' "$NCLOUD_ENV_FILE" > "$tmp_env"
+          cp "$tmp_env" .env
+          export IMAGE_TAG="$DEPLOY_SHA"
+          export BACKEND_IMAGE="$IMAGE_REPOSITORY-backend:$DEPLOY_SHA"
+          export FRONT_IMAGE="$IMAGE_REPOSITORY-front:$DEPLOY_SHA"
+          export MIGRATE_IMAGE="$IMAGE_REPOSITORY-migrate:$DEPLOY_SHA"
+          docker compose -f compose.yaml -f compose.prod.yaml config >/dev/null
+          COMPOSE_PROFILES=full,migrate docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml config >/dev/null
+          rm -f "$tmp_env" .env
+
+      - name: Configure SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$NCLOUD_SSH_PRIVATE_KEY" > ~/.ssh/ncloud_deploy
+          chmod 600 ~/.ssh/ncloud_deploy
+          ssh-keyscan -H "$NCLOUD_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copy deploy inputs
+        run: |
+          tmp_env="$(mktemp)"
+          tmp_bundle="$(mktemp)"
+          printf '%s\n' "$NCLOUD_ENV_FILE" > "$tmp_env"
+          tar -czf "$tmp_bundle" compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma/init
+          scp -i ~/.ssh/ncloud_deploy scripts/deploy/ncloud-deploy.sh "$NCLOUD_SSH_USER@$NCLOUD_HOST:/tmp/ncloud-deploy.sh"
+          scp -i ~/.ssh/ncloud_deploy "$tmp_bundle" "$NCLOUD_SSH_USER@$NCLOUD_HOST:/tmp/eldercare-deploy-bundle.tgz"
+          scp -i ~/.ssh/ncloud_deploy "$tmp_env" "$NCLOUD_SSH_USER@$NCLOUD_HOST:/tmp/eldercare.env"
+          rm -f "$tmp_env" "$tmp_bundle"
+
+      - name: Deploy
+        run: |
+          printf '%s' '${{ github.token }}' | ssh -i ~/.ssh/ncloud_deploy "$NCLOUD_SSH_USER@$NCLOUD_HOST" \
+            "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
+          ssh -i ~/.ssh/ncloud_deploy "$NCLOUD_SSH_USER@$NCLOUD_HOST" \
+            "install -d -m 700 /opt/eldercare-fall-ai/shared && \
+             rm -rf /opt/eldercare-fall-ai/current && \
+             install -d -m 755 /opt/eldercare-fall-ai/current && \
+             tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && \
+             rm -f /tmp/eldercare-deploy-bundle.tgz && \
+             install -m 600 /tmp/eldercare.env /opt/eldercare-fall-ai/shared/.env && \
+             rm -f /tmp/eldercare.env && \
+             chmod +x /tmp/ncloud-deploy.sh && \
+             SKIP_GIT_UPDATE=1 BRANCH='$DEPLOY_BRANCH' IMAGE_REPOSITORY='$IMAGE_REPOSITORY' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
