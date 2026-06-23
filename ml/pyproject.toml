@@ -11,12 +11,12 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic>=2",
     "numpy>=1.26",
+    "opencv-python-headless>=4.10",
 ]
 
 # Lifecycle separation: training and demo deps are isolated from serving.
 [dependency-groups]
 demo = [
-    "opencv-python-headless>=4.10",
     "streamlit>=1.38",
     "ultralytics>=8.3",
 ]
@@ -30,8 +30,13 @@ training = [
     "joblib>=1.4",                  # direct import in training/models/rf.py (artifact (de)serialization)
     "tqdm>=4.66",
     "ultralytics>=8.3",             # extract_poses reuses runners -> ultralytics
-    "opencv-python-headless>=4.10", # cv2.VideoCapture frame intake in extract_poses
     "optuna>=4.9.0",
+]
+worker = [
+    "torch>=2.3",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+    "ultralytics>=8.3",
 ]
 
 [tool.uv]

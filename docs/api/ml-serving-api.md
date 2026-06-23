@@ -2,6 +2,8 @@
 
 ML serving is a FastAPI service. Its boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
 
+Production camera ownership is not part of the FastAPI process. The edge node runs `ml-edge-api` for health/status/debug routes and `ml-edge-worker` for long-running RTSP capture, model/domain evaluation, heartbeats, and alert ingest publishing (ADR-067).
+
 Bare `POST /predict` is removed and returns 404. Callers must use the explicit debug prediction routes below.
 
 ## `GET /health/live`
@@ -14,7 +16,7 @@ Liveness probe. Returns `200` with:
 
 ## `GET /health/ready`
 
-Readiness probe. Returns the service readiness snapshot from app state. When the service is still booting or unavailable, the same body is returned with HTTP `503`; ready services return HTTP `200`.
+Readiness probe. Returns the API service readiness snapshot from app state. When the service is still booting or unavailable, the same body is returned with HTTP `503`; ready services return HTTP `200`. Camera stream health is reported by the worker path and does not block API liveness.
 
 ## `GET /health`
 
@@ -22,7 +24,7 @@ Legacy aggregate health report for local/demo observability. It reports service 
 
 ## `GET /status`
 
-Runtime status snapshot. This is operational state for the edge serving process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state.
+Runtime status snapshot. This is operational state for the edge API process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and publish their own heartbeat/alert facts through backend ingest.
 
 ## `GET /models`
 

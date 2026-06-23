@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contracts.observation import DetectionLabel, FrameObservation
 from domains.fall.detector import FallEventLatch
 from domains.fall.schema import FallEvent
 
@@ -38,3 +39,20 @@ class TestFallEventLatch:
         event = latch.update_event(True, 0.5)
         assert event == FallEvent(event_count=1, onset_sec=0.5, first_event_sec=0.5)
         assert latch.update_event(True, 1.0) is None
+
+    def test_runtime_observation_update_returns_domain_event_tuple(self) -> None:
+        latch = FallEventLatch()
+        observation = FrameObservation(
+            detections=((), (DetectionLabel(text="FALL", confidence=0.87, is_fall=True),))
+        )
+
+        assert latch.update(observation, time_sec=1.25) == (
+            {
+                "domain": "fall",
+                "event_type": "fall",
+                "identity": 1,
+                "probability": 0.87,
+                "time_sec": 1.25,
+            },
+        )
+        assert latch.update(observation, time_sec=1.5) == ()

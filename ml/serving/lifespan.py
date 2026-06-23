@@ -16,7 +16,7 @@ from runners.registry import DEFAULT_REGISTRY
 from runners.warmup import warmup_runner
 from runtime.edge_runtime import EdgeRuntime
 from runtime.incident_manager import IncidentManager
-from runtime.status_store import CameraStatus, StatusStore
+from runtime.status_store import StatusStore
 from serving.model import ModelLoadError, get_model
 from serving.pipeline import FallPipeline
 from serving.source_registry import SourceRegistryError, get_source_registry
@@ -57,7 +57,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         incident_manager=incident_manager,
     )
     app.state.runtime = runtime
-    _start_cameras(app, runtime, status_store)
     app.state.readiness = (
         {"ready": True, "status": "ready"}
         if model is not None
@@ -111,27 +110,6 @@ def _resolve_sources(app: FastAPI, status_store: StatusStore) -> object | None:
             detail=str(exc),
         )
         return None
-
-
-def _start_cameras(app: FastAPI, runtime: EdgeRuntime, status_store: StatusStore) -> None:
-    if getattr(app.state, "start_camera_workers", False) is not True:
-        return
-    try:
-        runtime.run(max_frames_per_camera=getattr(app.state, "max_frames_per_camera", None))
-    except Exception as exc:  # noqa: BLE001 - cameras degrade serving readiness softly
-        status_store.set_status(
-            "camera_manager",
-            "serving",
-            CameraStatus.OFFLINE,
-            error_category="camera.offline",
-        )
-        status_store.record_ops_event(
-            "camera.offline",
-            "camera_manager",
-            "serving",
-            "camera.offline",
-            detail=str(exc),
-        )
 
 
 def _enabled_domain_detectors() -> tuple[object, ...]:
