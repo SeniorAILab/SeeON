@@ -22,11 +22,7 @@ KAKAO_TOKEN_ENC_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 `;
 
 const completeEdgeEnv = `ML_SERVING_PORT=8000
-ALERT_API_URL=https://senai.example.com/ingest/alerts
-INGEST_KEY_ID=edge-camera-key-id
-INGEST_SECRET=edge-camera-secret
-DEMO_RESIDENT_ID=demo-resident-prod
-DEMO_FACILITY_ID=demo-facility-prod
+EDGE_CAMERA_CONFIG=./ml/config/edge-cameras.example.json
 `;
 
 const forbiddenHostFragments = [
@@ -170,9 +166,11 @@ function verify() {
         edgeEnvPath,
       );
       assertRequiredFragments('edge prod config', edgeConfig, [
-        'https://senai.example.com/ingest/alerts',
-        'edge-camera-key-id',
-        'demo-resident-prod',
+        'ml-edge-api',
+        'ml-edge-worker',
+        'worker.edge_worker',
+        '/run/secrets/edge-cameras.json',
+        'ml/config/edge-cameras.example.json',
       ]);
     },
   );

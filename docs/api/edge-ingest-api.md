@@ -2,6 +2,14 @@
 
 Backend `/ingest/*` is the only canonical edge ingress. It accepts camera-authenticated facts and turns them into backend-owned read-model, status, SSE, and delivery outbox state.
 
+The ML edge worker signs requests per camera from `EDGE_CAMERA_CONFIG`; each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`.
+FastAPI serving does not share one singleton ingest identity for camera streams.
+
+Current backend camera registration exposes `ingestKeyId` but does not return a
+plaintext ingest secret. Production onboarding therefore needs a separate one-time
+secret provisioning or rotation flow before operators can complete a real edge config.
+Until that backend flow exists, examples must use fake secrets only.
+
 ## Authentication
 
 Both endpoints use `HmacIngestGuard`.
@@ -38,7 +46,7 @@ Missing, null, or non-scalar values canonicalize to an empty string. For heartbe
 
 ```json
 {
-  "resident_id": "resident_cuid",
+  "resident_id": null,
   "facility_id": "facility_cuid",
   "probability": 0.97,
   "detected_at": "2026-06-18T12:00:00.000Z",
@@ -47,14 +55,20 @@ Missing, null, or non-scalar values canonicalize to an empty string. For heartbe
 }
 ```
 
-Required fields: `resident_id`, `facility_id`, `probability`, `detected_at`, `type`.
+Required fields: `facility_id`, `probability`, `detected_at`, `type`.
+
+Optional fields: `resident_id`. Unknown-person and room-centric alerts are valid, so
+edge clients may send `null` or omit the field when the camera/space is not bound to a
+specific resident.
 
 Validation and ownership:
 
 - `probability` must be a finite number in `[0, 1]`.
 - `detected_at` must be valid ISO-8601 and within 5 minutes of server time.
 - The authenticated camera's `facilityId` must equal `facility_id`.
-- If the authenticated camera is assigned to a resident, its `residentId` must equal `resident_id`.
+- If the authenticated camera is assigned to a resident and `resident_id` is present, the
+  values must match. If `resident_id` is absent or null, the backend stores a room-centric
+  alert without updating a resident status row.
 - `snapshot_url` is ignored. Backend never dereferences edge-provided URLs; snapshots are uploaded separately through the dashboard snapshot endpoint.
 
 ### Idempotency

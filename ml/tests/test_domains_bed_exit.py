@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from contracts.observation import BoundingBox
+from contracts.observation import BoundingBox, FrameObservation
 from domains.bed_exit.detector import BedExitMonitor
 from domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
 
@@ -89,3 +89,28 @@ def test_invalid_parameters_fail_explicitly() -> None:
         BedExitMonitor(hold_frames=0)
     with pytest.raises(ValueError, match="grace_frames"):
         BedExitMonitor(grace_frames=-1)
+
+
+def test_runtime_observation_update_returns_domain_event_tuple() -> None:
+    monitor = BedExitMonitor(min_containment=0.5, hold_frames=1, grace_frames=0)
+    bed = box(0, 0, 100, 100)
+
+    assert monitor.update(
+        FrameObservation(detections=((box(20, 0, 120, 100),), ()), regions=((bed,), ())),
+        time_sec=0.0,
+    ) == ()
+
+    assert monitor.update(
+        FrameObservation(detections=((box(60, 0, 160, 100),), ()), regions=((bed,), ())),
+        time_sec=1.0,
+    ) == (
+        {
+            "domain": "bed_exit",
+            "event_type": "bed-exit",
+            "identity": "0:0",
+            "person_id": 0,
+            "bed_id": 0,
+            "probability": 1.0,
+            "time_sec": 1.0,
+        },
+    )
