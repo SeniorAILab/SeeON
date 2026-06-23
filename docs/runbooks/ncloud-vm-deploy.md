@@ -46,7 +46,7 @@ ssh root@<retired-host> \
   < scripts/deploy/ncloud-bootstrap.sh
 ```
 
-The script installs Docker, enables SSH/Docker, creates a `deploy` user, creates `/opt/eldercare-fall-ai`, and adds a `2G` swapfile for Docker builds on the `1 GB` VM.
+The script installs Docker, enables SSH/Docker, creates a `deploy` user, creates `/opt/eldercare-fall-ai`, and adds a `2G` swapfile for the `1 GB` VM.
 
 ## Production environment
 
@@ -87,16 +87,18 @@ From a local checkout:
 
 ```bash
 tar -czf /tmp/eldercare-deploy-bundle.tgz \
-  compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma/init
+  compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma
 scp -i ~/.ssh/eldercare-fall-ai-ncloud scripts/deploy/ncloud-deploy.sh deploy@<retired-host>:/tmp/ncloud-deploy.sh
 scp -i ~/.ssh/eldercare-fall-ai-ncloud /tmp/eldercare-deploy-bundle.tgz deploy@<retired-host>:/tmp/eldercare-deploy-bundle.tgz
 gh auth token | ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@<retired-host> \
   'docker login ghcr.io -u GoBeromsu --password-stdin'
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@<retired-host> \
-  'rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && SKIP_GIT_UPDATE=1 IMAGE_TAG=<git-sha-or-tag> /tmp/ncloud-deploy.sh'
+  'rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && IMAGE_TAG=<git-sha-or-tag> /tmp/ncloud-deploy.sh'
 ```
 
-For a one-time deploy of an already uploaded working tree, set `SKIP_GIT_UPDATE=1`. To force an emergency on-server build instead of pulling registry images, set `DEPLOY_MODE=build`.
+The VM deploy script does not build application images. It expects the bundle above and pulls the backend/front images from GHCR.
+`IMAGE_TAG` is required; do not run production deploys from an implicit `latest`
+fallback.
 
 Expected public URL after deploy:
 
@@ -123,13 +125,18 @@ It runs after the `CI` workflow succeeds on `main`, and through manual `workflow
 - `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
 - `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
 
-Prisma migrations run as a one-shot container using the backend image.
+The deploy script resets the `public` schema and replays committed Prisma
+migration SQL with `psql` from the Postgres container. The backend image does
+not contain Prisma CLI or migration files.
+Deploy checks are fail-fast: the local HTTP smoke check runs once after
+`docker compose up --wait`. Retry is a manual operator action after the failure
+reason is understood.
 
 ## Operations
 
 ```bash
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@<retired-host>
 cd /opt/eldercare-fall-ai/current
-COMPOSE_PROFILES=full,migrate docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml ps
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml ps
 docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml logs --tail=100 front backend
 ```

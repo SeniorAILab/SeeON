@@ -4,26 +4,13 @@ set -eu
 APP_ROOT="${APP_ROOT:-/opt/eldercare-fall-ai}"
 APP_DIR="${APP_DIR:-$APP_ROOT/current}"
 ENV_FILE="${ENV_FILE:-$APP_ROOT/shared/.env}"
-REPO_URL="${REPO_URL:-https://github.com/GoBeromsu/eldercare-fall-ai.git}"
-BRANCH="${BRANCH:-main}"
 PRUNE_DOCKER="${PRUNE_DOCKER:-1}"
-SKIP_GIT_UPDATE="${SKIP_GIT_UPDATE:-0}"
-DEPLOY_MODE="${DEPLOY_MODE:-image}"
-IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-${IMAGE_REPOSITORY:-ghcr.io/goberomsu/eldercare-fall-ai}}"
-IMAGE_TAG="${IMAGE_TAG:-latest}"
-PULL_POLICY="${PULL_POLICY:-always}"
-
-if [ "$DEPLOY_MODE" = "image" ]; then
-  COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml -f compose.registry.yaml"
-  BACKEND_IMAGE="${BACKEND_IMAGE:-$IMAGE_NAMESPACE/backend:$IMAGE_TAG}"
-  FRONT_IMAGE="${FRONT_IMAGE:-$IMAGE_NAMESPACE/front:$IMAGE_TAG}"
-  export BACKEND_IMAGE FRONT_IMAGE PULL_POLICY
-elif [ "$DEPLOY_MODE" = "build" ]; then
-  COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml"
-else
-  echo "DEPLOY_MODE must be 'image' or 'build'." >&2
-  exit 1
-fi
+IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-ghcr.io/goberomsu/eldercare-fall-ai}"
+IMAGE_TAG="${IMAGE_TAG:-}"
+COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml -f compose.registry.yaml"
+BACKEND_IMAGE="${BACKEND_IMAGE:-$IMAGE_NAMESPACE/backend:$IMAGE_TAG}"
+FRONT_IMAGE="${FRONT_IMAGE:-$IMAGE_NAMESPACE/front:$IMAGE_TAG}"
+export BACKEND_IMAGE FRONT_IMAGE
 
 need() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -33,28 +20,19 @@ need() {
 }
 
 need docker
-if [ "$SKIP_GIT_UPDATE" != "1" ]; then
-  need git
+need curl
+
+if [ -z "$IMAGE_TAG" ]; then
+  echo "IMAGE_TAG is required; deploys must use an explicit image tag." >&2
+  exit 1
 fi
 
 mkdir -p "$APP_ROOT" "$APP_ROOT/shared"
 
-if [ "$SKIP_GIT_UPDATE" = "1" ]; then
-  if [ ! -f "$APP_DIR/compose.yaml" ]; then
-    echo "SKIP_GIT_UPDATE=1 requires an existing app tree at $APP_DIR." >&2
-    exit 1
-  fi
-elif [ ! -d "$APP_DIR/.git" ]; then
-  if [ -e "$APP_DIR" ] && [ "$(find "$APP_DIR" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')" != "0" ]; then
-    echo "$APP_DIR exists but is not an empty git checkout; refusing to overwrite it." >&2
-    exit 1
-  fi
-  rm -rf "$APP_DIR"
-  git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$APP_DIR"
-else
-  git -C "$APP_DIR" fetch --prune origin "$BRANCH"
-  git -C "$APP_DIR" checkout "$BRANCH"
-  git -C "$APP_DIR" reset --hard "origin/$BRANCH"
+if [ ! -f "$APP_DIR/compose.yaml" ]; then
+  echo "Deploy bundle is missing at $APP_DIR." >&2
+  echo "Upload compose files before running this script." >&2
+  exit 1
 fi
 
 if [ ! -f "$ENV_FILE" ]; then
@@ -71,52 +49,36 @@ cp "$ENV_FILE" "$APP_DIR/.env"
 cd "$APP_DIR"
 
 docker compose $COMPOSE_FILES config >/dev/null
-if [ "$DEPLOY_MODE" = "image" ] && [ "$PULL_POLICY" != "never" ]; then
-  COMPOSE_PROFILES=full docker compose $COMPOSE_FILES pull db backend front
-fi
+COMPOSE_PROFILES=full docker compose $COMPOSE_FILES pull db backend front
 docker compose $COMPOSE_FILES up -d --wait --force-recreate db
+COMPOSE_PROFILES=full docker compose $COMPOSE_FILES stop front backend
+docker compose $COMPOSE_FILES exec -T db sh -c \
+  'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"'
 docker compose $COMPOSE_FILES exec -T db sh /docker-entrypoint-initdb.d/02-sync-app-role.sh
-COMPOSE_PROFILES=full docker compose $COMPOSE_FILES stop front backend >/dev/null 2>&1 || true
-if [ "$DEPLOY_MODE" = "build" ]; then
-  docker compose $COMPOSE_FILES build backend migrate
-fi
-COMPOSE_PROFILES=migrate docker compose $COMPOSE_FILES run --rm migrate
-if [ "$DEPLOY_MODE" = "build" ]; then
-  COMPOSE_PROFILES=full docker compose $COMPOSE_FILES up -d --build --wait backend front
-else
-  COMPOSE_PROFILES=full docker compose $COMPOSE_FILES up -d --wait backend front
-fi
+for migration in backend/prisma/migrations/*/migration.sql; do
+  docker compose $COMPOSE_FILES exec -T db sh -c \
+    'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB"' < "$migration"
+done
+COMPOSE_PROFILES=full docker compose $COMPOSE_FILES up -d --wait backend front
 
-if command -v curl >/dev/null 2>&1; then
-  smoke_attempt=1
-  until curl -fsS http://127.0.0.1/ >/dev/null; do
-    if [ "$smoke_attempt" -ge 12 ]; then
-      echo "Frontend smoke check failed after $smoke_attempt attempts." >&2
-      exit 1
-    fi
-    smoke_attempt=$((smoke_attempt + 1))
-    sleep 5
-  done
-fi
+curl -fsS http://127.0.0.1/ >/dev/null
 
 if [ "$PRUNE_DOCKER" = "1" ]; then
-  if [ "$DEPLOY_MODE" = "image" ]; then
-    running_images="$(docker ps --format '{{.Image}}')"
-    docker images --format '{{.Repository}}:{{.Tag}}' |
-      while IFS= read -r image; do
-        case "$image" in
-          "$IMAGE_NAMESPACE/"*)
-            if printf '%s\n' "$running_images" | grep -Fx "$image" >/dev/null; then
-              continue
-            fi
-            docker image rm "$image" >/dev/null 2>&1 || true
-            ;;
-        esac
-      done
-  fi
+  running_images="$(docker ps --format '{{.Image}}')"
+  docker images --format '{{.Repository}}:{{.Tag}}' |
+    while IFS= read -r image; do
+      case "$image" in
+        "$IMAGE_NAMESPACE/"*)
+          if printf '%s\n' "$running_images" | grep -Fx "$image" >/dev/null; then
+            continue
+          fi
+          docker image rm "$image" >/dev/null
+          ;;
+      esac
+    done
   docker image prune -f >/dev/null
-  docker builder prune -f --filter until=24h >/dev/null || true
+  docker builder prune -f --filter until=24h >/dev/null
 fi
 
-COMPOSE_PROFILES=full,migrate docker compose $COMPOSE_FILES ps
-printf 'Deploy complete. mode=%s app_dir=%s branch=%s image_tag=%s\n' "$DEPLOY_MODE" "$APP_DIR" "$BRANCH" "$IMAGE_TAG"
+COMPOSE_PROFILES=full docker compose $COMPOSE_FILES ps
+printf 'Deploy complete. app_dir=%s image_tag=%s\n' "$APP_DIR" "$IMAGE_TAG"
