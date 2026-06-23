@@ -58,6 +58,8 @@ POSTGRES_PASSWORD=replace-with-random-db-password
 POSTGRES_DB=fall_prod
 APP_DB_USER=fall_app
 APP_DB_PASSWORD=replace-with-random-app-db-password
+DATABASE_URL=postgresql://fall_app:replace-with-url-encoded-app-db-password@db:5432/fall_prod?schema=public
+DIRECT_URL=postgresql://fall:replace-with-url-encoded-db-password@db:5432/fall_prod?schema=public
 
 FRONT_ORIGIN=http://101.79.18.95
 KAKAO_REST_API_KEY=replace-with-kakao-rest-api-key
@@ -73,6 +75,11 @@ Generate local secret values:
 openssl rand -hex 32  # SESSION_JWT_SECRET or KAKAO_TOKEN_ENC_KEY
 openssl rand -base64 32  # POSTGRES_PASSWORD
 ```
+
+If a database password contains URL-reserved characters such as `@`, `:`, `/`,
+`#`, or `%`, percent-encode it in `DATABASE_URL` / `DIRECT_URL`. Keep
+`APP_DB_USER=fall_app`; the Prisma migrations grant privileges to that fixed
+runtime role.
 
 ## Manual deploy
 
@@ -111,11 +118,12 @@ Optional repository variables:
 
 Workflow: `.github/workflows/deploy-ncloud.yml`
 
-It runs after the `CI` workflow succeeds on `main`, and through manual `workflow_dispatch`. The workflow builds and pushes three GHCR images before SSH deployment:
+It runs after the `CI` workflow succeeds on `main`, and through manual `workflow_dispatch`. The workflow builds and pushes two GHCR images before SSH deployment:
 
 - `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
 - `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
-- `ghcr.io/goberomsu/eldercare-fall-ai/migrate:<sha>`
+
+Prisma migrations run as a one-shot container using the backend image.
 
 ## Operations
 

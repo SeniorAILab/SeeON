@@ -17,8 +17,7 @@ if [ "$DEPLOY_MODE" = "image" ]; then
   COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml -f compose.registry.yaml"
   BACKEND_IMAGE="${BACKEND_IMAGE:-$IMAGE_NAMESPACE/backend:$IMAGE_TAG}"
   FRONT_IMAGE="${FRONT_IMAGE:-$IMAGE_NAMESPACE/front:$IMAGE_TAG}"
-  MIGRATE_IMAGE="${MIGRATE_IMAGE:-$IMAGE_NAMESPACE/migrate:$IMAGE_TAG}"
-  export BACKEND_IMAGE FRONT_IMAGE MIGRATE_IMAGE PULL_POLICY
+  export BACKEND_IMAGE FRONT_IMAGE PULL_POLICY
 elif [ "$DEPLOY_MODE" = "build" ]; then
   COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml"
 else
@@ -73,12 +72,13 @@ cd "$APP_DIR"
 
 docker compose $COMPOSE_FILES config >/dev/null
 if [ "$DEPLOY_MODE" = "image" ] && [ "$PULL_POLICY" != "never" ]; then
-  COMPOSE_PROFILES=full,migrate docker compose $COMPOSE_FILES pull db backend front migrate
+  COMPOSE_PROFILES=full docker compose $COMPOSE_FILES pull db backend front
 fi
-docker compose $COMPOSE_FILES up -d --wait db
+docker compose $COMPOSE_FILES up -d --wait --force-recreate db
+docker compose $COMPOSE_FILES exec -T db sh /docker-entrypoint-initdb.d/02-sync-app-role.sh
 COMPOSE_PROFILES=full docker compose $COMPOSE_FILES stop front backend >/dev/null 2>&1 || true
 if [ "$DEPLOY_MODE" = "build" ]; then
-  docker compose $COMPOSE_FILES build migrate
+  docker compose $COMPOSE_FILES build backend migrate
 fi
 COMPOSE_PROFILES=migrate docker compose $COMPOSE_FILES run --rm migrate
 if [ "$DEPLOY_MODE" = "build" ]; then
