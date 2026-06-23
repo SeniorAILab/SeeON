@@ -8,8 +8,3 @@ services:
     image: ${FRONT_IMAGE:?FRONT_IMAGE is required}
     build: !reset null
     pull_policy: always
-
-  migrate:
-    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
-    build: !reset null
-    pull_policy: always

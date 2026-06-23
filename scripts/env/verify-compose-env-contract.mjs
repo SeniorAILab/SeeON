@@ -170,8 +170,6 @@ function verify() {
         [
           '--profile',
           'full',
-          '--profile',
-          'migrate',
           '-f',
           'compose.yaml',
           '-f',

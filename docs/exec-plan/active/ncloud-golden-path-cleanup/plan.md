@@ -11,5 +11,9 @@ date: 2026-06-23
    flags.
 2. Remove or narrow those traces while preserving the successful image-pull
    deploy path.
-3. Validate shell syntax, env/compose contract checks, and workflow YAML shape.
-4. Review the final diff for accidental behavior expansion.
+3. Move DB deployment out of the backend runtime image: keep Prisma CLI as a
+   dev/build dependency, remove the compose migrate service, and replay
+   migration SQL with `psql` in the deploy step.
+4. Validate shell syntax, env/compose contract checks, workflow YAML shape, and
+   migration SQL replay.
+5. Review the final diff for accidental behavior expansion.

@@ -87,7 +87,7 @@ From a local checkout:
 
 ```bash
 tar -czf /tmp/eldercare-deploy-bundle.tgz \
-  compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma/init
+  compose.yaml compose.prod.yaml compose.registry.yaml backend/prisma
 scp -i ~/.ssh/eldercare-fall-ai-ncloud scripts/deploy/ncloud-deploy.sh deploy@<retired-host>:/tmp/ncloud-deploy.sh
 scp -i ~/.ssh/eldercare-fall-ai-ncloud /tmp/eldercare-deploy-bundle.tgz deploy@<retired-host>:/tmp/eldercare-deploy-bundle.tgz
 gh auth token | ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@<retired-host> \
@@ -123,13 +123,15 @@ It runs after the `CI` workflow succeeds on `main`, and through manual `workflow
 - `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
 - `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
 
-Prisma migrations run as a one-shot container using the backend image.
+The deploy script resets the `public` schema and replays committed Prisma
+migration SQL with `psql` from the Postgres container. The backend image does
+not contain Prisma CLI or migration files.
 
 ## Operations
 
 ```bash
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@<retired-host>
 cd /opt/eldercare-fall-ai/current
-COMPOSE_PROFILES=full,migrate docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml ps
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml ps
 docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml logs --tail=100 front backend
 ```
