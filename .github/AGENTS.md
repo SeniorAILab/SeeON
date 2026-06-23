@@ -14,8 +14,8 @@ Naver Cloud deploy trigger.
 ## Conventions
 - Keep workflow permissions minimal per job. Raise scopes only for the job that
   needs them.
-- Deploy runs only after `CI` succeeds on `main`, or through explicit
-  `workflow_dispatch`.
+- Production deploy runs only when a non-prerelease GitHub Release is published,
+  or through explicit `workflow_dispatch` with a concrete ref.
 - Production deploy images are built in GitHub Actions and pushed to GHCR with
   the exact commit SHA tag.
 - Workflow inputs and secrets must fail validation before SSH starts. Do not
@@ -25,6 +25,7 @@ Naver Cloud deploy trigger.
 
 ## Anti-patterns
 - No implicit `latest` image tag in production deploys.
+- No production deploy triggered by ordinary `main` merges.
 - No VM-side backend/front image builds from workflow changes.
 - No fallback branch, fallback image, or fallback environment when a deploy
   input is missing.

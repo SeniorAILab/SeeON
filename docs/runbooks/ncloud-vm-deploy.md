@@ -122,10 +122,20 @@ Optional repository variables:
 
 Workflow: `.github/workflows/deploy-ncloud.yml`
 
-It runs after the `CI` workflow succeeds on `main`, and through manual `workflow_dispatch`. The workflow builds and pushes two GHCR images before SSH deployment:
+It runs when a non-prerelease GitHub Release is published, and through manual
+`workflow_dispatch` with an explicit `ref`. A merge to `main` runs CI only; it
+does not deploy production. The workflow builds and pushes two GHCR images
+before SSH deployment:
 
 - `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
 - `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
+
+Release deploy flow:
+
+```bash
+gh release create v0.1.0 --target main --title "v0.1.0" --notes "Production deploy"
+gh run watch
+```
 
 The deploy script resets the `public` schema and replays committed Prisma
 migration SQL with `psql` from the Postgres container. The backend image does

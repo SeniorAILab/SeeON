@@ -1,10 +1,14 @@
 name: Deploy Naver Cloud
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy (tag, branch, or SHA)
+        required: true
+        default: main
 
 concurrency:
   group: deploy-ncloud-production
@@ -17,7 +21,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy production VM
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -25,12 +29,16 @@ jobs:
       NCLOUD_SSH_USER: ${{ vars.NCLOUD_SSH_USER || 'deploy' }}
       NCLOUD_SSH_PRIVATE_KEY: ${{ secrets.NCLOUD_SSH_PRIVATE_KEY }}
       NCLOUD_ENV_FILE: ${{ secrets.NCLOUD_ENV_FILE }}
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_REF: ${{ github.event.release.tag_name || inputs.ref || 'main' }}
       IMAGE_NAMESPACE: ghcr.io/goberomsu/eldercare-fall-ai
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.DEPLOY_REF }}
+          fetch-depth: 0
+
+      - name: Resolve deploy SHA
+        run: echo "DEPLOY_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
