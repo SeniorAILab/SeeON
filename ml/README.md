@@ -3,7 +3,8 @@
 Python (uv) project. Owns **two lifecycles**:
 
 - `training/` — **batch**: dataset → model artifact.
-- `serving/` — **online**: FastAPI app exposing edge predictions. Always-on.
+- `serving/` — **online API**: FastAPI app exposing edge predictions, health, status, and debug routes.
+- `worker.edge_worker` — **online worker**: RTSP camera ownership, model/domain evaluation, heartbeat, and backend ingest publishing.
 
 Plus `demo/` (Streamlit ML-demo UI), `tests/`, and `models/` artifact storage.
 
@@ -37,6 +38,7 @@ The artifact layout is path-addressed under `ml/models/` per ADR-015. Pose weigh
 
 ```bash
 pnpm dev:ml      # FastAPI serving on :8000
+pnpm dev:ml-worker -- --config config/edge-cameras.local.json
 pnpm dev:demo    # Streamlit demo
 ```
 
@@ -46,10 +48,11 @@ Or directly:
 uv sync                                      # install slim serving deps
 uv sync --group demo --group training        # full serving: cv2 + ultralytics + sklearn/joblib for pose→RF inference
 uv run --group demo --group training uvicorn serving.main:app --reload --port 8000
+uv run python -m worker.edge_worker --config config/edge-cameras.local.json --heartbeat-on-start
 uv run --group demo streamlit run demo/app.py
 ```
 
-`serving.main:/debug/predict/window` is the canonical `[T][51]` pose-window classification route. `serving.main:/debug/predict/source` runs the bounded stored-source pipeline (FrameSource → YOLO pose → keypoint-window normalizer → random-forest). That path requires `opencv-python-headless`, `ultralytics`, `scikit-learn`, and `joblib`; missing weights/artifacts fail explicitly rather than falling back.
+`serving.main:/debug/predict/window` is the canonical `[T][51]` pose-window classification route. `serving.main:/debug/predict/source` runs the bounded stored-source pipeline (FrameSource → YOLO pose → keypoint-window normalizer → random-forest). Production RTSP streams run through `worker.edge_worker`, not FastAPI lifespan startup. Missing weights/artifacts fail explicitly rather than falling back.
 
 ## Boundaries
 
