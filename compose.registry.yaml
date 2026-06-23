@@ -2,14 +2,14 @@ services:
   backend:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     build: !reset null
-    pull_policy: ${PULL_POLICY:-always}
+    pull_policy: always
 
   front:
     image: ${FRONT_IMAGE:?FRONT_IMAGE is required}
     build: !reset null
-    pull_policy: ${PULL_POLICY:-always}
+    pull_policy: always
 
   migrate:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     build: !reset null
-    pull_policy: ${PULL_POLICY:-always}
+    pull_policy: always

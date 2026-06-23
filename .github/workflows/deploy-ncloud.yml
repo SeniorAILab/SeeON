@@ -25,7 +25,6 @@ jobs:
       NCLOUD_SSH_USER: ${{ vars.NCLOUD_SSH_USER || 'deploy' }}
       NCLOUD_SSH_PRIVATE_KEY: ${{ secrets.NCLOUD_SSH_PRIVATE_KEY }}
       NCLOUD_ENV_FILE: ${{ secrets.NCLOUD_ENV_FILE }}
-      DEPLOY_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       IMAGE_NAMESPACE: ghcr.io/goberomsu/eldercare-fall-ai
     steps:
@@ -84,10 +83,8 @@ jobs:
           tmp_env="$(mktemp)"
           printf '%s\n' "$NCLOUD_ENV_FILE" > "$tmp_env"
           cp "$tmp_env" .env
-          export IMAGE_TAG="$DEPLOY_SHA"
           export BACKEND_IMAGE="$IMAGE_NAMESPACE/backend:$DEPLOY_SHA"
           export FRONT_IMAGE="$IMAGE_NAMESPACE/front:$DEPLOY_SHA"
-          docker compose -f compose.yaml -f compose.prod.yaml config >/dev/null
           COMPOSE_PROFILES=full,migrate docker compose -f compose.yaml -f compose.prod.yaml -f compose.registry.yaml config >/dev/null
           rm -f "$tmp_env" .env
 
@@ -122,4 +119,4 @@ jobs:
              install -m 600 /tmp/eldercare.env /opt/eldercare-fall-ai/shared/.env && \
              rm -f /tmp/eldercare.env && \
              chmod +x /tmp/ncloud-deploy.sh && \
-             SKIP_GIT_UPDATE=1 BRANCH='$DEPLOY_BRANCH' IMAGE_NAMESPACE='$IMAGE_NAMESPACE' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
+             IMAGE_NAMESPACE='$IMAGE_NAMESPACE' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
