@@ -1,6 +1,6 @@
 import type { Level } from '@prisma/client';
 
-export interface CreateResidentDto {
+export interface CreateResidentRequestDto {
   name: string;
   spaceId?: string;
   zoneId?: string | null;
@@ -11,7 +11,7 @@ export interface CreateResidentDto {
   isFocusResident?: boolean;
 }
 
-export interface UpdateResidentDto {
+export interface UpdateResidentRequestDto {
   name?: string;
   gender?: string | null;
   age?: number | null;
@@ -19,4 +19,15 @@ export interface UpdateResidentDto {
   fallRiskBaseline?: Level | null;
   isFocusResident?: boolean;
   isActive?: boolean;
+}
+
+export interface ResidentListQueryDto {
+  isFocusResident?: string;
+  spaceId?: string;
+  active?: string;
+}
+
+export interface MoveResidentAssignmentRequestDto {
+  spaceId?: string;
+  zoneId?: string | null;
 }

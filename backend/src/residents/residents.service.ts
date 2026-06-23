@@ -7,8 +7,8 @@ import {
 import type { Level, ResidentAssignment } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import type {
-  CreateResidentDto,
-  UpdateResidentDto,
+  CreateResidentRequestDto,
+  UpdateResidentRequestDto,
 } from './dto/resident.dto.js';
 
 import {
@@ -45,7 +45,7 @@ export class ResidentsService {
     return presentResident(resident, true);
   }
 
-  async create(facilityId: string, dto: CreateResidentDto) {
+  async create(facilityId: string, dto: CreateResidentRequestDto) {
     const name = normalizeRequired(dto.name, 'name');
     const spaceId = dto.spaceId?.trim();
     if (!spaceId)
@@ -76,7 +76,7 @@ export class ResidentsService {
     }
   }
 
-  async update(facilityId: string, id: string, dto: UpdateResidentDto) {
+  async update(facilityId: string, id: string, dto: UpdateResidentRequestDto) {
     if (dto.name !== undefined && !dto.name.trim())
       throw new ConflictException('name is required');
     try {

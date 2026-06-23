@@ -20,8 +20,8 @@ import {
 } from '../../auth/session.guard.js';
 import type { RequestWithAuth } from '../../auth/session.guard.js';
 import type {
-  CreateZoneDto,
-  UpdateZoneDto,
+  CreateZoneRequestDto,
+  UpdateZoneRequestDto,
   ZoneType,
 } from '../dto/zone.dto.js';
 import { ZonesService } from '../services/zones.service.js';
@@ -38,13 +38,16 @@ export class ZonesController {
   ) {
     return this.service.list(requireFacilityId(req), { spaceId, type });
   }
-  @Post() create(@Req() req: RequestWithAuth, @Body() body: CreateZoneDto) {
+  @Post() create(
+    @Req() req: RequestWithAuth,
+    @Body() body: CreateZoneRequestDto,
+  ) {
     return this.service.create(requireFacilityId(req), body);
   }
   @Patch(':zoneId') update(
     @Req() req: RequestWithAuth,
     @Param('zoneId') zoneId: string,
-    @Body() body: UpdateZoneDto,
+    @Body() body: UpdateZoneRequestDto,
   ) {
     return this.service.update(requireFacilityId(req), zoneId, body);
   }

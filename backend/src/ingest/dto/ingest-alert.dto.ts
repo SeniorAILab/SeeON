@@ -5,7 +5,7 @@ import {
   type AlertEventType,
 } from '../../alerts/dto/alert-events.dto.js';
 
-export interface IngestAlertBody {
+export interface IngestAlertRequestDto {
   resident_id?: unknown;
   facility_id?: unknown;
   probability?: unknown;
@@ -14,7 +14,7 @@ export interface IngestAlertBody {
   type?: unknown;
 }
 
-export interface ParsedIngestAlertBody {
+export interface ParsedIngestAlertRequestDto {
   resident_id: string | null;
   facility_id: string;
   probability: number;
@@ -31,9 +31,9 @@ const REQUIRED_FIELDS = [
 
 const VALID_ALERT_TYPES = new Set<string>(Object.values(AlertEventTypes));
 
-export function parseIngestAlertBody(
-  body: IngestAlertBody,
-): ParsedIngestAlertBody {
+export function parseIngestAlertRequestDto(
+  body: IngestAlertRequestDto,
+): ParsedIngestAlertRequestDto {
   for (const field of REQUIRED_FIELDS) {
     if (
       body[field] === undefined ||
