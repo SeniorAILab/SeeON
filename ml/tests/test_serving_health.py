@@ -7,9 +7,18 @@ from serving.main import create_app, no_lifespan
 from serving.model import ModelLoadError
 
 
+class _StubMetadata:
+    window = 1
+
+
 class StubModel:
     name = "fall-detector"
     version = "test"
+    metadata = _StubMetadata()
+
+    def predict(self, features) -> float:
+        del features
+        return 0.0
 
 
 def test_health_live_ok() -> None:

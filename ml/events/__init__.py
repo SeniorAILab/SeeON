@@ -4,13 +4,8 @@ ML emits typed signed events. Backend owns severity/channel/policy/final-dedup;
 ML runtime incident management owns only idempotency and cooldown.
 """
 
+from events.local_publisher import EventPublisher, LoggingEventPublisher, StubEventPublisher
 from events.outbox import Outbox
-from events.publisher import (
-    AlertClient,
-    EventPublisher,
-    LoggingEventPublisher,
-    StubEventPublisher,
-)
 from events.schemas import (
     AlertEventType,
     AlertPayload,
@@ -47,3 +42,11 @@ __all__ = [
     "_signature",
     "build_emitted_event",
 ]
+
+
+def __getattr__(name: str) -> type:
+    if name == "AlertClient":
+        from events.publisher import AlertClient
+
+        return AlertClient
+    raise AttributeError(name)

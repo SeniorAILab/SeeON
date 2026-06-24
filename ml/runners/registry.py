@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from contracts.runner import RunnerProtocol
 from runners.sklearn_fall import FallDetector
 from runners.yolo_bed_seg import YoloBedSegRunner
 from runners.yolo_pose import YoloPoseRunner
 
-RunnerFactory = Callable[..., object]
+RunnerFactory = Callable[..., RunnerProtocol]
 
 
 class ModelRegistry:
@@ -27,7 +28,7 @@ class ModelRegistry:
             raise ValueError("task must be non-empty")
         self._factories[task] = factory
 
-    def create(self, task: str, **kwargs: object) -> object:
+    def create(self, task: str, **kwargs: str | int | float | bool) -> RunnerProtocol:
         return self.get_factory(task)(**kwargs)
 
     def get_factory(self, task: str) -> RunnerFactory:

@@ -82,7 +82,7 @@ def iter_live_frames(
         frame: Frame, current_bed_boxes: tuple[BoundingBox, ...]
     ) -> tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]:
         result = model.predict(frame)
-        bed_exit_frame = bed_exit_monitor.update(
+        bed_exit_frame = bed_exit_monitor.update_boxes(
             bed_boxes=current_bed_boxes,
             person_boxes=result.boxes,
         )

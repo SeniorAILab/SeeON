@@ -6,7 +6,8 @@ from collections.abc import Iterator
 import numpy as np
 
 from contracts.frame import Frame, FrameSource
-from runtime.camera_worker import CameraWorker
+from contracts.observation import FrameObservation
+from runtime.camera_worker import CameraWorker, RunnerOutput
 from runtime.edge_worker_supervisor import EdgeWorkerSupervisor
 from runtime.scheduler import Scheduler
 from runtime.status_store import CameraStatus, StatusStore
@@ -34,10 +35,29 @@ class _ThreadRecordingRunner:
         self.thread_names: list[str] = []
         self.values: list[int] = []
 
-    def run(self, image: np.ndarray) -> object:
+    def run(self, image: np.ndarray) -> RunnerOutput:
         self.thread_names.append(threading.current_thread().name)
         self.values.append(int(image[0, 0, 0]))
-        return None
+        return ()
+
+
+class _TwoBedRunner:
+    def detect_beds(
+        self, image: np.ndarray
+    ) -> tuple[tuple[int, int, int, int, float], tuple[int, int, int, int, float]]:
+        del image
+        return ((0, 0, 10, 10, 0.91), (20, 20, 30, 30, 0.92))
+
+
+class _ObservationRecorder:
+    def __init__(self) -> None:
+        self.observations: list[FrameObservation] = []
+
+    def update(
+        self, observation: FrameObservation, time_sec: float | None = None
+    ) -> None:
+        del time_sec
+        self.observations.append(observation)
 
 
 def test_one_offline_camera_does_not_stop_other_three() -> None:
@@ -77,6 +97,23 @@ def test_runner_called_by_scheduler_only() -> None:
     assert runner.values
     assert runner.thread_names
     assert all(not name.startswith("edge-capture") for name in runner.thread_names)
+
+
+def test_two_bed_boxes_are_not_misread_as_pose_pair() -> None:
+    detector = _ObservationRecorder()
+    worker = CameraWorker(
+        camera_id="camera-1",
+        facility_id="facility-1",
+        frame_source=_FiniteSource(10, count=1),
+        runners={"bed": _TwoBedRunner()},
+        scheduler=Scheduler({"bed": 1}),
+        domain_detectors=(detector,),
+    )
+
+    worker.process_frame(Frame(index=0, time_sec=0.0, image=np.zeros((1, 1, 3))))
+
+    assert len(detector.observations) == 1
+    assert [box.confidence for box in detector.observations[0].bed_boxes] == [0.91, 0.92]
 
 
 def _worker(camera_id: str, source: FrameSource, status_store: StatusStore) -> CameraWorker:
