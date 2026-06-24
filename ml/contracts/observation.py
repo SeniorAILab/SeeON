@@ -5,7 +5,7 @@ from typing import Final
 
 # DetectionResult is the documented raw-detection interchange type at the
 # runner/observation-builder boundary. FrameObservation is the normalized
-# per-frame contract used by downstream perception, demo, and serving code.
+# per-frame contract used by downstream perception, demo, and api code.
 FALL_LABEL_TEXT: Final = "FALL"
 NORMAL_LABEL_TEXT: Final = "NORMAL"
 

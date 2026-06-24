@@ -12,7 +12,7 @@ Own L0 pure feature transforms for geometry, pose normalization, and sliding-win
 
 Allowed: standard library, numerical libraries, `contracts`, and local `features` modules.
 
-Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `serving`, `demo`, `training`, filesystem reads, camera/video I/O, model loading.
+Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`, filesystem reads, camera/video I/O, model loading.
 
 ## Focused Tests
 
@@ -22,4 +22,4 @@ Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `
 
 ## Gotchas
 
-`training.data.features` delegates to `features.window_features`; keep feature dimensions compatible with `training.config.FEATURE_DIM` and serving model metadata.
+`training.data.features` delegates to `features.window_features`; keep feature dimensions compatible with `training.config.FEATURE_DIM` and API model metadata.

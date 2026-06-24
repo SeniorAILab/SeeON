@@ -1,4 +1,4 @@
-"""FastAPI serving app factory."""
+"""FastAPI api app factory."""
 
 from __future__ import annotations
 
@@ -8,19 +8,19 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from serving.lifespan import lifespan as serving_lifespan
-from serving.model import get_model
-from serving.routes import debug, models, status
-from serving.routes import health as health_routes
-from serving.routes.debug import PredictRequest, PredictResponse
+from api.lifespan import lifespan as serving_lifespan
+from api.model import get_model
+from api.routes import debug, models, status
+from api.routes import health as health_routes
+from api.routes.debug import PredictRequest, PredictResponse
 
 LifespanFactory = Callable[[FastAPI], AsyncIterator[None]]
 
 
 def create_app(*, lifespan: LifespanFactory | None = serving_lifespan) -> FastAPI:
-    """Create the serving FastAPI app with route modules registered."""
+    """Create the api FastAPI app with route modules registered."""
     app = FastAPI(
-        title="fall-detector serving",
+        title="fall-detector api",
         version="0.2.0",
         lifespan=lifespan,
     )

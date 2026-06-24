@@ -21,10 +21,11 @@ COPY ml/features ./features
 COPY ml/perception ./perception
 COPY ml/runners ./runners
 COPY ml/runtime ./runtime
-COPY ml/serving ./serving
+COPY ml/api ./api
 COPY ml/sources ./sources
+RUN mkdir -p /app/models/fall /app/models/pose /app/models/bed
 
 ENV HOST=127.0.0.1 \
     PORT=8000
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn serving.main:app --host ${HOST} --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn api.main:app --host ${HOST} --port ${PORT}"]

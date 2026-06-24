@@ -1,6 +1,6 @@
 # Serving Routes Agent Rules
 
-Own FastAPI route modules only. Business logic stays in `serving.pipeline`, `serving.lifespan`, `runtime`, `events`, or lower layers.
+Own FastAPI route modules only. Business logic stays in `api.pipeline`, `api.lifespan`, `runtime`, `events`, or lower layers.
 
 ## Local Ownership
 
@@ -11,7 +11,7 @@ Own FastAPI route modules only. Business logic stays in `serving.pipeline`, `ser
 
 ## Imports
 
-Allowed: `serving`, lower-layer read-only facades needed by a route, FastAPI, Pydantic.
+Allowed: `api`, lower-layer read-only facades needed by a route, FastAPI, Pydantic.
 
 Forbidden: `training`, `demo`, `worker`, direct camera opening, direct model training.
 

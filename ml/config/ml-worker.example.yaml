@@ -1,0 +1,35 @@
+version: 1
+ingest:
+  alert_api_url: http://localhost:8080/ingest/alerts
+  heartbeat_api_url: http://localhost:8080/ingest/heartbeat
+runtime:
+  max_failures: 30
+  open_timeout_ms: 5000
+  read_timeout_ms: 5000
+models:
+  fall:
+    type: lstm
+    framework: pytorch
+    mode: sequence
+    artifact_dir: ./ml/models/fall/lstm
+    weights: model.pt
+    architecture: arch.json
+    metadata: metadata.yaml
+    window: 30
+    stride: 5
+    input_shape: [30, 51]
+    operating_threshold: 0.5
+domains:
+  enabled:
+    - fall
+    - bed_exit
+cameras:
+  - camera_id: camera-1
+    facility_id: facility-1
+    resident_id: resident-1
+    rtsp_url: rtsp://camera-1.local/trackID=2
+    ingest_key_id: local-dev-key
+    ingest_secret: local-dev-secret
+    heartbeat_interval_sec: 30
+    frame_stride: 1
+    label: Room 1

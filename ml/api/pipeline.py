@@ -9,11 +9,11 @@ from typing import Protocol
 
 import numpy as np
 
+from api.model import FallDetector
 from contracts import BoundingBox, DetectionLabel, FrameObservation, FrameSource, ModelModule
 from contracts.artifacts import WEIGHTS_DIR, pose_weight_path
 from contracts.model import DEFAULT_FALL_CONFIDENCE_THRESHOLD
 from runners.yolo_pose import YoloPoseRunner
-from serving.model import FallDetector
 from sources import VideoFileSource
 
 DEFAULT_POSE_SIZE = "n"

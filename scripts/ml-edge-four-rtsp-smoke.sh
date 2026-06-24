@@ -6,11 +6,11 @@ frames="${MAX_FRAMES_PER_CAMERA:-30}"
 
 mapfile -t urls < <(
   python3 - "$config" <<'PY'
-import json
 import sys
+import yaml
 
 with open(sys.argv[1], encoding="utf-8") as handle:
-    config = json.load(handle)
+    config = yaml.safe_load(handle)
 
 for camera in config["cameras"]:
     print(camera["rtsp_url"])

@@ -6,7 +6,7 @@ import json
 import numpy as np
 
 import demo.temporal_module as temporal_module
-from serving.client import PREDICT_WINDOW_PATH, ServingFallClassifier
+from api.client import PREDICT_WINDOW_PATH, ServingFallClassifier
 
 
 class FakeResponse:
@@ -30,18 +30,18 @@ def test_serving_fall_classifier_posts_to_debug_predict_window(monkeypatch) -> N
         return FakeResponse()
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    classifier = ServingFallClassifier("http://serving.local/", timeout_sec=1.5)
+    classifier = ServingFallClassifier("http://api.local/", timeout_sec=1.5)
 
     probabilities = classifier.predict_proba(np.zeros((1, 2, 51), dtype=np.float32))
 
-    assert captured["url"] == "http://serving.local/debug/predict/window"
+    assert captured["url"] == "http://api.local/debug/predict/window"
     assert captured["body"] == {"window": [[0.0] * 51, [0.0] * 51]}
     assert captured["timeout"] == 1.5
     np.testing.assert_allclose(probabilities, [[0.58, 0.42]], rtol=1e-6)
 
 
 def test_demo_uses_real_serving_client_route() -> None:
-    classifier = ServingFallClassifier("http://serving.local")
+    classifier = ServingFallClassifier("http://api.local")
 
     assert classifier._url.endswith(PREDICT_WINDOW_PATH)
     assert not classifier._url.endswith("/predict")

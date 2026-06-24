@@ -1,7 +1,7 @@
 [project]
 name = "ml"
 version = "0.1.0"
-description = "Fall-detection ML: training (batch lifecycle) + FastAPI serving (online lifecycle) + Streamlit demo."
+description = "Fall-detection ML: training (batch lifecycle) + FastAPI api (online lifecycle) + Streamlit demo."
 readme = "README.md"
 requires-python = ">=3.11"
 
@@ -12,9 +12,10 @@ dependencies = [
     "pydantic>=2",
     "numpy>=1.26",
     "opencv-python-headless>=4.10",
+    "pyyaml>=6",
 ]
 
-# Lifecycle separation: training and demo deps are isolated from serving.
+# Lifecycle separation: training and demo deps are isolated from api.
 [dependency-groups]
 demo = [
     "streamlit>=1.38",
@@ -43,7 +44,7 @@ worker = [
 package = false
 # The demo's temporal models import training.models.* at inference time, so a
 # bare `uv run` must see every group — no --group flags needed to run anything.
-# The split itself stays: a slim serving build can opt out via --no-default-groups.
+# The split itself stays: a slim api build can opt out via --no-default-groups.
 default-groups = ["demo", "test", "training"]
 # Keep ultralytics from pulling the GUI OpenCV wheel alongside the ADR-selected
 # headless wheel; both distributions own cv2/ and corrupt clean uv installs.

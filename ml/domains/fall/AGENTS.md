@@ -11,7 +11,7 @@ Own fall-event latching and fall event schema.
 
 Allowed: `contracts` and local `domains.fall`.
 
-Forbidden: `perception`, `runtime`, `events`, `serving`, `demo`, `training`, model runners, sources.
+Forbidden: `perception`, `runtime`, `events`, `api`, `demo`, `training`, model runners, sources.
 
 ## Focused Tests
 

@@ -13,7 +13,7 @@ Own L3 domain detectors and the `DOMAIN_REGISTRY`.
 
 Allowed: `contracts`, `features`, `perception`, and local `domains`.
 
-Forbidden: `sources`, `runners`, `runtime`, `events`, `serving`, `demo`, `training`.
+Forbidden: `sources`, `runners`, `runtime`, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 
