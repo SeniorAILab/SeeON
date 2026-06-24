@@ -2,13 +2,19 @@
 
 Backend `/ingest/*` is the only canonical edge ingress. It accepts camera-authenticated facts and turns them into backend-owned read-model, status, SSE, and delivery outbox state.
 
-The ML edge worker signs requests per camera from `EDGE_CAMERA_CONFIG`; each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`.
-FastAPI serving does not share one singleton ingest identity for camera streams.
+Production live path: `RTSP -> ml-edge-worker -> backend /ingest/*`.
 
-Current backend camera registration exposes `ingestKeyId` but does not return a
-plaintext ingest secret. Production onboarding therefore needs a separate one-time
-secret provisioning or rotation flow before operators can complete a real edge config.
-Until that backend flow exists, examples must use fake secrets only.
+The ML edge worker signs requests per camera from `EDGE_CAMERA_CONFIG`; each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`.
+The API service does not share one singleton ingest identity for camera streams, does not own live camera streams, and does not perform backend ingest side effects.
+
+Current backend camera creation returns a one-time `ingestSecret` alongside the
+camera's `ingestKeyId`. Store that secret in the edge worker's private
+`EDGE_CAMERA_CONFIG`; list/get/update camera responses do not return it again.
+Existing cameras whose one-time secret was lost must be recreated until a separate
+rotation endpoint exists.
+
+`EDGE_CAMERA_CONFIG` is the worker's per-camera secret file. It must stay outside
+git and is mounted as a secret by `compose.edge.yaml` for edge deployments.
 
 ## Authentication
 
@@ -24,7 +30,8 @@ Required headers:
 
 Freshness window: 5 minutes. Requests outside `±5 minutes` of server time fail with the stale timestamp domain error.
 
-Signing key: the camera secret stored as `Camera.ingestSecretHash` in current code.
+Signing key: `sha256(ingestSecret)`, which is stored as `Camera.ingestSecretHash`
+and used directly by `HmacIngestGuard`.
 
 ## Canonical body
 

@@ -235,7 +235,7 @@ def _render_live_viewer(
             # Latched event badge: repainted only on a rising edge (정상→낙상);
             # the raw per-frame status below stays untouched (ADR-027 — the
             # badge aggregates real inference, it never invents state).
-            if latch.update(status.is_fall, frame_time_sec):
+            if latch.update_signal(status.is_fall, frame_time_sec):
                 if alert_client is not None:
                     alert_client.send(
                         event_type="fall",

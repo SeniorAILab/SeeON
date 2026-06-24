@@ -34,7 +34,7 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 | GET | `/api/resident-assignments` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query: `residentId?`, `spaceId?`, `zoneId?`, `active?`. | Read-only assignment history list. | Current |
 | GET | `/api/cameras` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body. | Camera list for caller facility. | Current |
 | GET | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `id`. | One facility-scoped camera. | Current |
-| POST | `/api/cameras` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ label: string, spaceId: string }` | Created camera, including ingest key metadata as service returns. | Current; `spaceId` required |
+| POST | `/api/cameras` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ label: string, spaceId: string }` | Created camera, including `ingestKeyId` and one-time `ingestSecret`; list/get/update do not return the secret again. | Current; `spaceId` required |
 | PATCH | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Partial `{ label?: string, spaceId?: string }` | Updated camera. | Current |
 | DELETE | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `id`. | Removed camera result. | Current |
 | GET | `/api/guardians` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Optional query `residentId`. | Guardian list for caller facility, optionally resident-filtered. | Current |

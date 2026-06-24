@@ -1,27 +1,32 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from contracts.event import EventPayload, MutableEventPayload
 from contracts.frame import Frame, FrameSource
 from contracts.observation import BoundingBox, DetectionResult, FrameObservation
+from contracts.runner import BedBoxOutput, BoxOutput, PoseOutput, RunnerOutput, RunnerProtocol
 from perception.observation_builder import build_frame_observation
+from runtime.fall_window_classifier import FallWindowClassifier
 from runtime.incident_manager import IncidentManager
 from runtime.scheduler import Scheduler
 from runtime.status_store import CameraStatus, StatusStore
 
 
 class DomainDetectorProtocol(Protocol):
-    def update(self, observation: FrameObservation, time_sec: float | None = None) -> object: ...
+    def update(
+        self, observation: FrameObservation, time_sec: float | None = None
+    ) -> EventPayload | Iterable[EventPayload] | None: ...
 
 
 class EventSinkProtocol(Protocol):
-    def emit(self, event: object) -> object: ...
+    def emit(self, event: EventPayload) -> None: ...
 
 
 class PublishEventSinkProtocol(Protocol):
-    def publish(self, event: object) -> object: ...
+    def publish(self, event: EventPayload) -> None: ...
 
 
 ObservationBuilder = Callable[..., FrameObservation]
@@ -32,13 +37,14 @@ class CameraWorker:
     camera_id: str
     facility_id: str
     frame_source: FrameSource
-    runners: Mapping[str, object]
+    runners: Mapping[str, RunnerProtocol]
     observation_builder: ObservationBuilder = build_frame_observation
     scheduler: Scheduler = field(default_factory=Scheduler)
     domain_detectors: tuple[DomainDetectorProtocol, ...] = ()
     event_sink: EventSinkProtocol | PublishEventSinkProtocol | None = None
     incident_manager: IncidentManager = field(default_factory=IncidentManager)
     status_store: StatusStore = field(default_factory=StatusStore)
+    fall_classifier: FallWindowClassifier | None = None
 
     def run(self, *, max_frames: int | None = None) -> int:
         processed = 0
@@ -86,6 +92,12 @@ class CameraWorker:
     def process_frame(self, frame: Frame) -> FrameObservation:
         outputs = self._run_scheduled_runners(frame)
         observation = self._build_observation(outputs)
+        if self.fall_classifier is not None:
+            observation = self.fall_classifier.classify(
+                observation,
+                frame.image.shape[1],
+                frame.image.shape[0],
+            )
         for detector in self.domain_detectors:
             detector_result = detector.update(observation, time_sec=frame.time_sec)
             for event in _events_from_detector(detector_result):
@@ -99,8 +111,8 @@ class CameraWorker:
                     self._emit(event)
         return observation
 
-    def _run_scheduled_runners(self, frame: Frame) -> dict[str, object]:
-        outputs: dict[str, object] = {}
+    def _run_scheduled_runners(self, frame: Frame) -> dict[str, RunnerOutput]:
+        outputs: dict[str, RunnerOutput] = {}
         for task in self.scheduler.tasks_for_frame(frame.index):
             runner = self.runners.get(task)
             if runner is None:
@@ -108,21 +120,21 @@ class CameraWorker:
             outputs[task] = _run_runner(runner, frame)
         return outputs
 
-    def _build_observation(self, outputs: Mapping[str, object]) -> FrameObservation:
+    def _build_observation(self, outputs: Mapping[str, RunnerOutput]) -> FrameObservation:
         detections: DetectionResult | None = None
-        poses: object | None = None
-        raw_boxes: object | None = None
+        poses: PoseOutput | None = None
+        raw_boxes: BoxOutput | None = None
         bed_boxes: tuple[BoundingBox, ...] | None = None
 
         pose_output = outputs.get("pose")
         if isinstance(pose_output, DetectionResult):
             detections = pose_output
-        elif _is_pair(pose_output):
+        elif _is_pose_box_pair(pose_output):
             poses, raw_boxes = pose_output
 
         bed_output = outputs.get("bed")
         if bed_output is not None:
-            bed_boxes = tuple(_bed_box_from_output(item) for item in bed_output)  # type: ignore[arg-type]
+            bed_boxes = _bed_boxes_from_output(bed_output)
 
         return self.observation_builder(
             detections=detections,
@@ -131,13 +143,16 @@ class CameraWorker:
             bed_boxes=bed_boxes,
         )
 
-    def _emit(self, event: object) -> None:
+    def _emit(self, event: EventPayload) -> None:
         if self.event_sink is None:
             return
-        if hasattr(self.event_sink, "emit"):
-            self.event_sink.emit(event)  # type: ignore[attr-defined]
-        elif hasattr(self.event_sink, "publish"):
-            self.event_sink.publish(event)  # type: ignore[attr-defined]
+        emit = getattr(self.event_sink, "emit", None)
+        if callable(emit):
+            emit(event)
+            return
+        publish = getattr(self.event_sink, "publish", None)
+        if callable(publish):
+            publish(event)
 
     def _mark_source_failure(self, exc: Exception) -> None:
         category = exc.__class__.__name__
@@ -156,7 +171,7 @@ class CameraWorker:
         )
 
 
-def _run_runner(runner: object, frame: Frame) -> object:
+def _run_runner(runner: RunnerProtocol, frame: Frame) -> RunnerOutput:
     for method_name in ("predict_full", "detect_beds", "predict", "run"):
         method = getattr(runner, method_name, None)
         if method is not None:
@@ -166,12 +181,26 @@ def _run_runner(runner: object, frame: Frame) -> object:
     raise TypeError(f"runner {runner!r} has no supported invocation method")
 
 
-def _is_pair(value: object) -> bool:
-    return isinstance(value, tuple) and len(value) == 2
+def _is_pose_box_pair(value: RunnerOutput | None) -> bool:
+    if not isinstance(value, tuple) or len(value) != 2:
+        return False
+    poses, raw_boxes = value
+    return _is_nested_sequence(poses) and _is_nested_sequence(raw_boxes)
 
 
-def _bed_box_from_output(item: object) -> BoundingBox:
-    values = tuple(item)  # type: ignore[arg-type]
+def _is_nested_sequence(
+    value: RunnerOutput | BedBoxOutput | int | float | str | bytes | None,
+) -> bool:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return False
+    if len(value) == 0:
+        return True
+    first = value[0]
+    return isinstance(first, Sequence) and not isinstance(first, str | bytes)
+
+
+def _bed_box_from_output(item: BedBoxOutput) -> BoundingBox:
+    values = tuple(item)
     if len(values) == 6:
         x1, y1, x2, y2, confidence, polygon = values
         return BoundingBox(int(x1), int(y1), int(x2), int(y2), float(confidence), tuple(polygon))
@@ -179,10 +208,20 @@ def _bed_box_from_output(item: object) -> BoundingBox:
     return BoundingBox(int(x1), int(y1), int(x2), int(y2), float(confidence))
 
 
-def _events_from_detector(result: object) -> Iterator[object]:
+def _bed_boxes_from_output(output: RunnerOutput) -> tuple[BoundingBox, ...]:
+    if isinstance(output, DetectionResult):
+        return ()
+    if _is_pose_box_pair(output):
+        return ()
+    return tuple(_bed_box_from_output(item) for item in output)
+
+
+def _events_from_detector(
+    result: EventPayload | Iterable[EventPayload] | None,
+) -> Iterator[EventPayload]:
     if result is None:
         return iter(())
-    if isinstance(result, dict):
+    if isinstance(result, Mapping):
         return iter((result,))
     if isinstance(result, Iterable) and not isinstance(result, str | bytes):
         return iter(result)
@@ -190,15 +229,13 @@ def _events_from_detector(result: object) -> Iterator[object]:
 
 
 def _with_camera_identity(
-    event: object,
+    event: EventPayload,
     camera_id: str,
     facility_id: str,
     time_sec: float,
-) -> object:
-    if isinstance(event, dict):
-        enriched = dict(event)
-        enriched.setdefault("camera_id", camera_id)
-        enriched.setdefault("facility_id", facility_id)
-        enriched.setdefault("time_sec", time_sec)
-        return enriched
-    return event
+) -> EventPayload:
+    enriched: MutableEventPayload = dict(event)
+    enriched.setdefault("camera_id", camera_id)
+    enriched.setdefault("facility_id", facility_id)
+    enriched.setdefault("time_sec", time_sec)
+    return enriched
