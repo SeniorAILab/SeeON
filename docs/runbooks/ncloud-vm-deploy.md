@@ -106,8 +106,8 @@ pnpm deploy:prod:manual -- v0.1.0
 
 The command resolves the ref to an exact commit SHA, builds and pushes:
 
-- `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
-- `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
+- `ghcr.io/seniorailab/eldercare-fall-ai/backend:<sha>`
+- `ghcr.io/seniorailab/eldercare-fall-ai/front:<sha>`
 
 The frontend image is built with `VITE_USE_MOCK=false` and `VITE_API_BASE_URL=/api`.
 The VM still does not build application images; it pulls the explicit SHA tags
@@ -119,13 +119,13 @@ From a local checkout:
 
 ```bash
 SHA="$(git rev-parse --verify v0.1.0^{commit})"
-docker build --target runner -f backend/Dockerfile -t "ghcr.io/goberomsu/eldercare-fall-ai/backend:$SHA" .
-docker push "ghcr.io/goberomsu/eldercare-fall-ai/backend:$SHA"
+docker build --target runner -f backend/Dockerfile -t "ghcr.io/seniorailab/eldercare-fall-ai/backend:$SHA" .
+docker push "ghcr.io/seniorailab/eldercare-fall-ai/backend:$SHA"
 docker build --target runner -f front/Dockerfile \
   --build-arg VITE_USE_MOCK=false \
   --build-arg VITE_API_BASE_URL=/api \
-  -t "ghcr.io/goberomsu/eldercare-fall-ai/front:$SHA" .
-docker push "ghcr.io/goberomsu/eldercare-fall-ai/front:$SHA"
+  -t "ghcr.io/seniorailab/eldercare-fall-ai/front:$SHA" .
+docker push "ghcr.io/seniorailab/eldercare-fall-ai/front:$SHA"
 tar -czf /tmp/eldercare-deploy-bundle.tgz \
   compose.yaml compose.prod.yaml backend/prisma
 scp -i ~/.ssh/eldercare-fall-ai-ncloud scripts/deploy/ncloud-deploy.sh deploy@<retired-host>:/tmp/ncloud-deploy.sh
@@ -167,8 +167,8 @@ It runs when a non-prerelease GitHub Release is published, and through manual
 does not deploy production. The workflow builds and pushes two GHCR images
 before SSH deployment:
 
-- `ghcr.io/goberomsu/eldercare-fall-ai/backend:<sha>`
-- `ghcr.io/goberomsu/eldercare-fall-ai/front:<sha>`
+- `ghcr.io/seniorailab/eldercare-fall-ai/backend:<sha>`
+- `ghcr.io/seniorailab/eldercare-fall-ai/front:<sha>`
 
 Release deploy flow:
 
