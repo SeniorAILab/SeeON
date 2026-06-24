@@ -7,7 +7,7 @@ from typing import Final
 import yaml
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
-HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml", "compose.registry.yaml")
+HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml")
 EDGE_COMPOSE_FILE: Final = "compose.edge.yaml"
 EDGE_SERVICES: Final = {
     "ml-edge-api": "ml/Dockerfile.api",
