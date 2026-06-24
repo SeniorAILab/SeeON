@@ -123,11 +123,11 @@ ffmpeg -rtsp_transport tcp -i "rtsp://<camera-host>:554/trackID=1" -frames:v 1 /
 백엔드에서 카메라 4대를 먼저 등록해 각 카메라의 `camera_id`, `ingest_key_id`, one-time `ingest_secret`, `facility_id`, 필요 시 `resident_id`를 확보한다. `ingest_secret`은 camera 생성 응답에서 한 번만 반환되며 list/get/update 응답에는 다시 나오지 않는다. edge 장비에는 git 밖 local 파일로만 config를 둔다. 이미 생성된 카메라의 secret을 잃어버렸다면 별도 rotation endpoint가 생기기 전까지는 카메라를 재생성한다.
 
 ```bash
-cp ml/config/ml-worker.example.yaml /tmp/eldercare-edge-four-rtsp.yaml
-chmod 600 /tmp/eldercare-edge-four-rtsp.yaml
+cp ml/config/ml-worker.example.yaml /tmp/eldercare-ml-worker-rtsp.yaml
+chmod 600 /tmp/eldercare-ml-worker-rtsp.yaml
 ```
 
-`/tmp/eldercare-edge-four-rtsp.yaml`에 4개 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다. 이 파일이 `EDGE_CAMERA_CONFIG`이고, per-camera RTSP URL, backend `/ingest/*` key/secret, LSTM fall model artifact 계약을 함께 가진다.
+`/tmp/eldercare-ml-worker-rtsp.yaml`에 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다. 이 파일이 `EDGE_CAMERA_CONFIG`이고, per-camera RTSP URL, backend `/ingest/*` key/secret, LSTM fall model artifact 계약을 함께 가진다.
 
 ```yaml
 version: 1
@@ -155,11 +155,11 @@ cameras:
 config 문법만 확인:
 
 ```bash
-EDGE_CAMERA_CONFIG=/tmp/eldercare-edge-four-rtsp.yaml \
+EDGE_CAMERA_CONFIG=/tmp/eldercare-ml-worker-rtsp.yaml \
   uv run --directory ml python -m runtime.edge_worker_config --check
 
 uv run --directory ml python -m worker.edge_worker \
-  --config /tmp/eldercare-edge-four-rtsp.yaml \
+  --config /tmp/eldercare-ml-worker-rtsp.yaml \
   --check-config
 ```
 
@@ -183,19 +183,19 @@ pnpm dev:rtsp -- /path/to/nursing-home-fall.mp4
 Edge Compose 기동은 실제 camera config를 secret으로 마운트한다:
 
 ```bash
-EDGE_CAMERA_CONFIG=/tmp/eldercare-edge-four-rtsp.yaml \
+EDGE_CAMERA_CONFIG=/tmp/eldercare-ml-worker-rtsp.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
-실제 4대 스트림과 worker 유한 실행 smoke:
+실제 스트림과 worker 유한 실행 smoke:
 
 ```bash
-EDGE_CAMERA_CONFIG=/tmp/eldercare-edge-four-rtsp.yaml \
+EDGE_CAMERA_CONFIG=/tmp/eldercare-ml-worker-rtsp.yaml \
   MAX_FRAMES_PER_CAMERA=30 \
-  scripts/ml-edge-four-rtsp-smoke.sh
+  scripts/ml-worker-rtsp-smoke.sh
 ```
 
-이 smoke는 각 RTSP URL을 `ffprobe -rtsp_transport tcp`로 먼저 확인하고, 그 다음 `worker.edge_worker`를 4대 카메라에 대해 `--max-frames-per-camera`로 실행한다. `/tmp/eldercare-edge-four-rtsp.yaml`이 없으면 실제 카메라 검증은 할 수 없다. Jetson Nano 검증은 legacy/constrained hardware-gated smoke로만 기록하고, 일반 GPU 지원으로 주장하지 않는다.
+이 smoke는 YAML의 각 RTSP URL을 `ffprobe -rtsp_transport tcp`로 먼저 확인하고, 그 다음 `worker.edge_worker`를 configured cameras에 대해 `--max-frames-per-camera`로 실행한다. `/tmp/eldercare-ml-worker-rtsp.yaml`이 없으면 실제 카메라 검증은 할 수 없다. Jetson Nano 검증은 legacy/constrained hardware-gated smoke로만 기록하고, 일반 GPU 지원으로 주장하지 않는다.
 
 ## 막다른 길 (시도하지 말 것)
 
