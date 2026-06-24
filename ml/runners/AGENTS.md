@@ -13,7 +13,7 @@ Own L1 model runner adapters, model registry wiring, device selection, and warmu
 
 Allowed: `contracts`, local `runners`, numerical/model libraries, and standard library.
 
-Forbidden: `sources`, `perception`, `domains`, `runtime`, `events`, `serving`, `demo`, `training`.
+Forbidden: `sources`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 

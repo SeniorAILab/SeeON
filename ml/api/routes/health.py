@@ -1,4 +1,4 @@
-"""Health routes for serving."""
+"""Health routes for api."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response, status
 
-from serving.model import ModelLoadError, get_model
-from serving.pipeline import DEFAULT_POSE_SIZE, pose_weight_available
+from api.model import ModelLoadError, get_model
+from api.pipeline import DEFAULT_POSE_SIZE, pose_weight_available
 
 router = APIRouter(tags=["health"])
 

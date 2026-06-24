@@ -98,10 +98,14 @@ class FallWindowClassifier:
         for track_id, buffer in self._buffers.items():
             if len(buffer) < self.model.metadata.window:
                 continue
-            features = np.asarray(
-                extract_window_features(np.stack(tuple(buffer), axis=0)),
-                dtype=np.float32,
-            )
+            window = np.stack(tuple(buffer), axis=0)
+            if getattr(self.model.metadata, "mode", "features") == "sequence":
+                features = window.reshape(self.model.metadata.window, 51).astype(np.float32)
+            else:
+                features = np.asarray(
+                    extract_window_features(window),
+                    dtype=np.float32,
+                )
             self._last_probabilities[track_id] = self.model.predict(features)
 
     def _label_for_track(self, track_id: int) -> DetectionLabel:

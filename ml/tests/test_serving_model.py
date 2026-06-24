@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 from sklearn.ensemble import RandomForestClassifier
 
-from serving import model as serving_model
-from serving.model import FallDetector, ModelInputError, ModelLoadError
+from api import model as serving_model
+from api.model import FallDetector, ModelInputError, ModelLoadError
 
 REAL_ARTIFACT_DIR = Path(__file__).resolve().parents[1] / "models" / "fall" / "random-forest"
 
@@ -139,7 +139,7 @@ def test_loader_only_import_boundary() -> None:
 
 
 def test_health_exposes_real_metadata() -> None:
-    from serving.main import health
+    from api.main import health
 
     payload = health()
 

@@ -1,4 +1,4 @@
-"""Safe source-id to stored-video resolution for serving."""
+"""Safe source-id to stored-video resolution for api."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Any, Literal
 SUPPORTED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 SUPPORTED_MIME_PREFIXES = ("video/",)
 DEFAULT_MAX_DURATION_SEC = 120.0
-DEFAULT_SOURCE_BASE_DIR = Path(__file__).resolve().parent.parent / "data" / "serving-sources"
+DEFAULT_SOURCE_BASE_DIR = Path(__file__).resolve().parent.parent / "data" / "api-sources"
 LIVE_SCHEMES = ("rtsp://", "rtmp://", "http://", "https://", "camera:", "device:")
 
 
@@ -127,7 +127,7 @@ class SourceRegistry:
         path = raw_path if raw_path.is_absolute() else self.base_dir / raw_path
         resolved = path.resolve()
         if not resolved.is_relative_to(self.base_dir):
-            raise SourceRegistryError("resolved source escapes serving base directory")
+            raise SourceRegistryError("resolved source escapes api base directory")
         return resolved
 
     def _validate_stored_record(self, record: SourceRecord, path: Path) -> None:

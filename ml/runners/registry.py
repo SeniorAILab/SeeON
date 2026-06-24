@@ -2,7 +2,7 @@
 
 ADR-057 keeps model swaps constrained to the runner implementation, model
 artifact, and config wiring; callers select a task and receive the configured
-runner without importing lower-level serving modules directly.
+runner without importing lower-level api modules directly.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class ModelRegistry:
             raise ValueError("task must be non-empty")
         self._factories[task] = factory
 
-    def create(self, task: str, **kwargs: str | int | float | bool) -> RunnerProtocol:
+    def create(self, task: str, **kwargs: object) -> RunnerProtocol:
         return self.get_factory(task)(**kwargs)
 
     def get_factory(self, task: str) -> RunnerFactory:

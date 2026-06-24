@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import json
 import os
 import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal, TypeAlias
 from urllib.parse import urlsplit, urlunsplit
 
+import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -17,6 +17,7 @@ from pydantic import (
     ValidationError,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 
 EDGE_CAMERA_CONFIG_ENV = "EDGE_CAMERA_CONFIG"
@@ -24,6 +25,12 @@ INGEST_ENDPOINT_SUFFIXES: Final = {
     "alert_api_url": "/ingest/alerts",
     "heartbeat_api_url": "/ingest/heartbeat",
 }
+KNOWN_DOMAIN_NAMES: Final = frozenset(
+    {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
+)
+ConfigValue: TypeAlias = (
+    str | int | float | bool | None | list["ConfigValue"] | dict[str, "ConfigValue"]
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +42,7 @@ class EdgeWorkerConfigError(Exception):
 
 
 class CameraRuntimeConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     camera_id: str = Field(min_length=1)
     facility_id: str = Field(min_length=1)
@@ -72,12 +79,105 @@ class CameraRuntimeConfig(BaseModel):
         return None if stripped == "" else stripped
 
 
-class EdgeWorkerConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class IngestConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     alert_api_url: str = Field(min_length=1)
     heartbeat_api_url: str | None = None
+
+
+class WorkerRuntimeConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    max_failures: int = Field(default=30, gt=0)
+    open_timeout_ms: int = Field(default=5000, gt=0)
+    read_timeout_ms: int = Field(default=5000, gt=0)
+
+
+class FallModelConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    type: Literal["lstm"]
+    framework: Literal["pytorch"]
+    mode: Literal["sequence"]
+    artifact_dir: Path
+    weights: str = Field(default="model.pt", min_length=1)
+    architecture: str = Field(default="arch.json", min_length=1)
+    metadata: str = Field(default="metadata.yaml", min_length=1)
+    window: int = Field(gt=0)
+    stride: int = Field(gt=0)
+    input_shape: tuple[int, int]
+    operating_threshold: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("artifact_dir")
+    @classmethod
+    def _expand_artifact_dir(cls, value: Path) -> Path:
+        return Path(os.path.expanduser(str(value))).resolve()
+
+    @field_validator("metadata")
+    @classmethod
+    def _require_metadata_yaml(cls, value: str) -> str:
+        if value != "metadata.yaml":
+            raise ValueError("metadata must be metadata.yaml")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_lstm_artifact_contract(self) -> FallModelConfig:
+        if self.input_shape != (self.window, 51):
+            raise ValueError("input_shape must be [window, 51]")
+        for relative in (self.weights, self.architecture, self.metadata):
+            path = self.artifact_dir / relative
+            if not path.exists():
+                raise ValueError(f"missing {relative} at {path}")
+        return self
+
+
+class WorkerModelsConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    fall: FallModelConfig | None = None
+
+
+class DomainsConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: tuple[str, ...] | None = None
+
+    @field_validator("enabled")
+    @classmethod
+    def _validate_domains(cls, value: tuple[str, ...] | None) -> tuple[str, ...] | None:
+        if value is None:
+            return None
+        unknown = sorted(set(value) - KNOWN_DOMAIN_NAMES)
+        if unknown:
+            raise ValueError(f"domains.enabled contains unknown domain: {', '.join(unknown)}")
+        return value
+
+
+class EdgeWorkerConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    version: int = 1
+    ingest: IngestConfig | None = None
+    alert_api_url: str = Field(min_length=1)
+    heartbeat_api_url: str | None = None
+    runtime: WorkerRuntimeConfig = Field(default_factory=WorkerRuntimeConfig)
+    models: WorkerModelsConfig = Field(default_factory=WorkerModelsConfig)
+    domains: DomainsConfig = Field(default_factory=DomainsConfig)
     cameras: tuple[CameraRuntimeConfig, ...] = Field(min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_ingest(cls, data: ConfigValue) -> ConfigValue:
+        if not isinstance(data, dict):
+            return data
+        ingest = data.get("ingest")
+        if not isinstance(ingest, dict):
+            return data
+        flattened = dict(data)
+        flattened.setdefault("alert_api_url", ingest.get("alert_api_url"))
+        flattened.setdefault("heartbeat_api_url", ingest.get("heartbeat_api_url"))
+        return flattened
 
     @field_validator("alert_api_url", "heartbeat_api_url")
     @classmethod
@@ -108,6 +208,10 @@ class EdgeWorkerConfig(BaseModel):
             raise EdgeWorkerConfigError(f"duplicate camera_id: {', '.join(duplicate_ids)}")
 
     @property
+    def enabled_domains(self) -> tuple[str, ...] | None:
+        return self.domains.enabled
+
+    @property
     def resolved_heartbeat_api_url(self) -> str:
         if self.heartbeat_api_url is not None:
             return self.heartbeat_api_url
@@ -118,15 +222,26 @@ class EdgeWorkerConfig(BaseModel):
 
 def load_edge_worker_config(path: str | Path) -> EdgeWorkerConfig:
     config_path = Path(path)
+    if config_path.suffix.lower() == ".json":
+        raise EdgeWorkerConfigError(
+            f"edge camera config must be YAML, JSON is not supported: {config_path}"
+        )
     try:
-        raw = json.loads(config_path.read_text(encoding="utf-8"))
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise EdgeWorkerConfigError(
+                f"edge camera config must contain a YAML mapping: {config_path}"
+            )
         return EdgeWorkerConfig.model_validate(raw)
     except OSError as exc:
         raise EdgeWorkerConfigError(f"edge camera config not readable: {config_path}") from exc
-    except json.JSONDecodeError as exc:
-        raise EdgeWorkerConfigError(f"edge camera config is not valid JSON: {config_path}") from exc
+    except yaml.YAMLError as exc:
+        raise EdgeWorkerConfigError(f"edge camera config is not valid YAML: {config_path}") from exc
     except ValidationError as exc:
-        fields = ", ".join(".".join(str(part) for part in error["loc"]) for error in exc.errors())
+        fields = ", ".join(
+            f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+            for error in exc.errors()
+        )
         raise EdgeWorkerConfigError(f"edge camera config invalid: {fields}") from exc
 
 
@@ -161,8 +276,13 @@ if __name__ == "__main__":
 __all__ = [
     "EDGE_CAMERA_CONFIG_ENV",
     "CameraRuntimeConfig",
+    "DomainsConfig",
     "EdgeWorkerConfig",
     "EdgeWorkerConfigError",
+    "FallModelConfig",
+    "IngestConfig",
+    "WorkerModelsConfig",
+    "WorkerRuntimeConfig",
     "load_edge_worker_config",
     "resolve_config_path",
 ]

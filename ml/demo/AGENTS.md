@@ -1,6 +1,6 @@
 # Demo Agent Rules
 
-Own the Streamlit developer demo harness: playback UI, overlays, live-camera page wiring, labels, demo registries, and serving-backed classifiers.
+Own the Streamlit developer demo harness: playback UI, overlays, live-camera page wiring, labels, demo registries, and API-backed classifiers.
 
 ## Local Ownership
 
@@ -13,7 +13,7 @@ Own the Streamlit developer demo harness: playback UI, overlays, live-camera pag
 
 ## Imports
 
-Allowed: lower-layer production packages, `serving.client`, selected `training` metadata/catalog modules for demo-only temporal models, and local `demo`.
+Allowed: lower-layer production packages, `api.client`, selected `training` metadata/catalog modules for demo-only temporal models, and local `demo`.
 
 Forbidden: adding new production dependencies on `demo`, direct backend writes from UI code, secrets in app state.
 
@@ -28,4 +28,4 @@ Forbidden: adding new production dependencies on `demo`, direct backend writes f
 
 ## Gotchas
 
-Demo is L5 and can depend broadly, but production packages must not import it. Keep fall classification serving-backed unless a test explicitly covers demo-only temporal model behavior.
+Demo is L5 and can depend broadly, but production packages must not import it. Keep fall classification API-backed unless a test explicitly covers demo-only temporal model behavior.

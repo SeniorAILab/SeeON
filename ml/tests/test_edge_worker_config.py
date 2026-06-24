@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
+import yaml
 from edge_worker_fixtures import edge_config_payload
 
 from runtime.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 
 
 def test_edge_worker_config_loads_four_cameras_and_redacts_secrets(tmp_path: Path) -> None:
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(edge_config_payload()), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(edge_config_payload()), encoding="utf-8")
 
     config = load_edge_worker_config(config_path)
 
@@ -30,8 +30,8 @@ def test_edge_worker_config_loads_four_cameras_and_redacts_secrets(tmp_path: Pat
 def test_edge_worker_config_rejects_duplicate_camera_ids(tmp_path: Path) -> None:
     payload = edge_config_payload()
     payload["cameras"][1]["camera_id"] = "camera-1"
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     with pytest.raises(EdgeWorkerConfigError, match="duplicate camera_id"):
         load_edge_worker_config(config_path)
@@ -40,8 +40,8 @@ def test_edge_worker_config_rejects_duplicate_camera_ids(tmp_path: Path) -> None
 def test_edge_worker_config_requires_rtsp_url(tmp_path: Path) -> None:
     payload = edge_config_payload()
     payload["cameras"][0]["rtsp_url"] = ""
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     with pytest.raises(EdgeWorkerConfigError, match="rtsp_url"):
         load_edge_worker_config(config_path)
@@ -50,8 +50,8 @@ def test_edge_worker_config_requires_rtsp_url(tmp_path: Path) -> None:
 def test_edge_worker_config_normalizes_blank_resident_id(tmp_path: Path) -> None:
     payload = edge_config_payload()
     payload["cameras"][0]["resident_id"] = "  "
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     config = load_edge_worker_config(config_path)
 
@@ -61,8 +61,8 @@ def test_edge_worker_config_normalizes_blank_resident_id(tmp_path: Path) -> None
 def test_edge_worker_config_rejects_relative_ingest_url(tmp_path: Path) -> None:
     payload = edge_config_payload()
     payload["alert_api_url"] = "/ingest/alerts"
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     with pytest.raises(EdgeWorkerConfigError, match="alert_api_url"):
         load_edge_worker_config(config_path)
@@ -71,8 +71,8 @@ def test_edge_worker_config_rejects_relative_ingest_url(tmp_path: Path) -> None:
 def test_edge_worker_config_rejects_blank_ingest_key_id(tmp_path: Path) -> None:
     payload = edge_config_payload()
     payload["cameras"][0]["ingest_key_id"] = "  "
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     with pytest.raises(EdgeWorkerConfigError, match="ingest_key_id"):
         load_edge_worker_config(config_path)
@@ -82,8 +82,8 @@ def test_edge_worker_config_error_does_not_include_secret_value(tmp_path: Path) 
     payload = edge_config_payload()
     payload["cameras"][0]["ingest_secret"] = "super-secret-value"
     payload["cameras"][0]["rtsp_url"] = "not-rtsp"
-    config_path = tmp_path / "edge-cameras.json"
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     with pytest.raises(EdgeWorkerConfigError) as exc_info:
         load_edge_worker_config(config_path)

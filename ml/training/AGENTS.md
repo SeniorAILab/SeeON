@@ -14,7 +14,7 @@ Own batch training, evaluation, metadata, hyperparameter wiring, pose extraction
 
 Allowed: `training`, `contracts`, `features`, `sources`, and `runners`.
 
-Forbidden: `perception`, `domains`, `runtime`, `events`, `serving`, `demo`.
+Forbidden: `perception`, `domains`, `runtime`, `events`, `api`, `demo`.
 
 ## Focused Tests
 
@@ -28,4 +28,4 @@ Forbidden: `perception`, `domains`, `runtime`, `events`, `serving`, `demo`.
 
 ## Gotchas
 
-Serving must not import `training`. If a runtime feature needs trained metadata, write it into the artifact metadata consumed by serving or demo instead of crossing the lifecycle boundary.
+Serving must not import `training`. If a runtime feature needs trained metadata, write it into the artifact metadata consumed by api or demo instead of crossing the lifecycle boundary.
