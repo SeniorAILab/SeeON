@@ -30,7 +30,7 @@ jobs:
       NCLOUD_SSH_PRIVATE_KEY: ${{ secrets.NCLOUD_SSH_PRIVATE_KEY }}
       NCLOUD_ENV_FILE: ${{ secrets.NCLOUD_ENV_FILE }}
       DEPLOY_REF: ${{ github.event.release.tag_name || inputs.ref || 'main' }}
-      IMAGE_NAMESPACE: ghcr.io/goberomsu/eldercare-fall-ai
+      IMAGE_NAMESPACE: ghcr.io/seniorailab/eldercare-fall-ai
     steps:
       - uses: actions/checkout@v4
         with:

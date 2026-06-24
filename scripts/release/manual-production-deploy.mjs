@@ -17,7 +17,7 @@ function parseArgs(argv) {
   const options = {
     dryRun: false,
     host: "101.79.18.95",
-    imageNamespace: "ghcr.io/goberomsu/eldercare-fall-ai",
+    imageNamespace: "ghcr.io/seniorailab/eldercare-fall-ai",
     imagePlatform: "linux/amd64",
     sshKey: "~/.ssh/eldercare-fall-ai-ncloud",
     user: "deploy",
