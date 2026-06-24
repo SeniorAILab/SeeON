@@ -6,9 +6,15 @@ ML runtime incident management owns only idempotency and cooldown.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Final
+from typing import Final, TypeAlias
+
+EventScalar: TypeAlias = str | int | float | bool | None
+EventEvidence: TypeAlias = Mapping[str, EventScalar]
+EventPayload: TypeAlias = Mapping[str, EventScalar | EventEvidence]
+MutableEventPayload: TypeAlias = dict[str, EventScalar | dict[str, EventScalar]]
 
 
 class Level(StrEnum):
@@ -62,8 +68,12 @@ def front_event_type(event_type: str) -> DetectionEventType:
 
 __all__ = [
     "DetectionEventType",
+    "EventEvidence",
+    "EventPayload",
+    "EventScalar",
     "EVENT_TYPE_REGISTRY",
     "Level",
+    "MutableEventPayload",
     "Severity",
     "front_event_type",
     "register_event_type",

@@ -5,6 +5,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from contracts.runner import RunnerProtocol
 from domains import DOMAIN_REGISTRY
 from events.edge_ingest_client import EdgeIngestClient
 from runners.registry import DEFAULT_REGISTRY, ModelRegistry
@@ -17,6 +18,7 @@ from runtime.edge_worker_config import (
     resolve_config_path,
 )
 from runtime.edge_worker_supervisor import EdgeWorkerSupervisor
+from runtime.fall_window_classifier import FallModelProtocol, FallWindowClassifier
 from runtime.scheduler import Scheduler
 from runtime.status_store import StatusStore
 from sources.rtsp import RTSPSource
@@ -32,10 +34,10 @@ class _Options:
 
 @dataclass(frozen=True, slots=True)
 class _RunnerBundle:
-    pose: object
-    bed: object
+    pose: RunnerProtocol
+    bed: RunnerProtocol
 
-    def as_mapping(self) -> Mapping[str, object]:
+    def as_mapping(self) -> Mapping[str, RunnerProtocol]:
         return {"pose": self.pose, "bed": self.bed}
 
 
@@ -43,6 +45,7 @@ class _RunnerBundle:
 class _WorkerResources:
     clients: Mapping[str, EdgeIngestClient]
     runners: _RunnerBundle
+    fall_classifier: FallWindowClassifier
     status_store: StatusStore
 
 
@@ -127,6 +130,7 @@ def _build_supervisor(
     resources = _WorkerResources(
         clients=clients,
         runners=_build_runner_bundle(model_registry),
+        fall_classifier=_build_fall_classifier(model_registry),
         status_store=status_store,
     )
     workers = tuple(_worker(camera, resources) for camera in config.cameras)
@@ -146,6 +150,17 @@ def _build_runner_bundle(registry: ModelRegistry) -> _RunnerBundle:
     )
 
 
+def _build_fall_classifier(registry: ModelRegistry) -> FallWindowClassifier:
+    model = registry.create("fall")
+    return FallWindowClassifier(_require_fall_model(model))
+
+
+def _require_fall_model(model: object) -> FallModelProtocol:
+    if not isinstance(model, FallModelProtocol):
+        raise TypeError("fall model must expose operating_threshold and predict")
+    return model
+
+
 def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraWorker:
     return CameraWorker(
         camera_id=camera.camera_id,
@@ -160,6 +175,7 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
         ),
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,
+        fall_classifier=resources.fall_classifier,
     )
 
 

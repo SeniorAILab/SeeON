@@ -1,7 +1,9 @@
 # IDIS 카메라 RTSP 연결 런북
 
 IDIS IP 카메라(WebGuard 펌웨어)에서 RTSP 스트림을 ffmpeg/VLC/OpenCV로 받는 절차.
-낙상 파이프라인(`ml/sources/rtsp`)이 카메라를 물기 전 선행 작업.
+낙상 production live path는 `RTSP -> ml-edge-worker -> backend /ingest/*`다.
+FastAPI(`ml-edge-api`)는 private/local health/status/models/debug/control API이며
+production RTSP, raw frame relay, backend ingest side effects를 소유하지 않는다.
 
 > 실제 사례(2026-06-22): IDIS WebGuard 카메라, SEED 암호화 OFF 상태로 연결.
 > 트리플 스트림 전부 **HEVC(H.265) Main**: trackID=1 `1920×1080@30`, trackID=2 `640×360@30`, trackID=3 `352×240@15`. H.264 트랙 없음. ML 입력은 trackID=2 권장(추론 부하/프레임율 균형). 실제 IP와 자격증명은 git 밖의 local config에만 둔다.
@@ -118,14 +120,14 @@ ffmpeg -rtsp_transport tcp -i "rtsp://<camera-host>:554/trackID=1" -frames:v 1 /
 
 ## 5. 4대 카메라 edge-worker smoke
 
-백엔드에서 카메라 4대를 먼저 등록해 각 카메라의 `camera_id`, `ingest_key_id`, `facility_id`, 필요 시 `resident_id`를 확보한다. 현재 backend API는 plaintext camera signing secret을 반환하지 않으므로 운영용 provisioning/rotation API는 별도 작업이 필요하다. edge 장비에는 git 밖 local 파일로만 config를 둔다.
+백엔드에서 카메라 4대를 먼저 등록해 각 카메라의 `camera_id`, `ingest_key_id`, one-time `ingest_secret`, `facility_id`, 필요 시 `resident_id`를 확보한다. `ingest_secret`은 camera 생성 응답에서 한 번만 반환되며 list/get/update 응답에는 다시 나오지 않는다. edge 장비에는 git 밖 local 파일로만 config를 둔다. 이미 생성된 카메라의 secret을 잃어버렸다면 별도 rotation endpoint가 생기기 전까지는 카메라를 재생성한다.
 
 ```bash
 cp ml/config/edge-cameras.example.json /tmp/eldercare-edge-four-rtsp.json
 chmod 600 /tmp/eldercare-edge-four-rtsp.json
 ```
 
-`/tmp/eldercare-edge-four-rtsp.json`에 4개 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다.
+`/tmp/eldercare-edge-four-rtsp.json`에 4개 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다. 이 파일이 `EDGE_CAMERA_CONFIG`이고, per-camera RTSP URL과 backend `/ingest/*` key/secret을 함께 가진다.
 
 ```json
 {
@@ -149,13 +151,20 @@ uv run --directory ml python -m worker.edge_worker \
   --check-config
 ```
 
-Synthetic 4대 RTSP stream으로 product Docker Compose E2E:
+Deterministic synthetic 4대 RTSP stream으로 product Docker Compose E2E:
 
 ```bash
-scripts/ml-edge-four-mock-rtsp-e2e.sh
+scripts/ml-edge-four-mock-rtsp-ingest-e2e.sh
 ```
 
-이 명령은 `compose.edge.yaml`만 product Compose로 사용한다. 스크립트가 product Compose network에 임시 MediaMTX RTSP 라우터와 synthetic publisher 4개를 붙이고, 임시 camera config를 secret으로 주입한 뒤 `ml-edge-worker`를 동일 product service 이미지/entrypoint로 1프레임씩 실행한다. worker는 실제 pose/bed runner를 공유 로드한다.
+이 명령은 `compose.edge.yaml`만 product Compose로 사용한다. 스크립트가 product Compose network에 임시 MediaMTX RTSP 라우터와 synthetic publisher 4개, backend-shaped stub ingest(`/ingest/heartbeat`, `/ingest/alerts`)를 붙이고, 임시 camera config를 secret으로 주입한 뒤 `ml-edge-worker`를 동일 product service 이미지/entrypoint로 실행한다. worker는 FastAPI로 raw frame을 보내지 않고 backend ingest 모양의 stub으로 heartbeat/fact를 보낸다.
+
+Edge Compose 기동은 실제 camera config를 secret으로 마운트한다:
+
+```bash
+EDGE_CAMERA_CONFIG=/tmp/eldercare-edge-four-rtsp.json \
+  docker compose -f compose.edge.yaml up -d --build
+```
 
 실제 4대 스트림과 worker 유한 실행 smoke:
 
@@ -165,7 +174,7 @@ EDGE_CAMERA_CONFIG=/tmp/eldercare-edge-four-rtsp.json \
   scripts/ml-edge-four-rtsp-smoke.sh
 ```
 
-이 smoke는 각 RTSP URL을 `ffprobe -rtsp_transport tcp`로 먼저 확인하고, 그 다음 `worker.edge_worker`를 4대 카메라에 대해 `--max-frames-per-camera`로 실행한다. `/tmp/eldercare-edge-four-rtsp.json`이 없으면 실제 카메라 검증은 할 수 없고 deterministic 테스트까지만 완료된 상태로 기록한다.
+이 smoke는 각 RTSP URL을 `ffprobe -rtsp_transport tcp`로 먼저 확인하고, 그 다음 `worker.edge_worker`를 4대 카메라에 대해 `--max-frames-per-camera`로 실행한다. `/tmp/eldercare-edge-four-rtsp.json`이 없으면 실제 카메라 검증은 할 수 없고 deterministic synthetic 테스트까지만 완료된 상태로 기록한다. Jetson Nano 검증은 legacy/constrained hardware-gated smoke로만 기록하고, 일반 GPU 지원으로 주장하지 않는다.
 
 ## 막다른 길 (시도하지 말 것)
 

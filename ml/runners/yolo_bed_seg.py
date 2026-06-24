@@ -8,6 +8,8 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
+from contracts.artifacts import bed_seg_weight_path
+
 # COCO class index for "bed" in the standard 80-class COCO label set. The weight
 # is asserted to actually map this index to "bed" at runtime (guards against a
 # weight-family rename); a mismatch degrades gracefully to "no bed".
@@ -35,7 +37,7 @@ class YoloBedSegRunner:
 
     def __init__(
         self,
-        model_path: str = "yolo26m-seg.pt",
+        model_path: str = str(bed_seg_weight_path()),
         confidence: float = BED_MODEL_CONFIDENCE,
         max_points: int = BED_MASK_MAX_POINTS,
     ) -> None:

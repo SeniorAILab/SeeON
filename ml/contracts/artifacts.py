@@ -5,6 +5,7 @@ from typing import Final
 
 POSE_MODEL_SIZES: Final[tuple[str, ...]] = ("n", "s", "m", "l", "x")
 WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "pose"
+BED_WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "bed"
 
 
 def pose_weight_filename(size: str) -> str:
@@ -17,3 +18,7 @@ def pose_weight_filename(size: str) -> str:
 def pose_weight_path(size: str) -> Path:
     """Resolve a pose-size letter to its weight path under the ml/models/pose/ cache."""
     return WEIGHTS_DIR / pose_weight_filename(size)
+
+
+def bed_seg_weight_path() -> Path:
+    return BED_WEIGHTS_DIR / "yolo26m-seg.pt"

@@ -8,6 +8,11 @@
 
 ## 1. 아키텍처 흐름 (검증된 경로)
 
+현재 production live RTSP 경로는 `RTSP -> ml-edge-worker -> backend /ingest/*`다.
+FastAPI `ml-edge-api`는 private/local health/status/models/debug/control API이며
+production RTSP, raw frame relay, backend ingest side effects를 소유하지 않는다.
+아래 Streamlit 경로는 2026-06-18 웹캠 데모 검증 기록이다.
+
 ```
 [웹캠]
   └─ Streamlit 데모(ml/demo/app.py): YOLO pose → 낙상 분류 → FallEventLatch (정상→낙상 rising edge)
@@ -104,6 +109,22 @@ pnpm dev:demo                    # Streamlit :8501 — AlertClient.from_env가 �
 ```
 > .env.edge.prod가 환경에 없으면 `AlertClient.from_env`가 `None`(alert-less) → 낙상 쳐도 발송 안 됨. 반드시 로드.
 > Streamlit 첫 실행 이메일 프롬프트는 `~/.streamlit/credentials.toml`에 `[general]\nemail=""` 두면 스킵. 백그라운드는 `--server.headless=true`.
+
+Production RTSP worker dev는 별도 터미널에서 실행한다:
+
+```bash
+pnpm dev:ml        # ml-edge-api private/local FastAPI surface
+pnpm dev:ml-worker --config config/edge-cameras.local.json
+```
+
+Edge Compose는 native dev와 별개다:
+
+```bash
+EDGE_CAMERA_CONFIG=./ml/config/edge-cameras.local.json \
+  docker compose -f compose.edge.yaml up -d --build
+```
+
+`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 backend /ingest key/secret을 담는 gitignored 파일이다. 실 카메라 없이 smoke할 때는 `scripts/ml-edge-four-mock-rtsp-ingest-e2e.sh`를 먼저 실행한다.
 
 ## 5. 내일 시나리오 — 실시간 웹캠 → 카톡
 

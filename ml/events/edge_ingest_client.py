@@ -6,10 +6,10 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Final
 
+from contracts.event import EventPayload
 from events.schemas import AlertEventType, AlertPayload, EmittedEvent
 from events.signing import _derive_hmac_key, _ingest_timestamp
 
@@ -63,9 +63,7 @@ class EdgeIngestClient:
         )
         return self._post(self.alert_url, payload)
 
-    def emit(self, event: object) -> None:
-        if not isinstance(event, Mapping):
-            return
+    def emit(self, event: EventPayload) -> None:
         event_type = str(event.get("event_type", ""))
         if event_type not in {"fall", "bed-exit"}:
             return
@@ -141,7 +139,7 @@ def _canonical_payload(payload: AlertPayload) -> str:
     return f"{payload.resident_id}|{payload.facility_id}|{payload.type}|{payload.detected_at}"
 
 
-def _event_probability(event: Mapping[object, object]) -> float:
+def _event_probability(event: EventPayload) -> float:
     value = event.get("probability", event.get("confidence", 1.0))
     if isinstance(value, int | float):
         return min(1.0, max(0.0, float(value)))

@@ -16,7 +16,7 @@ def update(
     beds: tuple[BoundingBox, ...],
     persons: tuple[BoundingBox, ...],
 ) -> BedExitFrame:
-    return monitor.update(bed_boxes=beds, person_boxes=persons)
+    return monitor.update_boxes(bed_boxes=beds, person_boxes=persons)
 
 
 def test_schema_exports_bed_exit_frame_statuses_and_events() -> None:

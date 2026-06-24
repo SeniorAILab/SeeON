@@ -4,29 +4,45 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Protocol, runtime_checkable
 
+import numpy as np
 from fastapi import FastAPI
 
 from domains import DOMAIN_REGISTRY
+from events.local_publisher import LoggingEventPublisher
 from events.outbox import Outbox
-from events.publisher import LoggingEventPublisher
 from runners.device import select_device
 from runners.registry import DEFAULT_REGISTRY
 from runners.warmup import warmup_runner
+from runtime.camera_worker import DomainDetectorProtocol
 from runtime.edge_runtime import EdgeRuntime
 from runtime.incident_manager import IncidentManager
 from runtime.status_store import StatusStore
 from serving.model import ModelLoadError, get_model
 from serving.pipeline import FallPipeline
 from serving.source_registry import SourceRegistryError, get_source_registry
+from sources.registry import SourceRegistry
+
+
+@runtime_checkable
+class _ServingModelProtocol(Protocol):
+    metadata: _ModelMetadataProtocol
+
+    def predict(self, features: np.ndarray) -> float: ...
+
+
+@runtime_checkable
+class _ModelMetadataProtocol(Protocol):
+    window: int
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Boot serving in ADR-029 order and expose runtime state on ``app.state``."""
     _load_config(app)
-    app.state.device = _call_state(app, "device_selector", select_device)
+    device_selector = getattr(app.state, "device_selector", select_device)
+    app.state.device = device_selector() if callable(device_selector) else device_selector
     app.state.model_registry = getattr(app.state, "model_registry", DEFAULT_REGISTRY)
     status_store = getattr(app.state, "status_store", StatusStore())
     app.state.status_store = status_store
@@ -79,12 +95,12 @@ def _load_config(app: FastAPI) -> None:
         validator(getattr(app.state, "config", None))
 
 
-def _warm_model(app: FastAPI, status_store: StatusStore) -> object | None:
+def _warm_model(app: FastAPI, status_store: StatusStore) -> _ServingModelProtocol | None:
     try:
         loader = getattr(app.state, "model_loader", get_model)
         model = loader()
         warmer = getattr(app.state, "runner_warmup", warmup_runner)
-        return warmer(model)
+        return _serving_model_or_error(warmer(model))
     except ModelLoadError as exc:
         status_store.record_ops_event(
             "model.load_failed",
@@ -97,7 +113,7 @@ def _warm_model(app: FastAPI, status_store: StatusStore) -> object | None:
         return None
 
 
-def _resolve_sources(app: FastAPI, status_store: StatusStore) -> object | None:
+def _resolve_sources(app: FastAPI, status_store: StatusStore) -> SourceRegistry | None:
     try:
         resolver = getattr(app.state, "source_registry_loader", get_source_registry)
         return resolver()
@@ -112,14 +128,15 @@ def _resolve_sources(app: FastAPI, status_store: StatusStore) -> object | None:
         return None
 
 
-def _enabled_domain_detectors() -> tuple[object, ...]:
-    detectors: list[object] = []
+def _serving_model_or_error(value) -> _ServingModelProtocol:
+    if isinstance(value, _ServingModelProtocol):
+        return value
+    raise ModelLoadError("model does not satisfy serving pipeline contract")
+
+
+def _enabled_domain_detectors() -> tuple[DomainDetectorProtocol, ...]:
+    detectors: list[DomainDetectorProtocol] = []
     for registration in DOMAIN_REGISTRY.values():
         if registration.enabled:
             detectors.append(registration.factory())
     return tuple(detectors)
-
-
-def _call_state(app: FastAPI, name: str, default: Any) -> Any:
-    func = getattr(app.state, name, default)
-    return func() if callable(func) else func

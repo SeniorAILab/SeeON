@@ -32,6 +32,23 @@ pnpm dev:demo           # Streamlit 데모 (노트북 카메라 + 내부 클립 
 > `pnpm prisma:seed`가 출력하는 `Cam 01: secret=… keyId=…`를 저장 — 3번 ml alert 자격에 넣는다.
 > `dev:demo`는 이제 모드 분기가 없다(ADR-045 — 데모는 로컬 전용). 노트북 카메라와 모든 내부 클립 소스가 항상 노출된다.
 
+Production live RTSP path는 데모와 분리되어 있다:
+
+```text
+RTSP -> ml-edge-worker -> backend /ingest/*
+```
+
+Native dev에서는 `pnpm dev:ml`이 `ml-edge-api` private/local FastAPI surface를 띄우고,
+`pnpm dev:ml-worker --config config/edge-cameras.local.json`이 RTSP worker를 띄운다. 이 script는 `ml/` 안에서 실행되므로 config path도 `ml/` 기준이다.
+Edge Compose는 다음처럼 별도로 검증한다:
+
+```bash
+EDGE_CAMERA_CONFIG=./ml/config/edge-cameras.local.json \
+  docker compose -f compose.edge.yaml up -d --build
+```
+
+`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 backend `/ingest/*` key/secret을 담는 gitignored 파일이다. 실 카메라 없이 product-shaped smoke를 할 때는 deterministic synthetic script인 `scripts/ml-edge-four-mock-rtsp-ingest-e2e.sh`를 사용한다. Jetson Nano는 legacy/constrained hardware-gated target이므로, 실제 장비 smoke 없이는 지원 완료로 말하지 않는다.
+
 ## 2. 데모 테넌트 바인딩 (나·형을 demo-org-01에 묶기)
 1. 나 + 형이 각각 `http://localhost:3000/login` → 카카오 로그인(동의 시 `talk_message` 포함) 1회 → User + 암호화 토큰 생성.
 2. 두 사람의 kakaoId 확인 후:
