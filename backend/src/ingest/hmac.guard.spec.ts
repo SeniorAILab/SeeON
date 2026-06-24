@@ -25,6 +25,10 @@ function ctx(req: unknown): ExecutionContext {
 }
 
 function sign(body: Record<string, unknown>): string {
+  return signWithKey(body, SECRET);
+}
+
+function signWithKey(body: Record<string, unknown>, key: string): string {
   const canonical = [
     body.resident_id,
     body.facility_id,
@@ -38,7 +42,7 @@ function sign(body: Record<string, unknown>): string {
       return '';
     })
     .join('|');
-  return crypto.createHmac('sha256', SECRET).update(canonical).digest('hex');
+  return crypto.createHmac('sha256', key).update(canonical).digest('hex');
 }
 
 const cameraRow = {
@@ -135,6 +139,21 @@ describe('HmacIngestGuard', () => {
       ingestKeyId: 'key-1',
     });
   });
+
+  it('accepts a signature from the one-time camera create secret contract', async () => {
+    const oneTimeSecret = 'operator-provisioned-worker-secret';
+    const storedHmacKey = crypto
+      .createHash('sha256')
+      .update(oneTimeSecret)
+      .digest('hex');
+    const row = { ...cameraRow, ingestSecretHash: storedHmacKey };
+    const guard = makeGuard([row]);
+    const req = validRequest();
+    req.headers['x-signature'] = signWithKey(req.body, storedHmacKey);
+
+    await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
+  });
+
   it('accepts a v1 signature with an empty resident_id field for room-only alerts', async () => {
     const guard = makeGuard([cameraRow]);
     const req = roomOnlyRequest() as ReturnType<typeof roomOnlyRequest> & {

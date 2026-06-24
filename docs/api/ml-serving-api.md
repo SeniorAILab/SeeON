@@ -1,8 +1,15 @@
 # ML Serving API
 
-ML serving is a FastAPI service. Its boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
+ML serving is a FastAPI service for private/local edge health, status, model, debug, and bounded control surfaces. Its prediction boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
 
-Production camera ownership is not part of the FastAPI process. The edge node runs `ml-edge-api` for health/status/debug routes and `ml-edge-worker` for long-running RTSP capture, model/domain evaluation, heartbeats, and alert ingest publishing (ADR-067).
+Production live path: `RTSP -> ml-edge-worker -> backend /ingest/*`.
+
+Production camera ownership is not part of the API process. The edge node runs
+`ml-edge-api` for health/status/debug routes. It runs `ml-edge-worker` for
+long-running RTSP capture, model/domain evaluation, heartbeats, and alert ingest
+publishing (ADR-067/ADR-068). The API service does not own live camera streams,
+does not receive worker frame relay, and does not perform `/ingest/*` side
+effects.
 
 Bare `POST /predict` is removed and returns 404. Callers must use the explicit debug prediction routes below.
 
@@ -95,7 +102,7 @@ Field rules:
 
 ## `POST /debug/predict/source` — bounded source/upload debug mode
 
-Source-backed prediction is retained for local demo/evaluation only, separate from the backend alert-ingest boundary. It accepts exactly one trusted `source_id` or `upload_id` plus optional bounded controls:
+Source-backed prediction is retained for local demo/evaluation only, separate from the production RTSP and backend alert-ingest boundary. It accepts exactly one trusted `source_id` or `upload_id` plus optional bounded controls:
 
 ```json
 {
@@ -121,4 +128,4 @@ Or:
 }
 ```
 
-This route resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It returns the same response shape as `/debug/predict/window`. It is for demo/eval surfaces, not the backend alert-ingest boundary, and it rejects requests that include `window`.
+This route resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It returns the same response shape as `/debug/predict/window`. It is for demo/eval surfaces, not production RTSP, not raw frame relay, and not the backend alert-ingest boundary. It rejects requests that include `window`.

@@ -7,7 +7,7 @@ from typing import Final, TypeAlias
 
 from numpy.typing import NDArray
 
-from contracts.artifacts import pose_weight_path  # noqa: F401
+from contracts.artifacts import pose_weight_path
 
 PoseDetections: TypeAlias = tuple[tuple[tuple[int, int, float], ...], ...]
 POSE_MODEL_CONFIDENCE: Final = 0.05
@@ -22,7 +22,7 @@ def _load_yolo_model(weight_path: Path | str):
 class YoloPoseRunner:
     def __init__(
         self,
-        model_path: str = "yolo26n-pose.pt",
+        model_path: str = str(pose_weight_path("n")),
         confidence: float = POSE_MODEL_CONFIDENCE,
     ) -> None:
         self._model = _load_yolo_model(Path(model_path))

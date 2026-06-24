@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from contracts.event import MutableEventPayload
 from contracts.observation import BoundingBox, FrameObservation
 from domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
 from perception.tracker import GreedyIouTracker
@@ -42,23 +43,16 @@ class BedExitMonitor:
 
     def update(
         self,
-        observation: FrameObservation | None = None,
-        *,
-        bed_boxes: tuple[BoundingBox, ...] | None = None,
-        person_boxes: tuple[BoundingBox, ...] | None = None,
+        observation: FrameObservation,
         time_sec: float | None = None,
-    ) -> BedExitFrame | tuple[dict[str, object], ...]:
-        if observation is not None:
-            frame = self._update_boxes(
-                bed_boxes=observation.bed_boxes,
-                person_boxes=observation.boxes,
-            )
-            return tuple(_event_dict(event, time_sec) for event in frame.events)
-        if bed_boxes is None or person_boxes is None:
-            raise TypeError("bed_boxes and person_boxes are required")
-        return self._update_boxes(bed_boxes=bed_boxes, person_boxes=person_boxes)
+    ) -> tuple[MutableEventPayload, ...]:
+        frame = self.update_boxes(
+            bed_boxes=observation.bed_boxes,
+            person_boxes=observation.boxes,
+        )
+        return tuple(_event_dict(event, time_sec) for event in frame.events)
 
-    def _update_boxes(
+    def update_boxes(
         self,
         *,
         bed_boxes: tuple[BoundingBox, ...],
@@ -167,7 +161,7 @@ def _containment_ratio(person: BoundingBox, bed: BoundingBox) -> float:
     return intersection / person_area
 
 
-def _event_dict(event: BedExitEvent, time_sec: float | None) -> dict[str, object]:
+def _event_dict(event: BedExitEvent, time_sec: float | None) -> MutableEventPayload:
     return {
         "domain": "bed_exit",
         "event_type": "bed-exit",

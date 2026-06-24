@@ -6,16 +6,15 @@ ML runtime incident management owns only idempotency and cooldown.
 
 from __future__ import annotations
 
-import logging
 import os
 import queue
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Final, Protocol
+from typing import Final
 
-from events.schemas import AlertEventType, AlertPayload, EmittedEvent
+from events.schemas import AlertEventType, AlertPayload
 from events.signing import (
     _derive_hmac_key,
     _ingest_timestamp,
@@ -32,25 +31,6 @@ INGEST_SECRET_ENV: Final = "INGEST_SECRET"
 DEMO_RESIDENT_ID_ENV: Final = "DEMO_RESIDENT_ID"
 DEMO_FACILITY_ID_ENV: Final = "DEMO_FACILITY_ID"
 ALERT_EVENT_TYPES: Final[frozenset[str]] = frozenset({"fall", "bed-exit"})
-_LOGGER = logging.getLogger(__name__)
-
-
-class EventPublisher(Protocol):
-    def publish(self, event: EmittedEvent) -> None:
-        """Publish an event/ namespace payload to a pluggable backend."""
-
-
-class LoggingEventPublisher:
-    def __init__(self, logger: logging.Logger | None = None) -> None:
-        self._logger = _LOGGER if logger is None else logger
-        self.published: list[EmittedEvent] = []
-
-    def publish(self, event: EmittedEvent) -> None:
-        self.published.append(event)
-        self._logger.info("ml.event published", extra={"event": event.as_dict()})
-
-
-StubEventPublisher = LoggingEventPublisher
 
 
 class AlertClient:
@@ -286,11 +266,8 @@ __all__ = [
     "DEFAULT_TIMEOUT_SEC",
     "DEMO_FACILITY_ID_ENV",
     "DEMO_RESIDENT_ID_ENV",
-    "EventPublisher",
     "INGEST_KEY_ID_ENV",
     "INGEST_SECRET_ENV",
-    "LoggingEventPublisher",
-    "StubEventPublisher",
     "AlertClient",
     "_parse_http_url",
     "_parse_payload",

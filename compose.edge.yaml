@@ -11,18 +11,21 @@ services:
   ml-edge-api:
     build:
       context: .
-      dockerfile: ml/Dockerfile
-      target: runner
+      dockerfile: ml/Dockerfile.api
     restart: unless-stopped
     ports:
-      - "${ML_SERVING_PORT:-8000}:8000"
+      - "127.0.0.1:${ML_SERVING_PORT:-8000}:8000"
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      ML_SERVING_HOST: 0.0.0.0
+    volumes:
+      - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
     command:
       - uvicorn
       - serving.main:app
       - --host
-      - 0.0.0.0
+      # Container-internal bind only; host publishing above is loopback-only.
+      - ${ML_SERVING_HOST:-0.0.0.0}
       - --port
       - "8000"
     healthcheck:
@@ -38,11 +41,12 @@ services:
   ml-edge-worker:
     build:
       context: .
-      dockerfile: ml/Dockerfile
-      target: worker-runner
+      dockerfile: ml/Dockerfile.worker
     restart: unless-stopped
     environment:
       EDGE_CAMERA_CONFIG: /run/secrets/edge-cameras.json
+    volumes:
+      - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
     secrets:
       - source: edge-cameras
         target: edge-cameras.json

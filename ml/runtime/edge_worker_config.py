@@ -6,10 +6,24 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
+from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
 
 EDGE_CAMERA_CONFIG_ENV = "EDGE_CAMERA_CONFIG"
+INGEST_ENDPOINT_SUFFIXES: Final = {
+    "alert_api_url": "/ingest/alerts",
+    "heartbeat_api_url": "/ingest/heartbeat",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,15 +81,24 @@ class EdgeWorkerConfig(BaseModel):
 
     @field_validator("alert_api_url", "heartbeat_api_url")
     @classmethod
-    def _require_http_url(cls, value: str | None) -> str | None:
+    def _require_http_url(cls, value: str | None, info: ValidationInfo) -> str | None:
         if value is None:
             return None
         stripped = value.strip()
-        if not (stripped.startswith("http://") or stripped.startswith("https://")):
-            raise ValueError("ingest URL must be absolute HTTP(S)")
-        return stripped
+        parsed = urlsplit(stripped)
+        if parsed.scheme.lower() not in {"http", "https"} or parsed.netloc == "":
+            raise EdgeWorkerConfigError(f"{info.field_name} must be absolute HTTP(S)")
+        if parsed.query or parsed.fragment:
+            raise EdgeWorkerConfigError(f"{info.field_name} must not include query or fragment")
+        path = parsed.path.rstrip("/")
+        expected_suffix = INGEST_ENDPOINT_SUFFIXES.get(str(info.field_name))
+        if expected_suffix is not None and not path.endswith(expected_suffix):
+            raise EdgeWorkerConfigError(
+                f"{info.field_name} must target backend {expected_suffix}"
+            )
+        return urlunsplit(parsed._replace(path=path))
 
-    def model_post_init(self, __context: object) -> None:
+    def model_post_init(self, __context: None) -> None:
         duplicate_ids = sorted(
             camera_id
             for camera_id, count in Counter(camera.camera_id for camera in self.cameras).items()

@@ -6,11 +6,12 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
+from contracts.event import EventPayload, MutableEventPayload
 from events.edge_ingest_client import EdgeIngestClient
 
 
 class _VerifyingHandler(BaseHTTPRequestHandler):
-    received: list[tuple[str, dict[str, str | None], dict[str, object]]] = []
+    received: list[tuple[str, dict[str, str | None], MutableEventPayload]] = []
     secrets_by_key: dict[str, str] = {}
 
     def do_POST(self) -> None:  # noqa: N802
@@ -39,7 +40,7 @@ class _VerifyingHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.end_headers()
 
-    def log_message(self, _format: str, *args: object) -> None:
+    def log_message(self, _format: str, *args: str) -> None:
         return
 
 
@@ -113,7 +114,7 @@ def _run_server(server: ThreadingHTTPServer) -> Thread:
     return thread
 
 
-def _expected_signature(*, payload: dict[str, object], secret: str) -> str:
+def _expected_signature(*, payload: EventPayload, secret: str) -> str:
     signing_key = hashlib.sha256(secret.encode("utf-8")).hexdigest()
     canonical = "|".join(
         str(payload.get(field, ""))

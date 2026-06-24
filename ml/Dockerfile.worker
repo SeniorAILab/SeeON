@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1.7
+
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+
+ENV UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:${PATH}"
+
+WORKDIR /app
+
+COPY ml/pyproject.toml ml/uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-default-groups --group worker --no-install-project
+
+COPY ml/contracts ./contracts
+COPY ml/domains ./domains
+COPY ml/events ./events
+COPY ml/features ./features
+COPY ml/perception ./perception
+COPY ml/runners ./runners
+COPY ml/runtime ./runtime
+COPY ml/sources ./sources
+COPY ml/worker ./worker
+
+CMD ["python", "-m", "worker.edge_worker"]

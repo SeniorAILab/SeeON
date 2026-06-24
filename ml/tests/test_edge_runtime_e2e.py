@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
-from contracts.event import Level
+from contracts.event import EventPayload, Level, MutableEventPayload
 from contracts.frame import Frame
 from contracts.observation import BoundingBox, DetectionLabel, DetectionResult, FrameObservation
 from domains import DOMAIN_REGISTRY
+from events.local_publisher import StubEventPublisher
 from events.outbox import Outbox
-from events.publisher import StubEventPublisher
 from events.schemas import EmittedEvent, build_emitted_event
 from runtime.camera_manager import CameraConfig
 from runtime.edge_runtime import EdgeRuntime
@@ -65,7 +64,7 @@ class _OutboxSink:
         self.outbox = outbox
         self.seen: list[EmittedEvent] = []
 
-    def emit(self, event: object) -> None:
+    def emit(self, event: EventPayload) -> None:
         emitted = _to_emitted(event)
         self.seen.append(emitted)
         self.outbox.buffer(emitted)
@@ -78,7 +77,7 @@ class _FallObservationDomain:
 
     def update(
         self, observation: FrameObservation, time_sec: float | None = None
-    ) -> dict[str, Any] | None:
+    ) -> MutableEventPayload | None:
         self.observations.append(observation)
         is_fall = any(label.is_fall for label in observation.labels)
         event = self._latch.update_event(is_fall, 0.0 if time_sec is None else time_sec)
@@ -108,9 +107,9 @@ class _BedExitObservationDomain:
 
     def update(
         self, observation: FrameObservation, time_sec: float | None = None
-    ) -> tuple[dict[str, Any], ...]:
+    ) -> tuple[MutableEventPayload, ...]:
         self.observations.append(observation)
-        frame = self._monitor.update(
+        frame = self._monitor.update_boxes(
             bed_boxes=observation.bed_boxes,
             person_boxes=observation.boxes,
         )
@@ -127,7 +126,7 @@ class _BedExitObservationDomain:
         )
 
 
-def _to_emitted(event: object) -> EmittedEvent:
+def _to_emitted(event: EventPayload) -> EmittedEvent:
     assert isinstance(event, dict)
     return build_emitted_event(
         facility=str(event["facility_id"]),
