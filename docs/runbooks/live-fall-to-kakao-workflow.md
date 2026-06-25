@@ -8,9 +8,9 @@
 
 ## 1. 아키텍처 흐름 (검증된 경로)
 
-현재 production live RTSP 경로는 `RTSP -> ml-worker -> backend /ingest/*`다.
-FastAPI `ml-api`는 private/local health/status/models/debug/control API이며
-production RTSP, raw frame relay, backend ingest side effects를 소유하지 않는다.
+현재 production live RTSP 경로는 `RTSP -> ml-worker -> ml-api -> backend /ingest/*`다(ADR-067/029).
+FastAPI `ml-api`는 private/local health/status/models/debug/control API이자 backend ingest 관문이며
+production RTSP와 raw frame relay는 소유하지 않는다.
 아래 Streamlit 경로는 2026-06-18 웹캠 데모 검증 기록이다.
 
 ```
@@ -124,7 +124,7 @@ EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
-`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 backend /ingest key/secret을 담는 gitignored 파일이다. 개발 중 실 카메라 없이 worker를 계속 돌릴 때는 `pnpm dev:rtsp -- /path/to/video.mp4`로 `rtsp://127.0.0.1:8554/nursing-home`을 유지하고 worker config가 그 URL을 소비하게 한다. production-shaped E2E를 확인할 때는 같은 publisher를 재사용하는 `scripts/ml-worker-nursing-home-backend-e2e.sh`를 실행한다.
+`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 domain/model 설정을 담는 gitignored 파일이다. backend /ingest key/secret은 ADR-067/029에 따라 `ml-api` secret 설정에 둔다. 개발 중 실 카메라 없이 worker를 계속 돌릴 때는 `pnpm dev:rtsp -- /path/to/video.mp4`로 `rtsp://127.0.0.1:8554/nursing-home`을 유지하고 worker config가 그 URL을 소비하게 한다. production-shaped E2E를 확인할 때는 같은 publisher를 재사용하는 `scripts/ml-worker-nursing-home-backend-e2e.sh`를 실행한다.
 
 ## 5. 내일 시나리오 — 실시간 웹캠 → 카톡
 

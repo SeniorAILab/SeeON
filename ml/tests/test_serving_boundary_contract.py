@@ -24,6 +24,8 @@ ALLOWED_PATHS: Final = {
     "/models",
     "/openapi.json",
     "/redoc",
+    "/relay/alerts",
+    "/relay/heartbeat",
     "/status",
 }
 PRODUCTION_ROUTE_TERMS: Final = (
@@ -31,14 +33,9 @@ PRODUCTION_ROUTE_TERMS: Final = (
     "frame relay",
     "frame_relay",
     "camera stream",
-    "camera_stream",
-    "ingest",
-    "alert publishing",
-    "alert_publishing",
 )
 FORBIDDEN_IMPORTS: Final = (
     "worker",
-    "events.edge_ingest_client",
     "events.publisher",
     "runtime.edge_worker",
 )
@@ -116,15 +113,14 @@ def test_serving_files_do_not_import_edge_worker_or_ingest_runtime() -> None:
     assert not violations, "\n".join(violations)
 
 
-def test_serving_import_does_not_load_backend_ingest_publisher() -> None:
+def test_serving_import_allows_api_owned_backend_ingest_client_but_not_worker() -> None:
     probe = subprocess.run(
         [
             sys.executable,
             "-c",
             (
                 "import sys; import api.main; "
-                "forbidden = {'events.publisher', 'events.edge_ingest_client', "
-                "'worker', 'worker.edge_worker'}; "
+                "forbidden = {'events.publisher', 'worker', 'worker.edge_worker'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "
                 "print(loaded); raise SystemExit(1 if loaded else 0)"
             ),

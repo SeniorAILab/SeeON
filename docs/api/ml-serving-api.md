@@ -2,13 +2,13 @@
 
 ML API is a FastAPI service for private/local edge health, status, model, debug, and bounded control surfaces. Its prediction boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
 
-Production live path: `RTSP -> ml-worker -> backend /ingest/*`.
+Production live path: `RTSP -> ml-worker -> ml-api -> backend /ingest/*` (ADR-067/029).
 
 Production camera ownership is not part of the API process. The edge node runs
 `ml-api` for health/status/debug routes. It runs `ml-worker` for
-long-running RTSP capture, model/domain evaluation, heartbeats, and alert ingest
-publishing (ADR-067/ADR-068). The API service does not own live camera streams,
-does not receive worker frame relay, and does not perform `/ingest/*` side
+long-running RTSP capture, model/domain evaluation, heartbeat facts, and alert fact
+creation (ADR-067/ADR-068). The API service does not own live camera streams or
+raw frame relay; it is the local relay and backend gateway for signed `/ingest/*` side
 effects.
 
 Bare `POST /predict` is removed and returns 404. Callers must use the explicit debug prediction routes below.
@@ -31,7 +31,7 @@ Legacy aggregate health report for local/demo observability. It reports service 
 
 ## `GET /status`
 
-Runtime status snapshot. This is operational state for the edge API process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and publish their own heartbeat/alert facts through backend ingest.
+Runtime status snapshot. This is operational state for the edge API process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and relay heartbeat/alert facts to `ml-api`, which publishes backend ingest per ADR-067/029.
 
 ## `GET /models`
 

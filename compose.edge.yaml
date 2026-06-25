@@ -1,8 +1,8 @@
 # Edge device stack — runs on the external edge node, NOT on the host stack.
-# The edge performs ML inference locally and pushes signed events to the backend
-# /ingest endpoint over the public network (ADR-029). Because the edge is on a
-# separate host/network, it CANNOT reach the backend by Docker service name —
-# ALERT_API_URL must be the backend's public ingest base URL.
+# The edge performs ML inference locally. ml-worker relays alert/heartbeat facts
+# to ml-api, and ml-api is the only process that signs and pushes backend
+# /ingest requests over the public network (ADR-067/029). Because the edge is on
+# a separate host/network, backend ingest URLs must use the backend public base URL.
 #
 # Usage (on the edge device):
 #   docker compose -f compose.edge.yaml up -d --build

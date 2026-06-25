@@ -1,3 +1,4 @@
+"""Backend ingest HTTP client shared by the API relay and edge worker."""
 from __future__ import annotations
 
 import hashlib
@@ -50,14 +51,18 @@ class EdgeIngestClient:
         event_type: AlertEventType,
         detected_at: str,
         probability: float,
+        facility_id: str | None = None,
+        resident_id: str | None = None,
     ) -> bool:
-        if self.resident_id is None:
+        resolved_resident_id = self.resident_id if resident_id is None else resident_id
+        resolved_facility_id = self.facility_id if facility_id is None else facility_id
+        if resolved_resident_id is None:
             self._increment_failure()
             return False
         payload = AlertPayload(
             type=event_type,
-            resident_id=self.resident_id,
-            facility_id=self.facility_id,
+            resident_id=resolved_resident_id,
+            facility_id=resolved_facility_id,
             detected_at=detected_at,
             probability=probability,
         )

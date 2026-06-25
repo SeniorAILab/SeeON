@@ -1,9 +1,9 @@
 # IDIS 카메라 RTSP 연결 런북
 
 IDIS IP 카메라(WebGuard 펌웨어)에서 RTSP 스트림을 ffmpeg/VLC/OpenCV로 받는 절차.
-낙상 production live path는 `RTSP -> ml-worker -> backend /ingest/*`다.
-FastAPI(`ml-api`)는 private/local health/status/models/debug/control API이며
-production RTSP, raw frame relay, backend ingest side effects를 소유하지 않는다.
+낙상 production live path는 `RTSP -> ml-worker -> ml-api -> backend /ingest/*`다(ADR-067/029).
+FastAPI(`ml-api`)는 private/local health/status/models/debug/control API이자 backend ingest 관문이며
+production RTSP와 raw frame relay는 소유하지 않는다.
 
 > 실제 사례(2026-06-22): IDIS WebGuard 카메라, SEED 암호화 OFF 상태로 연결.
 > 트리플 스트림 전부 **HEVC(H.265) Main**: trackID=1 `1920×1080@30`, trackID=2 `640×360@30`, trackID=3 `352×240@15`. H.264 트랙 없음. ML 입력은 trackID=2 권장(추론 부하/프레임율 균형). 실제 IP와 자격증명은 git 밖의 local config에만 둔다.
@@ -127,7 +127,7 @@ cp ml/config/ml-worker.example.yaml /tmp/eldercare-ml-worker-rtsp.yaml
 chmod 600 /tmp/eldercare-ml-worker-rtsp.yaml
 ```
 
-`/tmp/eldercare-ml-worker-rtsp.yaml`에 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다. 이 파일이 `EDGE_CAMERA_CONFIG`이고, per-camera RTSP URL, backend `/ingest/*` key/secret, LSTM fall model artifact 계약을 함께 가진다.
+`/tmp/eldercare-ml-worker-rtsp.yaml`에 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다. 이 파일이 `EDGE_CAMERA_CONFIG`이고, per-camera RTSP URL과 LSTM fall model artifact 계약을 가진다. backend `/ingest/*` key/secret은 ADR-067/029에 따라 `ml-api` 설정에 둔다.
 
 ```yaml
 version: 1
@@ -178,7 +178,7 @@ scripts/ml-worker-nursing-home-backend-e2e.sh
 pnpm dev:rtsp -- /path/to/nursing-home-fall.mp4
 ```
 
-이 명령은 영상을 반복 재생하며 `rtsp://127.0.0.1:8554/nursing-home`을 유지한다. `ml-worker.local.yaml`의 camera `rtsp_url`을 이 값으로 두면, 개발자는 실제 worker 소비 경로로 계속 작업할 수 있다. E2E 명령은 같은 `scripts/rtsp-loop-video.sh` publisher를 Docker network 안에서 재사용하고, `compose.edge.yaml`의 `ml-worker` production entrypoint가 그 RTSP를 소비하게 한다. alert/heartbeat는 stub이 아니라 실제 backend `/ingest/*`로 전송하며, 마지막에 backend DB의 `alerts` 테이블에 낙상 alert가 기록됐는지 확인한다.
+이 명령은 영상을 반복 재생하며 `rtsp://127.0.0.1:8554/nursing-home`을 유지한다. `ml-worker.local.yaml`의 camera `rtsp_url`을 이 값으로 두면, 개발자는 실제 worker 소비 경로로 계속 작업할 수 있다. E2E 명령은 같은 `scripts/rtsp-loop-video.sh` publisher를 Docker network 안에서 재사용하고, `compose.edge.yaml`의 `ml-worker` production entrypoint가 그 RTSP를 소비하게 한다. alert/heartbeat는 stub이 아니라 `ml-api`를 통해 실제 backend `/ingest/*`로 전송하며, 마지막에 backend DB의 `alerts` 테이블에 낙상 alert가 기록됐는지 확인한다.
 
 Edge Compose 기동은 실제 camera config를 secret으로 마운트한다:
 
