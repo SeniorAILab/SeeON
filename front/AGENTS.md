@@ -32,3 +32,4 @@ See `src/AGENTS.md` before changing frontend application code.
 
 ## Run
 - test: `pnpm --filter front test`.
+- lint: `pnpm --filter front lint` (check) / `pnpm --filter front lint:fix` (autofix). Convention: ADR-070.

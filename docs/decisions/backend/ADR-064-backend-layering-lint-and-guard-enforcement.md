@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially Superseded by ADR-066
+Accepted; the lint-script-naming clause (`lint`=`--fix`, non-mutating `lint:check`) is **partially superseded by [ADR-070](../common/ADR-070-lint-script-naming-convention.md)** (`lint`=check, `lint:fix`=`--fix`). The warn-first ESLint and schema↔migration guard decisions below remain active and unchanged.
 
 ## Date
 
