@@ -68,7 +68,8 @@ The root `package.json` carries **zero runtime or shared library dependencies**.
 |---|---|
 | `dev:front` | `pnpm --filter front dev` |
 | `dev:backend` | `pnpm --filter backend start:dev` |
-| `dev:ml` | `uv run --directory ml uvicorn serving.main:app --reload --host 127.0.0.1 --port 8000` |
+| `dev:ml-api` | `uv run --directory ml uvicorn api.main:app --reload --host 127.0.0.1 --port 8000` |
+| `dev:ml-worker` | `uv run --directory ml python -m worker.edge_worker` |
 | `dev:demo` | `uv run --directory ml --group demo streamlit run demo/app.py` |
 | `build:front` | `pnpm --filter front build` |
 | `build:backend` | `pnpm --filter backend build` |
@@ -81,7 +82,7 @@ The root `package.json` carries **zero runtime or shared library dependencies**.
 | `prisma:generate` | `pnpm --filter backend exec prisma generate` |
 | `prisma:migrate` | `pnpm --filter backend exec prisma migrate dev` |
 
-`dev:ml` and `dev:demo` invoke `uv run --directory ml` directly from the root, so operators never need to `cd ml` for day-to-day development. `dev:demo` passes `--group demo`; since `demo` is a `default-group`, it is already present after a bare `uv sync` and the flag is redundant in normal dev setups but harmless.
+`dev:ml-api`, `dev:ml-worker`, and `dev:demo` invoke `uv run --directory ml` directly from the root, so operators never need to `cd ml` for day-to-day development. `dev:demo` passes `--group demo`; since `demo` is a `default-group`, it is already present after a bare `uv sync` and the flag is redundant in normal dev setups but harmless.
 
 ### Dependency lock separation
 
@@ -142,13 +143,17 @@ Rejected. Per-ecosystem tools at their native versions are more correct and fast
 
 - **Clean ecosystem boundaries.** TypeScript tooling (tsc, ESLint, Prisma CLI) never touches the Python environment, and vice versa. Dependency upgrades and security patches remain scoped to the relevant ecosystem.
 - **Lock-file fidelity.** `pnpm-lock.yaml` is a pure Node/TS lock file. `ml/uv.lock` is a pure Python lock file. Both are reproducible and meaningful to their respective package managers.
-- **Single-command developer experience** for common tasks. `pnpm dev:front`, `pnpm dev:backend`, `pnpm dev:ml`, and `pnpm dev:demo` all work from the repo root; contributors do not need to know which sub-directory owns which process.
+- **Single-command developer experience** for common tasks. `pnpm dev:front`, `pnpm dev:backend`, `pnpm dev:ml-api`, `pnpm dev:ml-worker`, and `pnpm dev:demo` all work from the repo root; contributors do not need to know which sub-directory owns which process.
 - **Exact toolchain enforcement.** `packageManager: "pnpm@10.32.1"` and `engines: { "node": ">=24" }` cause Corepack and pnpm to reject mismatched environments at install time, preventing silent version drift.
 - **Lifecycle separation in `ml/`.** Serving dependencies (fastapi, uvicorn, pydantic, numpy) are always installed. Training dependencies (`torch>=2.3`, `scikit-learn>=1.5`, `joblib>=1.4`, `tqdm>=4.66`, `ultralytics>=8.3`, `opencv-python-headless>=4.10`) and demo dependencies (streamlit, ultralytics, opencv) are included in `default-groups`; a slim production serving image can omit them with `--no-default-groups`.
 
 ### Negative / Trade-offs
 
-- **Two install commands.** A developer setting up the repo for the first time must run both `pnpm install` (at root) and `uv sync` (inside `ml/`). This is documented in the README and partially mitigated by the root `dev:ml` script, but it cannot be reduced to a single command without abandoning per-ecosystem lock files.
+- **Two install commands.** A developer setting up the repo for the first time must run both `pnpm install` (at root) and `uv sync` (inside `ml/`). This is documented in the README and partially mitigated by the root `dev:ml-api` / `dev:ml-worker` scripts, but it cannot be reduced to a single command without abandoning per-ecosystem lock files.
 - **Root scripts are the cross-cutting contract.** Any change to how a sub-project is started, built, or linted must be reflected in root `package.json`. The root `package.json` is intentionally lightweight (no app deps), but it must be kept in sync with sub-project entry points.
 - **No unified task graph / caching.** Unlike Nx or Turborepo, sequential root scripts do not know about task dependencies (e.g., "build backend before running typecheck"). This is acceptable at PoC scale but may need revisiting if CI build times become a bottleneck.
 - **`ml/` is invisible to pnpm.** `pnpm -r lint` covers only `front` and `backend`; the root `lint` script explicitly appends `&& uv run --directory ml ruff check .` to include Python. Any future pnpm-recursive operation must be audited to confirm it includes an equivalent Python invocation.
+
+## Changelog
+
+- 2026-06-25: Updated the root-script examples to current names — `dev:ml` (which ran `uvicorn serving.main:app`) is now `dev:ml-api` (`api.main:app`) plus `dev:ml-worker` (`worker.edge_worker`), reflecting the `ml/serving`→`ml/api` rename and the API/worker split (ADR-067). The polyglot-monorepo decision itself is unchanged.
