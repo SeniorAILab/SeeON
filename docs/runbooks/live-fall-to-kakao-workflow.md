@@ -8,8 +8,8 @@
 
 ## 1. 아키텍처 흐름 (검증된 경로)
 
-현재 production live RTSP 경로는 `RTSP -> ml-edge-worker -> backend /ingest/*`다.
-FastAPI `ml-edge-api`는 private/local health/status/models/debug/control API이며
+현재 production live RTSP 경로는 `RTSP -> ml-worker -> backend /ingest/*`다.
+FastAPI `ml-api`는 private/local health/status/models/debug/control API이며
 production RTSP, raw frame relay, backend ingest side effects를 소유하지 않는다.
 아래 Streamlit 경로는 2026-06-18 웹캠 데모 검증 기록이다.
 
@@ -113,18 +113,18 @@ pnpm dev:demo                    # Streamlit :8501 — AlertClient.from_env가 �
 Production RTSP worker dev는 별도 터미널에서 실행한다:
 
 ```bash
-pnpm dev:ml        # ml-edge-api private/local FastAPI surface
-pnpm dev:ml-worker --config config/edge-cameras.local.json
+pnpm dev:ml-api        # ml-api private/local FastAPI surface
+pnpm dev:ml-worker --config config/ml-worker.local.yaml
 ```
 
 Edge Compose는 native dev와 별개다:
 
 ```bash
-EDGE_CAMERA_CONFIG=./ml/config/edge-cameras.local.json \
+EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
-`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 backend /ingest key/secret을 담는 gitignored 파일이다. 실 카메라 없이 smoke할 때는 `scripts/ml-edge-four-mock-rtsp-ingest-e2e.sh`를 먼저 실행한다.
+`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 backend /ingest key/secret을 담는 gitignored 파일이다. 개발 중 실 카메라 없이 worker를 계속 돌릴 때는 `pnpm dev:rtsp -- /path/to/video.mp4`로 `rtsp://127.0.0.1:8554/nursing-home`을 유지하고 worker config가 그 URL을 소비하게 한다. production-shaped E2E를 확인할 때는 같은 publisher를 재사용하는 `scripts/ml-worker-nursing-home-backend-e2e.sh`를 실행한다.
 
 ## 5. 내일 시나리오 — 실시간 웹캠 → 카톡
 

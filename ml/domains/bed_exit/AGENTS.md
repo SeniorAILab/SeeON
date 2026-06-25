@@ -12,7 +12,7 @@ Own bed-exit event detection, bed occupancy schema, and per-person exit latching
 
 Allowed: `contracts`, `features` through `perception.tracker`, and local `domains.bed_exit`.
 
-Forbidden: `sources`, `runners`, `runtime`, `events`, `serving`, `demo`, `training`.
+Forbidden: `sources`, `runners`, `runtime`, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 
