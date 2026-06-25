@@ -1,4 +1,4 @@
-"""Debug prediction routes for serving."""
+"""Debug prediction routes for api."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from serving.model import DEFAULT_OPERATING_THRESHOLD, ModelLoadError, get_model
-from serving.pipeline import (
+from api.model import DEFAULT_OPERATING_THRESHOLD, ModelLoadError, get_model
+from api.pipeline import (
     DEFAULT_DURATION_SEC,
     DEFAULT_FRAME_STRIDE,
     DEFAULT_MAX_FRAMES,
@@ -24,7 +24,7 @@ from serving.pipeline import (
     PipelineTimeoutError,
     window_to_features,
 )
-from serving.source_registry import SourceRegistryError, get_source_registry
+from api.source_registry import SourceRegistryError, get_source_registry
 
 router = APIRouter(tags=["debug"])
 

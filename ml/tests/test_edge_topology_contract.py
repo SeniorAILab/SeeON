@@ -10,8 +10,8 @@ REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml")
 EDGE_COMPOSE_FILE: Final = "compose.edge.yaml"
 EDGE_SERVICES: Final = {
-    "ml-edge-api": "ml/Dockerfile.api",
-    "ml-edge-worker": "ml/Dockerfile.worker",
+    "ml-api": "ml/Dockerfile.api",
+    "ml-worker": "ml/Dockerfile.worker",
 }
 
 
@@ -88,14 +88,15 @@ def test_legacy_multi_target_ml_dockerfile_is_removed() -> None:
 
 def test_edge_api_host_port_is_loopback_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
-    ports = services["ml-edge-api"].get("ports", [])
+    ports = services["ml-api"].get("ports", [])
 
     assert ports == ["127.0.0.1:${ML_SERVING_PORT:-8000}:8000"]
 
 
 def test_native_ml_dev_server_binds_loopback_only() -> None:
     package_json = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
-    command = package_json["scripts"]["dev:ml"]
+    assert "dev:ml" not in package_json["scripts"]
+    command = package_json["scripts"]["dev:ml-api"]
 
     assert "--host 127.0.0.1" in command
     assert "--host 0.0.0.0" not in command

@@ -17,11 +17,11 @@ PREDICT_WINDOW_PATH: Final = "/debug/predict/window"
 
 
 class ServingPredictError(RuntimeError):
-    """Raised when serving prediction is unreachable or returns an unusable body."""
+    """Raised when api prediction is unreachable or returns an unusable body."""
 
 
 class ServingFallClassifier:
-    """Routes demo window-batch classification through serving HTTP."""
+    """Routes demo window-batch classification through api HTTP."""
 
     def __init__(self, base_url: str, *, timeout_sec: float = DEFAULT_TIMEOUT_SEC) -> None:
         self._url = base_url.rstrip("/") + PREDICT_WINDOW_PATH
@@ -48,21 +48,21 @@ class ServingFallClassifier:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")
             raise ServingPredictError(
-                f"serving {PREDICT_WINDOW_PATH} returned {exc.code}: {detail}"
+                f"api {PREDICT_WINDOW_PATH} returned {exc.code}: {detail}"
             ) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise ServingPredictError(
-                f"serving {PREDICT_WINDOW_PATH} unreachable at {self._url}: {exc}"
+                f"api {PREDICT_WINDOW_PATH} unreachable at {self._url}: {exc}"
             ) from exc
         try:
             return float(payload["fall_probability"])
         except (KeyError, TypeError, ValueError) as exc:
             raise ServingPredictError(
-                f"serving {PREDICT_WINDOW_PATH} body missing fall_probability: {payload!r}"
+                f"api {PREDICT_WINDOW_PATH} body missing fall_probability: {payload!r}"
             ) from exc
 
 
 def serving_url_from_env() -> str | None:
-    """Return the configured serving base URL, or None when no serving URL is set."""
+    """Return the configured api base URL, or None when no api URL is set."""
     url = os.environ.get(SERVING_URL_ENV, "").strip()
     return url or None

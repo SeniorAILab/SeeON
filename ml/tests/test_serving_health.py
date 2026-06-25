@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from api.main import create_app, no_lifespan
+from api.model import ModelLoadError
 from runtime.camera_manager import CameraConfig
-from serving.main import create_app, no_lifespan
-from serving.model import ModelLoadError
 
 
 class _StubMetadata:

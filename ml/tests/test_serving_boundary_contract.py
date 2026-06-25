@@ -9,10 +9,10 @@ from typing import Final
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from serving.main import create_app, no_lifespan
+from api.main import create_app, no_lifespan
 
 ML_ROOT: Final = Path(__file__).resolve().parents[1]
-SERVING_ROOT: Final = ML_ROOT / "serving"
+SERVING_ROOT: Final = ML_ROOT / "api"
 ALLOWED_PATHS: Final = {
     "/debug/predict/source",
     "/debug/predict/window",
@@ -122,7 +122,7 @@ def test_serving_import_does_not_load_backend_ingest_publisher() -> None:
             sys.executable,
             "-c",
             (
-                "import sys; import serving.main; "
+                "import sys; import api.main; "
                 "forbidden = {'events.publisher', 'events.edge_ingest_client', "
                 "'worker', 'worker.edge_worker'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "
