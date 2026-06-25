@@ -240,6 +240,20 @@ The backend image contains Prisma CLI and `backend/prisma/**` only so deploy
 tooling can run one-shot migration commands; the NestJS app process does not run
 migrations at startup.
 
+After migrations, the safe deploy runs an idempotent super-admin bootstrap in
+`migrate`, `baseline-existing`, and `reset-demo`. Set `SUPER_ADMIN_PASSWORD` (and
+optionally `SUPER_ADMIN_EMAIL`, default `seniorsailab@gmail.com`) in `.env.host.prod`
+and the deploy ensures that email/password account exists as `SUPER_ADMIN`. It is a
+no-op when `SUPER_ADMIN_PASSWORD` is empty, never seeds demo data, and does not churn
+sessions when the account is already current. Run it on demand without a full deploy:
+
+```bash
+cd /opt/eldercare-fall-ai/current
+COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml run --rm \
+  -e SUPER_ADMIN_EMAIL='seniorsailab@gmail.com' -e SUPER_ADMIN_PASSWORD='<password>' \
+  backend node dist/prisma/seed-super-admin.js
+```
+
 Only `DEPLOY_DB_MODE=reset-demo` runs the compiled backend seed once from the
 backend image after an explicit destructive allow flag. The seed creates 녹양역점
 demo data and seeds `seniorsailab@gmail.com` as backend `ADMIN`; it does not
