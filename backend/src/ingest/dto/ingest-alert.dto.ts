@@ -5,7 +5,7 @@ import {
   type AlertEventType,
 } from '../../alerts/dto/alert-events.dto.js';
 
-export interface IngestAlertBody {
+export interface IngestAlertRequestDto {
   resident_id?: unknown;
   facility_id?: unknown;
   probability?: unknown;
@@ -14,8 +14,8 @@ export interface IngestAlertBody {
   type?: unknown;
 }
 
-export interface ParsedIngestAlertBody {
-  resident_id: string;
+export interface ParsedIngestAlertRequestDto {
+  resident_id: string | null;
   facility_id: string;
   probability: number;
   detectedAt: Date;
@@ -23,7 +23,6 @@ export interface ParsedIngestAlertBody {
 }
 
 const REQUIRED_FIELDS = [
-  'resident_id',
   'facility_id',
   'probability',
   'detected_at',
@@ -32,9 +31,9 @@ const REQUIRED_FIELDS = [
 
 const VALID_ALERT_TYPES = new Set<string>(Object.values(AlertEventTypes));
 
-export function parseIngestAlertBody(
-  body: IngestAlertBody,
-): ParsedIngestAlertBody {
+export function parseIngestAlertRequestDto(
+  body: IngestAlertRequestDto,
+): ParsedIngestAlertRequestDto {
   for (const field of REQUIRED_FIELDS) {
     if (
       body[field] === undefined ||
@@ -64,8 +63,15 @@ export function parseIngestAlertBody(
     );
   }
 
+  const residentId =
+    typeof body.resident_id === 'string' ||
+    typeof body.resident_id === 'number' ||
+    typeof body.resident_id === 'boolean'
+      ? String(body.resident_id)
+      : null;
+
   return {
-    resident_id: String(body.resident_id),
+    resident_id: residentId && residentId.trim() ? residentId : null,
     facility_id: String(body.facility_id),
     probability,
     detectedAt,

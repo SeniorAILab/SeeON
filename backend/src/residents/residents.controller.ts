@@ -16,6 +16,12 @@ import {
 import { RequireFacilityGuard, SessionGuard } from '../auth/session.guard.js';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
 import type { RequestWithAuth } from '../auth/session.guard.js';
+import type {
+  CreateResidentRequestDto,
+  MoveResidentAssignmentRequestDto,
+  ResidentListQueryDto,
+  UpdateResidentRequestDto,
+} from './dto/resident.dto.js';
 import { ResidentsService } from './residents.service.js';
 
 @Controller('api/residents')
@@ -25,11 +31,7 @@ export class ResidentsController {
   constructor(private readonly service: ResidentsService) {}
 
   @Get()
-  list(
-    @Req() req: RequestWithAuth,
-    @Query()
-    query: { isFocusResident?: string; spaceId?: string; active?: string },
-  ) {
+  list(@Req() req: RequestWithAuth, @Query() query: ResidentListQueryDto) {
     return this.service.list(requireFacilityId(req), {
       isFocusResident: parseBoolean(query.isFocusResident),
       spaceId: query.spaceId,
@@ -43,15 +45,15 @@ export class ResidentsController {
   }
 
   @Post()
-  create(@Req() req: RequestWithAuth, @Body() body: Record<string, unknown>) {
-    return this.service.create(requireFacilityId(req), body as never);
+  create(@Req() req: RequestWithAuth, @Body() body: CreateResidentRequestDto) {
+    return this.service.create(requireFacilityId(req), body);
   }
 
   @Patch(':id')
   update(
     @Req() req: RequestWithAuth,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body() body: UpdateResidentRequestDto,
   ) {
     return this.service.update(requireFacilityId(req), id, body);
   }
@@ -70,7 +72,7 @@ export class ResidentsController {
   move(
     @Req() req: RequestWithAuth,
     @Param('id') id: string,
-    @Body() body: { spaceId?: string; zoneId?: string | null },
+    @Body() body: MoveResidentAssignmentRequestDto,
   ) {
     return this.service.move(requireFacilityId(req), id, body);
   }

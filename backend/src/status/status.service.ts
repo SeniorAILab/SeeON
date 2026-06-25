@@ -13,7 +13,7 @@ export class StatusService {
       facilityId,
       (tx: Prisma.TransactionClient) =>
         tx.residentStatus.findMany({
-          include: { resident: { select: { name: true, room: true } } },
+          include: { resident: { select: { name: true } } },
         }),
     );
     return statuses.map((s) => this._decayOnline(s));
@@ -25,7 +25,7 @@ export class StatusService {
       (tx: Prisma.TransactionClient) =>
         tx.residentStatus.findUnique({
           where: { residentId },
-          include: { resident: { select: { name: true, room: true } } },
+          include: { resident: { select: { name: true } } },
         }),
     );
     if (!s) return null;

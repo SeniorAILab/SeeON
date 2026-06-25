@@ -25,7 +25,7 @@ import {
 export interface IngestCameraInfo {
   id: string;
   facilityId: string;
-  residentId: string | null;
+  spaceId: string;
   ingestKeyId: string;
 }
 
@@ -65,7 +65,7 @@ export class HmacIngestGuard implements CanActivate {
     type CameraRow = {
       id: string;
       facilityId: string;
-      residentId: string | null;
+      spaceId: string;
       ingestKeyId: string;
       ingestSecretHash: string;
     };
@@ -108,7 +108,7 @@ export class HmacIngestGuard implements CanActivate {
     request.ingestCamera = {
       id: camera.id,
       facilityId: camera.facilityId,
-      residentId: camera.residentId,
+      spaceId: camera.spaceId,
       ingestKeyId: camera.ingestKeyId,
     };
     return true;

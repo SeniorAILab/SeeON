@@ -6,40 +6,20 @@ import {
 } from '@nestjs/common';
 import type { Level, ResidentAssignment } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import type {
+  CreateResidentRequestDto,
+  UpdateResidentRequestDto,
+} from './dto/resident.dto.js';
 
 import {
   ResidentsRepository,
   ResidentFilters,
 } from './residents.repository.js';
 
-export interface CreateResidentDto {
-  name: string;
-  room?: string | null;
-  spaceId?: string;
-  zoneId?: string | null;
-  gender?: string | null;
-  age?: number | null;
-  diagnosisTags?: string[];
-  fallRiskBaseline?: Level | null;
-  isFocusResident?: boolean;
-}
-
-export interface UpdateResidentDto {
-  name?: string;
-  room?: string | null;
-  gender?: string | null;
-  age?: number | null;
-  diagnosisTags?: string[];
-  fallRiskBaseline?: Level | null;
-  isFocusResident?: boolean;
-  isActive?: boolean;
-}
-
 type ResidentWithAssignments = {
   id: string;
   facilityId: string;
   name: string;
-  room: string | null;
   gender: string | null;
   age: number | null;
   diagnosisTags: string[];
@@ -65,7 +45,7 @@ export class ResidentsService {
     return presentResident(resident, true);
   }
 
-  async create(facilityId: string, dto: CreateResidentDto) {
+  async create(facilityId: string, dto: CreateResidentRequestDto) {
     const name = normalizeRequired(dto.name, 'name');
     const spaceId = dto.spaceId?.trim();
     if (!spaceId)
@@ -78,7 +58,6 @@ export class ResidentsService {
         facilityId,
         {
           name,
-          room: dto.room !== undefined ? normalizeNullable(dto.room) : null,
           gender:
             dto.gender !== undefined
               ? normalizeNullable(dto.gender)
@@ -97,13 +76,12 @@ export class ResidentsService {
     }
   }
 
-  async update(facilityId: string, id: string, dto: UpdateResidentDto) {
+  async update(facilityId: string, id: string, dto: UpdateResidentRequestDto) {
     if (dto.name !== undefined && !dto.name.trim())
       throw new ConflictException('name is required');
     try {
       const resident = await this.residents.update(facilityId, id, {
         name: dto.name?.trim() ?? undefined,
-        room: dto.room !== undefined ? normalizeNullable(dto.room) : undefined,
         gender:
           dto.gender !== undefined ? normalizeNullable(dto.gender) : undefined,
         age: dto.age ?? undefined,
@@ -180,7 +158,6 @@ export function presentResident(
     fallRiskBaseline: resident.fallRiskBaseline,
     isFocusResident: resident.isFocusResident,
     isActive: resident.isActive,
-    room: resident.room,
     createdAt: resident.createdAt.toISOString(),
     ...(detail
       ? { currentAssignment: assignment ? presentAssignment(assignment) : null }

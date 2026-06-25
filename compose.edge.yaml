@@ -7,26 +7,57 @@
 # Usage (on the edge device):
 #   docker compose -f compose.edge.yaml up -d --build
 #
-# Scope note: this file relocates ml-serving from the host stack to the edge as a
-# topology change. Full edge-runtime image packaging (ml/Dockerfile must also bundle
-# the sibling runtime packages contracts/runners/perception/domains/runtime/events)
-# is owned by the ml-edge-device-relayout work, not this PR.
 services:
-  ml-serving:
+  ml-api:
     build:
       context: .
-      dockerfile: ml/Dockerfile
-      target: runner
+      dockerfile: ml/Dockerfile.api
     restart: unless-stopped
     ports:
-      - "${ML_SERVING_PORT:-8000}:8000"
+      - "127.0.0.1:${ML_SERVING_PORT:-8000}:8000"
     environment:
-      # Backend ingest target + camera HMAC credentials consumed by ml/events/publisher.py.
-      # ALERT_API_URL is POSTed verbatim, so it must be the FULL ingest endpoint
-      # (e.g. https://host/ingest/alerts). DEMO_* are required: AlertClient.from_env
-      # raises if any of INGEST_*/DEMO_* is empty when ALERT_API_URL is set.
-      ALERT_API_URL: ${ALERT_API_URL:?edge requires the backend public ingest URL, e.g. https://host/ingest/alerts}
-      INGEST_KEY_ID: ${INGEST_KEY_ID:?edge requires the camera ingest key id}
-      INGEST_SECRET: ${INGEST_SECRET:?edge requires the camera ingest secret}
-      DEMO_RESIDENT_ID: ${DEMO_RESIDENT_ID:?edge requires the resident id}
-      DEMO_FACILITY_ID: ${DEMO_FACILITY_ID:?edge requires the facility id}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ML_SERVING_HOST: 0.0.0.0
+    volumes:
+      - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
+    command:
+      - uvicorn
+      - api.main:app
+      - --host
+      # Container-internal bind only; host publishing above is loopback-only.
+      - ${ML_SERVING_HOST:-0.0.0.0}
+      - --port
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ml-worker:
+    build:
+      context: .
+      dockerfile: ml/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      EDGE_CAMERA_CONFIG: /run/secrets/ml-worker.yaml
+    volumes:
+      - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
+    secrets:
+      - source: ml-worker-config
+        target: ml-worker.yaml
+    command:
+      - python
+      - -m
+      - worker.edge_worker
+      - --config
+      - /run/secrets/ml-worker.yaml
+      - --heartbeat-on-start
+
+secrets:
+  ml-worker-config:
+    file: ${EDGE_CAMERA_CONFIG:?edge requires a local ml-worker YAML config}

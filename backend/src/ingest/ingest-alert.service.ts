@@ -3,14 +3,13 @@ import * as crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { AlertWriterService } from '../alerts/alert-writer.service.js';
 import { AlertEventsService } from '../alerts/services/alert-events.service.js';
-import type { AlertEventIngressDto } from '../alerts/dto/alert-events.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   StaleTimestampException,
   TenantMismatchException,
 } from '../common/domain-errors.js';
 import type { IngestCameraInfo } from './hmac.guard.js';
-import type { ParsedIngestAlertBody } from './dto/ingest-alert.dto.js';
+import type { ParsedIngestAlertRequestDto } from './dto/ingest-alert.dto.js';
 
 const FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
 
@@ -22,7 +21,10 @@ export class IngestAlertService {
     private readonly alertEventsService: AlertEventsService,
   ) {}
 
-  async ingestAlert(camera: IngestCameraInfo, input: ParsedIngestAlertBody) {
+  async ingestAlert(
+    camera: IngestCameraInfo,
+    input: ParsedIngestAlertRequestDto,
+  ) {
     if (
       Math.abs(Date.now() - input.detectedAt.getTime()) > FRESHNESS_WINDOW_MS
     ) {
@@ -32,12 +34,6 @@ export class IngestAlertService {
     if (camera.facilityId !== input.facility_id) {
       throw new TenantMismatchException(
         `Camera facility '${camera.facilityId}' does not match facility_id '${input.facility_id}'`,
-      );
-    }
-
-    if (camera.residentId && camera.residentId !== input.resident_id) {
-      throw new TenantMismatchException(
-        `Camera is assigned to resident '${camera.residentId}', not '${input.resident_id}'`,
       );
     }
 
@@ -51,18 +47,17 @@ export class IngestAlertService {
         facilityId: camera.facilityId,
         residentId: input.resident_id,
         cameraId: camera.id,
+        spaceId: camera.spaceId,
         type: input.type,
         probability: input.probability,
         snapshotKey: null,
         detectedAt: input.detectedAt,
         idempotencyKey,
       });
-      await this.ensureOutboxForIngest(
-        camera,
-        input,
-        idempotencyKey,
-        alert.resident ?? null,
-      );
+      await this.ensureOutboxForIngest(camera, input, idempotencyKey, {
+        resident: alert.resident ?? null,
+        space: alert.space ?? null,
+      });
       return {
         alertSeq: alert.alertSeq.toString(),
         id: alert.id,
@@ -75,17 +70,22 @@ export class IngestAlertService {
           (tx: Prisma.TransactionClient) =>
             tx.alert.findFirst({
               where: { facilityId: camera.facilityId, idempotencyKey },
-              include: { resident: { select: { name: true, room: true } } },
+              include: {
+                resident: { select: { name: true } },
+                space: { select: { name: true } },
+              },
             }),
         );
         await this.ensureOutboxForIngest(
           camera,
           input,
           idempotencyKey,
-          existing?.resident ?? null,
+          existing
+            ? { resident: existing.resident, space: existing.space }
+            : null,
         );
         return {
-          alertSeq: existing?.alertSeq?.toString() ?? '0',
+          alertSeq: existing?.alertSeq.toString() ?? '0',
           id: existing?.id ?? '',
           status: 'duplicate',
         };
@@ -96,9 +96,12 @@ export class IngestAlertService {
 
   private async ensureOutboxForIngest(
     camera: IngestCameraInfo,
-    input: ParsedIngestAlertBody,
+    input: ParsedIngestAlertRequestDto,
     idempotencyKey: string,
-    resident: { name: string; room: string | null } | null,
+    context: {
+      resident: { name: string } | null;
+      space: { name: string } | null;
+    } | null,
   ): Promise<void> {
     await this.alertEventsService.ensureOutboxForIngest({
       facilityId: camera.facilityId,
@@ -107,8 +110,8 @@ export class IngestAlertService {
       type: input.type,
       detectedAt: input.detectedAt,
       confidence: input.probability,
-      residentName: resident?.name,
-      residentRoom: resident?.room ?? null,
+      residentName: context?.resident?.name,
+      residentRoom: context?.space?.name ?? null,
     });
   }
 }

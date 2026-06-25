@@ -1,23 +1,19 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { CamerasService } from '../cameras/cameras.service';
-import { StatusService } from '../status/status.service';
+import type { CamerasService } from '../cameras/cameras.service';
 import { IngestController } from './ingest.controller';
-import { IngestAlertService } from './ingest-alert.service';
+import type { IngestAlertService } from './ingest-alert.service';
 import type { RequestWithIngestCamera } from './hmac.guard';
 
 function setup() {
   const recordHeartbeat = jest.fn();
-  const recordCameraHeartbeat = jest.fn();
   const ingestAlert = jest.fn();
   const cameras = { recordHeartbeat } as unknown as CamerasService;
-  const status = { recordCameraHeartbeat } as unknown as StatusService;
   const ingestAlertService = { ingestAlert } as unknown as IngestAlertService;
   return {
-    controller: new IngestController(cameras, status, ingestAlertService),
+    controller: new IngestController(cameras, ingestAlertService),
     ingestAlert,
     recordHeartbeat,
-    recordCameraHeartbeat,
   };
 }
 
@@ -26,7 +22,7 @@ function req(): RequestWithIngestCamera {
     ingestCamera: {
       id: 'cam-1',
       facilityId: 'facility-1',
-      residentId: 'res-1',
+      spaceId: 'space-1',
       ingestKeyId: 'key-1',
     },
   } as unknown as RequestWithIngestCamera;
@@ -80,15 +76,10 @@ describe('IngestController', () => {
     expect(ingestAlert).not.toHaveBeenCalled();
   });
 
-  it('keeps heartbeat behavior in the controller', async () => {
-    const { controller, recordHeartbeat, recordCameraHeartbeat } = setup();
+  it('keeps heartbeat behavior in the controller without resident status writes', async () => {
+    const { controller, recordHeartbeat } = setup();
 
     await expect(controller.heartbeat(req())).resolves.toEqual({ ok: true });
     expect(recordHeartbeat).toHaveBeenCalledWith('facility-1', 'cam-1');
-    expect(recordCameraHeartbeat).toHaveBeenCalledWith(
-      'facility-1',
-      'cam-1',
-      'res-1',
-    );
   });
 });

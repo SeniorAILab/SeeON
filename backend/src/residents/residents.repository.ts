@@ -11,7 +11,6 @@ export interface ResidentFilters {
 
 export interface ResidentCreateData {
   name: string;
-  room?: string | null;
   gender?: string | null;
   age?: number | null;
   diagnosisTags?: string[];
@@ -33,7 +32,6 @@ const residentInclude = {
 const residentDetailInclude = {
   residentStatus: true,
   guardians: true,
-  cameras: true,
   assignments: { where: { endedAt: null }, take: 1 },
 } satisfies Prisma.ResidentInclude;
 

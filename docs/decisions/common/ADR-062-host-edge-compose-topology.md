@@ -4,7 +4,7 @@
 - Date: 2026-06-21
 - Deciders: deep-interview + ralplan consensus (run 2026-06-21-docker-edge-split)
 - Supersedes (partial): ADR-041 — the four-service single-host compose topology is amended so `ml-serving` is no longer part of the host stack. ADR-041's port map remains in force. (Update: the `compose.override.yaml` dev overlay referenced below is removed by ADR-063 — dev is native-only; the host stack is `compose.yaml` under the `full` profile + `compose.prod.yaml` + `compose.edge.yaml`.)
-- Related: ADR-029 (edge inference deployment topology), ADR-048 (ml/backend window predict seam), ADR-023 (ML/backend prediction boundary), ADR-002 (Postgres everywhere), ADR-055 (Vite + React front stack).
+- Related: ADR-029 (edge inference deployment topology), ADR-048 (ml/backend window predict seam), ADR-023 (ML/backend prediction boundary), ADR-002 (Postgres everywhere), ADR-055 (Vite + React front stack), ADR-067 (ML edge API/worker split), ADR-069 (dual auth session model).
 
 ## Context
 
@@ -19,7 +19,7 @@ The deployment target is therefore two units: a single host running `front + bac
 
 1. **Host stack = `db` + `backend` + `front`.** `compose.yaml` defines only these three services. `compose.override.yaml` (dev) and `compose.prod.yaml` (prod overlay) no longer contain `ml-serving`.
 2. **Front is served by nginx with a same-origin reverse proxy.** A new multi-stage `front/Dockerfile` builds the Vite SPA and serves it from `nginx:1.27-alpine` on port 3000. `front/nginx.conf` serves the static SPA with a `try_files … /index.html` fallback and reverse-proxies the backend's three route prefixes — `/api/`, `/auth/`, `/ingest/` — to `http://backend:8080`, with `proxy_buffering off` scoped to `/api/sse`. The backend has no global `/api` prefix (see `docs/api/route-inventory.md`), so each prefix is proxied explicitly. Same-origin makes browser CORS a non-issue.
-3. **ML moves to `compose.edge.yaml`.** A new edge-only compose file builds `ml/Dockerfile` and carries the edge ingest env consumed by `ml/events/publisher.py`: `ALERT_API_URL`, `INGEST_KEY_ID`, `INGEST_SECRET`, `DEMO_RESIDENT_ID`, `DEMO_FACILITY_ID`. Because the edge is on a separate host/network, `ALERT_API_URL` is the backend's **public** URL — a Docker service name cannot reach it.
+3. **ML moves to `compose.edge.yaml`.** The edge-only compose file builds explicit images from `ml/Dockerfile.api` and `ml/Dockerfile.worker` (ADR-068): `ml-api` for FastAPI health/status/debug routes and `ml-worker` for production RTSP camera ownership. The worker consumes a mounted `EDGE_CAMERA_CONFIG` YAML with per-camera RTSP URLs, ingest credentials, and the LSTM fall-model artifact contract. Because the edge is on a separate host/network, ingest URLs in that file must use the backend's public endpoint — a Docker service name cannot reach it.
 4. **`ML_SERVING_URL` is removed from the deployed backend env; the code seam stays dormant.** The `AlertsModule` / `prediction.port.ts` / `ml-serving-prediction.adapter.ts` seam is retained (ADR-048) but unused on the edge-push path; re-add `ML_SERVING_URL` only if a future topology re-enables backend-pull prediction.
 5. **DB stays co-located on the host + gets periodic backups.** The `db` service keeps its current shape (postgres:17-alpine, RLS roles `fall`/`fall_app`, `backend/prisma/init`, healthcheck, `pgdata` volume). `scripts/db-backup.sh` (pg_dump custom format + rotation) and `docs/runbooks/db-backup-restore.md` add durability. Managed-Postgres migration is explicitly out of scope.
 
@@ -39,11 +39,10 @@ The deployment target is therefore two units: a single host running `front + bac
 ## Consequences
 
 - The front container depends on nginx and on the backend being reachable as `backend:8080` inside the host network; the edge depends on the backend's public ingest URL.
-- The edge image's **full runtime packaging** (the current `ml/Dockerfile` copies only `ml/serving`, while the edge runtime also imports `contracts/runners/perception/domains/runtime/events/…`) is **not** addressed here; that completeness is owned by the `ml-edge-device-relayout` work. `compose.edge.yaml` performs the topology relocation only.
-- Front remains mock-first (`VITE_USE_MOCK` default `true`); non-mock backend wiring is a later (Phase 2) change. The nginx proxy is forward-compatible with it.
+- The edge image now packages the ML runtime sibling packages needed by both API and worker services; camera credentials stay outside git and enter only through the mounted edge-camera config.
+- Front defaults to real backend mode (`VITE_USE_MOCK` unset or `false`) so the nginx same-origin proxy is the normal local/prod path. Login/session/facility onboarding is backend-direct in dev/prod through email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains available only for tests and demo-only mock surfaces while remaining dashboard/admin service wiring is replaced incrementally.
 
 ## Follow-ups
 
-- Full edge-runtime image packaging (ml-edge-device-relayout).
-- Non-mock front wiring (`VITE_USE_MOCK=false`) for the host stack.
+- Replace remaining mock-backed dashboard/admin frontend service workflows with backend endpoint calls.
 - Real production deploy execution, HMAC key provisioning/rotation, and CI for the compose lanes.

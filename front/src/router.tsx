@@ -1,9 +1,10 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import { useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
+import { RouterBootstrap } from "@/components/RouterBootstrap";
 import { LoginPage } from "@/pages/LoginPage";
+import { OnboardingPage } from "@/pages/OnboardingPage";
 import { NowPage } from "@/pages/staff/NowPage";
 import { RoomsPage } from "@/pages/staff/RoomsPage";
 import { AlertsPage } from "@/pages/staff/AlertsPage";
@@ -22,37 +23,23 @@ import { FloorSelectorPage } from "@/pages/monitor/FloorSelectorPage";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
 import { PocFloor2Page } from "@/pages/poc/PocFloor2Page";
 import { UxTestResultPage } from "@/pages/admin/UxTestResultPage";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
-
-/** 세션 복원을 보장하는 부트스트랩 래퍼 */
-function Bootstrap({ children }: { children: React.ReactNode }) {
-  const init = useAuthStore((s) => s.init);
-  const user = useAuthStore((s) => s.user);
-  const initialized = useAuthStore((s) => s.initialized);
-  const resolveForUser = useFacilityStore((s) => s.resolveForUser);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-
-  useEffect(() => {
-    init();
-  }, [init]);
-
-  useEffect(() => {
-    if (initialized && user && !currentFacilityId) {
-      resolveForUser(user.facilityId);
-    }
-  }, [initialized, user, currentFacilityId, resolveForUser]);
-
-  return <>{children}</>;
-}
+import { ADMIN_HOME_PATH } from "@/lib/routeAccess";
 
 export const router = createBrowserRouter([
   {
     path: "/login",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <LoginPage />
-      </Bootstrap>
+      </RouterBootstrap>
+    ),
+  },
+  {
+    path: "/onboarding",
+    element: (
+      <RouterBootstrap>
+        <OnboardingPage />
+      </RouterBootstrap>
     ),
   },
 
@@ -60,11 +47,11 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <RequireAuth>
           <StaffLayout />
         </RequireAuth>
-      </Bootstrap>
+      </RouterBootstrap>
     ),
     children: [
       { index: true, element: <Navigate to="/now" replace /> },
@@ -78,31 +65,31 @@ export const router = createBrowserRouter([
   {
     path: "/monitor",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <RequireAuth>
           <FloorSelectorPage />
         </RequireAuth>
-      </Bootstrap>
+      </RouterBootstrap>
     ),
   },
   {
     path: "/monitor/floor/:floorId",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <RequireAuth>
           <FloorMonitorPage />
         </RequireAuth>
-      </Bootstrap>
+      </RouterBootstrap>
     ),
   },
   {
     path: "/monitor/all",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <RequireAuth>
           <FloorMonitorPage allView />
         </RequireAuth>
-      </Bootstrap>
+      </RouterBootstrap>
     ),
   },
 
@@ -110,23 +97,27 @@ export const router = createBrowserRouter([
   {
     path: "/poc/2f",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <RequireAuth>
           <PocFloor2Page />
         </RequireAuth>
-      </Bootstrap>
+      </RouterBootstrap>
     ),
   },
 
   // ---------- 관리자 모드 : 설정 · 상세 데이터 (FACILITY_ADMIN 이상) ----------
   {
+    path: "/dashboard",
+    element: <Navigate to={ADMIN_HOME_PATH} replace />,
+  },
+  {
     path: "/admin",
     element: (
-      <Bootstrap>
+      <RouterBootstrap>
         <RequireAuth minRole="FACILITY_ADMIN">
           <AppLayout />
         </RequireAuth>
-      </Bootstrap>
+      </RouterBootstrap>
     ),
     children: [
       { index: true, element: <Navigate to="/admin/dashboard" replace /> },

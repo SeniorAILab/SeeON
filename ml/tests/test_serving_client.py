@@ -7,7 +7,7 @@ from threading import Thread
 import numpy as np
 import pytest
 
-from serving.client import ServingFallClassifier, ServingPredictError
+from api.client import ServingFallClassifier, ServingPredictError
 
 
 class _StubServing(BaseHTTPRequestHandler):
@@ -44,7 +44,7 @@ class _StubServing(BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def serving():
+def api():
     _StubServing.received_windows = []
     _StubServing.status = 200
     server = ThreadingHTTPServer(("127.0.0.1", 0), _StubServing)
@@ -56,13 +56,13 @@ def serving():
         server.shutdown()
 
 
-def test_predict_proba_posts_window_and_parses_probability(serving):
-    clf = ServingFallClassifier(serving)
+def test_predict_proba_posts_window_and_parses_probability(api):
+    clf = ServingFallClassifier(api)
     X = np.zeros((2, 30, 51), dtype=np.float32)
     probs = clf.predict_proba(X)
 
     assert probs.shape == (2, 2)
-    # column 1 = fall probability from serving; column 0 = 1 - p
+    # column 1 = fall probability from api; column 0 = 1 - p
     assert probs[:, 1] == pytest.approx(0.8)
     assert probs[:, 0] == pytest.approx(0.2)
     # one POST per window, each carrying the raw [W][51] frames
@@ -71,9 +71,9 @@ def test_predict_proba_posts_window_and_parses_probability(serving):
     assert len(_StubServing.received_windows[0][0]) == 51
 
 
-def test_http_error_fails_loud(serving):
+def test_http_error_fails_loud(api):
     _StubServing.status = 400
-    clf = ServingFallClassifier(serving)
+    clf = ServingFallClassifier(api)
     with pytest.raises(ServingPredictError):
         clf.predict_proba(np.zeros((1, 30, 51), dtype=np.float32))
 
@@ -85,7 +85,7 @@ def test_unreachable_fails_loud():
         clf.predict_proba(np.zeros((1, 30, 51), dtype=np.float32))
 
 
-def test_rejects_wrong_shape(serving):
-    clf = ServingFallClassifier(serving)
+def test_rejects_wrong_shape(api):
+    clf = ServingFallClassifier(api)
     with pytest.raises(ValueError):
         clf.predict_proba(np.zeros((2, 45), dtype=np.float32))

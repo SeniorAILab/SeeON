@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; the lint-script-naming clause (`lint`=`--fix`, non-mutating `lint:check`) is **partially superseded by [ADR-065](../common/ADR-065-lint-script-naming-convention.md)** (`lint`=check, `lint:fix`=`--fix`). The warn-first ESLint and schema↔migration guard decisions below remain active and unchanged.
+Accepted; the lint-script-naming clause (`lint`=`--fix`, non-mutating `lint:check`) is **partially superseded by [ADR-070](../common/ADR-070-lint-script-naming-convention.md)** (`lint`=check, `lint:fix`=`--fix`). The warn-first ESLint and schema↔migration guard decisions below remain active and unchanged.
 
 ## Date
 
@@ -16,14 +16,14 @@ We also use multiple coding agents (Codex, GJC, Claude Code). Enforcement must b
 
 Two accepted decisions constrain how this enforcement may be added:
 
-- [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md): all enforcement logic lives once under `scripts/` and every layer (git-native `.githooks/`, agent hooks, CI) only *invokes* it; git-native `pre-commit`/`pre-push` is the vendor-agnostic primary gate.
+- [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md): all enforcement logic lives once under `scripts/` and every layer (git-native `.githooks/`, agent hooks, CI) only _invokes_ it; git-native `pre-commit`/`pre-push` is the vendor-agnostic primary gate.
 - [ADR-016](../common/ADR-016-enforcement-timing-principle.md): irreversible actions are hook-blocked; **reversible convention violations are NOT given warn-tier git/agent hooks** ("warn spam desensitizes and invites `--no-verify`"); test/lint CI is explicitly allowed and unrelated to that prohibition.
 
 Tenant (facility) isolation for `Resident`/`Camera`/`Alert`/`Guardian`/`Floor`/`Space`/`Zone` is already enforced structurally by Postgres RLS (`ENABLE + FORCE`, app role `NOBYPASSRLS`, `app.facility_id` GUC set by `withFacilityContext`) plus the `PrismaService.$allOperations` fail-closed runtime guard ([ADR-031](./ADR-031-prisma-domain-model.md)/[ADR-032](./ADR-032-b2b-facility-multitenancy-rls.md), [ADR-058](./ADR-058-facility-placement-domain-model.md)). It does not need a static lint.
 
 ## Decision
 
-Mechanically enforce the ADR-046 layering and DTO boundaries with two complementary mechanisms, both warn-first and dependency-free:
+Mechanically enforce the ADR-046 layering and inline-DTO placement boundaries with two complementary mechanisms, both warn-first and dependency-free. ADR-066 later supersedes only the DTO suffix/controller body-boundary enforcement timing by making that subset a blocking guard.
 
 1. **Built-in ESLint rules (warn) in `backend/eslint.config.mjs`** for everything ESLint can express:
    - `@typescript-eslint/no-restricted-imports` file-scoped overrides for controller / repository / service import boundaries, encoding NodeNext `.js` suffixes (basename + globstar). The repository override excludes `prisma.service.js` via gitignore-style negation so legitimate `PrismaService` use is not flagged.
@@ -32,14 +32,14 @@ Mechanically enforce the ADR-046 layering and DTO boundaries with two complement
    - The existing stability deny-list stays `error`, and rules already at `error` via `recommendedTypeChecked` (`no-explicit-any`, `no-misused-promises`, `require-await`) are **never** downgraded.
    - A non-mutating `lint:check` script (no `--fix`) is added; the existing `--fix` `lint` stays for developer cleanup.
 
-2. **A single-source guard script `scripts/backend-guard/check-schema-migration.sh`** for the one boundary ESLint cannot express: if `backend/prisma/schema.prisma` changes without a companion `backend/prisma/migrations/*/migration.sql`, fail. This is a deployment contract (a stale-schema-without-migration breaks `prisma migrate deploy`), so it is hook-blocked at `pre-commit` and checked in CI.
+2. **A single-source guard script `scripts/backend-guard/check-schema-migration.sh`** for the schema boundary ESLint cannot express: if `backend/prisma/schema.prisma` changes without a companion `backend/prisma/migrations/*/migration.sql`, fail. This is a deployment contract (a stale-schema-without-migration breaks `prisma migrate deploy`), so it is hook-blocked at `pre-commit` and checked in CI.
 
 **Enforcement wiring (ADR-008 single source, ADR-016 boundary):**
 
 - `scripts/backend-guard/` is the SSOT; `.githooks/pre-commit` and CI only invoke it (no reimplementation).
-- Reversible layering/DTO/typed warnings are surfaced only by editor ESLint + the CI `lint:check` step. They are **not** added to `pre-commit` or agent `PreToolUse` warn-tiers (ADR-016). The CI `lint:check` step is **non-blocking** (`continue-on-error`) during the warn-first rollout: at adoption the backend has ~20 pre-existing `recommendedTypeChecked` errors (`no-unsafe-*`, `unbound-method`, `no-base-to-string`, `no-unused-vars`) that were never CI-linted; the step still runs and prints them but does not break CI. Escalation to a blocking gate is a follow-up after that backlog is burned down.
+- Reversible layering/inline-DTO-placement/typed warnings are surfaced only by editor ESLint + the CI `lint:check` step. They are **not** added to `pre-commit` or agent `PreToolUse` warn-tiers (ADR-016). The CI `lint:check` step is **non-blocking** (`continue-on-error`) during the warn-first rollout: at adoption the backend has ~20 pre-existing `recommendedTypeChecked` errors (`no-unsafe-*`, `unbound-method`, `no-base-to-string`, `no-unused-vars`) that were never CI-linted; the step still runs and prints them but does not break CI. Escalation to a blocking gate is a follow-up after that backlog is burned down.
 - Only the schema↔migration contract is wired into `pre-commit` (staged mode) and CI (auto/base mode). It is deliberately **not** added to agent `PreToolUse`/`pre_tool_use` hooks (`.claude`/`.codex`): blocking every shell/edit action while a schema-only change is staged would create deadlock-prone friction, and the git-native `pre-commit` already covers every vendor (Claude/Codex/GJC/human) at commit time.
-- The vendor-agnostic guarantee is git-native `pre-commit` (fires for every vendor at commit) + CI. Editor ESLint provides the per-vendor early feedback for layering/DTO; no vendor-specific pre-edit hook is needed for this work.
+- The vendor-agnostic guarantee is git-native `pre-commit` (fires for every vendor at commit) + CI. Editor ESLint provides the per-vendor early feedback for layering/inline DTO placement; no vendor-specific pre-edit hook is needed for this work. ADR-066 adds the blocking DTO suffix/body-boundary guard under the same `scripts/backend-guard/` SSOT.
 
 **Tenant isolation is intentionally not lint-checked**; RLS + the PrismaService runtime guard are the structural source of truth.
 
@@ -77,7 +77,7 @@ Mechanically enforce the ADR-046 layering and DTO boundaries with two complement
 
 ## Consequences
 
-- New code surfaces layering/DTO/typed warnings continuously in the editor and CI; existing violations (e.g. inline DTOs in `residents`/`cameras`/`guardians` services) remain visible warnings — tracked, not hidden, with no per-file ignores.
+- New code surfaces layering/inline-DTO-placement/typed warnings continuously in the editor and CI; existing violations remain visible warnings — tracked, not hidden, with no per-file ignores. DTO suffix and controller `@Body()` contract violations are now covered by ADR-066.
 - Schema-without-migration is blocked at commit and in CI.
 - `lint:check` is a non-mutating script (no `--fix`); `lint` (`--fix`) stays for developers. Backend lint enters CI as a non-blocking step now (warn-first; ADR-016-allowed test/lint CI) because of the ~20 pre-existing error backlog, and is escalated to blocking later.
 - `scripts/backend-guard/` is a new minimal sibling to `scripts/git-guard/`; `setup-hooks.sh` chmods it.
@@ -86,7 +86,7 @@ Mechanically enforce the ADR-046 layering and DTO boundaries with two complement
 ## Follow-ups
 
 - Escalate selected warns to errors (ratchet or blanket) once the existing-violation backlog is burned down.
-- Refactor existing inline DTOs and `CamerasService` direct-Prisma usage out of the warn set.
+- Refactor existing inline DTO placement warnings and `CamerasService` direct-Prisma usage out of the warn set.
 - Consider API-level structural tenant enforcement (a tenant-bound repository/wrapper requiring `facilityId`) as a separate decision.
 - Reconsider a global `ValidationPipe` + `class-validator`/`class-transformer` (deferred from this work).
 - Confirm the exact GJC pre-edit hook execution path for best-effort early feedback.

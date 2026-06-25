@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service';
 import { GuardiansService } from './guardians.service';
 
 type GuardianDelegate = {
@@ -45,6 +45,17 @@ describe('GuardiansService', () => {
     const { service, guardian } = setup();
     await expect(
       service.create('facility-1', { residentId: '', name: 'A', phone: '010' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(guardian.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed create bodies without throwing a TypeError', async () => {
+    const { service, guardian } = setup();
+    await expect(
+      service.create('facility-1', {
+        residentId: 'res-1',
+        phone: '010',
+      } as never),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(guardian.create).not.toHaveBeenCalled();
   });

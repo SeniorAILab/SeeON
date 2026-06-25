@@ -5,19 +5,10 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-
-export interface CreateGuardianDto {
-  residentId: string;
-  name: string;
-  phone: string;
-  relation?: string;
-}
-
-export interface UpdateGuardianDto {
-  name?: string;
-  phone?: string;
-  relation?: string | null;
-}
+import type {
+  CreateGuardianRequestDto,
+  UpdateGuardianRequestDto,
+} from './dto/guardian.dto.js';
 
 @Injectable()
 export class GuardiansService {
@@ -44,8 +35,12 @@ export class GuardiansService {
     return g;
   }
 
-  async create(facilityId: string, dto: CreateGuardianDto) {
-    if (!dto.residentId || !dto.name.trim() || !dto.phone.trim()) {
+  async create(facilityId: string, dto: CreateGuardianRequestDto) {
+    if (
+      !hasNonBlankString(dto.residentId) ||
+      !hasNonBlankString(dto.name) ||
+      !hasNonBlankString(dto.phone)
+    ) {
       throw new ConflictException('residentId, name, and phone are required');
     }
     return this.prisma.withFacilityContext(
@@ -63,7 +58,7 @@ export class GuardiansService {
     );
   }
 
-  async update(facilityId: string, id: string, dto: UpdateGuardianDto) {
+  async update(facilityId: string, id: string, dto: UpdateGuardianRequestDto) {
     const existing = await this.prisma.withFacilityContext(
       facilityId,
       (tx: Prisma.TransactionClient) =>
@@ -105,4 +100,8 @@ export class GuardiansService {
       (tx: Prisma.TransactionClient) => tx.guardian.delete({ where: { id } }),
     );
   }
+}
+
+function hasNonBlankString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }

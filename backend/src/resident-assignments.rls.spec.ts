@@ -94,13 +94,11 @@ describe('resident_assignments RLS tenant isolation', () => {
           id: 'ra-resident-a',
           facilityId: 'ra-a',
           name: 'A Resident',
-          room: 'A Room',
         },
         {
           id: 'ra-resident-b',
           facilityId: 'ra-b',
           name: 'B Resident',
-          room: 'B Room',
         },
       ],
     });
@@ -123,8 +121,8 @@ describe('resident_assignments RLS tenant isolation', () => {
   });
 
   afterAll(async () => {
-    await app?.$disconnect();
-    await direct?.$disconnect();
+    await app.$disconnect();
+    await direct.$disconnect();
   });
 
   it('returns zero rows without app.facility_id', async () => {

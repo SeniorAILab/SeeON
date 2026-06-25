@@ -2,6 +2,20 @@
 
 Backend `/ingest/*` is the only canonical edge ingress. It accepts camera-authenticated facts and turns them into backend-owned read-model, status, SSE, and delivery outbox state.
 
+Production live path: `RTSP -> ml-worker -> backend /ingest/*`.
+
+The ML edge worker signs requests per camera from `EDGE_CAMERA_CONFIG`; each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`.
+The API service does not share one singleton ingest identity for camera streams, does not own live camera streams, and does not perform backend ingest side effects.
+
+Current backend camera creation returns a one-time `ingestSecret` alongside the
+camera's `ingestKeyId`. Store that secret in the edge worker's private
+`EDGE_CAMERA_CONFIG`; list/get/update camera responses do not return it again.
+Existing cameras whose one-time secret was lost must be recreated until a separate
+rotation endpoint exists.
+
+`EDGE_CAMERA_CONFIG` is the worker's per-camera secret file. It must stay outside
+git and is mounted as a secret by `compose.edge.yaml` for edge deployments.
+
 ## Authentication
 
 Both endpoints use `HmacIngestGuard`.
@@ -16,7 +30,8 @@ Required headers:
 
 Freshness window: 5 minutes. Requests outside `±5 minutes` of server time fail with the stale timestamp domain error.
 
-Signing key: the camera secret stored as `Camera.ingestSecretHash` in current code.
+Signing key: `sha256(ingestSecret)`, which is stored as `Camera.ingestSecretHash`
+and used directly by `HmacIngestGuard`.
 
 ## Canonical body
 
@@ -38,7 +53,7 @@ Missing, null, or non-scalar values canonicalize to an empty string. For heartbe
 
 ```json
 {
-  "resident_id": "resident_cuid",
+  "resident_id": null,
   "facility_id": "facility_cuid",
   "probability": 0.97,
   "detected_at": "2026-06-18T12:00:00.000Z",
@@ -47,14 +62,20 @@ Missing, null, or non-scalar values canonicalize to an empty string. For heartbe
 }
 ```
 
-Required fields: `resident_id`, `facility_id`, `probability`, `detected_at`, `type`.
+Required fields: `facility_id`, `probability`, `detected_at`, `type`.
+
+Optional fields: `resident_id`. Unknown-person and room-centric alerts are valid, so
+edge clients may send `null` or omit the field when the camera/space is not bound to a
+specific resident.
 
 Validation and ownership:
 
 - `probability` must be a finite number in `[0, 1]`.
 - `detected_at` must be valid ISO-8601 and within 5 minutes of server time.
 - The authenticated camera's `facilityId` must equal `facility_id`.
-- If the authenticated camera is assigned to a resident, its `residentId` must equal `resident_id`.
+- If the authenticated camera is assigned to a resident and `resident_id` is present, the
+  values must match. If `resident_id` is absent or null, the backend stores a room-centric
+  alert without updating a resident status row.
 - `snapshot_url` is ignored. Backend never dereferences edge-provided URLs; snapshots are uploaded separately through the dashboard snapshot endpoint.
 
 ### Idempotency

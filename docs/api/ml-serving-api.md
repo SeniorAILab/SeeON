@@ -1,6 +1,15 @@
 # ML Serving API
 
-ML serving is a FastAPI service. Its boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
+ML API is a FastAPI service for private/local edge health, status, model, debug, and bounded control surfaces. Its prediction boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
+
+Production live path: `RTSP -> ml-worker -> backend /ingest/*`.
+
+Production camera ownership is not part of the API process. The edge node runs
+`ml-api` for health/status/debug routes. It runs `ml-worker` for
+long-running RTSP capture, model/domain evaluation, heartbeats, and alert ingest
+publishing (ADR-067/ADR-068). The API service does not own live camera streams,
+does not receive worker frame relay, and does not perform `/ingest/*` side
+effects.
 
 Bare `POST /predict` is removed and returns 404. Callers must use the explicit debug prediction routes below.
 
@@ -14,7 +23,7 @@ Liveness probe. Returns `200` with:
 
 ## `GET /health/ready`
 
-Readiness probe. Returns the service readiness snapshot from app state. When the service is still booting or unavailable, the same body is returned with HTTP `503`; ready services return HTTP `200`.
+Readiness probe. Returns the API service readiness snapshot from app state. When the service is still booting or unavailable, the same body is returned with HTTP `503`; ready services return HTTP `200`. Camera stream health is reported by the worker path and does not block API liveness.
 
 ## `GET /health`
 
@@ -22,11 +31,11 @@ Legacy aggregate health report for local/demo observability. It reports service 
 
 ## `GET /status`
 
-Runtime status snapshot. This is operational state for the edge serving process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state.
+Runtime status snapshot. This is operational state for the edge API process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and publish their own heartbeat/alert facts through backend ingest.
 
 ## `GET /models`
 
-Model registry snapshot. Returns registered task names, loaded model metadata when a model is attached to the app, and the serving device descriptor.
+Model registry snapshot. Returns registered task names, loaded model metadata when a model is attached to the app, and the api device descriptor.
 
 Example shape:
 
@@ -52,7 +61,7 @@ Current-effective classification contract. `POST /debug/predict/window` accepts 
 
 `window` is `number[][]` with shape `[T][51]`:
 
-- `T` is the number of frames. Operating window is approximately 30 frames; serving constants require `EXPECTED_WINDOW = 30`.
+- `T` is the number of frames. Operating window is approximately 30 frames; api constants require `EXPECTED_WINDOW = 30`.
 - Each row contains 17 COCO-17 keypoints × `[x, y, conf]` = 51 numbers.
 - Coordinates are normalized the same way as training via `normalize_person_keypoints`.
 - `conf` values are finite numbers in `[0, 1]`.
@@ -64,7 +73,7 @@ The confirmed window path is:
 
 1. Validate `window` as `[T][51]` numeric data.
 2. Reshape `[T][51]` to `[T][17][3]`.
-3. Call `training.data.features.extract_window_features` through `serving.pipeline.window_to_features`.
+3. Call `training.data.features.extract_window_features` through `api.pipeline.window_to_features`.
 4. Produce the 45-dimensional feature vector required by `EXPECTED_FEATURE_DIM = 45`.
 5. Call `FallDetector.predict`, which uses the loaded random forest model's `predict_proba`.
 6. Read `operating_threshold` from model metadata or fall back to `DEFAULT_OPERATING_THRESHOLD = 0.09`.
@@ -93,7 +102,7 @@ Field rules:
 
 ## `POST /debug/predict/source` — bounded source/upload debug mode
 
-Source-backed prediction is retained for local demo/evaluation only, separate from the backend alert-ingest boundary. It accepts exactly one trusted `source_id` or `upload_id` plus optional bounded controls:
+Source-backed prediction is retained for local demo/evaluation only, separate from the production RTSP and backend alert-ingest boundary. It accepts exactly one trusted `source_id` or `upload_id` plus optional bounded controls:
 
 ```json
 {
@@ -119,4 +128,4 @@ Or:
 }
 ```
 
-This route resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It returns the same response shape as `/debug/predict/window`. It is for demo/eval surfaces, not the backend alert-ingest boundary, and it rejects requests that include `window`.
+This route resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It returns the same response shape as `/debug/predict/window`. It is for demo/eval surfaces, not production RTSP, not raw frame relay, and not the backend alert-ingest boundary. It rejects requests that include `window`.

@@ -68,7 +68,7 @@ The root `package.json` carries **zero runtime or shared library dependencies**.
 |---|---|
 | `dev:front` | `pnpm --filter front dev` |
 | `dev:backend` | `pnpm --filter backend start:dev` |
-| `dev:ml` | `uv run --directory ml uvicorn serving.main:app --reload --host 0.0.0.0 --port 8000` |
+| `dev:ml` | `uv run --directory ml uvicorn serving.main:app --reload --host 127.0.0.1 --port 8000` |
 | `dev:demo` | `uv run --directory ml --group demo streamlit run demo/app.py` |
 | `build:front` | `pnpm --filter front build` |
 | `build:backend` | `pnpm --filter backend build` |

@@ -9,7 +9,7 @@ from __future__ import annotations
 import queue
 from dataclasses import dataclass, field
 
-from events.publisher import EventPublisher
+from events.local_publisher import EventPublisher
 from events.schemas import EmittedEvent
 
 

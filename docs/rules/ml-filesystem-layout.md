@@ -4,7 +4,10 @@
 > Records the operational "where does this file go" rule; the why lives in
 > [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) (data layout)
 > and [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) (model layout,
-> supersedes retired source ADR-003 §3 and ADR-007 rows 1/2/5).
+> supersedes retired source ADR-003 §3 and ADR-007 rows 1/2/5). Runtime process
+> ownership lives in [ADR-067](../decisions/ml/ADR-067-ml-edge-api-worker-service-split.md);
+> portable worker video backend policy lives in
+> [ADR-068](../decisions/ml/ADR-068-ml-edge-worker-portable-video-runtime.md).
 
 ## Edge-device package tree
 
@@ -14,7 +17,7 @@
 ml/
 ├── contracts/   # L0 dataclasses/protocols/constants only
 ├── features/    # L0 pure geometry/window feature transforms
-├── sources/     # L1 frame intake: video files, webcams, RTSP, registry, camera probing
+├── sources/     # L1 frame intake: video files, webcams, RTSP/OpenCV backend seam, registry, probing
 ├── runners/     # L1 model/runtime adapters: YOLO pose/bed, sklearn fall, device/warmup
 ├── perception/  # L2 observation construction, tracking, scene state, bed detection, frame features
 ├── domains/     # L3 domain detectors/latches: fall, bed-exit, long-lie, risk, wheelchair standup
@@ -34,6 +37,13 @@ Serving boot order is owned by `serving.lifespan`: load detector model, warm pos
 runner, initialize source registry/pipeline, then expose `/health`, `/status`,
 `/models`, and `/debug/predict/{window,source}`. Keep boot-order changes in that
 module and its tests.
+
+Production RTSP is not a serving-lifespan concern. The live path is
+`RTSP -> ml-edge-worker -> backend /ingest/*`; `ml-edge-api` remains a
+private/local FastAPI health, status, models, debug, and control surface. The
+current RTSP backend is OpenCV. GStreamer, DeepStream, and Triton are future
+adapters only and must not be added as production dependencies without a new
+decision and release-matrix pinning.
 
 ## `ml/data/` — domain-first, two tiers
 
@@ -73,11 +83,11 @@ Nothing else — no new conventions, no registry.
 |---------------|------|-----------|-----|
 | Production contracts/protocols | `ml/contracts/` | yes | ADR-057 |
 | Pure feature transforms | `ml/features/` | yes | ADR-057 |
-| Frame intake and camera probing code | `ml/sources/` | yes | ADR-006/057 |
+| Frame intake and camera probing code | `ml/sources/` | yes | ADR-006/057/068 |
 | Runner adapters and hardware/model warmup | `ml/runners/` | yes | ADR-025/057 |
 | Perception state/tracking/observation code | `ml/perception/` | yes | ADR-057 |
 | Domain detectors and latches | `ml/domains/` | yes | ADR-057 |
-| Edge runtime orchestration | `ml/runtime/` | yes | ADR-029/057 |
+| Edge runtime orchestration | `ml/runtime/` | yes | ADR-029/057/067/068 |
 | Event/alert seam | `ml/events/` | yes | ADR-029/057 |
 | Serving API and lifespan | `ml/serving/` | yes | ADR-022/057 |
 | Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` | no (gitignored) | ADR-015 |

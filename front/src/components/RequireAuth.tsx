@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore, hasRole } from "@/store/authStore";
+import { forbiddenPathForUser } from "@/lib/routeAccess";
 import type { Role } from "@/types";
 
 /** 인증 + (선택) 최소 권한 가드 */
@@ -17,7 +18,7 @@ export function RequireAuth({
   if (!initialized) return null;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   if (minRole && !hasRole(user, minRole)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={forbiddenPathForUser(user)} replace />;
   }
   return <>{children}</>;
 }

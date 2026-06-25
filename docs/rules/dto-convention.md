@@ -23,6 +23,21 @@ At the external edge/backend boundary:
 - Frontend internal state may use camelCase after a mapper converts API JSON.
 - The snake_case/camelCase conversion must happen at a named mapper/parser boundary, not by ad-hoc property reads spread across components or services.
 
+## Backend DTO naming
+
+Every exported backend DTO type whose name ends in `Dto` must declare its boundary role in the suffix:
+
+- `*RequestDto` for request bodies and inbound external events.
+- `*ResponseDto` for HTTP responses and outbound external-service responses.
+- `*QueryDto` for query-string objects.
+- `*ParamsDto` for route parameter objects.
+- `*MessageDto` for provider message payloads.
+- `*StatusDto` for status enum/value DTOs.
+
+Do not export ambiguous `Create*Dto`, `Update*Dto`, `*InputDto`, or `*Body` names. For CRUD routes, use `Create<Resource>RequestDto` and `Update<Resource>RequestDto`. Non-wire helper value types may live next to DTOs only when they do not end in `Dto`.
+
+`pnpm --filter backend run dto:check` enforces this naming convention and rejects controller `@Body()` parameters that are inline objects, `Record<string, unknown>`, or named with a type that does not end in `RequestDto`.
+
 ## Backend response rule
 
 The backend never returns raw Prisma models as the intended public contract. Use a response DTO or presenter-mapper that explicitly chooses fields and serializes non-JSON-native values.
@@ -52,3 +67,9 @@ Examples:
 - `backend/src/alerts/dto/alert-events.dto.ts` owns retained alert-event/outbox, ML prediction, and alert-event response DTOs.
 
 A service type is not automatically a DTO. Service inputs may express use-case needs after validation/coercion; DTOs express the external contract before and after the request crosses the controller boundary.
+
+## Frontend endpoint mappers
+
+Frontend backend calls are centralized by endpoint under `front/src/services/api/`. Endpoint files own request construction, response DTO validation, and mapping into `front/src/types` domain objects.
+
+Service files own domain workflows and consume endpoint functions, but they should not directly call backend `fetch()` or cast backend JSON. Login/session service code is backend-direct in dev/prod for email/password and Kakao OAuth, and must not reintroduce frontend mock auth users or localStorage sessions. The shared `apiClient` returns `unknown` JSON; endpoint mappers must parse it into typed frontend state.

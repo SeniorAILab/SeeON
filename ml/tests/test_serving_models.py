@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from api.main import create_app, no_lifespan
 from runners.registry import ModelRegistry
-from serving.main import create_app, no_lifespan
 
 
 class StubModel:
