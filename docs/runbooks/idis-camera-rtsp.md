@@ -131,9 +131,9 @@ chmod 600 /tmp/eldercare-ml-worker-rtsp.yaml
 
 ```yaml
 version: 1
-ingest:
-  alert_api_url: https://backend.example.com/ingest/alerts
-  heartbeat_api_url: https://backend.example.com/ingest/heartbeat
+relay:
+  url: http://ml-api:8000
+  token: local-ml-api-relay-token
 models:
   fall:
     type: lstm
@@ -148,8 +148,6 @@ cameras:
     facility_id: backend-facility-id
     resident_id: backend-resident-id-or-null
     rtsp_url: rtsp://<camera-host>:554/trackID=2
-    ingest_key_id: backend-camera-key-id
-    ingest_secret: backend-camera-secret
 ```
 
 config 문법만 확인:

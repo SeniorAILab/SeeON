@@ -65,9 +65,9 @@ EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
-`EDGE_CAMERA_CONFIG` is a gitignored per-camera YAML file. Each camera entry
-holds the RTSP URL, backend `/ingest/*` URLs, camera/facility/resident identity,
-`ingest_key_id`, and `ingest_secret`.
+`EDGE_CAMERA_CONFIG` is a gitignored YAML file. It holds the local `ml-api`
+relay URL/token plus per-camera RTSP URL and camera/facility/resident identity.
+Backend `/ingest/*` URLs and key/secret configuration live in `ml-api`.
 
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future
