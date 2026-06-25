@@ -158,7 +158,7 @@ SELECT recipient_user_id, status, provider_reference, failure_class, last_error,
 ## 8. 관련 산출물
 
 - 코드: `feat/226-register-developer-as-first-kakao-user-live-send-t`, PR #241.
-- ADR: `docs/decisions/backend/ADR-051`(scope env/최소권한), `ADR-052`(메시지 DTO+한글 포맷), `ADR-053`(등록-유저 수신자 모델).
+- ADR: `docs/decisions/backend/ADR-071`(auth/scope/token custody), `ADR-052`(메시지 DTO+한글 포맷), `ADR-053`(등록-유저 수신자 모델).
 - 스펙/계획: `.gjc/specs/deep-interview-kakao-fall-alert-delivery.md`, `.gjc/plans/ralplan/2026-06-18-0708-af1a/`.
 - 멀티-수신자 데모(나+형) 절차: `docs/runbooks/thursday-mvp-demo.md`.
 

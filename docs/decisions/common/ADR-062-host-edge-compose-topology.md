@@ -4,7 +4,7 @@
 - Date: 2026-06-21
 - Deciders: deep-interview + ralplan consensus (run 2026-06-21-docker-edge-split)
 - Supersedes (partial): ADR-041 — the four-service single-host compose topology is amended so `ml-serving` is no longer part of the host stack. ADR-041's port map remains in force. (Update: the `compose.override.yaml` dev overlay referenced below is removed by ADR-063 — dev is native-only; the host stack is `compose.yaml` under the `full` profile + `compose.prod.yaml` + `compose.edge.yaml`.)
-- Related: ADR-029 (edge inference deployment topology), ADR-048 (ml/backend window predict seam), ADR-023 (ML/backend prediction boundary), ADR-002 (Postgres everywhere), ADR-055 (Vite + React front stack), ADR-067 (ML edge API/worker split), ADR-069 (dual auth session model).
+- Related: ADR-029 (edge inference deployment topology), ADR-048 (ml/backend window predict seam), ADR-023 (ML/backend prediction boundary), ADR-002 (Postgres everywhere), ADR-055 (Vite + React front stack), ADR-067 (ML edge API/worker split), ADR-071 (login/auth SSOT).
 
 ## Context
 
