@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from domains.bed_exit.detector import BedExitMonitor
+from domains.bed_exit.detector import BedExitMonitor, NightWindow
 from domains.fall.detector import FallEventLatch
 from domains.long_lie.detector import LongLieDetector
 from domains.risk.detector import RiskDetector
@@ -13,20 +13,44 @@ from domains.wheelchair_standup.detector import WheelchairStandupDetector
 @dataclass(frozen=True, slots=True)
 class DomainRegistration:
     name: str
-    factory: Callable[[], object]
+    factory: Callable[[object | None], object]
     enabled: bool
 
 
+def _ignore_config(factory: Callable[[], object]) -> Callable[[object | None], object]:
+    def _factory(_config: object | None = None) -> object:
+        return factory()
+
+    return _factory
+
+
+def _bed_exit_factory(config: object | None = None) -> BedExitMonitor:
+    night_window = None
+    if isinstance(config, dict):
+        raw_night_window = config.get("night_window")
+        if isinstance(raw_night_window, dict):
+            night_window = NightWindow(
+                start=str(raw_night_window["start"]),
+                end=str(raw_night_window["end"]),
+                tz=str(raw_night_window["tz"]),
+            )
+    return BedExitMonitor(night_window=night_window)
+
+
 DOMAIN_REGISTRY: dict[str, DomainRegistration] = {
-    "fall": DomainRegistration("fall", FallEventLatch, FallEventLatch.enabled),
-    "bed_exit": DomainRegistration("bed_exit", BedExitMonitor, BedExitMonitor.enabled),
+    "fall": DomainRegistration("fall", _ignore_config(FallEventLatch), FallEventLatch.enabled),
+    "bed_exit": DomainRegistration("bed_exit", _bed_exit_factory, BedExitMonitor.enabled),
     "wheelchair_standup": DomainRegistration(
         "wheelchair_standup",
-        WheelchairStandupDetector,
+        _ignore_config(WheelchairStandupDetector),
         WheelchairStandupDetector.enabled,
     ),
-    "long_lie": DomainRegistration("long_lie", LongLieDetector, LongLieDetector.enabled),
-    "risk": DomainRegistration("risk", RiskDetector, RiskDetector.enabled),
+    "long_lie": DomainRegistration(
+        "long_lie",
+        _ignore_config(LongLieDetector),
+        LongLieDetector.enabled,
+    ),
+    "risk": DomainRegistration("risk", _ignore_config(RiskDetector), RiskDetector.enabled),
 }
 
 

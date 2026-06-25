@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Protocol, runtime_checkable
@@ -13,6 +15,7 @@ from api.model import ModelLoadError, get_model
 from api.pipeline import FallPipeline
 from api.source_registry import SourceRegistryError, get_source_registry
 from domains import DOMAIN_REGISTRY
+from events.edge_ingest_client import DEFAULT_TIMEOUT_SEC, EdgeIngestClient
 from events.local_publisher import LoggingEventPublisher
 from events.outbox import Outbox
 from runners.device import select_device
@@ -23,6 +26,14 @@ from runtime.edge_runtime import EdgeRuntime
 from runtime.incident_manager import IncidentManager
 from runtime.status_store import StatusStore
 from sources.registry import SourceRegistry
+
+API_BACKEND_ALERT_URL_ENV = "API_BACKEND_ALERT_URL"
+API_BACKEND_HEARTBEAT_URL_ENV = "API_BACKEND_HEARTBEAT_URL"
+API_INGEST_KEY_ID_ENV = "API_INGEST_KEY_ID"
+API_INGEST_SECRET_ENV = "API_INGEST_SECRET"
+API_EDGE_RELAY_TOKEN_ENV = "API_EDGE_RELAY_TOKEN"
+API_CAMERA_INVENTORY_ENV = "API_CAMERA_INVENTORY"
+API_BACKEND_INGEST_TIMEOUT_SEC_ENV = "API_BACKEND_INGEST_TIMEOUT_SEC"
 
 
 @runtime_checkable
@@ -59,6 +70,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.incident_manager = incident_manager
     app.state.event_publisher = publisher
     app.state.outbox = outbox
+    _configure_backend_ingest(app)
 
     source_registry = _resolve_sources(app, status_store)
     app.state.source_registry = source_registry
@@ -84,6 +96,76 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         close = getattr(publisher, "close", None)
         if callable(close):
             close()
+
+
+def _configure_backend_ingest(app: FastAPI) -> None:
+    if not hasattr(app.state, "edge_relay_token"):
+        app.state.edge_relay_token = os.environ.get(API_EDGE_RELAY_TOKEN_ENV)
+    if not hasattr(app.state, "camera_inventory"):
+        app.state.camera_inventory = _camera_inventory_from_env_or_state(app)
+    if hasattr(app.state, "backend_ingest_client"):
+        return
+
+    alert_url = os.environ.get(API_BACKEND_ALERT_URL_ENV)
+    heartbeat_url = os.environ.get(API_BACKEND_HEARTBEAT_URL_ENV)
+    ingest_key_id = os.environ.get(API_INGEST_KEY_ID_ENV)
+    ingest_secret = os.environ.get(API_INGEST_SECRET_ENV)
+    if not all((alert_url, heartbeat_url, ingest_key_id, ingest_secret)):
+        return
+
+    first_camera = next(iter(app.state.camera_inventory.values()), {})
+    app.state.backend_ingest_client = EdgeIngestClient(
+        alert_url=alert_url,
+        heartbeat_url=heartbeat_url,
+        camera_id=str(first_camera.get("camera_id", "api-relay")),
+        facility_id=str(first_camera.get("facility_id", "api-relay")),
+        resident_id=first_camera.get("resident_id"),
+        ingest_key_id=ingest_key_id,
+        ingest_secret=ingest_secret,
+        timeout_sec=_backend_ingest_timeout_sec(),
+    )
+
+
+def _camera_inventory_from_env_or_state(app: FastAPI) -> dict[str, dict[str, str | None]]:
+    raw_inventory = os.environ.get(API_CAMERA_INVENTORY_ENV)
+    if raw_inventory:
+        parsed = json.loads(raw_inventory)
+        if not isinstance(parsed, list):
+            raise ValueError(f"{API_CAMERA_INVENTORY_ENV} must be a JSON list")
+        return _camera_inventory_from_items(parsed)
+
+    camera_configs = getattr(app.state, "camera_configs", ())
+    return _camera_inventory_from_items(camera_configs)
+
+
+def _camera_inventory_from_items(items: object) -> dict[str, dict[str, str | None]]:
+    inventory: dict[str, dict[str, str | None]] = {}
+    for item in items:
+        camera_id = _item_text(item, "camera_id")
+        facility_id = _item_text(item, "facility_id")
+        if camera_id is None or facility_id is None:
+            continue
+        inventory[camera_id] = {
+            "camera_id": camera_id,
+            "facility_id": facility_id,
+            "resident_id": _item_text(item, "resident_id"),
+        }
+    return inventory
+
+
+def _item_text(item: object, name: str) -> str | None:
+    value = item.get(name) if isinstance(item, dict) else getattr(item, name, None)
+    if value is None:
+        return None
+    stripped = str(value).strip()
+    return stripped or None
+
+
+def _backend_ingest_timeout_sec() -> float:
+    raw = os.environ.get(API_BACKEND_INGEST_TIMEOUT_SEC_ENV)
+    if raw is None:
+        return DEFAULT_TIMEOUT_SEC
+    return float(raw)
 
 
 def _load_config(app: FastAPI) -> None:

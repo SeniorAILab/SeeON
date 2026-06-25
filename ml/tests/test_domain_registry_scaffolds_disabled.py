@@ -22,7 +22,7 @@ def test_scaffold_domains_are_disabled_and_do_not_run() -> None:
     observation = FrameObservation()
     for name in ("wheelchair_standup", "long_lie", "risk"):
         registration = DOMAIN_REGISTRY[name]
-        detector = registration.factory()
+        detector = registration.factory({"ignored": True})
         assert registration.enabled is False
         assert detector.enabled is False
         with pytest.raises(RuntimeError, match=f"{name} domain is disabled"):
