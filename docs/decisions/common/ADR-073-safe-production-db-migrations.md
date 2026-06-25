@@ -1,8 +1,8 @@
-# ADR-072 - Safe production DB migrations
+# ADR-073 - Safe production DB migrations
 
 - Status: Accepted
 - Date: 2026-06-25
-- Refines: ADR-062, ADR-063, ADR-071
+- Refines: ADR-062, ADR-063, ADR-072
 
 ## Context
 

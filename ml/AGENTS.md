@@ -23,10 +23,10 @@ Lower layers may import only same-layer or lower-layer packages, except `domains
 Use explicit ML runtime names:
 
 - `ml-api` is the FastAPI control/debug/status surface. It may expose health, status, model inventory, bounded debug predictions, and operator controls.
-- `ml-worker` is the long-running stream consumer. It receives camera or gateway-provided RTSP streams, runs model/domain evaluation, and publishes backend ingest facts.
+- `ml-worker` is the long-running stream consumer. It receives camera or gateway-provided RTSP streams, runs model/domain evaluation, and relays ingest facts to local `ml-api` per ADR-067/029.
 - `training` is not a runtime service. It creates and evaluates artifacts that runtime code loads through `runners`.
 
-RTSP direction matters. The worker is not an RTSP server and should not embed a publisher. In development, synthetic RTSP publishers, MediaMTX, files, or test fixtures may supply camera-like input, but mock/stub/fake logic belongs in unit/contract test code and must not be presented as E2E evidence. Production worker code consumes configured streams and emits ingest events; it does not relay raw frames through FastAPI.
+RTSP direction matters. The worker is not an RTSP server and should not embed a publisher. In development, synthetic RTSP publishers, MediaMTX, files, or test fixtures may supply camera-like input, but mock/stub/fake logic belongs in unit/contract test code and must not be presented as E2E evidence. Production worker code consumes configured streams and emits local relay events; it does not relay raw frames through FastAPI and does not call backend `/ingest/*` directly.
 
 Do not add a second FastAPI app to `worker`. If a feature needs HTTP control, keep it in `ml-api` and pass state/config through explicit runtime contracts instead of importing api routes into the worker.
 

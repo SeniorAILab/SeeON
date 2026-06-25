@@ -27,6 +27,7 @@ describe("LoginPage real backend default", () => {
     expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeTruthy();
     expect(screen.getByPlaceholderText("name@facility.com")).toBeTruthy();
     expect(screen.getByRole("button", { name: "이메일로 로그인" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "회원가입" })).toBeTruthy();
     expect(screen.queryByText("데모 계정 (비밀번호 1234)")).toBeNull();
   });
 });

@@ -24,6 +24,8 @@ ALLOWED_PATHS: Final = {
     "/models",
     "/openapi.json",
     "/redoc",
+    "/relay/alerts",
+    "/relay/heartbeat",
     "/status",
 }
 PRODUCTION_ROUTE_TERMS: Final = (
@@ -31,23 +33,16 @@ PRODUCTION_ROUTE_TERMS: Final = (
     "frame relay",
     "frame_relay",
     "camera stream",
-    "camera_stream",
-    "ingest",
-    "alert publishing",
-    "alert_publishing",
 )
 FORBIDDEN_IMPORTS: Final = (
     "worker",
-    "events.edge_ingest_client",
     "events.publisher",
     "runtime.edge_worker",
 )
 
 
 def _serving_python_files() -> list[Path]:
-    return sorted(
-        path for path in SERVING_ROOT.rglob("*.py") if "__pycache__" not in path.parts
-    )
+    return sorted(path for path in SERVING_ROOT.rglob("*.py") if "__pycache__" not in path.parts)
 
 
 def _route_signature(route: APIRoute) -> str:
@@ -80,8 +75,7 @@ def test_serving_app_exposes_only_documented_boundary_routes() -> None:
 
     assert exposed_paths == ALLOWED_PATHS
     assert not production_routes, (
-        "Serving must not expose production edge/runtime surfaces: "
-        + ", ".join(production_routes)
+        "Serving must not expose production edge/runtime surfaces: " + ", ".join(production_routes)
     )
 
 
@@ -116,15 +110,14 @@ def test_serving_files_do_not_import_edge_worker_or_ingest_runtime() -> None:
     assert not violations, "\n".join(violations)
 
 
-def test_serving_import_does_not_load_backend_ingest_publisher() -> None:
+def test_serving_import_allows_api_owned_backend_ingest_client_but_not_worker() -> None:
     probe = subprocess.run(
         [
             sys.executable,
             "-c",
             (
                 "import sys; import api.main; "
-                "forbidden = {'events.publisher', 'events.edge_ingest_client', "
-                "'worker', 'worker.edge_worker'}; "
+                "forbidden = {'events.publisher', 'worker', 'worker.edge_worker'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "
                 "print(loaded); raise SystemExit(1 if loaded else 0)"
             ),

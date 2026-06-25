@@ -2,19 +2,16 @@
 
 Backend `/ingest/*` is the only canonical edge ingress. It accepts camera-authenticated facts and turns them into backend-owned read-model, status, SSE, and delivery outbox state.
 
-Production live path: `RTSP -> ml-worker -> backend /ingest/*`.
+Production live path: `RTSP -> ml-worker -> ml-api -> backend /ingest/*` (ADR-067/029).
 
-The ML edge worker signs requests per camera from `EDGE_CAMERA_CONFIG`; each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`.
-The API service does not share one singleton ingest identity for camera streams, does not own live camera streams, and does not perform backend ingest side effects.
+`ml-api` signs backend requests per camera. Each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`; `ml-worker` sends local relay facts with camera identity and does not store backend ingest credentials.
 
 Current backend camera creation returns a one-time `ingestSecret` alongside the
-camera's `ingestKeyId`. Store that secret in the edge worker's private
-`EDGE_CAMERA_CONFIG`; list/get/update camera responses do not return it again.
+camera's `ingestKeyId`. Store that secret in private `ml-api` edge configuration; list/get/update camera responses do not return it again.
 Existing cameras whose one-time secret was lost must be recreated until a separate
 rotation endpoint exists.
 
-`EDGE_CAMERA_CONFIG` is the worker's per-camera secret file. It must stay outside
-git and is mounted as a secret by `compose.edge.yaml` for edge deployments.
+Backend ingest secrets are `ml-api` secrets. Worker camera/domain config and API gateway secret config must stay outside git and are mounted as edge deployment secrets.
 
 ## Authentication
 

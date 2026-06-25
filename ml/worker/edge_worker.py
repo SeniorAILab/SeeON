@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
+from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
 from domains import DOMAIN_REGISTRY
-from events.edge_ingest_client import EdgeIngestClient
 from runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
 from runtime.camera_worker import CameraWorker, DomainDetectorProtocol
@@ -36,15 +40,16 @@ class _Options:
 @dataclass(frozen=True, slots=True)
 class _RunnerBundle:
     pose: RunnerProtocol
+    person: RunnerProtocol
     bed: RunnerProtocol
 
     def as_mapping(self) -> Mapping[str, RunnerProtocol]:
-        return {"pose": self.pose, "bed": self.bed}
+        return {"pose": self.pose, "person": self.person, "bed": self.bed}
 
 
 @dataclass(frozen=True, slots=True)
 class _WorkerResources:
-    clients: Mapping[str, EdgeIngestClient]
+    clients: Mapping[str, _RelayClient]
     runners: _RunnerBundle
     fall_model: FallModelProtocol
     status_store: StatusStore
@@ -132,7 +137,7 @@ def _build_supervisor(
     registry: ModelRegistry | None = None,
 ) -> EdgeWorkerSupervisor:
     model_registry = DEFAULT_REGISTRY if registry is None else registry
-    clients = {camera.camera_id: _ingest_client(config, camera) for camera in config.cameras}
+    clients = {camera.camera_id: _relay_client(config, camera) for camera in config.cameras}
     resources = _WorkerResources(
         clients=clients,
         runners=_build_runner_bundle(model_registry),
@@ -153,6 +158,7 @@ def _build_supervisor(
 def _build_runner_bundle(registry: ModelRegistry) -> _RunnerBundle:
     return _RunnerBundle(
         pose=registry.create("pose"),
+        person=registry.create("person"),
         bed=registry.create("bed"),
     )
 
@@ -183,7 +189,13 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
             read_timeout_ms=runtime.read_timeout_ms,
         ),
         runners=resources.runners.as_mapping(),
-        scheduler=Scheduler({"pose": camera.frame_stride, "bed": max(30, camera.frame_stride)}),
+        scheduler=Scheduler(
+            {
+                "pose": camera.frame_stride,
+                "person": camera.frame_stride,
+                "bed": max(30, camera.frame_stride),
+            }
+        ),
         domain_detectors=_domain_detectors(resources.config),
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,
@@ -191,25 +203,114 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
     )
 
 
+def _domain_config_payload(config: EdgeWorkerConfig, name: str) -> dict[str, object] | None:
+    domain_config = config.domains.domain_config(name)
+    if domain_config is None:
+        return None
+    return domain_config.model_dump(exclude={"enabled"}, exclude_none=True)
+
+
 def _domain_detectors(config: EdgeWorkerConfig) -> tuple[DomainDetectorProtocol, ...]:
     enabled = config.enabled_domains
     return tuple(
-        registration.factory()
+        registration.factory(_domain_config_payload(config, name))
         for name, registration in DOMAIN_REGISTRY.items()
         if (registration.enabled if enabled is None else name in enabled)
     )
 
 
-def _ingest_client(config: EdgeWorkerConfig, camera: CameraRuntimeConfig) -> EdgeIngestClient:
-    return EdgeIngestClient(
-        alert_url=config.alert_api_url,
-        heartbeat_url=config.resolved_heartbeat_api_url,
+@dataclass(slots=True)
+class _RelayClient:
+    alert_url: str
+    heartbeat_url: str
+    camera_id: str
+    facility_id: str
+    resident_id: str | None
+    relay_token: str
+    timeout_sec: float = 0.5
+    failure_count: int = 0
+
+    def __post_init__(self) -> None:
+        self.alert_url = _parse_http_url(self.alert_url)
+        self.heartbeat_url = _parse_http_url(self.heartbeat_url)
+        self.relay_token = _required(self.relay_token, "relay_token")
+
+    def send_heartbeat(self) -> bool:
+        return self._post(
+            self.heartbeat_url,
+            {"camera_id": self.camera_id, "facility_id": self.facility_id},
+        )
+
+    def emit(self, event: EventPayload) -> None:
+        event_type = str(event.get("event_type", ""))
+        if event_type not in {"fall", "bed-exit"}:
+            return
+        payload: dict[str, object] = {
+            "event_type": "bed-exit" if event_type == "bed-exit" else "fall",
+            "probability": _event_probability(event),
+            "detected_at": str(event.get("detected_at", "")) or _utc_timestamp(),
+            "camera_id": self.camera_id,
+            "facility_id": self.facility_id,
+            "evidence": dict(event),
+        }
+        if self.resident_id is not None:
+            payload["resident_id"] = self.resident_id
+        self._post(self.alert_url, payload)
+
+    def _post(self, url: str, payload: dict[str, object]) -> bool:
+        data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "X-Edge-Relay-Token": self.relay_token,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_sec) as response:
+                response.read()
+        except (TimeoutError, OSError, urllib.error.URLError, urllib.error.HTTPError):
+            self.failure_count += 1
+            return False
+        return True
+
+
+def _relay_client(config: EdgeWorkerConfig, camera: CameraRuntimeConfig) -> _RelayClient:
+    return _RelayClient(
+        alert_url=config.relay_alert_url,
+        heartbeat_url=config.relay_heartbeat_url,
         camera_id=camera.camera_id,
         facility_id=camera.facility_id,
         resident_id=camera.resident_id,
-        ingest_key_id=camera.ingest_key_id,
-        ingest_secret=camera.ingest_secret.get_secret_value(),
+        relay_token=config.relay.token.get_secret_value(),
     )
+
+
+def _parse_http_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc == "":
+        raise ValueError(f"relay URL must be absolute HTTP(S): {url}")
+    return url
+
+
+def _required(value: str, name: str) -> str:
+    stripped = value.strip()
+    if stripped == "":
+        raise ValueError(f"{name} must be set")
+    return stripped
+
+
+def _event_probability(event: EventPayload) -> float:
+    value = event.get("probability", event.get("confidence", 1.0))
+    if isinstance(value, int | float):
+        return min(1.0, max(0.0, float(value)))
+    return 1.0
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 if __name__ == "__main__":

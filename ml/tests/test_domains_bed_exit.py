@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from contracts.observation import BoundingBox, FrameObservation
-from domains.bed_exit.detector import BedExitMonitor
+from domains.bed_exit.detector import BedExitMonitor, NightWindow
 from domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
 
 
@@ -17,6 +20,25 @@ def update(
     persons: tuple[BoundingBox, ...],
 ) -> BedExitFrame:
     return monitor.update_boxes(bed_boxes=beds, person_boxes=persons)
+
+
+def observation_for(person: BoundingBox, bed: BoundingBox) -> FrameObservation:
+    return FrameObservation(detections=((person,), ()), regions=((bed,), ()))
+
+
+def fixed_clock(hour: int, minute: int, second: int = 0):
+    seoul = ZoneInfo("Asia/Seoul")
+    return lambda: datetime(2026, 1, 1, hour, minute, second, tzinfo=seoul)
+
+
+def runtime_exit_events(
+    monitor: BedExitMonitor,
+    *,
+    bed: BoundingBox,
+    time_sec: float = 1.0,
+) -> tuple[dict[str, object], ...]:
+    monitor.update(observation_for(box(20, 0, 120, 100), bed), time_sec=0.0)
+    return monitor.update(observation_for(box(60, 0, 160, 100), bed), time_sec=time_sec)
 
 
 def test_schema_exports_bed_exit_frame_statuses_and_events() -> None:
@@ -95,10 +117,13 @@ def test_runtime_observation_update_returns_domain_event_tuple() -> None:
     monitor = BedExitMonitor(min_containment=0.5, hold_frames=1, grace_frames=0)
     bed = box(0, 0, 100, 100)
 
-    assert monitor.update(
-        FrameObservation(detections=((box(20, 0, 120, 100),), ()), regions=((bed,), ())),
-        time_sec=0.0,
-    ) == ()
+    assert (
+        monitor.update(
+            FrameObservation(detections=((box(20, 0, 120, 100),), ()), regions=((bed,), ())),
+            time_sec=0.0,
+        )
+        == ()
+    )
 
     assert monitor.update(
         FrameObservation(detections=((box(60, 0, 160, 100),), ()), regions=((bed,), ())),
@@ -114,3 +139,90 @@ def test_runtime_observation_update_returns_domain_event_tuple() -> None:
             "time_sec": 1.0,
         },
     )
+
+
+@pytest.mark.parametrize(
+    ("hour", "minute", "second"),
+    [
+        (21, 0, 0),
+        (4, 59, 59),
+    ],
+)
+def test_night_window_cross_midnight_emits_inside_window(
+    hour: int,
+    minute: int,
+    second: int,
+) -> None:
+    bed = box(0, 0, 100, 100)
+    monitor = BedExitMonitor(
+        min_containment=0.5,
+        hold_frames=1,
+        grace_frames=0,
+        night_window=NightWindow(start="21:00", end="05:00", tz="Asia/Seoul"),
+        clock=fixed_clock(hour, minute, second),
+    )
+
+    events = runtime_exit_events(monitor, bed=bed)
+
+    assert len(events) == 1
+    assert events[0]["event_type"] == "bed-exit"
+
+
+@pytest.mark.parametrize(
+    ("hour", "minute", "second"),
+    [
+        (20, 59, 59),
+        (5, 0, 0),
+    ],
+)
+def test_night_window_cross_midnight_suppresses_outside_window(
+    hour: int,
+    minute: int,
+    second: int,
+) -> None:
+    bed = box(0, 0, 100, 100)
+    monitor = BedExitMonitor(
+        min_containment=0.5,
+        hold_frames=1,
+        grace_frames=0,
+        night_window=NightWindow(start="21:00", end="05:00", tz="Asia/Seoul"),
+        clock=fixed_clock(hour, minute, second),
+    )
+
+    assert runtime_exit_events(monitor, bed=bed) == ()
+
+
+def test_night_window_uses_injected_clock_not_monotonic_time_sec() -> None:
+    bed = box(0, 0, 100, 100)
+    monitor = BedExitMonitor(
+        min_containment=0.5,
+        hold_frames=1,
+        grace_frames=0,
+        night_window=NightWindow(start="21:00", end="05:00", tz="Asia/Seoul"),
+        clock=fixed_clock(13, 0, 0),
+    )
+
+    assert runtime_exit_events(monitor, bed=bed, time_sec=23 * 3600) == ()
+
+
+def test_night_window_rejects_naive_clock_datetime() -> None:
+    bed = box(0, 0, 100, 100)
+    monitor = BedExitMonitor(
+        min_containment=0.5,
+        hold_frames=1,
+        grace_frames=0,
+        night_window=NightWindow(start="21:00", end="05:00", tz="Asia/Seoul"),
+        clock=lambda: datetime(2026, 1, 1, 22, 0, 0),
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        runtime_exit_events(monitor, bed=bed)
+
+
+def test_without_night_window_emits_regardless_of_clock_time() -> None:
+    bed = box(0, 0, 100, 100)
+    monitor = BedExitMonitor(min_containment=0.5, hold_frames=1, grace_frames=0)
+
+    events = runtime_exit_events(monitor, bed=bed)
+
+    assert len(events) == 1

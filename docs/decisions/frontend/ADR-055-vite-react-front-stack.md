@@ -81,8 +81,8 @@ Phase 2 must implement the deferred backend-matching contract documented in [`do
 
 - Replace remaining dashboard/admin mock-backed services with backend endpoint calls; auth login/session is already backend-direct.
 - Match frontend service comments to backend endpoints for dashboard, events, residents, zones, admin, AI ingest, Kakao, and video.
-- Reuse the product Kakao registration and send fan-out model from ADR-042, ADR-044, ADR-052, and ADR-053.
+- Reuse the product Kakao registration and send fan-out model from ADR-071, ADR-044, ADR-052, and ADR-053.
 - Treat frontend `types/index.ts` as the Phase 2 domain contract input, refining ADR-031 and ADR-037 as needed.
-- Keep the hybrid auth boundary from ADR-033 and ADR-069: email/password and Kakao both mint backend-owned sessions; Kakao tokens never reach the browser.
+- Keep the hybrid auth boundary from ADR-071: email/password and Kakao both mint backend-owned sessions; Kakao tokens never reach the browser.
 - Map ML `/ingest` events into backend `DetectionEvent`, `SpaceStatus`, and delivery side effects.
 - Keep realtime SSE plus ticket behavior from ADR-034 deferred until the backend contract is ready.

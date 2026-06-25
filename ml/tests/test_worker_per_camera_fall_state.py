@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
-from pydantic import SecretStr
 
 from runtime.edge_worker_config import CameraRuntimeConfig, EdgeWorkerConfig
 from runtime.status_store import StatusStore
@@ -34,9 +33,12 @@ class _Runner:
 
 @dataclass(slots=True)
 class _Registry:
-    created: dict[str, int] = field(default_factory=lambda: {"pose": 0, "bed": 0, "fall": 0})
+    created: dict[str, int] = field(
+        default_factory=lambda: {"pose": 0, "person": 0, "bed": 0, "fall": 0}
+    )
     fall_model: _FallModel = field(default_factory=_FallModel)
     pose_runner: _Runner = field(default_factory=_Runner)
+    person_runner: _Runner = field(default_factory=_Runner)
     bed_runner: _Runner = field(default_factory=_Runner)
 
     def create(self, task: str, **kwargs: object) -> object:
@@ -44,6 +46,8 @@ class _Registry:
         self.created[task] += 1
         if task == "pose":
             return self.pose_runner
+        if task == "person":
+            return self.person_runner
         if task == "bed":
             return self.bed_runner
         if task == "fall":
@@ -60,7 +64,7 @@ def test_fall_classifier_state_is_per_camera() -> None:
     classifiers = [loop.worker.fall_classifier for loop in supervisor.loops]
     detectors = [loop.worker.domain_detectors[0] for loop in supervisor.loops]
 
-    assert registry.created == {"pose": 1, "bed": 1, "fall": 1}
+    assert registry.created == {"pose": 1, "person": 1, "bed": 1, "fall": 1}
     assert len({id(classifier) for classifier in classifiers}) == 2
     assert len({id(detector) for detector in detectors}) == 2
     assert {id(classifier.model) for classifier in classifiers if classifier is not None} == {
@@ -71,16 +75,13 @@ def test_fall_classifier_state_is_per_camera() -> None:
 def _two_camera_config() -> EdgeWorkerConfig:
     return EdgeWorkerConfig(
         version=1,
-        alert_api_url="http://backend.local/ingest/alerts",
-        heartbeat_api_url="http://backend.local/ingest/heartbeat",
+        relay={"url": "http://127.0.0.1:8000", "token": "relay-token"},
         cameras=tuple(
             CameraRuntimeConfig(
                 camera_id=f"camera-{index}",
                 facility_id="facility-1",
                 resident_id=f"resident-{index}",
                 rtsp_url=f"rtsp://camera-{index}.local/trackID=2",
-                ingest_key_id=f"key-{index}",
-                ingest_secret=SecretStr(f"secret-{index}"),
             )
             for index in range(1, 3)
         ),
