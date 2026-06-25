@@ -48,6 +48,41 @@ describe("authService backend session", () => {
     expect(session.user.email).toBe("admin@sen.ai");
   });
 
+  it("registers with password through the backend and keeps bearer auth disabled", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        okJsonResponse({
+          user: {
+            id: "user-1",
+            email: "owner@example.test",
+            nickname: "홍원장",
+            role: "ADMIN",
+            facilityId: "facility-1",
+          },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const session = await authService.register({
+      name: "홍원장",
+      email: "owner@example.test",
+      password: "Passw0rd!234",
+      phone: "010-1111-2222",
+      facilityName: "ULW 요양원",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/auth/register",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      })
+    );
+    expect(JSON.stringify(session)).not.toContain("token");
+    expect(session.user.facilityId).toBe("facility-1");
+  });
+
   it("bootstraps the current user from the backend session cookie", async () => {
     vi.stubGlobal(
       "fetch",
@@ -97,7 +132,6 @@ describe("authService backend session", () => {
 
     const session = await authService.createFacility({
       facilityName: "Happy Care Home",
-      businessRegistrationNumber: null,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(

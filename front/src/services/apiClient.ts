@@ -3,11 +3,6 @@ export const USE_MOCK =
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
-let authToken: string | null = null;
-export function setAuthToken(token: string | null) {
-  authToken = token;
-}
-
 interface ApiClientOptions {
   apiPrefix?: boolean;
 }
@@ -32,7 +27,6 @@ export async function requestJson(
     ...(credentials ? { credentials } : {}),
     headers: {
       "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...options.headers,
     },
   });
@@ -54,7 +48,6 @@ export async function requestNoContent(
     ...options,
     ...(credentials ? { credentials } : {}),
     headers: {
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...options.headers,
     },
   });
