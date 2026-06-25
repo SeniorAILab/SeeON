@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -20,6 +21,7 @@ def update(
 ) -> BedExitFrame:
     return monitor.update_boxes(bed_boxes=beds, person_boxes=persons)
 
+
 def observation_for(person: BoundingBox, bed: BoundingBox) -> FrameObservation:
     return FrameObservation(detections=((person,), ()), regions=((bed,), ()))
 
@@ -37,7 +39,6 @@ def runtime_exit_events(
 ) -> tuple[dict[str, object], ...]:
     monitor.update(observation_for(box(20, 0, 120, 100), bed), time_sec=0.0)
     return monitor.update(observation_for(box(60, 0, 160, 100), bed), time_sec=time_sec)
-
 
 
 def test_schema_exports_bed_exit_frame_statuses_and_events() -> None:
@@ -116,10 +117,13 @@ def test_runtime_observation_update_returns_domain_event_tuple() -> None:
     monitor = BedExitMonitor(min_containment=0.5, hold_frames=1, grace_frames=0)
     bed = box(0, 0, 100, 100)
 
-    assert monitor.update(
-        FrameObservation(detections=((box(20, 0, 120, 100),), ()), regions=((bed,), ())),
-        time_sec=0.0,
-    ) == ()
+    assert (
+        monitor.update(
+            FrameObservation(detections=((box(20, 0, 120, 100),), ()), regions=((bed,), ())),
+            time_sec=0.0,
+        )
+        == ()
+    )
 
     assert monitor.update(
         FrameObservation(detections=((box(60, 0, 160, 100),), ()), regions=((bed,), ())),
@@ -135,6 +139,8 @@ def test_runtime_observation_update_returns_domain_event_tuple() -> None:
             "time_sec": 1.0,
         },
     )
+
+
 @pytest.mark.parametrize(
     ("hour", "minute", "second"),
     [

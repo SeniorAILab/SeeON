@@ -145,6 +145,7 @@ def test_ml_worker_yaml_rejects_unknown_domain(tmp_path: Path) -> None:
     with pytest.raises(EdgeWorkerConfigError, match="domains.enabled"):
         load_edge_worker_config(path)
 
+
 def test_ml_worker_yaml_rejects_unknown_per_domain_key(tmp_path: Path) -> None:
     path = _valid_yaml(tmp_path / "ml-worker.yaml")
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))

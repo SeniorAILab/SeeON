@@ -42,9 +42,7 @@ FORBIDDEN_IMPORTS: Final = (
 
 
 def _serving_python_files() -> list[Path]:
-    return sorted(
-        path for path in SERVING_ROOT.rglob("*.py") if "__pycache__" not in path.parts
-    )
+    return sorted(path for path in SERVING_ROOT.rglob("*.py") if "__pycache__" not in path.parts)
 
 
 def _route_signature(route: APIRoute) -> str:
@@ -77,8 +75,7 @@ def test_serving_app_exposes_only_documented_boundary_routes() -> None:
 
     assert exposed_paths == ALLOWED_PATHS
     assert not production_routes, (
-        "Serving must not expose production edge/runtime surfaces: "
-        + ", ".join(production_routes)
+        "Serving must not expose production edge/runtime surfaces: " + ", ".join(production_routes)
     )
 
 

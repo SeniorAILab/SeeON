@@ -9,12 +9,10 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
 from contracts.frame import Frame
-from contracts.observation import BoundingBox
 from domains.bed_exit.detector import BedExitMonitor, NightWindow
 from runtime.camera_worker import CameraWorker
 from runtime.scheduler import Scheduler
 from worker.edge_worker import _RelayClient
-
 
 CAMERA_ID = "camera-night-bed-exit"
 FACILITY_ID = "facility-night"

@@ -1,4 +1,5 @@
 """Backend ingest HTTP client shared by the API relay and edge worker."""
+
 from __future__ import annotations
 
 import hashlib

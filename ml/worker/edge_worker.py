@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime
-import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
@@ -189,7 +189,13 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
             read_timeout_ms=runtime.read_timeout_ms,
         ),
         runners=resources.runners.as_mapping(),
-        scheduler=Scheduler({"pose": camera.frame_stride, "person": camera.frame_stride, "bed": max(30, camera.frame_stride)}),
+        scheduler=Scheduler(
+            {
+                "pose": camera.frame_stride,
+                "person": camera.frame_stride,
+                "bed": max(30, camera.frame_stride),
+            }
+        ),
         domain_detectors=_domain_detectors(resources.config),
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,

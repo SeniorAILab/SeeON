@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Final, Literal, TypeAlias
 from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
@@ -247,9 +247,7 @@ class EdgeWorkerConfig(BaseModel):
         if not isinstance(data, dict):
             return data
         legacy_fields = [
-            name
-            for name in ("ingest", "alert_api_url", "heartbeat_api_url")
-            if name in data
+            name for name in ("ingest", "alert_api_url", "heartbeat_api_url") if name in data
         ]
         for index, camera in enumerate(data.get("cameras", ())):
             if isinstance(camera, dict):
@@ -283,6 +281,8 @@ class EdgeWorkerConfig(BaseModel):
     @property
     def relay_heartbeat_url(self) -> str:
         return f"{self.relay.url}{EDGE_RELAY_HEARTBEAT_PATH}"
+
+
 def _normalize_http_base_url(value: str, field_name: str) -> str:
     stripped = value.strip()
     parsed = urlsplit(stripped)
@@ -291,7 +291,6 @@ def _normalize_http_base_url(value: str, field_name: str) -> str:
     if parsed.query or parsed.fragment:
         raise EdgeWorkerConfigError(f"{field_name} must not include query or fragment")
     return urlunsplit(parsed._replace(path=parsed.path.rstrip("/")))
-
 
 
 def load_edge_worker_config(path: str | Path) -> EdgeWorkerConfig:

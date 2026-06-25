@@ -33,7 +33,9 @@ class _Runner:
 
 @dataclass(slots=True)
 class _Registry:
-    created: dict[str, int] = field(default_factory=lambda: {"pose": 0, "person": 0, "bed": 0, "fall": 0})
+    created: dict[str, int] = field(
+        default_factory=lambda: {"pose": 0, "person": 0, "bed": 0, "fall": 0}
+    )
     fall_model: _FallModel = field(default_factory=_FallModel)
     pose_runner: _Runner = field(default_factory=_Runner)
     person_runner: _Runner = field(default_factory=_Runner)

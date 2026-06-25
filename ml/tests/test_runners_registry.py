@@ -5,8 +5,8 @@ import pytest
 from runners.registry import ModelRegistry, default_registry
 from runners.sklearn_fall import FallDetector
 from runners.yolo_bed_seg import YoloBedSegRunner
-from runners.yolo_pose import YoloPoseRunner
 from runners.yolo_person import YoloPersonRunner
+from runners.yolo_pose import YoloPoseRunner
 
 
 class FakeRunner:

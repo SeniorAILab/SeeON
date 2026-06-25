@@ -40,6 +40,7 @@ class _PersonRunner:
         del image
         return ((10, 10, 40, 60, 0.95),)
 
+
 class _BedRunner:
     def detect_beds(self, image: np.ndarray) -> tuple[()]:
         del image
@@ -132,6 +133,7 @@ def test_domain_detectors_leave_fall_without_time_gate(tmp_path: Path) -> None:
 
     assert tuple(detector.__class__.__name__ for detector in detectors) == ("FallEventLatch",)
     assert not hasattr(detectors[0], "_night_window")
+
 
 def test_video_file_source_is_still_available_for_rtsp_harness_input() -> None:
     assert VideoFileSource is not None

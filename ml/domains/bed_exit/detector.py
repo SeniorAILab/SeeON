@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, time
-from typing import Callable
 from zoneinfo import ZoneInfo
 
 from contracts.event import MutableEventPayload
@@ -67,9 +67,9 @@ class BedExitMonitor:
             clock
             if clock is not None
             else (
-                lambda: datetime.now(ZoneInfo(night_window.tz))
-                if night_window is not None
-                else None
+                lambda: (
+                    datetime.now(ZoneInfo(night_window.tz)) if night_window is not None else None
+                )
             )
         )
 
@@ -117,9 +117,7 @@ class BedExitMonitor:
                 continue
 
             own_ratio = (
-                containments[assignment.bed_id]
-                if assignment.bed_id < len(containments)
-                else 0.0
+                containments[assignment.bed_id] if assignment.bed_id < len(containments) else 0.0
             )
             in_own_bed = own_ratio >= self._min_containment
             in_other_bed = any(
@@ -179,6 +177,7 @@ def _parse_hhmm(value: str) -> time:
     except ValueError as exc:
         raise ValueError("night window time must use HH:MM") from exc
     return parsed.time()
+
 
 def _best_bed_id(containments: tuple[float, ...], min_containment: float) -> int | None:
     candidates = [

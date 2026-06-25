@@ -12,8 +12,8 @@ from collections.abc import Callable
 from contracts.runner import RunnerProtocol
 from runners.sklearn_fall import FallDetector
 from runners.yolo_bed_seg import YoloBedSegRunner
-from runners.yolo_pose import YoloPoseRunner
 from runners.yolo_person import YoloPersonRunner
+from runners.yolo_pose import YoloPoseRunner
 
 RunnerFactory = Callable[..., RunnerProtocol]
 

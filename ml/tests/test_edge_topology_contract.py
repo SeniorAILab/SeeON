@@ -135,6 +135,8 @@ def test_rtsp_script_surface_uses_reusable_worker_names() -> None:
     assert "load_edge_worker_config" in smoke_source
     assert "expected exactly 4 cameras" not in smoke_source
     assert "ml-edge-four" not in smoke_source
+
+
 def test_worker_imports_no_api_or_serving_packages() -> None:
     source = (REPO_ROOT / "ml/worker/edge_worker.py").read_text(encoding="utf-8")
 

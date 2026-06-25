@@ -1,9 +1,9 @@
 """Serving application lifespan assembly."""
 
 from __future__ import annotations
+
 import json
 import os
-
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Protocol, runtime_checkable
@@ -26,6 +26,7 @@ from runtime.edge_runtime import EdgeRuntime
 from runtime.incident_manager import IncidentManager
 from runtime.status_store import StatusStore
 from sources.registry import SourceRegistry
+
 API_BACKEND_ALERT_URL_ENV = "API_BACKEND_ALERT_URL"
 API_BACKEND_HEARTBEAT_URL_ENV = "API_BACKEND_HEARTBEAT_URL"
 API_INGEST_KEY_ID_ENV = "API_INGEST_KEY_ID"
@@ -165,6 +166,7 @@ def _backend_ingest_timeout_sec() -> float:
     if raw is None:
         return DEFAULT_TIMEOUT_SEC
     return float(raw)
+
 
 def _load_config(app: FastAPI) -> None:
     loader = getattr(app.state, "config_loader", None)

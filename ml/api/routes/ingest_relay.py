@@ -109,7 +109,9 @@ def _camera_binding(request: Request, camera_id: str, facility_id: str) -> dict[
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="unknown camera")
     binding_facility = binding.get("facility_id") if isinstance(binding, dict) else None
     if binding_facility != facility_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="camera facility mismatch")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="camera facility mismatch"
+        )
     return dict(binding)
 
 

@@ -37,7 +37,9 @@ class _CountingRegistry:
     person_runner: _Runner = field(default_factory=_Runner)
     bed_runner: _Runner = field(default_factory=_Runner)
     fall_model: _FallModel = field(default_factory=_FallModel)
-    created: dict[str, int] = field(default_factory=lambda: {"pose": 0, "person": 0, "bed": 0, "fall": 0})
+    created: dict[str, int] = field(
+        default_factory=lambda: {"pose": 0, "person": 0, "bed": 0, "fall": 0}
+    )
 
     def create(self, task: str) -> RunnerOutput | _Runner | _FallModel:
         self.created[task] += 1
@@ -61,18 +63,15 @@ def test_worker_builds_pose_and_bed_runners_once_for_four_cameras(monkeypatch) -
     supervisor = edge_worker._build_supervisor(_four_camera_config(), StatusStore())
 
     assert registry.created == {"pose": 1, "person": 1, "bed": 1, "fall": 1}
-    assert {
-        id(loop.worker.runners["pose"])
-        for loop in supervisor.loops
-    } == {id(registry.pose_runner)}
-    assert {
-        id(loop.worker.runners["bed"])
-        for loop in supervisor.loops
-    } == {id(registry.bed_runner)}
-    assert {
-        id(loop.worker.runners["person"])
-        for loop in supervisor.loops
-    } == {id(registry.person_runner)}
+    assert {id(loop.worker.runners["pose"]) for loop in supervisor.loops} == {
+        id(registry.pose_runner)
+    }
+    assert {id(loop.worker.runners["bed"]) for loop in supervisor.loops} == {
+        id(registry.bed_runner)
+    }
+    assert {id(loop.worker.runners["person"]) for loop in supervisor.loops} == {
+        id(registry.person_runner)
+    }
 
 
 def _four_camera_config() -> EdgeWorkerConfig:

@@ -5,8 +5,8 @@ import urllib.request
 from typing import Self
 
 import pytest
-from pydantic import ValidationError
 from edge_worker_fixtures import edge_config_payload
+from pydantic import ValidationError
 
 from events.edge_ingest_client import EdgeIngestClient
 from runtime.edge_worker_config import EdgeWorkerConfig
@@ -25,7 +25,11 @@ def test_edge_worker_config_uses_local_relay_and_has_no_backend_ingest_urls() ->
 @pytest.mark.parametrize("field_name", ["ingest", "alert_api_url", "heartbeat_api_url"])
 def test_edge_worker_config_rejects_backend_ingest_fields(field_name: str) -> None:
     payload = edge_config_payload(camera_count=1)
-    payload[field_name] = {"alert_api_url": "http://backend.local/ingest/alerts"} if field_name == "ingest" else "http://backend.local/ingest/alerts"
+    payload[field_name] = (
+        {"alert_api_url": "http://backend.local/ingest/alerts"}
+        if field_name == "ingest"
+        else "http://backend.local/ingest/alerts"
+    )
 
     with pytest.raises(ValidationError, match=field_name):
         EdgeWorkerConfig.model_validate(payload)
