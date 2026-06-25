@@ -170,6 +170,13 @@ reset_demo() {
   compose_full run --rm backend node dist/prisma/seed.js
 }
 
+bootstrap_super_admin() {
+  # No-op unless SUPER_ADMIN_PASSWORD is configured (script self-skips). Distinct
+  # layer from the demo seed: idempotently ensures one email/password SUPER_ADMIN
+  # exists so a migrated production database is operable (ADR-073).
+  compose_full run --rm backend node dist/prisma/seed-super-admin.js
+}
+
 docker compose $COMPOSE_FILES config >/dev/null
 compose_full pull db backend front
 compose up -d --wait db
@@ -180,17 +187,20 @@ case "$DEPLOY_DB_MODE" in
     backup_and_validate
     sync_app_role
     run_migrate_deploy
+    bootstrap_super_admin
     ;;
   baseline-existing)
     acquire_lock
     backup_and_validate
     sync_app_role
     baseline_existing
+    bootstrap_super_admin
     ;;
   reset-demo)
     acquire_lock
     backup_and_validate
     reset_demo
+    bootstrap_super_admin
     ;;
   skip)
     echo "Skipping DB backup and migration because DEPLOY_DB_MODE=skip."
