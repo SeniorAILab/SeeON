@@ -39,6 +39,13 @@ small, inspectable pre-migration backup gate.
 7. `DEPLOY_DB_MODE=skip` is available for image-only redeploy or rollback.
 8. A host-side deploy lock prevents concurrent backup, migration, baseline, or
    reset operations.
+9. After the schema is current in `migrate`, `baseline-existing`, and `reset-demo`,
+   the deploy runs an idempotent super-admin bootstrap
+   (`dist/prisma/seed-super-admin.js`) driven by `SUPER_ADMIN_EMAIL` /
+   `SUPER_ADMIN_PASSWORD`. It is a no-op when no password is set, never seeds demo
+   data, and only ensures one email/password `SUPER_ADMIN` exists so a migrated
+   database is operable. It is a different layer from the demo seed and from the
+   Kakao operator promotion tool (`scripts/bind-demo-users.ts`).
 
 ## Consequences
 
@@ -52,6 +59,9 @@ small, inspectable pre-migration backup gate.
   for one-shot migration commands.
 - This is not a substitute for full PITR/WAL archiving. It is the smallest safe
   step for the current single-host stack.
+- A freshly migrated database can be made operable without the demo seed by setting
+  `SUPER_ADMIN_PASSWORD`; the bootstrap is idempotent and does not churn the super
+  admin's sessions on repeated deploys.
 
 ## Alternatives Considered
 
@@ -64,3 +74,7 @@ small, inspectable pre-migration backup gate.
   operational surface without improving safety.
 - **Use `prisma db push`.** Rejected: it is not the production migration history
   contract for this repo.
+
+## Changelog
+
+- 2026-06-25: Accepted. Added the env-driven idempotent super-admin bootstrap step to the migrate/baseline-existing/reset-demo deploy paths (no-op without `SUPER_ADMIN_PASSWORD`).
