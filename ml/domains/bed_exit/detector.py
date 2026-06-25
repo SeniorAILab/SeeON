@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, time
+from typing import Callable
+from zoneinfo import ZoneInfo
 
 from contracts.event import MutableEventPayload
 from contracts.observation import BoundingBox, FrameObservation
@@ -16,6 +19,23 @@ class _Assignment:
     grace_frames: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class NightWindow:
+    start: str
+    end: str
+    tz: str
+
+    def contains(self, now: datetime) -> bool:
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("now must be timezone-aware")
+        local_now = now.astimezone(ZoneInfo(self.tz)).time()
+        start = _parse_hhmm(self.start)
+        end = _parse_hhmm(self.end)
+        if start <= end:
+            return start <= local_now < end
+        return local_now >= start or local_now < end
+
+
 class BedExitMonitor:
     """Sticky per-person bed assignment and own-bed exit detector."""
 
@@ -28,6 +48,8 @@ class BedExitMonitor:
         hold_frames: int = 2,
         grace_frames: int = 3,
         tracker: GreedyIouTracker | None = None,
+        night_window: NightWindow | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if min_containment <= 0.0 or min_containment > 1.0:
             raise ValueError("min_containment must be in (0, 1]")
@@ -40,6 +62,16 @@ class BedExitMonitor:
         self._grace_frames = grace_frames
         self._tracker = tracker if tracker is not None else GreedyIouTracker()
         self._assignments: dict[int, _Assignment] = {}
+        self._night_window = night_window
+        self._clock = (
+            clock
+            if clock is not None
+            else (
+                lambda: datetime.now(ZoneInfo(night_window.tz))
+                if night_window is not None
+                else None
+            )
+        )
 
     def update(
         self,
@@ -50,6 +82,10 @@ class BedExitMonitor:
             bed_boxes=observation.bed_boxes,
             person_boxes=observation.boxes,
         )
+        if self._night_window is not None:
+            assert self._clock is not None
+            if not self._night_window.contains(self._clock()):
+                return ()
         return tuple(_event_dict(event, time_sec) for event in frame.events)
 
     def update_boxes(
@@ -136,6 +172,13 @@ class BedExitMonitor:
             assignment.candidate_bed_id = bed_id
             assignment.candidate_frames = 1
 
+
+def _parse_hhmm(value: str) -> time:
+    try:
+        parsed = datetime.strptime(value, "%H:%M")
+    except ValueError as exc:
+        raise ValueError("night window time must use HH:MM") from exc
+    return parsed.time()
 
 def _best_bed_id(containments: tuple[float, ...], min_containment: float) -> int | None:
     candidates = [

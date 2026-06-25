@@ -6,6 +6,7 @@ from runners.registry import ModelRegistry, default_registry
 from runners.sklearn_fall import FallDetector
 from runners.yolo_bed_seg import YoloBedSegRunner
 from runners.yolo_pose import YoloPoseRunner
+from runners.yolo_person import YoloPersonRunner
 
 
 class FakeRunner:
@@ -42,10 +43,11 @@ def test_model_registry_unknown_task_raises() -> None:
         registry.create("missing")
 
 
-def test_default_registry_has_pose_bed_fall_factories_without_loading_models() -> None:
+def test_default_registry_has_pose_bed_person_fall_factories_without_loading_models() -> None:
     registry = default_registry()
 
-    assert registry.tasks() == ("bed", "fall", "pose")
+    assert registry.tasks() == ("bed", "fall", "person", "pose")
     assert registry.get_factory("pose") is YoloPoseRunner
     assert registry.get_factory("bed") is YoloBedSegRunner
+    assert registry.get_factory("person") is YoloPersonRunner
     assert registry.get_factory("fall") is FallDetector

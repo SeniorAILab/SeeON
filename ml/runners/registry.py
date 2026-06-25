@@ -13,6 +13,7 @@ from contracts.runner import RunnerProtocol
 from runners.sklearn_fall import FallDetector
 from runners.yolo_bed_seg import YoloBedSegRunner
 from runners.yolo_pose import YoloPoseRunner
+from runners.yolo_person import YoloPersonRunner
 
 RunnerFactory = Callable[..., RunnerProtocol]
 
@@ -45,6 +46,7 @@ def default_registry() -> ModelRegistry:
     registry = ModelRegistry()
     registry.register("pose", YoloPoseRunner)
     registry.register("bed", YoloBedSegRunner)
+    registry.register("person", YoloPersonRunner)
     registry.register("fall", FallDetector)
     return registry
 
