@@ -51,7 +51,7 @@ cleanup() {
 }
 
 require_backend() {
-  if ! curl -fsS "${backend_base_url}/health" >/dev/null 2>&1; then
+  if ! curl -fsS "${backend_base_url}/" >/dev/null 2>&1; then
     printf 'backend is not running or /health is unavailable: %s\n' "$backend_base_url" >&2
     printf 'start backend first (for example: pnpm dev:backend) and retry.\n' >&2
     return 1
