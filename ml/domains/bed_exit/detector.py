@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from contracts.observation import BoundingBox
+from contracts.event import MutableEventPayload
+from contracts.observation import BoundingBox, FrameObservation
 from domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
 from perception.tracker import GreedyIouTracker
 
@@ -41,6 +42,17 @@ class BedExitMonitor:
         self._assignments: dict[int, _Assignment] = {}
 
     def update(
+        self,
+        observation: FrameObservation,
+        time_sec: float | None = None,
+    ) -> tuple[MutableEventPayload, ...]:
+        frame = self.update_boxes(
+            bed_boxes=observation.bed_boxes,
+            person_boxes=observation.boxes,
+        )
+        return tuple(_event_dict(event, time_sec) for event in frame.events)
+
+    def update_boxes(
         self,
         *,
         bed_boxes: tuple[BoundingBox, ...],
@@ -147,3 +159,15 @@ def _containment_ratio(person: BoundingBox, bed: BoundingBox) -> float:
     if intersection == 0 or person_area <= 0:
         return 0.0
     return intersection / person_area
+
+
+def _event_dict(event: BedExitEvent, time_sec: float | None) -> MutableEventPayload:
+    return {
+        "domain": "bed_exit",
+        "event_type": "bed-exit",
+        "identity": f"{event.person_id}:{event.bed_id}",
+        "person_id": event.person_id,
+        "bed_id": event.bed_id,
+        "probability": 1.0,
+        "time_sec": 0.0 if time_sec is None else time_sec,
+    }

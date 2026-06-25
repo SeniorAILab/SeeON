@@ -4,9 +4,9 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
 
 ## Auth and onboarding flow
 
-1. Browser opens `GET /auth/kakao/login`.
-2. Backend sets the OAuth state cookie and redirects to Kakao with scopes including `talk_message profile_nickname`.
-3. Kakao redirects to `GET /auth/kakao/callback?code=...&state=...`.
+1. The browser authenticates through either `POST /auth/login` with email/password or `GET /auth/kakao/login`.
+2. For email/password, the backend validates the password hash and sets the same session cookie used by OAuth.
+3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with scopes including `talk_message profile_nickname`, then receives `GET /auth/kakao/callback?code=...&state=...`.
 4. Backend validates state, exchanges the code, stores/updates Kakao identity, sets the session cookie, then redirects:
    - `/dashboard` when the user already has a facility.
    - `/onboarding` when the user needs to create one.
@@ -102,8 +102,8 @@ These routes are current. Product resource routes are facility-scoped via `Sessi
 |---|---|---|---|
 | GET | `/api/spaces?floorId=&type=&isActive=` | none | space list, optionally filtered |
 | GET | `/api/spaces/:spaceId` | none | one space |
-| POST | `/api/spaces` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, cameraId?: string or null, isActive?: boolean, assignedStaff?: string or null }` | created space |
-| PATCH | `/api/spaces/:spaceId` | partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, cameraId?: string or null, isActive?: boolean, assignedStaff?: string or null }` | updated space |
+| POST | `/api/spaces` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | created space; camera placement uses `Camera.spaceId` |
+| PATCH | `/api/spaces/:spaceId` | partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | updated space; camera placement uses camera APIs |
 | DELETE | `/api/spaces/:spaceId` | none | soft-deleted space body (`200`) |
 
 ### Zones
@@ -138,8 +138,8 @@ Assignment responses use `{ id, facilityId, residentId, spaceId, zoneId, active,
 |---|---|---|---|
 | GET | `/api/cameras` | none | camera list |
 | GET | `/api/cameras/:id` | none | one camera |
-| POST | `/api/cameras` | `{ label: string, residentId?: string }` | created camera |
-| PATCH | `/api/cameras/:id` | partial `{ label?: string, residentId?: string }` | updated camera |
+| POST | `/api/cameras` | `{ label: string, spaceId: string }` | created camera plus one-time `ingestSecret` |
+| PATCH | `/api/cameras/:id` | partial `{ label?: string, spaceId?: string }` | updated camera |
 | DELETE | `/api/cameras/:id` | none | delete result |
 
 ### Guardians

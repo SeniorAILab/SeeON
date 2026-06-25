@@ -1,19 +1,21 @@
 # IDIS 카메라 RTSP 연결 런북
 
 IDIS IP 카메라(WebGuard 펌웨어)에서 RTSP 스트림을 ffmpeg/VLC/OpenCV로 받는 절차.
-낙상 파이프라인(`ml/sources/rtsp`)이 카메라를 물기 전 선행 작업.
+낙상 production live path는 `RTSP -> ml-worker -> backend /ingest/*`다.
+FastAPI(`ml-api`)는 private/local health/status/models/debug/control API이며
+production RTSP, raw frame relay, backend ingest side effects를 소유하지 않는다.
 
-> 실제 사례(2026-06-22): 카메라 `10.10.79.121`, 모델 IDIS WebGuard, 자격증명 `admin / A1b2c3d4`. SEED 암호화 OFF 상태로 연결.
-> 트리플 스트림 전부 **HEVC(H.265) Main**: trackID=1 `1920×1080@30`, trackID=2 `640×360@30`, trackID=3 `352×240@15`. H.264 트랙 없음. ML 입력은 trackID=2 권장(추론 부하/프레임율 균형).
+> 실제 사례(2026-06-22): IDIS WebGuard 카메라, SEED 암호화 OFF 상태로 연결.
+> 트리플 스트림 전부 **HEVC(H.265) Main**: trackID=1 `1920×1080@30`, trackID=2 `640×360@30`, trackID=3 `352×240@15`. H.264 트랙 없음. ML 입력은 trackID=2 권장(추론 부하/프레임율 균형). 실제 IP와 자격증명은 git 밖의 local config에만 둔다.
 
 ## TL;DR
 
 ```bash
-vlc --rtsp-tcp "rtsp://admin:<pw>@<ip>:554/trackID=1"      # 메인
-ffprobe -rtsp_transport tcp "rtsp://admin:<pw>@<ip>:554/trackID=1"
+vlc --rtsp-tcp "rtsp://<camera-host>:554/trackID=1"
+ffprobe -rtsp_transport tcp "rtsp://<camera-host>:554/trackID=1"
 ```
 
-- URL 형식: `rtsp://[user]:[pw]@[ip]:554/trackID=#` (`#` = 1~3, 트리플 스트림)
+- URL 형식: `rtsp://<camera-host>:554/trackID=#` (`#` = 1~3, 트리플 스트림). 인증 정보가 필요한 장비의 user-info는 git 밖 local secret config에만 둔다.
 - **막히면 십중팔구 카메라의 SEED-128 스트림 암호화가 켜져 있는 것.** 카메라 웹설정에서 끄면 됨.
 
 ## 0. 네트워크 (랜선 직결 시)
@@ -46,9 +48,9 @@ ffmpeg, VLC(live555), raw 소켓 전부 동일하게 454. **경로/형식 문제
 454는 인증이 아니라 **암호화 게이트**다. 두 개를 칼같이 구분하는 테스트:
 
 ```bash
-# 틀린 비번 → 401 (인증 게이트),  맞는 비번 → 454 (암호화 게이트)
-ffprobe -rtsp_transport tcp "rtsp://admin:WRONG@<ip>:554/trackID=1"      # 401 기대
-ffprobe -rtsp_transport tcp "rtsp://admin:<pw>@<ip>:554/trackID=1"       # 454 기대
+# 틀린 비번 → 401 (인증 게이트), 맞는 비번 → 454 (암호화 게이트)
+ffprobe -rtsp_transport tcp "rtsp://<camera-host>:554/trackID=1"
+ffprobe -rtsp_transport tcp "rtsp://<camera-host>:554/trackID=1"
 ```
 
 - 틀린 비번도 454면 → 진짜 비번이 다른 것 (인증 문제)
@@ -83,7 +85,7 @@ Data-Encryption: partial
 
 ## 3. 해결: 카메라에서 SEED 암호화 끄기
 
-1. 브라우저로 `https://<ip>` 접속 → WebGuard 로그인 (`admin` / `<pw>`)
+1. 브라우저로 `https://<ip>` 접속 → WebGuard 로그인 (`<rtsp-user>` / `<rtsp-password>`)
 2. **Setup → System/Network → 보안/암호화** 에서 **전송·데이터 암호화(SEED) OFF**
    - 끌 것: "데이터 암호화 / 스트림 암호화 / SEED / 영상 암호화"
    - **헷갈리지 말 것** (이거 꺼봐야 소용 없음): `SSL`, `HTTPS`, `RTP 전송`
@@ -95,11 +97,11 @@ Data-Encryption: partial
 ## 4. 검증
 
 ```bash
-ffprobe -rtsp_transport tcp "rtsp://admin:<pw>@<ip>:554/trackID=1"
+ffprobe -rtsp_transport tcp "rtsp://<camera-host>:554/trackID=1"
 # 정상: Video: hevc (Main) 1920x1080 30 fps 같은 스트림 정보
 
-vlc --rtsp-tcp "rtsp://admin:<pw>@<ip>:554/trackID=1"          # 재생
-ffmpeg -rtsp_transport tcp -i "rtsp://admin:<pw>@<ip>:554/trackID=1" -frames:v 1 /tmp/cam.jpg  # 스냅샷
+vlc --rtsp-tcp "rtsp://<camera-host>:554/trackID=1"
+ffmpeg -rtsp_transport tcp -i "rtsp://<camera-host>:554/trackID=1" -frames:v 1 /tmp/cam.jpg
 ```
 
 - 코덱이 **HEVC(H.265)** 일 수 있음. OpenCV/ffmpeg 디코딩 안 되면 카메라에서 trackID 하나를 H.264로 바꾸거나 서브스트림(`trackID=2`) 사용.
@@ -115,6 +117,85 @@ ffmpeg -rtsp_transport tcp -i "rtsp://admin:<pw>@<ip>:554/trackID=1" -frames:v 1
 
 - 세 트랙 다 H.265 (H.264 트랙 없음). 각 트랙에 `data` 타입 채널(메타데이터) 1개씩 동반 — 영상 무관.
 - ML 추론 입력은 **trackID=2 (640×360@30)** 권장: 1080p 대비 부하 낮고, trackID=3(15fps)보다 낙상 같은 빠른 동작 포착에 유리.
+
+## 5. 4대 카메라 edge-worker smoke
+
+백엔드에서 카메라 4대를 먼저 등록해 각 카메라의 `camera_id`, `ingest_key_id`, one-time `ingest_secret`, `facility_id`, 필요 시 `resident_id`를 확보한다. `ingest_secret`은 camera 생성 응답에서 한 번만 반환되며 list/get/update 응답에는 다시 나오지 않는다. edge 장비에는 git 밖 local 파일로만 config를 둔다. 이미 생성된 카메라의 secret을 잃어버렸다면 별도 rotation endpoint가 생기기 전까지는 카메라를 재생성한다.
+
+```bash
+cp ml/config/ml-worker.example.yaml /tmp/eldercare-ml-worker-rtsp.yaml
+chmod 600 /tmp/eldercare-ml-worker-rtsp.yaml
+```
+
+`/tmp/eldercare-ml-worker-rtsp.yaml`에 camera entry를 실제 값으로 채운다. RTSP URL은 보통 서브스트림을 쓴다. 이 파일이 `EDGE_CAMERA_CONFIG`이고, per-camera RTSP URL, backend `/ingest/*` key/secret, LSTM fall model artifact 계약을 함께 가진다.
+
+```yaml
+version: 1
+ingest:
+  alert_api_url: https://backend.example.com/ingest/alerts
+  heartbeat_api_url: https://backend.example.com/ingest/heartbeat
+models:
+  fall:
+    type: lstm
+    framework: pytorch
+    mode: sequence
+    artifact_dir: /app/models/fall/lstm
+    weights: model.pt
+    architecture: arch.json
+    metadata: metadata.yaml
+cameras:
+  - camera_id: backend-camera-id
+    facility_id: backend-facility-id
+    resident_id: backend-resident-id-or-null
+    rtsp_url: rtsp://<camera-host>:554/trackID=2
+    ingest_key_id: backend-camera-key-id
+    ingest_secret: backend-camera-secret
+```
+
+config 문법만 확인:
+
+```bash
+EDGE_CAMERA_CONFIG=/tmp/eldercare-ml-worker-rtsp.yaml \
+  uv run --directory ml python -m runtime.edge_worker_config --check
+
+uv run --directory ml python -m worker.edge_worker \
+  --config /tmp/eldercare-ml-worker-rtsp.yaml \
+  --check-config
+```
+
+Nursing-home 영상 기반 production-shaped RTSP E2E:
+
+```bash
+NURSING_HOME_FALL_VIDEO=/path/to/nursing-home-fall.mp4 \
+ML_MODELS_DIR=/path/to/ml/models \
+DEMO_INGEST_SECRET=<seeded-demo-ingest-secret> \
+scripts/ml-worker-nursing-home-backend-e2e.sh
+```
+
+개발 중 worker가 계속 소비할 RTSP 입력만 필요하면 같은 publisher를 직접 띄운다:
+
+```bash
+pnpm dev:rtsp -- /path/to/nursing-home-fall.mp4
+```
+
+이 명령은 영상을 반복 재생하며 `rtsp://127.0.0.1:8554/nursing-home`을 유지한다. `ml-worker.local.yaml`의 camera `rtsp_url`을 이 값으로 두면, 개발자는 실제 worker 소비 경로로 계속 작업할 수 있다. E2E 명령은 같은 `scripts/rtsp-loop-video.sh` publisher를 Docker network 안에서 재사용하고, `compose.edge.yaml`의 `ml-worker` production entrypoint가 그 RTSP를 소비하게 한다. alert/heartbeat는 stub이 아니라 실제 backend `/ingest/*`로 전송하며, 마지막에 backend DB의 `alerts` 테이블에 낙상 alert가 기록됐는지 확인한다.
+
+Edge Compose 기동은 실제 camera config를 secret으로 마운트한다:
+
+```bash
+EDGE_CAMERA_CONFIG=/tmp/eldercare-ml-worker-rtsp.yaml \
+  docker compose -f compose.edge.yaml up -d --build
+```
+
+실제 스트림과 worker 유한 실행 smoke:
+
+```bash
+EDGE_CAMERA_CONFIG=/tmp/eldercare-ml-worker-rtsp.yaml \
+  MAX_FRAMES_PER_CAMERA=30 \
+  scripts/ml-worker-rtsp-smoke.sh
+```
+
+이 smoke는 YAML의 각 RTSP URL을 `ffprobe -rtsp_transport tcp`로 먼저 확인하고, 그 다음 `worker.edge_worker`를 configured cameras에 대해 `--max-frames-per-camera`로 실행한다. `/tmp/eldercare-ml-worker-rtsp.yaml`이 없으면 실제 카메라 검증은 할 수 없다. Jetson Nano 검증은 legacy/constrained hardware-gated smoke로만 기록하고, 일반 GPU 지원으로 주장하지 않는다.
 
 ## 막다른 길 (시도하지 말 것)
 

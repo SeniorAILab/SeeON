@@ -27,7 +27,6 @@ function emptyDraft(facilityId: string, floorId: string): Draft {
     name: "",
     type: "ROOM",
     capacity: 4,
-    cameraId: null,
     isActive: true,
     assignedStaff: "",
   };
@@ -82,7 +81,7 @@ export function AdminSpacesPage() {
     <div className="space-y-5">
       <PageHeader
         title="공간 관리"
-        description="호실·복도·프로그램실 등 공간과 카메라 연결을 관리합니다."
+        description="호실·복도·프로그램실 등 공간 정보를 관리합니다."
         action={
           <Button
             onClick={() => setDraft(emptyDraft(facilityId, floors[0]?.id ?? ""))}
@@ -138,13 +137,6 @@ export function AdminSpacesPage() {
                 onChange={(e) => setDraft({ ...draft, capacity: Number(e.target.value) })}
               />
             </Field>
-            <Field label="카메라 ID" hint="AI 페이로드의 cameraId 와 매칭됩니다.">
-              <Input
-                value={draft.cameraId ?? ""}
-                placeholder="예: CAM-2F-204"
-                onChange={(e) => setDraft({ ...draft, cameraId: e.target.value || null })}
-              />
-            </Field>
             <Field label="담당 직원">
               <Input
                 value={draft.assignedStaff ?? ""}
@@ -177,7 +169,6 @@ export function AdminSpacesPage() {
               <th className="px-4 py-2.5 font-medium">공간명</th>
               <th className="px-4 py-2.5 font-medium">층</th>
               <th className="px-4 py-2.5 font-medium">유형</th>
-              <th className="px-4 py-2.5 font-medium">카메라</th>
               <th className="px-4 py-2.5 font-medium">정원</th>
               <th className="px-4 py-2.5 font-medium">상태</th>
               <th className="px-4 py-2.5"></th>
@@ -189,7 +180,6 @@ export function AdminSpacesPage() {
                 <td className="px-4 py-2.5 font-medium text-ink">{s.name}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{floorName(s.floorId)}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{spaceTypeLabel[s.type]}</td>
-                <td className="px-4 py-2.5 font-mono text-xs text-ink-soft">{s.cameraId ?? "미연결"}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{s.capacity}명</td>
                 <td className="px-4 py-2.5">
                   <span

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from api.main import create_app, no_lifespan
 from runtime.status_store import CameraStatus, StatusStore
-from serving.main import create_app, no_lifespan
 
 
 def test_status_reflects_status_store_ops_and_camera_state() -> None:

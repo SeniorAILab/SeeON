@@ -17,7 +17,7 @@ def update(
     beds: tuple[BoundingBox, ...],
     persons: tuple[BoundingBox, ...],
 ):
-    return monitor.update(bed_boxes=beds, person_boxes=persons)
+    return monitor.update_boxes(bed_boxes=beds, person_boxes=persons)
 
 
 def test_no_person_or_no_bed_is_empty_and_no_event() -> None:

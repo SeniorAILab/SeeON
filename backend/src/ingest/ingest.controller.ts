@@ -3,8 +3,7 @@
  *
  * Auth: HmacIngestGuard verifies X-Ingest-Key-Id + X-Signature + X-Ingest-Timestamp.
  * Idempotency: server-derived key = sha256(cameraId + detected_at + type).
- * Tenant coherence: camera.facilityId must match payload.facility_id;
- *                   camera.residentId must match payload.resident_id (if assigned).
+ * Tenant coherence: camera.facilityId must match payload.facility_id.
  * Snapshot: payload.snapshot_url is ignored (SSRF prevention). Snapshot is stored
  *            via a separate upload endpoint as an internal key.
  * Distinct alerts are NEVER dropped — only exact-duplicate idempotencyKey is deduplicated.
@@ -24,18 +23,16 @@ import type {
   RequestWithIngestCamera,
 } from './hmac.guard.js';
 import { CamerasService } from '../cameras/cameras.service.js';
-import { StatusService } from '../status/status.service.js';
 import { IngestAlertService } from './ingest-alert.service.js';
 import {
-  type IngestAlertBody,
-  parseIngestAlertBody,
+  type IngestAlertRequestDto,
+  parseIngestAlertRequestDto,
 } from './dto/ingest-alert.dto.js';
 
 @Controller('ingest')
 export class IngestController {
   constructor(
     private readonly cameras: CamerasService,
-    private readonly status: StatusService,
     private readonly ingestAlertService: IngestAlertService,
   ) {}
 
@@ -44,10 +41,10 @@ export class IngestController {
   @HttpCode(201)
   async ingestAlert(
     @Req() req: RequestWithIngestCamera,
-    @Body() body: IngestAlertBody,
+    @Body() body: IngestAlertRequestDto,
   ) {
     const camera = requireIngestCamera(req);
-    const parsedBody = parseIngestAlertBody(body);
+    const parsedBody = parseIngestAlertRequestDto(body);
     return this.ingestAlertService.ingestAlert(camera, parsedBody);
   }
   /**
@@ -55,23 +52,14 @@ export class IngestController {
    *
    * Canonical body for HMAC: all body fields absent → sign "|||"
    * (same HmacIngestGuard, empty-body canonical).
-   * Updates Camera.lastSeenAt + Camera.online, and upserts
-   * ResidentStatus.cameraOnline = true if camera is assigned to a resident.
-   * The 30s decay on read is preserved.
+   * Updates Camera.lastSeenAt + Camera.online.
    */
   @Post('heartbeat')
   @UseGuards(HmacIngestGuard)
   @HttpCode(200)
   async heartbeat(@Req() req: RequestWithIngestCamera) {
     const camera = requireIngestCamera(req);
-    await Promise.all([
-      this.cameras.recordHeartbeat(camera.facilityId, camera.id),
-      this.status.recordCameraHeartbeat(
-        camera.facilityId,
-        camera.id,
-        camera.residentId,
-      ),
-    ]);
+    await this.cameras.recordHeartbeat(camera.facilityId, camera.id);
     return { ok: true };
   }
 }

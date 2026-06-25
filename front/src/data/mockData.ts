@@ -69,44 +69,42 @@ function sp(
   name: string,
   type: SpaceType,
   capacity: number,
-  cameraId: string | null,
   assignedStaff: string
 ): Space {
-  return { id, facilityId: FAC, floorId, name, type, capacity, cameraId: cameraId ?? null, isActive: true, assignedStaff };
+  return { id, facilityId: FAC, floorId, name, type, capacity, isActive: true, assignedStaff };
 }
 
 // 호실 10개 + 공용공간 4개 = 14
 function residentialFloor(floorNum: number, staff: string): Space[] {
   const fl = `fl_${floorNum}f`;
-  const F = `${floorNum}F`;
   const rooms = Array.from({ length: 10 }, (_, i) => {
     const no = `${floorNum}${String(i + 1).padStart(2, "0")}호`;
-    return sp(`sp_${floorNum}${String(i + 1).padStart(2, "0")}`, fl, no, "ROOM", 4, `CAM-${F}-${floorNum}${String(i + 1).padStart(2, "0")}`, staff);
+    return sp(`sp_${floorNum}${String(i + 1).padStart(2, "0")}`, fl, no, "ROOM", 4, staff);
   });
   return [
     ...rooms,
-    sp(`sp_${floorNum}f_hc`, fl, "중앙복도", "HALLWAY", 10, `CAM-${F}-HC`, staff),
-    sp(`sp_${floorNum}f_hl`, fl, "좌측복도", "HALLWAY", 8, `CAM-${F}-HL`, staff),
-    sp(`sp_${floorNum}f_hr`, fl, "우측복도", "HALLWAY", 8, `CAM-${F}-HR`, staff),
-    sp(`sp_${floorNum}f_prog`, fl, "프로그램실", "PROGRAM_ROOM", 20, `CAM-${F}-PRG`, staff),
+    sp(`sp_${floorNum}f_hc`, fl, "중앙복도", "HALLWAY", 10, staff),
+    sp(`sp_${floorNum}f_hl`, fl, "좌측복도", "HALLWAY", 8, staff),
+    sp(`sp_${floorNum}f_hr`, fl, "우측복도", "HALLWAY", 8, staff),
+    sp(`sp_${floorNum}f_prog`, fl, "프로그램실", "PROGRAM_ROOM", 20, staff),
   ];
 }
 
 export const spaces: Space[] = [
   // B1 지하
-  sp("sp_b1_pt", "fl_b1", "물리치료실", "REHAB_ROOM", 8, "CAM-B1-PT", "정재활"),
-  sp("sp_b1_prog", "fl_b1", "프로그램실", "PROGRAM_ROOM", 20, "CAM-B1-PRG", "한복지"),
-  sp("sp_b1_dining", "fl_b1", "식당", "DINING", 40, "CAM-B1-DIN", "한복지"),
-  sp("sp_b1_hall", "fl_b1", "복도", "HALLWAY", 10, "CAM-B1-HAL", "정재활"),
-  sp("sp_b1_store", "fl_b1", "창고", "STORAGE", 2, "CAM-B1-STR", "관리팀"),
-  sp("sp_b1_staff", "fl_b1", "직원휴게공간", "STAFF_LOUNGE", 8, "CAM-B1-STF", "관리팀"),
+  sp("sp_b1_pt", "fl_b1", "물리치료실", "REHAB_ROOM", 8, "정재활"),
+  sp("sp_b1_prog", "fl_b1", "프로그램실", "PROGRAM_ROOM", 20, "한복지"),
+  sp("sp_b1_dining", "fl_b1", "식당", "DINING", 40, "한복지"),
+  sp("sp_b1_hall", "fl_b1", "복도", "HALLWAY", 10, "정재활"),
+  sp("sp_b1_store", "fl_b1", "창고", "STORAGE", 2, "관리팀"),
+  sp("sp_b1_staff", "fl_b1", "직원휴게공간", "STAFF_LOUNGE", 8, "관리팀"),
   // 1F (호실 없음)
-  sp("sp_1f_lobby", "fl_1f", "로비", "LOBBY", 30, "CAM-1F-LBY", "안내데스크"),
-  sp("sp_1f_counsel", "fl_1f", "상담실", "OFFICE", 6, "CAM-1F-CNS", "김원장"),
-  sp("sp_1f_office", "fl_1f", "사무실", "OFFICE", 6, "CAM-1F-OFC", "관리팀"),
-  sp("sp_1f_nurse", "fl_1f", "간호스테이션", "NURSE_STATION", 4, "CAM-1F-NUR", "이간호"),
-  sp("sp_1f_hall", "fl_1f", "중앙복도", "HALLWAY", 12, "CAM-1F-HAL", "이간호"),
-  sp("sp_1f_entrance", "fl_1f", "출입구", "ENTRANCE", 6, "CAM-1F-ENT", "안내데스크"),
+  sp("sp_1f_lobby", "fl_1f", "로비", "LOBBY", 30, "안내데스크"),
+  sp("sp_1f_counsel", "fl_1f", "상담실", "OFFICE", 6, "김원장"),
+  sp("sp_1f_office", "fl_1f", "사무실", "OFFICE", 6, "관리팀"),
+  sp("sp_1f_nurse", "fl_1f", "간호스테이션", "NURSE_STATION", 4, "이간호"),
+  sp("sp_1f_hall", "fl_1f", "중앙복도", "HALLWAY", 12, "이간호"),
+  sp("sp_1f_entrance", "fl_1f", "출입구", "ENTRANCE", 6, "안내데스크"),
   // 2F / 3F / 4F (각 14공간)
   ...residentialFloor(2, "이간호"),
   ...residentialFloor(3, "최요양"),

@@ -1,6 +1,6 @@
 import { createServer, type Server, type IncomingMessage } from 'node:http';
 
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 
 import {
   MlServingPredictionAdapter,
@@ -8,17 +8,18 @@ import {
 } from './ml-serving-prediction.adapter.js';
 
 describe('MlServingPredictionAdapter', () => {
-  let server: Server;
+  let server: Server | undefined;
   let receivedPath: string | undefined;
   let receivedBody: unknown;
 
   afterEach(async () => {
     if (server !== undefined) {
       await closeServer(server);
+      server = undefined;
     }
   });
 
-  it('posts the stable /predict request and parses the approved response shape', async () => {
+  it('posts the canonical /debug/predict/window request and parses the approved response shape', async () => {
     server = await startServer(async (req) => {
       receivedPath = req.url;
       receivedBody = JSON.parse(await readBody(req));
@@ -38,8 +39,14 @@ describe('MlServingPredictionAdapter', () => {
       operating_threshold: 0.8,
       is_fall: true,
     });
-    expect(receivedPath).toBe('/predict');
+    expect(receivedPath).toBe('/debug/predict/window');
     expect(receivedBody).toEqual(request);
+  });
+
+  it('reports the canonical route in ML serving error messages', () => {
+    expect(new MlServingResponseError('body').message).toContain(
+      '/debug/predict/window',
+    );
   });
 
   it('rejects responses that drift from {fall_probability, operating_threshold, is_fall}', async () => {

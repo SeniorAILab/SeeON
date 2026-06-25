@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -21,6 +21,8 @@ import { AppModule } from '../src/app.module';
 const FACILITY = 'e2e-ingest-facility';
 const RES = 'e2e-ingest-res';
 const CAM = 'e2e-ingest-cam';
+const FLOOR = 'e2e-ingest-floor';
+const SPACE = 'e2e-ingest-space';
 const KEY_ID = 'e2e-ingest-keyid';
 // The HMAC guard signs with camera.ingestSecretHash directly (see hmac.guard.ts),
 // so any fixed key value works as long as the client signs with the same value.
@@ -43,6 +45,8 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
     await direct.alert.deleteMany({ where: { facilityId: FACILITY } });
     await direct.residentStatus.deleteMany({ where: { facilityId: FACILITY } });
     await direct.camera.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.space.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.floor.deleteMany({ where: { facilityId: FACILITY } });
     await direct.resident.deleteMany({ where: { facilityId: FACILITY } });
     await direct.facility.deleteMany({ where: { id: FACILITY } });
   }
@@ -69,14 +73,31 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
         id: RES,
         facilityId: FACILITY,
         name: 'E2E Resident',
-        room: 'E2E',
+      },
+    });
+    await direct.floor.create({
+      data: {
+        id: FLOOR,
+        facilityId: FACILITY,
+        name: 'E2E Floor',
+        orderIndex: 1,
+      },
+    });
+    await direct.space.create({
+      data: {
+        id: SPACE,
+        facilityId: FACILITY,
+        floorId: FLOOR,
+        name: 'E2E',
+        type: 'ROOM',
+        capacity: 1,
       },
     });
     await direct.camera.create({
       data: {
         id: CAM,
         facilityId: FACILITY,
-        residentId: RES,
+        spaceId: SPACE,
         label: 'E2E Cam',
         ingestKeyId: KEY_ID,
         ingestSecretHash: SECRET_HASH,
@@ -93,7 +114,7 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
   afterAll(async () => {
     await cleanup();
     await direct.$disconnect();
-    await app?.close();
+    await app.close();
   });
 
   it('creates Alert + ResidentStatus(FALL) + AlertEvent for a valid HMAC fall ingest', async () => {

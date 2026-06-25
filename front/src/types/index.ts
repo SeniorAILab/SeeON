@@ -6,6 +6,7 @@
 // ---------- 열거형(Enum) ----------
 
 export type Role = "SUPER_ADMIN" | "FACILITY_ADMIN" | "STAFF" | "VIEWER";
+export type BackendRole = "SUPER_ADMIN" | "ADMIN" | "CAREGIVER";
 
 export type SpaceType =
   | "ROOM"
@@ -80,7 +81,6 @@ export interface Space {
   name: string; // 예: 201호
   type: SpaceType;
   capacity: number;
-  cameraId: string | null; // 예: CAM-2F-201, 미배정 시 null
   isActive: boolean;
   assignedStaff?: string; // 담당 직원
 }

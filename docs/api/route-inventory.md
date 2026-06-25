@@ -6,6 +6,7 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 |---|---|---|---|---|---|
 | GET | `/auth/kakao/login` | None | No body. | `302` redirect to Kakao OAuth authorize URL; sets OAuth state cookie. | Current |
 | GET | `/auth/kakao/callback` | OAuth state cookie | Query: `code`, `state`. | `302` redirect to frontend `/dashboard` when user has a facility, otherwise `/onboarding`; sets session cookie and clears OAuth state cookie. | Current |
+| POST | `/auth/login` | None | `{ email: string, password: string }` | `{ user }` with the same backend session cookie used by Kakao login. Generic invalid credentials return `401`. | Current |
 | GET | `/auth/session` | Session cookie validation; refreshes (rotates) the session cookie when the token is due for rotation | No body. | `{ user }` for valid session; unauthenticated sessions are rejected by session validation semantics. | Current |
 | POST | `/auth/logout` | `SessionGuard` | No body. | `204` empty; revokes session and clears session cookie. | Current |
 | POST | `/api/facilities` | `SessionGuard` | `{ facilityName: string, businessRegistrationNumber?: string or null }` | `{ user }` with refreshed facility-bearing session cookie; user includes `facilityId`. | Current onboarding |
@@ -17,8 +18,8 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 | DELETE | `/api/floors/:floorId` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `floorId`. | `204` empty. | Current hard delete; `409` if active child spaces reference the floor |
 | GET | `/api/spaces` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query: `floorId?`, `type?`, `isActive?`. | Space list for caller facility. | Current |
 | GET | `/api/spaces/:spaceId` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `spaceId`. | One facility-scoped space. | Current |
-| POST | `/api/spaces` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, cameraId?: string or null, isActive?: boolean, assignedStaff?: string or null }` | Created space. | Current; required-field conflicts return `409` |
-| PATCH | `/api/spaces/:spaceId` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, cameraId?: string or null, isActive?: boolean, assignedStaff?: string or null }` | Updated space. | Current |
+| POST | `/api/spaces` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | Created space. | Current; required-field conflicts return `409`; cameras attach through `Camera.spaceId` |
+| PATCH | `/api/spaces/:spaceId` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | Updated space. | Current; camera placement is updated through camera APIs |
 | DELETE | `/api/spaces/:spaceId` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `spaceId`. | Soft-deleted space body with `isActive: false`. | Current soft delete; `200` body |
 | GET | `/api/zones` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query: `spaceId?`, `type?`. | Zone list for caller facility. | Current |
 | POST | `/api/zones` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ spaceId?: string, name?: string, type?: ZoneType, orderIndex?: number }` | Created zone. | Current |
@@ -34,8 +35,8 @@ Current route inventory for issue #216 plus the post-rename facility/placement r
 | GET | `/api/resident-assignments` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query: `residentId?`, `spaceId?`, `zoneId?`, `active?`. | Read-only assignment history list. | Current |
 | GET | `/api/cameras` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body. | Camera list for caller facility. | Current |
 | GET | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `id`. | One facility-scoped camera. | Current |
-| POST | `/api/cameras` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ label: string, residentId?: string }` | Created camera, including ingest key metadata as service returns. | Current |
-| PATCH | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Partial `{ label?: string, residentId?: string }` | Updated camera. | Current |
+| POST | `/api/cameras` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | `{ label: string, spaceId: string }` | Created camera, including `ingestKeyId` and one-time `ingestSecret`; list/get/update do not return the secret again. | Current; `spaceId` required |
+| PATCH | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Partial `{ label?: string, spaceId?: string }` | Updated camera. | Current |
 | DELETE | `/api/cameras/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `id`. | Removed camera result. | Current |
 | GET | `/api/guardians` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Optional query `residentId`. | Guardian list for caller facility, optionally resident-filtered. | Current |
 | GET | `/api/guardians/:id` | `SessionGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Path `id`. | One facility-scoped guardian. | Current |

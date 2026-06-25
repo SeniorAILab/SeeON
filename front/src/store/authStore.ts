@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authService } from "@/services/authService";
+import type { CreateFacilityInput, LoginInput } from "@/services/authService";
 import type { Role, User } from "@/types";
 
 interface AuthState {
@@ -7,10 +8,15 @@ interface AuthState {
   initialized: boolean;
   loading: boolean;
   error: string | null;
-  init: () => void;
-  login: (email: string, password: string) => Promise<void>;
-  kakaoLogin: () => Promise<User>;
+  init: () => Promise<void>;
+  login: (input: LoginInput) => Promise<User>;
+  kakaoLogin: () => void;
+  createFacility: (input: CreateFacilityInput) => Promise<User>;
   logout: () => Promise<void>;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "요청 처리 중 오류가 발생했습니다.";
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -25,26 +31,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: session?.user ?? null, initialized: true });
   },
 
-  login: async (email, password) => {
+  login: async (input) => {
     set({ loading: true, error: null });
     try {
-      const session = await authService.login(email, password);
+      const session = await authService.login(input);
       set({ user: session.user, loading: false });
-    } catch (e) {
-      set({ error: (e as Error).message, loading: false });
-      throw e;
+      return session.user;
+    } catch (error) {
+      set({ error: errorMessage(error), loading: false });
+      throw error;
     }
   },
 
-  kakaoLogin: async () => {
+  kakaoLogin: () => {
     set({ loading: true, error: null });
     try {
-      const session = await authService.kakaoLogin();
+      authService.startKakaoLogin();
+    } catch (error) {
+      set({ error: errorMessage(error), loading: false });
+      throw error;
+    }
+  },
+
+  createFacility: async (input) => {
+    set({ loading: true, error: null });
+    try {
+      const session = await authService.createFacility(input);
       set({ user: session.user, loading: false });
       return session.user;
-    } catch (e) {
-      set({ error: (e as Error).message, loading: false });
-      throw e;
+    } catch (error) {
+      set({ error: errorMessage(error), loading: false });
+      throw error;
     }
   },
 

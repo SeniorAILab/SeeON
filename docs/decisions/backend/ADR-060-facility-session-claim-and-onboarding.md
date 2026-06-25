@@ -18,7 +18,7 @@ Retain the `OWNER` and `ADMIN` roles. Scope remains session-derived: authenticat
 
 Rename onboarding from `POST /api/orgs` to `POST /api/facilities`. The request body supplies the facility name and optional business registration number only; it does not supply `facilityId`.
 
-Rename onboarding/service identifiers from organization/org to facility, including `createFacilityForUser`, `CreateFacilityBody`, and facility-required guard messages.
+Rename onboarding/service identifiers from organization/org to facility, including `createFacilityForUser`, `CreateFacilityRequestDto`, and facility-required guard messages.
 
 ## Drivers
 

@@ -13,14 +13,17 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ZoneType } from '@prisma/client';
 import { FacilityContextInterceptor } from '../../auth/facility-context.interceptor.js';
 import {
   RequireFacilityGuard,
   SessionGuard,
 } from '../../auth/session.guard.js';
 import type { RequestWithAuth } from '../../auth/session.guard.js';
-import type { CreateZoneDto, UpdateZoneDto } from '../dto/zone.dto.js';
+import type {
+  CreateZoneRequestDto,
+  UpdateZoneRequestDto,
+  ZoneType,
+} from '../dto/zone.dto.js';
 import { ZonesService } from '../services/zones.service.js';
 
 @Controller('api/zones')
@@ -35,13 +38,16 @@ export class ZonesController {
   ) {
     return this.service.list(requireFacilityId(req), { spaceId, type });
   }
-  @Post() create(@Req() req: RequestWithAuth, @Body() body: CreateZoneDto) {
+  @Post() create(
+    @Req() req: RequestWithAuth,
+    @Body() body: CreateZoneRequestDto,
+  ) {
     return this.service.create(requireFacilityId(req), body);
   }
   @Patch(':zoneId') update(
     @Req() req: RequestWithAuth,
     @Param('zoneId') zoneId: string,
-    @Body() body: UpdateZoneDto,
+    @Body() body: UpdateZoneRequestDto,
   ) {
     return this.service.update(requireFacilityId(req), zoneId, body);
   }

@@ -1,19 +1,19 @@
 import { BadRequestException } from '@nestjs/common';
 
-import {
+import type {
   AlertWriterService,
-  type WriteAlertInput,
+  WriteAlertInput,
 } from '../alerts/alert-writer.service';
-import { AlertEventsService } from '../alerts/services/alert-events.service';
+import type { AlertEventsService } from '../alerts/services/alert-events.service';
 import {
   MissingFieldException,
   StaleTimestampException,
   TenantMismatchException,
 } from '../common/domain-errors';
-import { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service';
 import type { IngestCameraInfo } from './hmac.guard';
 import { IngestAlertService } from './ingest-alert.service';
-import { parseIngestAlertBody } from './dto/ingest-alert.dto';
+import { parseIngestAlertRequestDto } from './dto/ingest-alert.dto';
 
 const NOW = new Date('2026-06-18T00:00:00.000Z');
 
@@ -23,7 +23,8 @@ function setup() {
     Promise<{
       alertSeq: bigint;
       id: string;
-      resident?: { name: string; room: string | null } | null;
+      resident?: { name: string } | null;
+      space?: { name: string } | null;
     }>,
     [WriteAlertInput]
   >();
@@ -50,14 +51,14 @@ function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
   return {
     id: 'cam-1',
     facilityId: 'facility-1',
-    residentId: 'res-1',
+    spaceId: 'space-1',
     ingestKeyId: 'key-1',
     ...overrides,
   };
 }
 
 function body(overrides: Record<string, unknown> = {}) {
-  return parseIngestAlertBody({
+  return parseIngestAlertRequestDto({
     resident_id: 'res-1',
     facility_id: 'facility-1',
     probability: 0.9,
@@ -71,10 +72,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('parseIngestAlertBody', () => {
+describe('parseIngestAlertRequestDto', () => {
   it('coerces a valid ingest alert body', () => {
     expect(
-      parseIngestAlertBody({
+      parseIngestAlertRequestDto({
         resident_id: 123,
         facility_id: 'facility-1',
         probability: '0.75',
@@ -83,6 +84,22 @@ describe('parseIngestAlertBody', () => {
       }),
     ).toEqual({
       resident_id: '123',
+      facility_id: 'facility-1',
+      probability: 0.75,
+      detectedAt: NOW,
+      type: 'fall',
+    });
+  });
+  it('accepts a room-only alert body without resident_id', () => {
+    expect(
+      parseIngestAlertRequestDto({
+        facility_id: 'facility-1',
+        probability: 0.75,
+        detected_at: NOW.toISOString(),
+        type: 'fall',
+      }),
+    ).toEqual({
+      resident_id: null,
       facility_id: 'facility-1',
       probability: 0.75,
       detectedAt: NOW,
@@ -102,8 +119,8 @@ describe('parseIngestAlertBody', () => {
     expect(() => body({ type: 'foo' })).toThrow(BadRequestException);
   });
 
-  it('rejects missing required fields', () => {
-    expect(() => body({ resident_id: '' })).toThrow(MissingFieldException);
+  it('rejects missing required fields except resident_id', () => {
+    expect(() => body({ facility_id: '' })).toThrow(MissingFieldException);
   });
 
   it('rejects invalid probability', () => {
@@ -137,12 +154,18 @@ describe('IngestAlertService', () => {
     ).rejects.toBeInstanceOf(TenantMismatchException);
   });
 
-  it('rejects assigned resident mismatches', async () => {
-    const { service } = setup();
+  it('does not require the ingest resident_id to match legacy camera residentId', async () => {
+    const { service, writeAlert } = setup();
+    writeAlert.mockResolvedValue({
+      alertSeq: 7n,
+      id: 'a1',
+      resident: null,
+      space: { name: 'Room 101' },
+    });
 
     await expect(
       service.ingestAlert(camera(), body({ resident_id: 'other-resident' })),
-    ).rejects.toBeInstanceOf(TenantMismatchException);
+    ).resolves.toEqual({ alertSeq: '7', id: 'a1', status: 'created' });
   });
 
   it('writes created alerts with idempotency, outbox, and threaded resident context', async () => {
@@ -150,7 +173,8 @@ describe('IngestAlertService', () => {
     writeAlert.mockResolvedValue({
       alertSeq: 7n,
       id: 'a1',
-      resident: { name: '홍길동', room: '302호' },
+      resident: { name: '홍길동' },
+      space: { name: '402호' },
     });
 
     const result = await service.ingestAlert(camera(), body());
@@ -169,7 +193,7 @@ describe('IngestAlertService', () => {
     );
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
     expect(idempotencyKey).toMatch(/^[0-9a-f]{64}$/);
-    // AC8: resident name/room from the alert-writer join thread to the outbox
+    // AC8: resident name/space room from the alert-writer join thread to the outbox
     // without changing the ML ingest DTO.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith({
       facilityId: 'facility-1',
@@ -179,7 +203,44 @@ describe('IngestAlertService', () => {
       detectedAt: NOW,
       confidence: 0.9,
       residentName: '홍길동',
-      residentRoom: '302호',
+      residentRoom: '402호',
+    });
+  });
+  it('writes room-only alerts with null residentId and room context', async () => {
+    const { service, writeAlert, ensureOutboxForIngest } = setup();
+    writeAlert.mockResolvedValue({
+      alertSeq: 9n,
+      id: 'room-alert-1',
+      resident: null,
+      space: { name: 'Room 101' },
+    });
+
+    const result = await service.ingestAlert(
+      camera(),
+      body({ resident_id: undefined }),
+    );
+
+    expect(result).toEqual({
+      alertSeq: '9',
+      id: 'room-alert-1',
+      status: 'created',
+    });
+    expect(writeAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        residentId: null,
+        spaceId: 'space-1',
+      }),
+    );
+    const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
+    expect(ensureOutboxForIngest).toHaveBeenCalledWith({
+      facilityId: 'facility-1',
+      sourceId: 'cam-1',
+      externalEventId: idempotencyKey,
+      type: 'fall',
+      detectedAt: NOW,
+      confidence: 0.9,
+      residentName: undefined,
+      residentRoom: 'Room 101',
     });
   });
 
@@ -188,7 +249,8 @@ describe('IngestAlertService', () => {
     writeAlert.mockResolvedValue({
       alertSeq: 8n,
       id: 'bed-exit-alert-1',
-      resident: { name: '김영희', room: null },
+      resident: { name: '김영희' },
+      space: { name: '재활실' },
     });
 
     const result = await service.ingestAlert(
@@ -216,7 +278,7 @@ describe('IngestAlertService', () => {
       detectedAt: NOW,
       confidence: 0.1,
       residentName: '김영희',
-      residentRoom: null,
+      residentRoom: '재활실',
     });
   });
 
@@ -230,7 +292,8 @@ describe('IngestAlertService', () => {
           findFirst: () => ({
             alertSeq: 3n,
             id: 'a-dup',
-            resident: { name: '박철수', room: '101호' },
+            resident: { name: '박철수' },
+            space: { name: '201호' },
           }),
         },
       } as unknown as Parameters<typeof cb>[0]),
@@ -252,7 +315,7 @@ describe('IngestAlertService', () => {
         externalEventId: idempotencyKey,
         confidence: 0.9,
         residentName: '박철수',
-        residentRoom: '101호',
+        residentRoom: '201호',
       }),
     );
   });

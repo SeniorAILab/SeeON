@@ -22,7 +22,7 @@ Selective startup (`docker compose up -d db` for db-only, `--profile full` for t
 
 1. **Delete `compose.override.yaml`.**
 2. **Move `profiles: [full]` onto `backend` and `front` in `compose.yaml`** (runner targets). Default `docker compose up` / `pnpm db:up` stays db-only; `docker compose --profile full up -d --build` brings up the whole host stack.
-3. **Rename the script `compose:dev:full` → `compose:full`** (it builds the runner full stack, not a dev-watch stack).
+3. **Replace the ambiguous full-stack script with `compose:local:up`.** It builds the local runner full stack with `.env.local`. Do not keep `compose:dev:full`, `compose:full`, or other fallback aliases.
 4. **Dev remains native-only.** There is no containerized hot-reload path; use `pnpm dev:front` / `dev:backend` / `dev:ml` with `pnpm db:up`.
 
 Resulting compose files: `compose.yaml` (host stack, full profile) + `compose.prod.yaml` (prod overlay) + `compose.edge.yaml` (edge). No `compose.override.yaml`.
@@ -41,9 +41,9 @@ Resulting compose files: `compose.yaml` (host stack, full profile) + `compose.pr
 ## Consequences
 
 - No containerized hot-reload dev. Daily dev is native (already the policy).
-- `pnpm compose:full` replaces `pnpm compose:dev:full`. Docs/AGENTS references updated.
+- `pnpm compose:local:up` is the local full-stack build command; `pnpm compose:prod:up` is the production image-pinned host-stack command. There is no `compose:full` fallback alias.
 - ADR-041's override clause and ADR-062's "base/override/prod three-file" wording are superseded for the override portion.
 
 ## Follow-ups
 
-- None required; prod overlay and edge file are unchanged.
+- 2026-06-23 update: `compose.prod.yaml` now carries the production backend/front image pins directly. The temporary registry overlay was removed; production uses `compose.yaml` + `compose.prod.yaml` only.
