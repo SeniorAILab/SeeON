@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image="${RTSP_FIXTURE_IMAGE:-bluenviron/mediamtx:1.19.1-ffmpeg}"
 compose_project="${COMPOSE_PROJECT_NAME:-ml-worker-nursing-home-backend-e2e}"
-video="${NURSING_HOME_FALL_VIDEO:?NURSING_HOME_FALL_VIDEO is required}"
+rtsp_url="${NURSING_HOME_RTSP_URL:?NURSING_HOME_RTSP_URL is required; start SeniorAILab/rtsp-generator separately and pass a worker-reachable URL}"
 models_dir="${ML_MODELS_DIR:?ML_MODELS_DIR with pose/bed/fall weights is required}"
 backend_base_url="${BACKEND_BASE_URL:-http://host.docker.internal:8080}"
+relay_url="${RELAY_URL:-http://ml-api:8000}"
+relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
 frames="${MAX_FRAMES_PER_CAMERA:-45}"
-wait_seconds="${RTSP_FIXTURE_WAIT_SECONDS:-60}"
-rtsp_stream_name="${E2E_RTSP_STREAM_NAME:-nursing-home}"
 facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
 camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
@@ -25,13 +24,8 @@ config="$tmpdir/ml-worker.yaml"
 edge_models_dir="$tmpdir/models"
 runtime_model_dir="$edge_models_dir/fall/lstm-runtime"
 runtime_metadata="$tmpdir/lstm-runtime.env"
-server="nursing-home-rtsp-${compose_project}"
-publisher="nursing-home-publisher-${compose_project}"
-network="${compose_project}_default"
-rtsp_internal_url="rtsp://rtsp-fixture:8554/${rtsp_stream_name}"
 
 cleanup_containers() {
-  docker rm -f "$publisher" "$server" >/dev/null 2>&1 || true
   EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
@@ -115,9 +109,9 @@ write_config() {
   source "$runtime_metadata"
   cat >"$config" <<YAML
 version: 1
-ingest:
-  alert_api_url: ${backend_base_url}/ingest/alerts
-  heartbeat_api_url: ${backend_base_url}/ingest/heartbeat
+relay:
+  url: ${relay_url}
+  token: ${relay_token}
 runtime:
   max_failures: 30
   open_timeout_ms: 5000
@@ -142,9 +136,7 @@ cameras:
   - camera_id: ${camera_id}
     facility_id: ${facility_id}
     resident_id: ${resident_id}
-    rtsp_url: ${rtsp_internal_url}
-    ingest_key_id: ${ingest_key_id}
-    ingest_secret: ${ingest_secret}
+    rtsp_url: ${rtsp_url}
     heartbeat_interval_sec: 30
     frame_stride: 1
     label: nursing-home-fall
@@ -153,30 +145,29 @@ YAML
 }
 
 start_compose_network() {
-  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
+    API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
+    API_INGEST_KEY_ID="$ingest_key_id" \
+    API_INGEST_SECRET="$ingest_secret" \
+    API_EDGE_RELAY_TOKEN="$relay_token" \
+    API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
+    EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
-    create --build ml-worker >/dev/null
-}
-
-start_rtsp_stream() {
-  RTSP_FIXTURE_IMAGE="$image" \
-    RTSP_DOCKER_NETWORK="$network" \
-    RTSP_NETWORK_ALIAS=rtsp-fixture \
-    RTSP_STREAM_NAME="$rtsp_stream_name" \
-    RTSP_SERVER_NAME="$server" \
-    RTSP_PUBLISHER_NAME="$publisher" \
-    RTSP_HOST_PORT= \
-    RTSP_DETACH=1 \
-    RTSP_READY_WAIT_SECONDS="$wait_seconds" \
-    "$repo_root/scripts/rtsp-loop-video.sh" "$video" >/dev/null
+    create --build ml-api ml-worker >/dev/null
 }
 
 run_worker() {
-  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
+    API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
+    API_INGEST_KEY_ID="$ingest_key_id" \
+    API_INGEST_SECRET="$ingest_secret" \
+    API_EDGE_RELAY_TOKEN="$relay_token" \
+    API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
+    EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
-    run -T --rm --no-deps --build \
+    run -T --rm --build \
     ml-worker \
     python -m worker.edge_worker \
     --config /run/secrets/ml-worker.yaml \
@@ -201,8 +192,7 @@ cleanup_containers
 write_lstm_runtime_artifact
 write_config
 start_compose_network
-start_rtsp_stream
 run_started_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 run_worker
 assert_backend_alert "$run_started_utc"
-printf 'production backend E2E ok: video=%s backend=%s camera=%s\n' "$video" "$backend_base_url" "$camera_id"
+printf 'production backend E2E ok: rtsp=%s backend=%s camera=%s\n' "$rtsp_url" "$backend_base_url" "$camera_id"

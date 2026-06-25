@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Tier-1 night bed-exit relay harness.
-# No-stub exception: only the ADR-057 model-runner layer is scripted because
-# YOLO26 person/bed weights are not guaranteed on developer machines. The live
-# path still starts MediaMTX RTSP, ml-api backend-ingest relay, and ml-worker
-# domain/transport code. Tier-2 follow-up gates this same flow with real YOLO26
-# weights on hardware/edge devices once weights are synchronized.
-
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 backend_base_url="${BACKEND_BASE_URL:-http://127.0.0.1:8080}"
 relay_base_url="${RELAY_URL:-http://127.0.0.1:8000}"
@@ -23,10 +16,7 @@ night_window_start="${BED_EXIT_NIGHT_WINDOW_START:-21:00}"
 night_window_end="${BED_EXIT_NIGHT_WINDOW_END:-05:00}"
 night_window_tz="${BED_EXIT_NIGHT_WINDOW_TZ:-Asia/Seoul}"
 frames="${MAX_FRAMES_PER_CAMERA:-8}"
-rtsp_port="${E2E_RTSP_PORT:-18554}"
-rtsp_stream_name="${E2E_RTSP_STREAM_NAME:-bedexit}"
-rtsp_url="rtsp://127.0.0.1:${rtsp_port}/${rtsp_stream_name}"
-image="${RTSP_FIXTURE_IMAGE:-bluenviron/mediamtx:1.19.1-ffmpeg}"
+rtsp_url="${BED_EXIT_RTSP_URL:?BED_EXIT_RTSP_URL is required; start SeniorAILab/rtsp-generator separately and pass a worker-reachable URL}"
 compose_project="${COMPOSE_PROJECT_NAME:-ml-worker-single-rtsp-bedexit-e2e}"
 db_container="${E2E_DB_CONTAINER:-eldercare-fall-db}"
 postgres_user="${POSTGRES_USER:-fall}"
@@ -37,9 +27,6 @@ tmpdir="$(mktemp -d "$tmp_root/ml-worker-single-bedexit.XXXXXX")"
 config="$tmpdir/ml-worker.yaml"
 api_log="$tmpdir/ml-api.log"
 worker_log="$tmpdir/ml-worker.log"
-mediamtx="bedexit-mediamtx-${compose_project}"
-publisher="bedexit-publisher-${compose_project}"
-net="bedexit-net-${compose_project}"
 api_pid=""
 
 cleanup() {
@@ -47,8 +34,6 @@ cleanup() {
     kill "$api_pid" >/dev/null 2>&1 || true
     wait "$api_pid" >/dev/null 2>&1 || true
   fi
-  docker rm -f "$publisher" "$mediamtx" >/dev/null 2>&1 || true
-  docker network rm "$net" >/dev/null 2>&1 || true
   rm -rf "$tmpdir"
 }
 
@@ -87,27 +72,6 @@ cameras:
     label: single-bed-exit
 YAML
   chmod 600 "$config"
-}
-
-start_rtsp() {
-  docker rm -f "$publisher" "$mediamtx" >/dev/null 2>&1 || true
-  docker network rm "$net" >/dev/null 2>&1 || true
-  docker network create "$net" >/dev/null
-  docker run -d --name "$mediamtx" --network "$net" -p "127.0.0.1:${rtsp_port}:8554" "$image" >/dev/null
-  sleep 2
-  docker run -d --name "$publisher" --network "$net" --entrypoint ffmpeg "$image" \
-    -hide_banner -loglevel error -re -f lavfi -i testsrc=size=320x240:rate=5 \
-    -vcodec libx264 -preset ultrafast -tune zerolatency -g 5 -keyint_min 5 -f rtsp "rtsp://${mediamtx}:8554/${rtsp_stream_name}" >/dev/null
-  for _ in $(seq 1 30); do
-    if docker run --rm --network "$net" --entrypoint ffprobe "$image" \
-      -v error -rtsp_transport tcp -i "rtsp://${mediamtx}:8554/${rtsp_stream_name}" \
-      -show_entries stream=codec_type -of csv=p=0 >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 1
-  done
-  printf 'rtsp stream did not become ready: %s\n' "$rtsp_url" >&2
-  return 1
 }
 
 start_api() {
@@ -224,11 +188,10 @@ PY
 trap cleanup EXIT
 require_backend
 write_config
-start_rtsp
 start_api
-printf 'clock night=%s day=%s night_window=%s-%s %s relay=%s backend_ingest=%s\n' \
+printf 'clock night=%s day=%s night_window=%s-%s %s relay=%s backend_ingest=%s rtsp=%s\n' \
   "$night_now" "$day_now" "$night_window_start" "$night_window_end" "$night_window_tz" \
-  "$relay_base_url" "$backend_base_url"
+  "$relay_base_url" "$backend_base_url" "$rtsp_url"
 night_started_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 run_worker_with_clock "$night_now"
 night_count="$(alert_count_since "$night_started_utc")"

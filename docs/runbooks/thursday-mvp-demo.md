@@ -47,7 +47,7 @@ EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
-`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 domain/model 설정을 담는 gitignored 파일이다. backend `/ingest/*` key/secret은 ADR-067/029에 따라 `ml-api` secret 설정에 둔다. 개발 중 실 카메라 없이 worker를 계속 돌릴 때는 `pnpm dev:rtsp -- /path/to/video.mp4`로 `rtsp://127.0.0.1:8554/nursing-home`을 유지하고 worker config가 그 URL을 소비하게 한다. production-shaped E2E를 확인할 때는 같은 publisher를 재사용하는 `scripts/ml-worker-nursing-home-backend-e2e.sh`를 사용한다. Jetson Nano는 legacy/constrained hardware-gated target이므로, 실제 장비 smoke 없이는 지원 완료로 말하지 않는다.
+`EDGE_CAMERA_CONFIG`는 per-camera RTSP URL과 domain/model 설정을 담는 gitignored 파일이다. backend `/ingest/*` key/secret은 ADR-067/029에 따라 `ml-api` secret 설정에 둔다. 개발 중 실 카메라 없이 worker를 계속 돌릴 때는 external `SeniorAILab/rtsp-generator`를 영상 파일로 띄우고 worker config가 그 출력 URL을 소비하게 한다. production-shaped E2E를 확인할 때는 `NURSING_HOME_RTSP_URL`을 넘겨 `scripts/ml-worker-nursing-home-backend-e2e.sh`를 사용한다. Jetson Nano는 legacy/constrained hardware-gated target이므로, 실제 장비 smoke 없이는 지원 완료로 말하지 않는다.
 
 ## 2. 데모 테넌트 바인딩 (나·형을 demo-org-01에 묶기)
 1. 나 + 형이 각각 `http://localhost:3000/login` → 카카오 로그인(동의 시 `talk_message` 포함) 1회 → User + 암호화 토큰 생성.
