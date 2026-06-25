@@ -39,6 +39,7 @@ api_log="$tmpdir/ml-api.log"
 worker_log="$tmpdir/ml-worker.log"
 mediamtx="bedexit-mediamtx-${compose_project}"
 publisher="bedexit-publisher-${compose_project}"
+net="bedexit-net-${compose_project}"
 api_pid=""
 
 cleanup() {
@@ -47,6 +48,7 @@ cleanup() {
     wait "$api_pid" >/dev/null 2>&1 || true
   fi
   docker rm -f "$publisher" "$mediamtx" >/dev/null 2>&1 || true
+  docker network rm "$net" >/dev/null 2>&1 || true
   rm -rf "$tmpdir"
 }
 
@@ -66,8 +68,8 @@ relay:
   token: ${relay_token}
 runtime:
   max_failures: 30
-  open_timeout_ms: 5000
-  read_timeout_ms: 5000
+  open_timeout_ms: 20000
+  read_timeout_ms: 20000
 domains:
   bed_exit:
     enabled: true
@@ -89,12 +91,23 @@ YAML
 
 start_rtsp() {
   docker rm -f "$publisher" "$mediamtx" >/dev/null 2>&1 || true
-  docker run -d --name "$mediamtx" -p "127.0.0.1:${rtsp_port}:8554" "$image" >/dev/null
+  docker network rm "$net" >/dev/null 2>&1 || true
+  docker network create "$net" >/dev/null
+  docker run -d --name "$mediamtx" --network "$net" -p "127.0.0.1:${rtsp_port}:8554" "$image" >/dev/null
   sleep 2
-  docker run -d --name "$publisher" --network host "$image" \
-    ffmpeg -hide_banner -loglevel error -re -f lavfi -i testsrc=size=320x240:rate=5 \
-    -vcodec libx264 -preset ultrafast -tune zerolatency -f rtsp "$rtsp_url" >/dev/null
-  sleep 3
+  docker run -d --name "$publisher" --network "$net" --entrypoint ffmpeg "$image" \
+    -hide_banner -loglevel error -re -f lavfi -i testsrc=size=320x240:rate=5 \
+    -vcodec libx264 -preset ultrafast -tune zerolatency -g 5 -keyint_min 5 -f rtsp "rtsp://${mediamtx}:8554/${rtsp_stream_name}" >/dev/null
+  for _ in $(seq 1 30); do
+    if docker run --rm --network "$net" --entrypoint ffprobe "$image" \
+      -v error -rtsp_transport tcp -i "rtsp://${mediamtx}:8554/${rtsp_stream_name}" \
+      -show_entries stream=codec_type -of csv=p=0 >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  printf 'rtsp stream did not become ready: %s\n' "$rtsp_url" >&2
+  return 1
 }
 
 start_api() {
@@ -125,7 +138,7 @@ alert_count_since() {
 
 run_worker_with_clock() {
   local now="$1"
-  BED_EXIT_NOW="$now" EDGE_CAMERA_CONFIG="$config" uv run --directory "$repo_root/ml" python - "$frames" >>"$worker_log" 2>&1 <<'PY'
+  if ! OPENCV_FFMPEG_CAPTURE_OPTIONS="rtsp_transport;tcp" BED_EXIT_NOW="$now" EDGE_CAMERA_CONFIG="$config" uv run --directory "$repo_root/ml" python - "$frames" >>"$worker_log" 2>&1 <<'PY'
 from __future__ import annotations
 
 import os
@@ -201,6 +214,11 @@ edge_worker.DOMAIN_REGISTRY["bed_exit"] = DOMAIN_REGISTRY["bed_exit"]
 edge_worker.DEFAULT_REGISTRY = ScriptedRegistry()
 raise SystemExit(edge_worker.main(["--config", os.environ["EDGE_CAMERA_CONFIG"], "--max-frames-per-camera", sys.argv[1]]))
 PY
+  then
+    printf 'worker run failed; log follows:\n' >&2
+    sed -n '1,200p' "$worker_log" >&2
+    return 1
+  fi
 }
 
 trap cleanup EXIT
@@ -217,6 +235,8 @@ night_count="$(alert_count_since "$night_started_utc")"
 if [[ "$night_count" -lt 1 ]]; then
   printf 'night bed-exit did not reach backend ingest; worker log follows:\n' >&2
   sed -n '1,160p' "$worker_log" >&2
+  printf '%s\n' '--- ml-api log ---' >&2
+  sed -n '1,200p' "$api_log" >&2
   exit 1
 fi
 printf 'night alert count: %s\n' "$night_count"
