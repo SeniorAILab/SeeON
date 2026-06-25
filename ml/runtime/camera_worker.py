@@ -132,6 +132,12 @@ class CameraWorker:
         elif _is_pose_box_pair(pose_output):
             poses, raw_boxes = pose_output
 
+        person_output = outputs.get("person")
+        if isinstance(person_output, DetectionResult):
+            detections = person_output
+            raw_boxes = None
+        elif person_output is not None and not _is_pose_box_pair(person_output):
+            raw_boxes = person_output
         bed_output = outputs.get("bed")
         if bed_output is not None:
             bed_boxes = _bed_boxes_from_output(bed_output)

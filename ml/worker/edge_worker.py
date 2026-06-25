@@ -40,10 +40,11 @@ class _Options:
 @dataclass(frozen=True, slots=True)
 class _RunnerBundle:
     pose: RunnerProtocol
+    person: RunnerProtocol
     bed: RunnerProtocol
 
     def as_mapping(self) -> Mapping[str, RunnerProtocol]:
-        return {"pose": self.pose, "bed": self.bed}
+        return {"pose": self.pose, "person": self.person, "bed": self.bed}
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +158,7 @@ def _build_supervisor(
 def _build_runner_bundle(registry: ModelRegistry) -> _RunnerBundle:
     return _RunnerBundle(
         pose=registry.create("pose"),
+        person=registry.create("person"),
         bed=registry.create("bed"),
     )
 
@@ -187,7 +189,7 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
             read_timeout_ms=runtime.read_timeout_ms,
         ),
         runners=resources.runners.as_mapping(),
-        scheduler=Scheduler({"pose": camera.frame_stride, "bed": max(30, camera.frame_stride)}),
+        scheduler=Scheduler({"pose": camera.frame_stride, "person": camera.frame_stride, "bed": max(30, camera.frame_stride)}),
         domain_detectors=_domain_detectors(resources.config),
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,

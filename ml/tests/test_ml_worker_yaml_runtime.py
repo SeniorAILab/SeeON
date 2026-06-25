@@ -35,6 +35,11 @@ class _PoseRunner:
         return (keypoints,), ((10, 10, 40, 60, 0.95),)
 
 
+class _PersonRunner:
+    def run(self, image: np.ndarray) -> tuple[tuple[int, int, int, int, float], ...]:
+        del image
+        return ((10, 10, 40, 60, 0.95),)
+
 class _BedRunner:
     def detect_beds(self, image: np.ndarray) -> tuple[()]:
         del image
@@ -135,6 +140,8 @@ def test_video_file_source_is_still_available_for_rtsp_harness_input() -> None:
 def _create_runner(task: str, **kwargs: object) -> object:
     if task == "pose":
         return _PoseRunner()
+    if task == "person":
+        return _PersonRunner()
     if task == "bed":
         return _BedRunner()
     return edge_worker.DEFAULT_REGISTRY.get_factory(task)(**kwargs)

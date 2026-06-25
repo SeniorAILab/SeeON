@@ -69,8 +69,6 @@ runtime:
   open_timeout_ms: 5000
   read_timeout_ms: 5000
 domains:
-  enabled:
-    - bed_exit
   bed_exit:
     enabled: true
     night_window:
@@ -139,15 +137,19 @@ from domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker import edge_worker
 
 
-class ScriptedPersonRunner:
-    def __init__(self) -> None:
-        self.calls = 0
-
+class ScriptedPoseRunner:
     def predict(self, _frame):
+        return ((), ())
+
+
+class ScriptedPersonRunner:
+    def predict(self, _frame):
+        if not hasattr(self, "calls"):
+            self.calls = 0
         self.calls += 1
         if self.calls <= 2:
-            return ((),), ((10, 10, 90, 80, 0.98),)
-        return ((),), ((52, 10, 132, 80, 0.98),)
+            return ((10, 10, 90, 80, 0.98),)
+        return ((52, 10, 132, 80, 0.98),)
 
 
 class ScriptedBedRunner:
@@ -155,12 +157,27 @@ class ScriptedBedRunner:
         return ((0, 0, 90, 100, 0.99),)
 
 
+class ScriptedFallRunner:
+    operating_threshold = 0.5
+
+    class metadata:
+        window = 3
+        stride = 1
+
+    def predict(self, _features):
+        return 0.0
+
+
 class ScriptedRegistry:
     def create(self, name: str):
         if name == "pose":
+            return ScriptedPoseRunner()
+        if name == "person":
             return ScriptedPersonRunner()
         if name == "bed":
             return ScriptedBedRunner()
+        if name == "fall":
+            return ScriptedFallRunner()
         raise KeyError(name)
 
 
