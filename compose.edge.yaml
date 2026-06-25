@@ -44,20 +44,20 @@ services:
       dockerfile: ml/Dockerfile.worker
     restart: unless-stopped
     environment:
-      EDGE_CAMERA_CONFIG: /run/secrets/edge-cameras.json
+      EDGE_CAMERA_CONFIG: /run/secrets/ml-worker.yaml
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
     secrets:
-      - source: edge-cameras
-        target: edge-cameras.json
+      - source: ml-worker-config
+        target: ml-worker.yaml
     command:
       - python
       - -m
       - worker.edge_worker
       - --config
-      - /run/secrets/edge-cameras.json
+      - /run/secrets/ml-worker.yaml
       - --heartbeat-on-start
 
 secrets:
-  edge-cameras:
-    file: ${EDGE_CAMERA_CONFIG:?edge requires a local camera config JSON}
+  ml-worker-config:
+    file: ${EDGE_CAMERA_CONFIG:?edge requires a local ml-worker YAML config}

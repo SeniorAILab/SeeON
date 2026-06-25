@@ -9,7 +9,8 @@ from contracts.runner import RunnerProtocol
 from domains import DOMAIN_REGISTRY
 from events.edge_ingest_client import EdgeIngestClient
 from runners.registry import DEFAULT_REGISTRY, ModelRegistry
-from runtime.camera_worker import CameraWorker
+from runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
+from runtime.camera_worker import CameraWorker, DomainDetectorProtocol
 from runtime.edge_worker_config import (
     CameraRuntimeConfig,
     EdgeWorkerConfig,
@@ -45,8 +46,9 @@ class _RunnerBundle:
 class _WorkerResources:
     clients: Mapping[str, EdgeIngestClient]
     runners: _RunnerBundle
-    fall_classifier: FallWindowClassifier
+    fall_model: FallModelProtocol
     status_store: StatusStore
+    config: EdgeWorkerConfig
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,7 +63,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"ok": True, "cameras": len(config.cameras)}, separators=(",", ":")))
         return 0
     status_store = StatusStore()
-    supervisor = _build_supervisor(config, status_store)
+    try:
+        supervisor = _build_supervisor(config, status_store)
+    except (ModelLoadError, TypeError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     result = supervisor.run(
         max_frames_per_camera=options.max_frames_per_camera,
         heartbeat_on_start=options.heartbeat_on_start,
@@ -130,8 +136,9 @@ def _build_supervisor(
     resources = _WorkerResources(
         clients=clients,
         runners=_build_runner_bundle(model_registry),
-        fall_classifier=_build_fall_classifier(model_registry),
+        fall_model=_build_fall_model(config, model_registry),
         status_store=status_store,
+        config=config,
     )
     workers = tuple(_worker(camera, resources) for camera in config.cameras)
     interval = min(camera.heartbeat_interval_sec for camera in config.cameras)
@@ -150,32 +157,46 @@ def _build_runner_bundle(registry: ModelRegistry) -> _RunnerBundle:
     )
 
 
-def _build_fall_classifier(registry: ModelRegistry) -> FallWindowClassifier:
+def _build_fall_model(config: EdgeWorkerConfig, registry: ModelRegistry) -> FallModelProtocol:
+    fall_config = config.models.fall
+    if fall_config is not None:
+        return LstmFallRunner.from_artifact_dir(fall_config.artifact_dir)
     model = registry.create("fall")
-    return FallWindowClassifier(_require_fall_model(model))
+    return _require_fall_model(model)
 
 
-def _require_fall_model(model: object) -> FallModelProtocol:
+def _require_fall_model(model: RunnerProtocol) -> FallModelProtocol:
     if not isinstance(model, FallModelProtocol):
         raise TypeError("fall model must expose operating_threshold and predict")
     return model
 
 
 def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraWorker:
+    runtime = resources.config.runtime
     return CameraWorker(
         camera_id=camera.camera_id,
         facility_id=camera.facility_id,
-        frame_source=RTSPSource(camera.rtsp_url),
+        frame_source=RTSPSource(
+            camera.rtsp_url,
+            max_failures=runtime.max_failures,
+            open_timeout_ms=runtime.open_timeout_ms,
+            read_timeout_ms=runtime.read_timeout_ms,
+        ),
         runners=resources.runners.as_mapping(),
         scheduler=Scheduler({"pose": camera.frame_stride, "bed": max(30, camera.frame_stride)}),
-        domain_detectors=tuple(
-            registration.factory()
-            for registration in DOMAIN_REGISTRY.values()
-            if registration.enabled
-        ),
+        domain_detectors=_domain_detectors(resources.config),
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,
-        fall_classifier=resources.fall_classifier,
+        fall_classifier=FallWindowClassifier(resources.fall_model),
+    )
+
+
+def _domain_detectors(config: EdgeWorkerConfig) -> tuple[DomainDetectorProtocol, ...]:
+    enabled = config.enabled_domains
+    return tuple(
+        registration.factory()
+        for name, registration in DOMAIN_REGISTRY.items()
+        if (registration.enabled if enabled is None else name in enabled)
     )
 
 
