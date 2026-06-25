@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from api.lifespan import lifespan as serving_lifespan
 from api.model import get_model
-from api.routes import debug, models, status
+from api.routes import debug, ingest_relay, models, status
 from api.routes import health as health_routes
 from api.routes.debug import PredictRequest, PredictResponse
 
@@ -28,6 +28,7 @@ def create_app(*, lifespan: LifespanFactory | None = serving_lifespan) -> FastAP
     app.include_router(status.router)
     app.include_router(models.router)
     app.include_router(debug.router)
+    app.include_router(ingest_relay.router)
     return app
 
 

@@ -4,17 +4,24 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, appendFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { buildAndPushImages } from "./manual-production-images.mjs";
+import { assertDbMode, packageAndDeploy } from "./manual-production-remote.mjs";
 
 const usage = `Usage:
-  pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--platform <platform>] [--dry-run]
+  pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--platform <platform>] [--db-mode migrate|baseline-existing|reset-demo|skip] [--allow-baseline-existing] [--allow-destructive-reset] [--backup-dir <path>] [--dry-run]
 
 Builds/pushes SHA-pinned production images locally, then deploys the pull-only
-Naver Cloud VM stack. Use only when the normal GitHub Actions deploy cannot run.
+Naver Cloud VM stack. This is the current production deploy path while
+Actions-backed CD is paused.
 
 `;
 
 function parseArgs(argv) {
   const options = {
+    allowBaselineExisting: false,
+    allowDestructiveReset: false,
+    backupDir: undefined,
+    dbMode: "migrate",
     dryRun: false,
     host: "101.79.18.95",
     imageNamespace: "ghcr.io/seniorailab/eldercare-fall-ai",
@@ -32,6 +39,24 @@ function parseArgs(argv) {
     }
     if (arg === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+    if (arg === "--allow-baseline-existing") {
+      options.allowBaselineExisting = true;
+      continue;
+    }
+    if (arg === "--allow-destructive-reset") {
+      options.allowDestructiveReset = true;
+      continue;
+    }
+    if (arg === "--db-mode") {
+      options.dbMode = readValue(argv, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg === "--backup-dir") {
+      options.backupDir = readValue(argv, index, arg);
+      index += 1;
       continue;
     }
     if (arg === "--host") {
@@ -137,39 +162,7 @@ function resolveDeploySha(ref) {
 }
 
 function resolveGithubActor() {
-  try {
-    return capture("gh", ["api", "user", "--jq", ".login"]);
-  } catch {
-    return "GoBeromsu";
-  }
-}
-
-function buildAndPushImages({ imageNamespace, imagePlatform, sha, dryRun }) {
-  const backendImage = `${imageNamespace}/backend:${sha}`;
-  const frontImage = `${imageNamespace}/front:${sha}`;
-  const buildBase = ["build", "--platform", imagePlatform, "--target", "runner"];
-
-  run("docker", [...buildBase, "-f", "backend/Dockerfile", "-t", backendImage, "."], {
-    dryRun,
-  });
-  run("docker", ["push", backendImage], { dryRun });
-  run(
-    "docker",
-    [
-      ...buildBase,
-      "-f",
-      "front/Dockerfile",
-      "--build-arg",
-      "VITE_USE_MOCK=false",
-      "--build-arg",
-      "VITE_API_BASE_URL=/api",
-      "-t",
-      frontImage,
-      ".",
-    ],
-    { dryRun },
-  );
-  run("docker", ["push", frontImage], { dryRun });
+  return capture("gh", ["api", "user", "--jq", ".login"]);
 }
 
 function ensureSshKnownHost(host, dryRun) {
@@ -192,42 +185,8 @@ function ensureSshKnownHost(host, dryRun) {
   appendFileSync(knownHosts, `${scan}\n`, { mode: 0o600 });
 }
 
-function packageAndDeploy({ actor, dryRun, host, imageNamespace, sha, sshKey, user }) {
-  const remote = `${user}@${host}`;
-  const bundle = `/tmp/eldercare-deploy-bundle-${sha}.tgz`;
-  const sshArgs = ["-i", sshKey, remote];
-  const scpBaseArgs = ["-i", sshKey];
-
-  run("tar", ["-czf", bundle, "compose.yaml", "compose.prod.yaml", "backend/prisma"], { dryRun });
-  run("scp", [...scpBaseArgs, "scripts/deploy/ncloud-deploy.sh", `${remote}:/tmp/ncloud-deploy.sh`], { dryRun });
-  run("scp", [...scpBaseArgs, bundle, `${remote}:/tmp/eldercare-deploy-bundle.tgz`], { dryRun });
-
-  if (dryRun) {
-    process.stdout.write(
-      `gh auth token | ${formatCommand("ssh", [...sshArgs, `docker login ghcr.io -u ${quoteShell(actor)} --password-stdin`])}\n`,
-    );
-  } else {
-    const token = capture("gh", ["auth", "token"]);
-    run("ssh", [...sshArgs, `docker login ghcr.io -u ${quoteShell(actor)} --password-stdin`], {
-      input: token,
-      stdio: ["pipe", "inherit", "inherit"],
-    });
-  }
-
-  const remoteCommand = [
-    "install -d -m 700 /opt/eldercare-fall-ai/shared",
-    "rm -rf /opt/eldercare-fall-ai/current",
-    "install -d -m 755 /opt/eldercare-fall-ai/current",
-    "tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current",
-    "rm -f /tmp/eldercare-deploy-bundle.tgz",
-    "chmod +x /tmp/ncloud-deploy.sh",
-    `IMAGE_NAMESPACE=${quoteShell(imageNamespace)} IMAGE_TAG=${quoteShell(sha)} /tmp/ncloud-deploy.sh`,
-  ].join(" && ");
-
-  run("ssh", [...sshArgs, remoteCommand], { dryRun });
-}
-
 function assertLocalInputs(options) {
+  assertDbMode(options);
   const sshKey = expandHome(options.sshKey);
   if (!options.dryRun && !existsSync(sshKey)) {
     throw new Error(`SSH key does not exist: ${sshKey}`);
@@ -243,7 +202,7 @@ function main() {
   const sha = resolveDeploySha(ref);
   const actor = resolveGithubActor();
 
-  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nNormal path remains GitHub Release -> Deploy Naver Cloud workflow.\nThis path builds locally, pushes GHCR SHA tags, then the VM pulls only.\nImage platform=${checkedOptions.imagePlatform}\n`);
+  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nCurrent production path: local build/push of GHCR SHA tags, then VM pull-only deploy.\nActions-backed CD is paused but preserved for later re-enable.\nImage platform=${checkedOptions.imagePlatform}\nDB mode=${checkedOptions.dbMode}\n`);
 
   run("gh", ["auth", "status"], { dryRun: checkedOptions.dryRun });
   run("docker", ["version"], { dryRun: checkedOptions.dryRun });
@@ -263,13 +222,22 @@ function main() {
     dryRun: checkedOptions.dryRun,
     imageNamespace: checkedOptions.imageNamespace,
     imagePlatform: checkedOptions.imagePlatform,
+    run,
     sha,
   });
   packageAndDeploy({
     actor,
+    allowBaselineExisting: checkedOptions.allowBaselineExisting,
+    allowDestructiveReset: checkedOptions.allowDestructiveReset,
+    backupDir: checkedOptions.backupDir,
+    capture,
+    dbMode: checkedOptions.dbMode,
     dryRun: checkedOptions.dryRun,
+    formatCommand,
     host: checkedOptions.host,
     imageNamespace: checkedOptions.imageNamespace,
+    quoteShell,
+    run,
     sha,
     sshKey: checkedOptions.sshKey,
     user: checkedOptions.user,

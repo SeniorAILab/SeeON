@@ -64,7 +64,11 @@ DIRECT_URL=postgresql://fall:replace-with-url-encoded-db-password@db:5432/fall_p
 
 FRONT_ORIGIN=http://101.79.18.95
 KAKAO_REST_API_KEY=replace-with-kakao-rest-api-key
+# Required only if Kakao Login Client Secret is enabled in Kakao Developers.
+# KAKAO_CLIENT_SECRET=replace-with-kakao-client-secret
 KAKAO_REDIRECT_URI=http://101.79.18.95/auth/kakao/callback
+# Defaults to talk_message when omitted; add profile_nickname only after consent setup.
+# KAKAO_SCOPES=talk_message
 SESSION_JWT_SECRET=replace-with-at-least-32-random-chars
 KAKAO_TOKEN_ENC_KEY=replace-with-64-hex-chars
 ALERT_DASHBOARD_URL=http://101.79.18.95
@@ -90,18 +94,61 @@ If a database password contains URL-reserved characters such as `@`, `:`, `/`,
 `APP_DB_USER=fall_app`; the Prisma migrations grant privileges to that fixed
 runtime role.
 
-## Manual deploy when GitHub Actions cannot build
+## Production deploy
 
-The normal path is still `pnpm release:prod -- vX.Y.Z`, which publishes a
-GitHub Release and lets `.github/workflows/deploy-ncloud.yml` build/push images.
-Use the manual command below only after the Actions deploy cannot run, for
-example because private repository Actions minutes are exhausted.
+The current production path is local manual deploy. Create a release tag when
+you want a durable promotion marker, then deploy that tag from the local
+checkout. The GitHub Actions release trigger is paused to avoid spending private
+repository Actions minutes on image builds; the workflow body is preserved for
+later re-enable.
 
 From a local checkout with Docker, `gh`, and SSH access:
 
 ```bash
 pnpm deploy:prod:manual -- v0.1.0 --dry-run
 pnpm deploy:prod:manual -- v0.1.0
+```
+
+The default DB path is non-destructive:
+
+```bash
+pnpm deploy:prod:manual -- v0.1.0 --db-mode migrate --dry-run
+pnpm deploy:prod:manual -- v0.1.0 --db-mode migrate
+```
+
+`migrate` backs up the running database with `pg_dump -Fc`, validates the dump
+with `pg_restore --list`, syncs the runtime app role, runs
+`prisma migrate deploy` from the backend image, then recreates backend/front.
+The existing backend/front services are left running until the DB work succeeds.
+
+If the current production database was created by the old raw-SQL replay path
+and has domain tables but no `_prisma_migrations` rows, run the guarded baseline
+transition once:
+
+```bash
+pnpm deploy:prod:manual -- v0.1.0 --db-mode baseline-existing --allow-baseline-existing --dry-run
+pnpm deploy:prod:manual -- v0.1.0 --db-mode baseline-existing --allow-baseline-existing
+```
+
+After that, use the normal `migrate` mode. If `_prisma_migrations` already has
+rows, `baseline-existing` fails and instructs the operator to use `migrate`.
+
+The destructive reset/seed path is retained only for demo rebuilds:
+
+```bash
+pnpm deploy:prod:manual -- v0.1.0 --db-mode reset-demo --allow-destructive-reset --dry-run
+pnpm deploy:prod:manual -- v0.1.0 --db-mode reset-demo --allow-destructive-reset
+```
+
+This mode takes and validates a backup first, then drops/recreates `public`,
+runs `prisma migrate deploy`, and runs the demo seed. Never use it for a real
+production data-preserving deploy.
+
+For image-only redeploy or rollback when no DB action should run:
+
+```bash
+pnpm deploy:prod:manual -- v0.1.0 --db-mode skip --dry-run
+pnpm deploy:prod:manual -- v0.1.0 --db-mode skip
 ```
 
 The command resolves the ref to an exact commit SHA, builds and pushes:
@@ -133,7 +180,7 @@ scp -i ~/.ssh/eldercare-fall-ai-ncloud /tmp/eldercare-deploy-bundle.tgz deploy@1
 gh auth token | ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
   'docker login ghcr.io -u GoBeromsu --password-stdin'
 ssh -i ~/.ssh/eldercare-fall-ai-ncloud deploy@101.79.18.95 \
-  "rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && IMAGE_TAG=$SHA /tmp/ncloud-deploy.sh"
+  "rm -rf /opt/eldercare-fall-ai/current && mkdir -p /opt/eldercare-fall-ai/current && tar -xzf /tmp/eldercare-deploy-bundle.tgz -C /opt/eldercare-fall-ai/current && chmod +x /tmp/ncloud-deploy.sh && IMAGE_TAG=$SHA DEPLOY_DB_MODE=migrate /tmp/ncloud-deploy.sh"
 ```
 
 The VM deploy script does not build application images. It expects the bundle above and pulls the backend/front images from GHCR.
@@ -162,34 +209,41 @@ Optional repository variables:
 
 Workflow: `.github/workflows/deploy-ncloud.yml`
 
-It runs when a non-prerelease GitHub Release is published, and through manual
-`workflow_dispatch` with an explicit `ref`. A merge to `main` runs CI only; it
-does not deploy production. The workflow builds and pushes two GHCR images
-before SSH deployment:
+The release trigger is currently commented out. The workflow can still be run
+through explicit `workflow_dispatch` with a concrete `ref` if an operator
+intentionally allows a GitHub-hosted deploy. A merge to `main` runs CI only; it
+does not deploy production. When the workflow is re-enabled or manually
+dispatched, it builds and pushes two GHCR images before SSH deployment:
 
 - `ghcr.io/seniorailab/eldercare-fall-ai/backend:<sha>`
 - `ghcr.io/seniorailab/eldercare-fall-ai/front:<sha>`
 
-Release deploy flow:
+Current release and deploy flow:
 
 ```bash
 pnpm release:prod -- v0.1.0
-gh run watch "$(gh run list --workflow "Deploy Naver Cloud" --limit 1 --json databaseId --jq '.[0].databaseId')"
+pnpm deploy:prod:manual -- v0.1.0 --dry-run
+pnpm deploy:prod:manual -- v0.1.0
 ```
 
-If that workflow cannot build because Actions quota is exhausted, use the manual
-command against the same release tag:
+To re-enable Actions-backed CD later, uncomment the `release.published` trigger
+in `.github/workflows/deploy-ncloud.yml` and update this runbook plus ADR-072.
+The current manual command against the same release tag is:
 
 ```bash
 pnpm deploy:prod:manual -- v0.1.0
 ```
 
-The deploy script resets the `public` schema, replays committed Prisma
-migration SQL with `psql` from the Postgres container, then runs the compiled
-backend seed once from the backend image. The seed creates 녹양역점 demo data and
-seeds `seniorsailab@gmail.com` as backend `ADMIN`; it does not create a broad
-Kakao admin policy. The backend image does not contain Prisma CLI or migration
-files.
+The default deploy script does not reset `public`, raw-replay migration SQL, or
+run the demo seed. It applies pending migrations with `prisma migrate deploy`.
+The backend image contains Prisma CLI and `backend/prisma/**` only so deploy
+tooling can run one-shot migration commands; the NestJS app process does not run
+migrations at startup.
+
+Only `DEPLOY_DB_MODE=reset-demo` runs the compiled backend seed once from the
+backend image after an explicit destructive allow flag. The seed creates 녹양역점
+demo data and seeds `seniorsailab@gmail.com` as backend `ADMIN`; it does not
+create a broad Kakao admin policy.
 
 After the owner Kakao account has logged in once, bind only that exact DB row:
 

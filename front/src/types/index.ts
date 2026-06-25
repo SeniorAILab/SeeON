@@ -172,6 +172,10 @@ export interface User {
   facilityId: string | null; // SUPER_ADMIN 은 null 가능(전체)
 }
 
+export interface AuthSession {
+  user: User;
+}
+
 // ---------- 관심 어르신 (Focus Resident) ----------
 // "감시 대상"이 아니라 "오늘 더 자주 확인할 어르신"을 돕기 위한 정보.
 
@@ -312,11 +316,6 @@ export interface AIDetectionPayload {
   eventType: DetectionEventType;
   aiSummary: string;
   confidence: number;
-}
-
-export interface AuthSession {
-  user: User;
-  token: string;
 }
 
 // ---------- 모니터(현황판) 모드 ----------

@@ -5,6 +5,8 @@ compose_project="${COMPOSE_PROJECT_NAME:-ml-worker-nursing-home-backend-e2e}"
 rtsp_url="${NURSING_HOME_RTSP_URL:?NURSING_HOME_RTSP_URL is required; start SeniorAILab/rtsp-generator separately and pass a worker-reachable URL}"
 models_dir="${ML_MODELS_DIR:?ML_MODELS_DIR with pose/bed/fall weights is required}"
 backend_base_url="${BACKEND_BASE_URL:-http://host.docker.internal:8080}"
+relay_url="${RELAY_URL:-http://ml-api:8000}"
+relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
 frames="${MAX_FRAMES_PER_CAMERA:-45}"
 facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
@@ -107,9 +109,9 @@ write_config() {
   source "$runtime_metadata"
   cat >"$config" <<YAML
 version: 1
-ingest:
-  alert_api_url: ${backend_base_url}/ingest/alerts
-  heartbeat_api_url: ${backend_base_url}/ingest/heartbeat
+relay:
+  url: ${relay_url}
+  token: ${relay_token}
 runtime:
   max_failures: 30
   open_timeout_ms: 5000
@@ -135,8 +137,6 @@ cameras:
     facility_id: ${facility_id}
     resident_id: ${resident_id}
     rtsp_url: ${rtsp_url}
-    ingest_key_id: ${ingest_key_id}
-    ingest_secret: ${ingest_secret}
     heartbeat_interval_sec: 30
     frame_stride: 1
     label: nursing-home-fall
@@ -145,17 +145,29 @@ YAML
 }
 
 start_compose_network() {
-  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
+    API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
+    API_INGEST_KEY_ID="$ingest_key_id" \
+    API_INGEST_SECRET="$ingest_secret" \
+    API_EDGE_RELAY_TOKEN="$relay_token" \
+    API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
+    EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
-    create --build ml-worker >/dev/null
+    create --build ml-api ml-worker >/dev/null
 }
 
 run_worker() {
-  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
+    API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
+    API_INGEST_KEY_ID="$ingest_key_id" \
+    API_INGEST_SECRET="$ingest_secret" \
+    API_EDGE_RELAY_TOKEN="$relay_token" \
+    API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
+    EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
-    run -T --rm --no-deps --build \
+    run -T --rm --build \
     ml-worker \
     python -m worker.edge_worker \
     --config /run/secrets/ml-worker.yaml \

@@ -3,7 +3,7 @@ slug: thursday-mvp-live-fall-kakao-fanout
 status: active
 date: 2026-06-17
 issue: 211
-related-adrs: [ADR-042, ADR-043, ADR-044]
+related-adrs: [ADR-071, ADR-043, ADR-044]
 ---
 
 > Source: `.gjc/specs/deep-interview-thursday-mvp-live-fall-kakao-auth-dashboard-agents.md`.

@@ -17,6 +17,10 @@ export interface KakaoProfile {
   nickname: string;
 }
 
+const KAKAO_REST_API_KEY_PLACEHOLDERS = new Set([
+  'dev-placeholder-kakao-rest-api-key',
+]);
+
 @Injectable()
 export class KakaoClient implements OnModuleInit {
   constructor(private readonly config: ConfigService) {}
@@ -25,13 +29,16 @@ export class KakaoClient implements OnModuleInit {
   private static readonly SCOPE_TOKEN_PATTERN = /^[A-Za-z0-9_.:-]+$/;
 
   onModuleInit(): void {
-    requiredConfig(this.config, 'KAKAO_REST_API_KEY');
-    requiredConfig(this.config, 'KAKAO_REDIRECT_URI');
+    requiredConfigPresence(this.config, 'KAKAO_REST_API_KEY');
+    requiredConfigPresence(this.config, 'KAKAO_REDIRECT_URI');
   }
 
   buildAuthorizeUrl(state: string): string {
-    const restApiKey = requiredConfig(this.config, 'KAKAO_REST_API_KEY');
-    const redirectUri = requiredConfig(this.config, 'KAKAO_REDIRECT_URI');
+    const restApiKey = requiredKakaoRestApiKey(this.config);
+    const redirectUri = requiredConfigPresence(
+      this.config,
+      'KAKAO_REDIRECT_URI',
+    );
     const url = new URL('https://kauth.kakao.com/oauth/authorize');
     url.searchParams.set('client_id', restApiKey);
     url.searchParams.set('redirect_uri', redirectUri);
@@ -71,8 +78,11 @@ export class KakaoClient implements OnModuleInit {
   }
 
   async exchangeCode(code: string): Promise<KakaoTokenResponse> {
-    const restApiKey = requiredConfig(this.config, 'KAKAO_REST_API_KEY');
-    const redirectUri = requiredConfig(this.config, 'KAKAO_REDIRECT_URI');
+    const restApiKey = requiredKakaoRestApiKey(this.config);
+    const redirectUri = requiredConfigPresence(
+      this.config,
+      'KAKAO_REDIRECT_URI',
+    );
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: restApiKey,
@@ -118,8 +128,18 @@ export class KakaoClient implements OnModuleInit {
   }
 }
 
-function requiredConfig(config: ConfigService, key: string): string {
+function requiredConfigPresence(config: ConfigService, key: string): string {
   const value = config.get<string>(key);
   if (!value) throw new ServiceUnavailableException(`${key} is required`);
+  return value;
+}
+
+function requiredKakaoRestApiKey(config: ConfigService): string {
+  const value = requiredConfigPresence(config, 'KAKAO_REST_API_KEY');
+  if (KAKAO_REST_API_KEY_PLACEHOLDERS.has(value)) {
+    throw new ServiceUnavailableException(
+      'KAKAO_REST_API_KEY must be set to a real Kakao REST API key',
+    );
+  }
   return value;
 }

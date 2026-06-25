@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Complements ADR-023 (ML returns signals, backend owns side effects) and ADR-048 (concrete `/debug/predict/window` window contract); does not supersede either. This ADR adds the *deployment topology* clause those ADRs left open: it fixes **where** the pose→classification pipeline runs and **what** crosses the site boundary, which ADR-022/023/048 deliberately do not address.
+Accepted
 
 ## Date
 
@@ -12,88 +12,94 @@ Accepted. Complements ADR-023 (ML returns signals, backend owns side effects) an
 
 ADR-022 split ML serving from training, ADR-023 fixed the ML-output vs backend-policy ownership boundary, and ADR-048 fixed the concrete `/debug/predict/window` window contract. None of them decided the physical deployment topology: when this scales to multiple nursing homes, does inference run centrally in the cloud over streamed video, or locally at each site?
 
-The requirement that forces the decision is multi-tenant scale-out. A production site runs several HD CCTV feeds (RTSP) continuously, the alert is safety-critical (a fall must surface in seconds), and the input is resident video — among the most privacy-sensitive data a facility holds. Centralizing inference would mean streaming every site's raw video to a remote GPU fleet 24/7.
+The requirement that forces the decision is multi-tenant scale-out. A production site runs several HD CCTV feeds continuously, the alert is safety-critical, and the input is resident video. Centralizing inference would stream every site's raw video to a remote GPU fleet 24/7.
 
-The decision is expensive to reverse because it dictates the network transport, the trust boundary, the per-site hardware bill of materials, and the compliance posture. Once edge devices are deployed to sites, changing the topology means a field hardware rollout.
+The edge node is now split by ADR-067: `ml-worker` owns RTSP/inference/domain event creation, and `ml-api` is the only backend-facing edge process. This ADR owns the site-boundary contract between that edge gateway and the remote backend.
 
 ## Decision
 
-Pose extraction **through** classification runs on a per-site edge device. The same device emits the signed fall event to the remote backend; only signed event metadata (kilobytes) leaves the site — **raw video never does**.
+Pose/person/bed perception, fall classification, and bed-exit domain judgment run on a per-site edge device. Raw video and full pose streams stay on-premises.
 
-- **One device per site, two code responsibilities.** Inference (the serving pipeline: frames → 17-keypoint pose → fall classification) and emit (the thin HMAC-signing client) are separate code paths but co-located on one physical edge box. The separation is logical, for testability and for the dormant backend-pull seam (below) — not a second device.
-- **Signal-only egress.** What crosses the site boundary is the signed event defined by the `POST /ingest/alerts` contract (`resident_id`, `facility_id`, `probability`, `detected_at`, `type`), authenticated with per-camera HMAC-SHA256 and a ±5-minute freshness window. Video and full pose streams stay on-premises.
-- **ML serving returns signals only.** Consistent with ADR-023, the edge serving runtime computes `fall_probability` / `is_fall` and never dispatches an alert.
-- **Backend owns policy.** Deduplication, rate-limiting, freshness, recipient fan-out, and KakaoTalk delivery remain backend-owned, off-site.
+The only edge-to-backend path is:
+
+```text
+ml-api -> backend /ingest/*
+```
+
+`ml-api` signs camera-authenticated facts and posts them to backend `/ingest/alerts` and `/ingest/heartbeat`. It owns backend ingest secrets, HMAC-SHA256 signing, freshness headers, outbox/retry, and public egress. `ml-worker` reaches the backend only indirectly through the local worker↔api relay contract in ADR-067.
+
+Backend remains the product-policy owner. Deduplication, rate limiting, recipient fan-out, dashboard read models, Kakao delivery, and alert lifecycle state are backend decisions. ML emits signals/facts only; it does not decide notification policy.
 
 ### Drivers
 
-- **Latency.** Local inference avoids a cloud round-trip (≈100–500 ms) on a safety-critical path; on-device pose+classification on a Jetson-class accelerator runs in ≈18–26 ms.
-- **Bandwidth.** Multiple continuous HD RTSP feeds per site is a sustained multi-megabit-to-gigabit egress problem; signed events are kilobytes per fall.
-- **Privacy / compliance.** Resident video never leaving the premises makes the privacy boundary architectural rather than policy-dependent (GDPR/PIPL data-minimization by construction).
-- **Cost.** 24/7 cloud GPU inference for every feed is roughly an order of magnitude more expensive than amortized on-prem edge hardware at multi-site scale.
-
-### Evidence
-
-The hybrid edge-inference + central-policy split is the multi-tenant industry standard, not a novel choice. The NotebookLM "요양원 낙상 보호 AI" notebook (127 sources) converges on it, and the reference architectures match: NVIDIA Metropolis/DeepStream runs inference at the edge and hands events to a separate analytics service that owns alarms; AWS Panorama performs on-device CV with IoT Greengrass → IoT Events → SNS for central eventing; Milestone XProtect keeps alarm logic in a separate Event Server from the inference plugin. The YOLOv11-SEFA fall-detection work demonstrates the inference budget is met on a Jetson AGX Orin. Full source list and verbatim API contracts: `background.eldercare_architecture.deployment_topology_decision` and `.data_contracts` in [`.claude/skills/technical-report/technical-report.yaml`](../../../.claude/skills/technical-report/technical-report.yaml).
+- **Latency.** Local inference avoids a cloud round-trip on a safety-critical path.
+- **Bandwidth.** Multiple continuous HD RTSP feeds per site are a sustained egress problem; signed facts are kilobytes.
+- **Privacy / compliance.** Resident video never leaving the premises makes data minimization architectural.
+- **Attack surface.** Exactly one backend-facing edge process keeps backend credentials, signing, retry, and public egress policy centralized.
+- **Cost.** 24/7 cloud GPU inference for every feed is materially more expensive than amortized on-prem edge hardware at multi-site scale.
 
 ## MECE boundary
 
 | Concern | Owning ADR |
 |---|---|
-| Where inference runs (per-site edge) and what crosses the site boundary (signed events, never video) | ADR-029 |
+| Per-site edge topology and `ml-api -> backend /ingest/*` site-boundary contract | ADR-029 |
+| Worker ↔ ml-api relay contract and process responsibilities | ADR-067 |
 | ML output vs backend product policy/side effects | ADR-023 |
 | Concrete `/debug/predict/window` window request/response geometry + retained backend prediction seam | ADR-048 |
 | ML-internal serving/training lifecycle and uv dependency-group boundary | ADR-022 |
 
+## References
+
+- [ADR-023: ML/backend prediction boundary](../common/ADR-023-ml-backend-prediction-boundary.md)
+- [ADR-067: ML Edge Worker And API Relay Contract](./ADR-067-ml-edge-api-worker-service-split.md)
+
 ## Implementation status
 
-Verified in code 2026-06-19. The decision is partially realized; the gap is topology, not capability.
+Verified in code 2026-06-19 for edge inference and backend-owned ingest policy. The current topology is being updated so the worker no longer signs backend ingest directly; `ml-api` becomes the single backend gateway per ADR-067.
 
-The **live alert path is fully implemented and E2E-verified**: the Streamlit demo acts as the edge-node prototype, extracts pose locally, classifies through real ml-serving HTTP via `serving.client.ServingFallClassifier` → `POST /debug/predict/window`, and pushes the signed event to `POST /ingest/alerts` ([`ml/events/publisher.py`](../../../ml/events/publisher.py)); the backend then applies policy and fans out to KakaoTalk. This already satisfies signal-only egress — the demo sends the event, not video.
+The backend ingest API accepts signed alert and heartbeat facts and applies backend-owned state changes. The dormant backend-pull prediction seam remains parked: `AlertEventsService.ensureOutboxForIngest` trusts the probability already present in the ingest payload and does not call prediction on the current edge-push path.
 
-The edge runtime now boots as two processes per ADR-067. FastAPI performs config validation, device selection, model registry warmup, runtime service setup, and source registry resolution. The camera worker process owns production RTSP streams and records `camera.offline` status when sources fail. A model-load failure records `model.load_failed` and makes `/health/ready` not-ready while the process stays live.
-
-The backend carries a **dormant prediction seam** (the D2-O1 owner from ADR-048): `MlServingPredictionAdapter` historically calls `ML_SERVING_URL` + `/predict`; the canonical serving window route is now `/debug/predict/window` (the bare `/predict` alias was removed in the ml/ edge-device relayout, issue #268). `AlertEventsService.ensureOutboxForIngest` does **not** call `predict()` — it trusts the `probability` already in the ingest payload (the edge already classified). The seam is retained, per its own code comment, so "the backend-owned alert policy can consume ML predictions again" if a future topology needs backend-pull; it is not invoked on the current edge-push path. This ADR records that the edge-push topology is the chosen one and the backend-pull seam is a deliberately parked alternative.
-
-What is **not yet built**: deployment of inference onto dedicated per-site edge hardware, and the deferred items below.
+Dedicated per-site hardware deployment and later multi-site transport hardening remain future work.
 
 ## Alternatives Considered
 
 ### Central cloud inference over streamed video
 
-- Pros: no per-site hardware; one place to deploy and update models.
-- Cons: continuous raw-video egress (bandwidth + cost), cloud round-trip latency on a safety path, and resident video leaving the premises (the compliance blocker).
-- Rejected: fails bandwidth, latency, and privacy simultaneously at multi-site scale.
+Rejected. It fails bandwidth, latency, and privacy simultaneously at multi-site scale.
 
-### Backend-pull prediction (backend calls serving `/predict` per event)
+### Worker signs backend ingest directly
 
-- Pros: centralizes the model; the seam already exists in code.
-- Cons: requires the inference input (video or pose stream) to reach the backend, reintroducing the egress and privacy problem; adds a network hop to the alert path.
-- Rejected for the live path, but **retained as a dormant seam** (ADR-048 D2-O1) rather than deleted, because it is the right extension point if a future deployment co-locates serving with the backend.
+Rejected. It violates the single backend-facing edge gateway rule, distributes backend credentials into the worker, and expands the public egress attack surface.
+
+### Backend-pull prediction
+
+Rejected for the live path because it requires inference input to reach backend-side serving or adds a network hop to the alert path. The seam is retained as a parked alternative for a future topology that co-locates serving with the backend.
 
 ### Per-area / per-camera inference devices
 
-- Pros: simplest per-device wiring; no on-box multiplexing.
-- Cons: device count and operational overhead scale with cameras, not sites.
-- Deferred, not rejected — see device sizing below.
+Deferred, not rejected. It may simplify wiring, but device count and operational overhead scale with cameras rather than sites.
 
 ## Consequences
 
 **Positive:**
 
-- The privacy boundary is architectural: raw video staying on-site is a property of the topology, not a policy that can be misconfigured.
+- Raw video staying on-site is a property of the topology, not a policy setting.
 - The alert path stays within the latency budget without a cloud GPU fleet.
-- ADR-023/048 ownership and contract hold unchanged; this is purely a placement decision layered on top.
+- Backend ingest credentials and public egress are concentrated in `ml-api`.
+- ADR-023 ownership remains intact: backend owns policy and delivery; ML owns signal generation.
 
 **Negative / trade-offs:**
 
-- Per-site edge hardware is a field-deployed fleet to provision, monitor, and update — a real operational cost the cloud option avoids.
-- Model updates must reach edge devices rather than a single cloud deployment.
-- The demo now exercises the over-the-network `/debug/predict/window` edge path; dedicated per-site edge hardware deployment remains unbuilt.
+- Per-site edge hardware is a fleet to provision, monitor, and update.
+- Model updates must reach edge devices rather than one cloud deployment.
+- `ml-api` now carries gateway responsibilities and needs relay-token, HMAC, outbox, and retry hardening.
 
 **Deferred (future ADRs / plans):**
 
-- **Edge device sizing** — one box per site batching multiple RTSP feeds vs per-area devices.
-- **Multi-site transport** — the industry-standard MQTT/TLS (QoS 1) broker pattern vs the current HMAC `POST`; revisit when site count makes per-event HTTP connection cost matter.
-- **VMS layer + edge local video storage** — currently absent; needed for review/forensics without breaking signal-only egress.
-- **Event idempotency key** — to make retried/duplicated edge emits safely deduplicable at ingest.
+- Edge device sizing — one box per site batching multiple RTSP feeds vs per-area devices.
+- Multi-site transport — MQTT/TLS QoS 1 vs current HMAC `POST` when site count warrants it.
+- VMS layer + edge local video storage for review/forensics without breaking signal-only egress.
+
+## Changelog
+
+- 2026-06-25: ml-api를 edge→backend 단일 관문으로 명시하고, HMAC/outbox/ingest secret 소유와 worker 직접 egress 금지를 반영.
