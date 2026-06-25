@@ -132,6 +132,21 @@ domain_table_rows() {
     'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema = '\''public'\'' AND table_type = '\''BASE TABLE'\'' AND table_name <> '\''_prisma_migrations'\'';"'
 }
 
+assert_prisma_managed() {
+  # `migrate` assumes a Prisma-managed database. Refuse early (before backup or
+  # migrate deploy) when the schema already has domain tables but no
+  # _prisma_migrations ledger — a database that predates Prisma tracking (e.g. the
+  # legacy raw-SQL replay path). Auto-baselining here would be unsafe; the operator
+  # must run the guarded one-time DEPLOY_DB_MODE=baseline-existing instead (ADR-073).
+  rows="$(prisma_migration_rows)"
+  table_count="$(domain_table_rows)"
+  if [ "$rows" -le 0 ] && [ "$table_count" -gt 0 ]; then
+    echo "Refusing DEPLOY_DB_MODE=migrate: schema has $table_count domain table(s) but _prisma_migrations is empty/absent." >&2
+    echo "This database predates Prisma migration tracking. Run the one-time DEPLOY_DB_MODE=baseline-existing (ALLOW_PRISMA_BASELINE=1) first, then redeploy with migrate." >&2
+    exit 1
+  fi
+}
+
 baseline_existing() {
   if [ "${ALLOW_PRISMA_BASELINE:-}" != "1" ]; then
     echo "DEPLOY_DB_MODE=baseline-existing requires ALLOW_PRISMA_BASELINE=1." >&2
@@ -184,6 +199,7 @@ compose up -d --wait db
 case "$DEPLOY_DB_MODE" in
   migrate)
     acquire_lock
+    assert_prisma_managed
     backup_and_validate
     sync_app_role
     run_migrate_deploy
