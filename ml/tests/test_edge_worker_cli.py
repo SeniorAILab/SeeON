@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
+import yaml
 from edge_worker_fixtures import edge_config_payload
 
 from worker.edge_worker import main
 
 
 def test_edge_worker_cli_check_config(tmp_path: Path) -> None:
-    config_path = tmp_path / "edge-cameras.json"
+    config_path = tmp_path / "ml-worker.yaml"
     config_path.write_text(
-        json.dumps(edge_config_payload(camera_count=1, include_optional_fields=False)),
+        yaml.safe_dump(edge_config_payload(camera_count=1, include_optional_fields=False)),
         encoding="utf-8",
     )
 

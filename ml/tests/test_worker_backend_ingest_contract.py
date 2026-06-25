@@ -35,14 +35,14 @@ def test_edge_worker_config_normalizes_ingest_url_before_deriving_heartbeat() ->
 @pytest.mark.parametrize(
     ("field_name", "bad_url"),
     [
-        ("alert_api_url", "http://serving.local/debug/predict/window"),
-        ("alert_api_url", "http://serving.local/predict"),
+        ("alert_api_url", "http://api.local/debug/predict/window"),
+        ("alert_api_url", "http://api.local/predict"),
         ("alert_api_url", "http://backend.local/api/alerts"),
         ("alert_api_url", "http:///ingest/alerts"),
         ("alert_api_url", "http://backend.local/ingest/alerts?debug=true"),
         ("alert_api_url", "http://backend.local/ingest/alerts#fragment"),
-        ("heartbeat_api_url", "http://serving.local/debug/predict/source"),
-        ("heartbeat_api_url", "http://serving.local/predict"),
+        ("heartbeat_api_url", "http://api.local/debug/predict/source"),
+        ("heartbeat_api_url", "http://api.local/predict"),
         ("heartbeat_api_url", "http://backend.local/status/heartbeat"),
         ("heartbeat_api_url", "http:///ingest/heartbeat"),
         ("heartbeat_api_url", "http://backend.local/ingest/heartbeat?debug=true"),
