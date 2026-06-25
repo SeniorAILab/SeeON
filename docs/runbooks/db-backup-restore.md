@@ -21,6 +21,18 @@ Environment overrides: `DB_CONTAINER` (default `eldercare-fall-db`),
 `POSTGRES_USER` (`fall`), `POSTGRES_DB` (`fall_dev`), `BACKUP_DIR` (`./backups`),
 `RETENTION_DAYS` (`14`).
 
+Production deploys also take a pre-migration `pg_dump -Fc` backup under
+`/opt/eldercare-fall-ai/shared/backups` by default. The deploy script validates
+that archive with `pg_restore --list` before it runs `prisma migrate deploy`,
+`baseline-existing`, or `reset-demo`.
+
+Inspect a deploy backup before restore:
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml exec -T db pg_restore --list \
+  < /opt/eldercare-fall-ai/shared/backups/fall_prod-YYYYMMDD-HHMMSS.dump
+```
+
 ### Cron (host)
 
 Run every day at 03:30 and keep 14 days:
