@@ -11,7 +11,7 @@ preserved as historical context only. The deliberately deferred hook/script vali
 resolved by [ADR-016](../common/ADR-016-enforcement-timing-principle.md): layout conventions
 are audit-tier, not hook-blocked.
 
-Historical pre-MECE source ADRs ADR-004 and ADR-007 are now retired from the visible corpus after their active clauses were represented by ADR-012 and ADR-015. Their exact original bodies remain recoverable from git history and are mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
+Historical pre-MECE source ADRs ADR-004 and ADR-007 were folded into ADR-012 and ADR-015; their original bodies remain recoverable from git history.
 
 ## Date
 

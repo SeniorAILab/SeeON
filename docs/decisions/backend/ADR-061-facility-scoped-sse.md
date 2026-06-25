@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-06-21
-Supersedes: ADR-034 clauses that name org-scoped SSE subscription, replay, and payload fields.
+Refines: ADR-034 clauses that name org-scoped SSE subscription, replay, and payload fields.
 
 ## Context
 

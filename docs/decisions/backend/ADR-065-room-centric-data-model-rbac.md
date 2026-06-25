@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-06-22
-Supersedes: ADR-031 clauses that model `Camera` as resident-bound, require `Alert.residentId`, store placement in `Resident.room`, or define `Role` as `OWNER | ADMIN`; ADR-032 clauses that depend on those camera/resident and required-alert-resident foreign keys; ADR-058's transitional `Space.cameraId` clause, now resolved by the camera-to-space remodel landing path.
+Refines: ADR-031 clauses that model `Camera` as resident-bound, require `Alert.residentId`, store placement in `Resident.room`, or define `Role` as `OWNER | ADMIN`; ADR-032 clauses that depend on those camera/resident and required-alert-resident foreign keys; ADR-058's transitional `Space.cameraId` clause, now resolved by the camera-to-space remodel landing path.
 
 ## Context
 
