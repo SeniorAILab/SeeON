@@ -1,9 +1,8 @@
-# Docs agent rules - research, plans, ADRs, rules, runbooks
+# Docs agent rules - research, plans, ADRs, rules
 
 ## Overview
 `docs/**` is the canonical knowledge surface. It separates facts found,
-decisions made, work plans, standing rules, API/domain notes, and operator
-runbooks.
+decisions made, work plans, standing rules, and API/domain notes.
 
 ## Where to look
 
@@ -17,7 +16,7 @@ runbooks.
 | Decisions | `decisions/{ml,backend,frontend,common}/` | ADRs by active MECE category. |
 | Evidence | `research/` | Findings and source comparisons before decisions. |
 | Standing rules | `rules/` | Ongoing conventions that apply beyond one work item. |
-| Operations | `runbooks/` | Demo, deploy, backup, and camera procedures. |
+| Operations | `scripts/`, `research/` | DB backup/restore in `scripts/db-backup.sh`; deploy/bootstrap in `scripts/deploy/`; camera RTSP in `research/`. |
 
 ## Conventions
 
@@ -37,8 +36,7 @@ runbooks.
   multiple top-level ecosystems.
 - Rules are not mini-ADRs. Link to the owning ADR when a rule operationalizes a
   decision, but keep the rule focused on what to do.
-- Runbooks are operator-facing. Keep commands concrete and aligned with current
-  package scripts, compose files, and deployment scripts.
+- Operational procedures live with their scripts (`scripts/**` headers and `scripts/deploy/AGENTS.md`) and as findings in `research/`, not in a separate runbooks tree.
 - Screenshots are evidence artifacts, not design authority.
 
 ## Anti-patterns

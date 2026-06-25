@@ -39,7 +39,7 @@ runner, initialize source registry/pipeline, then expose `/health`, `/status`,
 module and its tests.
 
 Production RTSP is not a serving-lifespan concern. The live path is
-`RTSP -> ml-edge-worker -> ml-edge-api -> backend /ingest/*`; `ml-edge-api` remains a
+`RTSP -> ml-worker -> ml-api -> backend /ingest/*`; `ml-api` remains a
 private/local FastAPI health, status, models, debug, and control surface, and is the only backend gateway. The
 current RTSP backend is OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only and must not be added as production dependencies without a new
@@ -89,7 +89,7 @@ Nothing else — no new conventions, no registry.
 | Domain detectors and latches | `ml/domains/` | yes | ADR-057 |
 | Edge runtime orchestration | `ml/runtime/` | yes | ADR-029/057/067/068 |
 | Event/alert seam | `ml/events/` | yes | ADR-029/057 |
-| Serving API and lifespan | `ml/serving/` | yes | ADR-022/057 |
+| Serving API and lifespan | `ml/api/` | yes | ADR-022/057/067 |
 | Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` | no (gitignored) | ADR-015 |
 | Third-party comparison checkpoints | `ml/models/fall/pretrained/*/` | no (gitignored) | ADR-015 |
 | Upstream pose/bed weight cache | `ml/models/{pose,bed}/` | no (gitignored) | ADR-015 |
