@@ -13,7 +13,7 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 
 class ModelLoadError(RuntimeError):
-    """Raised when the serving model artifact is absent or invalid."""
+    """Raised when the API model artifact is absent or invalid."""
 
 
 class ModelInputError(ValueError):
