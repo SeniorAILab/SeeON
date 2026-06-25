@@ -13,9 +13,9 @@ def _valid_yaml(path: Path) -> Path:
     _write_placeholder_artifact(artifact_dir)
     payload = {
         "version": 1,
-        "ingest": {
-            "alert_api_url": "http://backend.local/ingest/alerts",
-            "heartbeat_api_url": "http://backend.local/ingest/heartbeat",
+        "relay": {
+            "url": "http://127.0.0.1:8000",
+            "token": "relay-token-1",
         },
         "runtime": {
             "max_failures": 30,
@@ -44,8 +44,6 @@ def _valid_yaml(path: Path) -> Path:
                 "facility_id": "facility-1",
                 "resident_id": "resident-1",
                 "rtsp_url": "rtsp://camera-1.local/trackID=2",
-                "ingest_key_id": "key-1",
-                "ingest_secret": "secret-1",
                 "heartbeat_interval_sec": 30,
                 "frame_stride": 1,
                 "label": "Room 1",
@@ -67,8 +65,9 @@ def test_ml_worker_yaml_config_loads_nested_contract(tmp_path: Path) -> None:
     config = load_edge_worker_config(_valid_yaml(tmp_path / "ml-worker.yaml"))
 
     assert config.version == 1
-    assert config.alert_api_url == "http://backend.local/ingest/alerts"
-    assert config.heartbeat_api_url == "http://backend.local/ingest/heartbeat"
+    assert config.relay.url == "http://127.0.0.1:8000"
+    assert config.relay_alert_url == "http://127.0.0.1:8000/relay/alerts"
+    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/relay/heartbeat"
     assert config.runtime.max_failures == 30
     assert config.models.fall.type == "lstm"
     assert config.models.fall.input_shape == (3, 51)

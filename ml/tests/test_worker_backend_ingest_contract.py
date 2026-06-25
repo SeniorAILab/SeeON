@@ -5,70 +5,97 @@ import urllib.request
 from typing import Self
 
 import pytest
+from pydantic import ValidationError
 from edge_worker_fixtures import edge_config_payload
 
 from events.edge_ingest_client import EdgeIngestClient
-from runtime.edge_worker_config import EdgeWorkerConfig, EdgeWorkerConfigError
+from runtime.edge_worker_config import EdgeWorkerConfig
 
 
-def test_edge_worker_config_derives_backend_heartbeat_ingest_url() -> None:
+def test_edge_worker_config_uses_local_relay_and_has_no_backend_ingest_urls() -> None:
+    config = EdgeWorkerConfig.model_validate(edge_config_payload(camera_count=1))
+
+    assert config.relay.url == "http://127.0.0.1:8000"
+    assert config.relay_alert_url == "http://127.0.0.1:8000/relay/alerts"
+    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/relay/heartbeat"
+    assert not hasattr(config, "alert_api_url")
+    assert not hasattr(config, "heartbeat_api_url")
+
+
+@pytest.mark.parametrize("field_name", ["ingest", "alert_api_url", "heartbeat_api_url"])
+def test_edge_worker_config_rejects_backend_ingest_fields(field_name: str) -> None:
     payload = edge_config_payload(camera_count=1)
-    del payload["heartbeat_api_url"]
+    payload[field_name] = {"alert_api_url": "http://backend.local/ingest/alerts"} if field_name == "ingest" else "http://backend.local/ingest/alerts"
 
-    config = EdgeWorkerConfig.model_validate(payload)
-
-    assert config.alert_api_url == "http://backend.local/ingest/alerts"
-    assert config.resolved_heartbeat_api_url == "http://backend.local/ingest/heartbeat"
-
-
-def test_edge_worker_config_normalizes_ingest_url_before_deriving_heartbeat() -> None:
-    payload = edge_config_payload(camera_count=1)
-    payload["alert_api_url"] = "http://backend.local/ingest/alerts/"
-    del payload["heartbeat_api_url"]
-
-    config = EdgeWorkerConfig.model_validate(payload)
-
-    assert config.alert_api_url == "http://backend.local/ingest/alerts"
-    assert config.resolved_heartbeat_api_url == "http://backend.local/ingest/heartbeat"
-
-
-@pytest.mark.parametrize(
-    ("field_name", "bad_url"),
-    [
-        ("alert_api_url", "http://api.local/debug/predict/window"),
-        ("alert_api_url", "http://api.local/predict"),
-        ("alert_api_url", "http://backend.local/api/alerts"),
-        ("alert_api_url", "http:///ingest/alerts"),
-        ("alert_api_url", "http://backend.local/ingest/alerts?debug=true"),
-        ("alert_api_url", "http://backend.local/ingest/alerts#fragment"),
-        ("heartbeat_api_url", "http://api.local/debug/predict/source"),
-        ("heartbeat_api_url", "http://api.local/predict"),
-        ("heartbeat_api_url", "http://backend.local/status/heartbeat"),
-        ("heartbeat_api_url", "http:///ingest/heartbeat"),
-        ("heartbeat_api_url", "http://backend.local/ingest/heartbeat?debug=true"),
-        ("heartbeat_api_url", "http://backend.local/ingest/heartbeat#fragment"),
-    ],
-)
-def test_edge_worker_config_rejects_non_ingest_targets(
-    field_name: str, bad_url: str
-) -> None:
-    payload = edge_config_payload(camera_count=1)
-    payload[field_name] = bad_url
-
-    with pytest.raises(EdgeWorkerConfigError, match=field_name):
+    with pytest.raises(ValidationError, match=field_name):
         EdgeWorkerConfig.model_validate(payload)
 
 
-def test_worker_ingest_client_uses_backend_ingest_urls() -> None:
+@pytest.mark.parametrize("field_name", ["ingest_key_id", "ingest_secret"])
+def test_edge_worker_config_rejects_camera_backend_credentials(field_name: str) -> None:
+    payload = edge_config_payload(camera_count=1)
+    payload["cameras"][0][field_name] = "backend-secret"
+
+    with pytest.raises(ValidationError, match=field_name):
+        EdgeWorkerConfig.model_validate(payload)
+
+
+def test_worker_relay_client_posts_to_local_relay_with_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from worker import edge_worker
 
+    captured: list[tuple[str, dict[str, str], dict[str, object]]] = []
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> _FakeHTTPResponse:
+        assert timeout == 0.5
+        captured.append(
+            (
+                request.full_url,
+                dict(request.header_items()),
+                json.loads(request.data.decode("utf-8")),
+            )
+        )
+        return _FakeHTTPResponse()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     config = EdgeWorkerConfig.model_validate(edge_config_payload(camera_count=1))
     camera = config.cameras[0]
+    client = edge_worker._relay_client(config, camera)
 
-    client = edge_worker._ingest_client(config, camera)
+    client.emit(
+        {
+            "event_type": "bed-exit",
+            "detected_at": "2026-06-23T12:00:00.000Z",
+            "probability": 0.91,
+        }
+    )
+    client.send_heartbeat()
 
-    assert client.alert_url == "http://backend.local/ingest/alerts"
-    assert client.heartbeat_url == "http://backend.local/ingest/heartbeat"
+    assert captured == [
+        (
+            "http://127.0.0.1:8000/relay/alerts",
+            {"Content-type": "application/json", "X-edge-relay-token": "relay-token-1"},
+            {
+                "event_type": "bed-exit",
+                "probability": 0.91,
+                "detected_at": "2026-06-23T12:00:00.000Z",
+                "camera_id": "camera-1",
+                "facility_id": "facility-1",
+                "evidence": {
+                    "event_type": "bed-exit",
+                    "detected_at": "2026-06-23T12:00:00.000Z",
+                    "probability": 0.91,
+                },
+                "resident_id": "resident-1",
+            },
+        ),
+        (
+            "http://127.0.0.1:8000/relay/heartbeat",
+            {"Content-type": "application/json", "X-edge-relay-token": "relay-token-1"},
+            {"camera_id": "camera-1", "facility_id": "facility-1"},
+        ),
+    ]
 
 
 def test_edge_ingest_client_alert_payload_is_fact_event_shaped(

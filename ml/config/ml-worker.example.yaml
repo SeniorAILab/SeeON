@@ -1,7 +1,7 @@
 version: 1
-ingest:
-  alert_api_url: http://localhost:8080/ingest/alerts
-  heartbeat_api_url: http://localhost:8080/ingest/heartbeat
+relay:
+  url: http://127.0.0.1:8000
+  token: local-edge-relay-token
 runtime:
   max_failures: 30
   open_timeout_ms: 5000
@@ -33,8 +33,6 @@ cameras:
     facility_id: facility-1
     resident_id: resident-1
     rtsp_url: rtsp://camera-1.local/trackID=2
-    ingest_key_id: local-dev-key
-    ingest_secret: local-dev-secret
     heartbeat_interval_sec: 30
     frame_stride: 1
     label: Room 1

@@ -62,7 +62,7 @@ def test_worker_yaml_lstm_runtime_emits_fall_event(tmp_path: Path, monkeypatch) 
     )
 
     monkeypatch.setattr(edge_worker, "RTSPSource", lambda _url, **_kwargs: _SlowFrameSource(frames))
-    monkeypatch.setattr(edge_worker, "_ingest_client", lambda _config, _camera: sink)
+    monkeypatch.setattr(edge_worker, "_relay_client", lambda _config, _camera: sink)
     monkeypatch.setattr(edge_worker.DEFAULT_REGISTRY, "create", _create_runner)
 
     supervisor = edge_worker._build_supervisor(config, edge_worker.StatusStore())
@@ -145,9 +145,9 @@ def _write_config(path: Path, *, artifact_dir: Path) -> Path:
         yaml.safe_dump(
             {
                 "version": 1,
-                "ingest": {
-                    "alert_api_url": "http://backend.local/ingest/alerts",
-                    "heartbeat_api_url": "http://backend.local/ingest/heartbeat",
+                "relay": {
+                    "url": "http://127.0.0.1:8000",
+                    "token": "relay-token-1",
                 },
                 "models": {
                     "fall": {
@@ -171,8 +171,6 @@ def _write_config(path: Path, *, artifact_dir: Path) -> Path:
                         "facility_id": "facility-1",
                         "resident_id": "resident-1",
                         "rtsp_url": "rtsp://camera-1.local/trackID=2",
-                        "ingest_key_id": "key-1",
-                        "ingest_secret": "secret-1",
                     }
                 ],
             }

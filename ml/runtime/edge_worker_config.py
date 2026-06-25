@@ -17,16 +17,13 @@ from pydantic import (
     Field,
     SecretStr,
     ValidationError,
-    ValidationInfo,
     field_validator,
     model_validator,
 )
 
 EDGE_CAMERA_CONFIG_ENV = "EDGE_CAMERA_CONFIG"
-INGEST_ENDPOINT_SUFFIXES: Final = {
-    "alert_api_url": "/ingest/alerts",
-    "heartbeat_api_url": "/ingest/heartbeat",
-}
+EDGE_RELAY_ALERTS_PATH: Final = "/relay/alerts"
+EDGE_RELAY_HEARTBEAT_PATH: Final = "/relay/heartbeat"
 KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
@@ -51,13 +48,11 @@ class CameraRuntimeConfig(BaseModel):
     facility_id: str = Field(min_length=1)
     resident_id: str | None = None
     rtsp_url: str = Field(min_length=1)
-    ingest_key_id: str = Field(min_length=1)
-    ingest_secret: SecretStr = Field(repr=False)
     heartbeat_interval_sec: float = Field(default=30.0, gt=0)
     frame_stride: int = Field(default=1, gt=0)
     label: str | None = None
 
-    @field_validator("camera_id", "facility_id", "ingest_key_id")
+    @field_validator("camera_id", "facility_id")
     @classmethod
     def _strip_required_text(cls, value: str) -> str:
         stripped = value.strip()
@@ -82,11 +77,16 @@ class CameraRuntimeConfig(BaseModel):
         return None if stripped == "" else stripped
 
 
-class IngestConfig(BaseModel):
+class RelayConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    alert_api_url: str = Field(min_length=1)
-    heartbeat_api_url: str | None = None
+    url: str = Field(min_length=1)
+    token: SecretStr = Field(repr=False)
+
+    @field_validator("url")
+    @classmethod
+    def _require_http_url(cls, value: str) -> str:
+        return _normalize_http_base_url(value, "relay.url")
 
 
 class WorkerRuntimeConfig(BaseModel):
@@ -235,9 +235,7 @@ class EdgeWorkerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     version: int = 1
-    ingest: IngestConfig | None = None
-    alert_api_url: str = Field(min_length=1)
-    heartbeat_api_url: str | None = None
+    relay: RelayConfig
     runtime: WorkerRuntimeConfig = Field(default_factory=WorkerRuntimeConfig)
     models: WorkerModelsConfig = Field(default_factory=WorkerModelsConfig)
     domains: DomainsConfig = Field(default_factory=DomainsConfig)
@@ -245,35 +243,25 @@ class EdgeWorkerConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _flatten_ingest(cls, data: ConfigValue) -> ConfigValue:
+    def _reject_legacy_backend_ingest(cls, data: ConfigValue) -> ConfigValue:
         if not isinstance(data, dict):
             return data
-        ingest = data.get("ingest")
-        if not isinstance(ingest, dict):
-            return data
-        flattened = dict(data)
-        flattened.setdefault("alert_api_url", ingest.get("alert_api_url"))
-        flattened.setdefault("heartbeat_api_url", ingest.get("heartbeat_api_url"))
-        return flattened
-
-    @field_validator("alert_api_url", "heartbeat_api_url")
-    @classmethod
-    def _require_http_url(cls, value: str | None, info: ValidationInfo) -> str | None:
-        if value is None:
-            return None
-        stripped = value.strip()
-        parsed = urlsplit(stripped)
-        if parsed.scheme.lower() not in {"http", "https"} or parsed.netloc == "":
-            raise EdgeWorkerConfigError(f"{info.field_name} must be absolute HTTP(S)")
-        if parsed.query or parsed.fragment:
-            raise EdgeWorkerConfigError(f"{info.field_name} must not include query or fragment")
-        path = parsed.path.rstrip("/")
-        expected_suffix = INGEST_ENDPOINT_SUFFIXES.get(str(info.field_name))
-        if expected_suffix is not None and not path.endswith(expected_suffix):
-            raise EdgeWorkerConfigError(
-                f"{info.field_name} must target backend {expected_suffix}"
+        legacy_fields = [
+            name
+            for name in ("ingest", "alert_api_url", "heartbeat_api_url")
+            if name in data
+        ]
+        for index, camera in enumerate(data.get("cameras", ())):
+            if isinstance(camera, dict):
+                for name in ("ingest_key_id", "ingest_secret"):
+                    if name in camera:
+                        legacy_fields.append(f"cameras.{index}.{name}")
+        if legacy_fields:
+            raise ValueError(
+                "worker config must use relay only; backend ingest fields are forbidden: "
+                + ", ".join(legacy_fields)
             )
-        return urlunsplit(parsed._replace(path=path))
+        return data
 
     def model_post_init(self, __context: None) -> None:
         duplicate_ids = sorted(
@@ -289,12 +277,21 @@ class EdgeWorkerConfig(BaseModel):
         return self.domains.enabled_domains
 
     @property
-    def resolved_heartbeat_api_url(self) -> str:
-        if self.heartbeat_api_url is not None:
-            return self.heartbeat_api_url
-        if self.alert_api_url.endswith("/alerts"):
-            return f"{self.alert_api_url.removesuffix('/alerts')}/heartbeat"
-        return f"{self.alert_api_url.rstrip('/')}/heartbeat"
+    def relay_alert_url(self) -> str:
+        return f"{self.relay.url}{EDGE_RELAY_ALERTS_PATH}"
+
+    @property
+    def relay_heartbeat_url(self) -> str:
+        return f"{self.relay.url}{EDGE_RELAY_HEARTBEAT_PATH}"
+def _normalize_http_base_url(value: str, field_name: str) -> str:
+    stripped = value.strip()
+    parsed = urlsplit(stripped)
+    if parsed.scheme.lower() not in {"http", "https"} or parsed.netloc == "":
+        raise EdgeWorkerConfigError(f"{field_name} must be absolute HTTP(S)")
+    if parsed.query or parsed.fragment:
+        raise EdgeWorkerConfigError(f"{field_name} must not include query or fragment")
+    return urlunsplit(parsed._replace(path=parsed.path.rstrip("/")))
+
 
 
 def load_edge_worker_config(path: str | Path) -> EdgeWorkerConfig:
@@ -360,7 +357,7 @@ __all__ = [
     "EdgeWorkerConfigError",
     "FallModelConfig",
     "FallDomainConfig",
-    "IngestConfig",
+    "RelayConfig",
     "NightWindowConfig",
     "WorkerModelsConfig",
     "WorkerRuntimeConfig",
