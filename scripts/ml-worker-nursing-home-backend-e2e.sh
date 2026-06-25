@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+image="${RTSP_FIXTURE_IMAGE:-bluenviron/mediamtx:1.19.1-ffmpeg}"
+compose_project="${COMPOSE_PROJECT_NAME:-ml-worker-nursing-home-backend-e2e}"
+video="${NURSING_HOME_FALL_VIDEO:?NURSING_HOME_FALL_VIDEO is required}"
+models_dir="${ML_MODELS_DIR:?ML_MODELS_DIR with pose/bed/fall weights is required}"
+backend_base_url="${BACKEND_BASE_URL:-http://host.docker.internal:8080}"
+frames="${MAX_FRAMES_PER_CAMERA:-45}"
+wait_seconds="${RTSP_FIXTURE_WAIT_SECONDS:-60}"
+rtsp_stream_name="${E2E_RTSP_STREAM_NAME:-nursing-home}"
+facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
+resident_id="${E2E_RESIDENT_ID:-res_kim}"
+camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
+ingest_key_id="${E2E_INGEST_KEY_ID:-demo-cam-2f-202-keyid}"
+ingest_secret="${DEMO_INGEST_SECRET:?DEMO_INGEST_SECRET must match backend seed}"
+db_container="${E2E_DB_CONTAINER:-eldercare-fall-db}"
+postgres_user="${POSTGRES_USER:-fall}"
+postgres_db="${POSTGRES_DB:-fall_dev}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+tmp_root="${ML_EDGE_E2E_TMP_ROOT:-$repo_root/.omo/tmp}"
+mkdir -p "$tmp_root"
+tmpdir="$(mktemp -d "$tmp_root/ml-worker-nursing-home.XXXXXX")"
+config="$tmpdir/ml-worker.yaml"
+edge_models_dir="$tmpdir/models"
+runtime_model_dir="$edge_models_dir/fall/lstm-runtime"
+runtime_metadata="$tmpdir/lstm-runtime.env"
+server="nursing-home-rtsp-${compose_project}"
+publisher="nursing-home-publisher-${compose_project}"
+network="${compose_project}_default"
+rtsp_internal_url="rtsp://rtsp-fixture:8554/${rtsp_stream_name}"
+
+cleanup_containers() {
+  docker rm -f "$publisher" "$server" >/dev/null 2>&1 || true
+  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+    -p "$compose_project" \
+    -f compose.edge.yaml \
+    down --remove-orphans >/dev/null 2>&1 || true
+}
+
+cleanup() {
+  cleanup_containers
+  rm -rf "$tmpdir"
+}
+
+write_lstm_runtime_artifact() {
+  python3 - "$models_dir" "$runtime_model_dir" "$runtime_metadata" <<'PY'
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import sys
+from pathlib import Path
+
+models_dir = Path(sys.argv[1])
+runtime_dir = Path(sys.argv[2])
+runtime_metadata = Path(sys.argv[3])
+source_dir = Path(os.environ.get("LSTM_ARTIFACT_DIR", models_dir / "fall" / "lstm"))
+model_pt = Path(os.environ.get("LSTM_MODEL_PT", source_dir / "model.pt"))
+metadata_json = source_dir / "metadata.json"
+if not model_pt.exists():
+    raise SystemExit(f"missing LSTM model.pt: {model_pt}")
+metadata = {}
+if metadata_json.exists():
+    metadata = json.loads(metadata_json.read_text(encoding="utf-8"))
+window = int(os.environ.get("LSTM_WINDOW", metadata.get("window", 30)))
+stride = int(os.environ.get("LSTM_STRIDE", metadata.get("stride", 5)))
+threshold = float(os.environ.get("LSTM_OPERATING_THRESHOLD", metadata.get("operating_threshold", 0.5)))
+runtime_dir.mkdir(parents=True, exist_ok=True)
+shutil.copy2(model_pt, runtime_dir / "model.pt")
+for family, filename in (("pose", "yolo26n-pose.pt"), ("bed", "yolo26m-seg.pt")):
+    source = models_dir / family / filename
+    if not source.exists():
+        raise SystemExit(f"missing model artifact: {source}")
+    target_dir = runtime_dir.parent.parent / family
+    target_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target_dir / filename)
+arch_json = os.environ.get("LSTM_ARCH_JSON")
+if arch_json:
+    shutil.copy2(arch_json, runtime_dir / "arch.json")
+else:
+    (runtime_dir / "arch.json").write_text(
+        json.dumps({"hidden": 128, "layers": 2, "dropout": 0.3}, indent=2),
+        encoding="utf-8",
+    )
+(runtime_dir / "metadata.yaml").write_text(
+    "\n".join(
+        [
+            "type: lstm",
+            "framework: pytorch",
+            "mode: sequence",
+            "artifact_dir: /app/models/fall/lstm-runtime",
+            "weights: model.pt",
+            "architecture: arch.json",
+            "metadata: metadata.yaml",
+            f"window: {window}",
+            f"stride: {stride}",
+            "input_shape: [30, 51]" if window == 30 else f"input_shape: [{window}, 51]",
+            f"operating_threshold: {threshold}",
+            "",
+        ]
+    ),
+    encoding="utf-8",
+)
+print(f"runtime LSTM artifact: {runtime_dir}")
+with runtime_metadata.open("w", encoding="utf-8") as handle:
+    handle.write(f"LSTM_WINDOW={window}\n")
+    handle.write(f"LSTM_STRIDE={stride}\n")
+    handle.write(f"LSTM_OPERATING_THRESHOLD={threshold}\n")
+PY
+}
+
+write_config() {
+  source "$runtime_metadata"
+  cat >"$config" <<YAML
+version: 1
+ingest:
+  alert_api_url: ${backend_base_url}/ingest/alerts
+  heartbeat_api_url: ${backend_base_url}/ingest/heartbeat
+runtime:
+  max_failures: 30
+  open_timeout_ms: 5000
+  read_timeout_ms: 5000
+models:
+  fall:
+    type: lstm
+    framework: pytorch
+    mode: sequence
+    artifact_dir: /app/models/fall/lstm-runtime
+    weights: model.pt
+    architecture: arch.json
+    metadata: metadata.yaml
+    window: ${LSTM_WINDOW}
+    stride: ${LSTM_STRIDE}
+    input_shape: [${LSTM_WINDOW}, 51]
+    operating_threshold: ${LSTM_OPERATING_THRESHOLD}
+domains:
+  enabled:
+    - fall
+cameras:
+  - camera_id: ${camera_id}
+    facility_id: ${facility_id}
+    resident_id: ${resident_id}
+    rtsp_url: ${rtsp_internal_url}
+    ingest_key_id: ${ingest_key_id}
+    ingest_secret: ${ingest_secret}
+    heartbeat_interval_sec: 30
+    frame_stride: 1
+    label: nursing-home-fall
+YAML
+  chmod 600 "$config"
+}
+
+start_compose_network() {
+  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+    -p "$compose_project" \
+    -f compose.edge.yaml \
+    create --build ml-worker >/dev/null
+}
+
+start_rtsp_stream() {
+  RTSP_FIXTURE_IMAGE="$image" \
+    RTSP_DOCKER_NETWORK="$network" \
+    RTSP_NETWORK_ALIAS=rtsp-fixture \
+    RTSP_STREAM_NAME="$rtsp_stream_name" \
+    RTSP_SERVER_NAME="$server" \
+    RTSP_PUBLISHER_NAME="$publisher" \
+    RTSP_HOST_PORT= \
+    RTSP_DETACH=1 \
+    RTSP_READY_WAIT_SECONDS="$wait_seconds" \
+    "$repo_root/scripts/rtsp-loop-video.sh" "$video" >/dev/null
+}
+
+run_worker() {
+  EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
+    -p "$compose_project" \
+    -f compose.edge.yaml \
+    run -T --rm --no-deps --build \
+    ml-worker \
+    python -m worker.edge_worker \
+    --config /run/secrets/ml-worker.yaml \
+    --max-frames-per-camera "$frames" \
+    --heartbeat-on-start
+}
+
+assert_backend_alert() {
+  local started_at="$1"
+  local count
+  count="$(docker exec "$db_container" psql -U "$postgres_user" -d "$postgres_db" -tAc \
+    "select count(*) from alerts where facility_id = '${facility_id}' and type = 'fall' and detected_at >= '${started_at}'::timestamptz;")"
+  if [[ "${count//[[:space:]]/}" -lt 1 ]]; then
+    printf 'backend did not persist a recent fall alert for %s\n' "$facility_id" >&2
+    return 1
+  fi
+  printf 'backend recent fall alerts: %s\n' "${count//[[:space:]]/}"
+}
+
+trap cleanup EXIT
+cleanup_containers
+write_lstm_runtime_artifact
+write_config
+start_compose_network
+start_rtsp_stream
+run_started_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+run_worker
+assert_backend_alert "$run_started_utc"
+printf 'production backend E2E ok: video=%s backend=%s camera=%s\n' "$video" "$backend_base_url" "$camera_id"

@@ -13,7 +13,7 @@ RANKS = {
     "domains": 3,
     "runtime": 3,
     "events": 4,
-    "serving": 5,
+    "api": 5,
     "demo": 5,
 }
 TRAINING_ALLOWED = {"training", "contracts", "features", "sources", "runners"}
@@ -24,7 +24,7 @@ TRAINING_FORBIDDEN = {
     "domains",
     "runtime",
     "events",
-    "serving",
+    "api",
     "demo",
 }
 SERVING_FORBIDDEN = {"training"}
@@ -120,7 +120,7 @@ def test_training_imports_only_allowed_packages() -> None:
 
 def test_serving_never_imports_training() -> None:
     failures: list[tuple[Path, int, str]] = []
-    for path in _python_files("serving"):
+    for path in _python_files("api"):
         for line, package in _imports(path):
             if package in SERVING_FORBIDDEN:
                 failures.append((path, line, package))
@@ -130,7 +130,7 @@ def test_serving_never_imports_training() -> None:
 def test_dependency_ladder_direction() -> None:
     failures: list[str] = []
     for package, rank in RANKS.items():
-        if package in {"serving", "demo"}:
+        if package in {"api", "demo"}:
             continue
         for path in _python_files(package):
             for line, imported in _imports(path):

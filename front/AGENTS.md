@@ -16,6 +16,8 @@ front/src/
 └── test/
 ```
 
+See `src/AGENTS.md` before changing frontend application code.
+
 ## Guards
 - Components never call the backend directly — go through `src/services/*` (the API seam).
 - Backend endpoint calls live under `src/services/api/*`; service files consume endpoint functions instead of scattering `fetch()` or backend JSON casts.

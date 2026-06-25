@@ -7,13 +7,13 @@ Own L1 frame intake: video files, webcams, RTSP, source probing, and safe source
 - `frame_source.py`: compatibility exports for `FrameSource` implementations.
 - `video_file.py`, `webcam.py`, `rtsp.py`, `rtsp_backend.py`: concrete frame sources.
 - `camera_probe.py`: local camera discovery.
-- `registry.py`: safe server-side source registry for serving prediction by source id.
+- `registry.py`: safe server-side source registry for api prediction by source id.
 
 ## Imports
 
 Allowed: `contracts`, local `sources`, OpenCV, and standard library helpers.
 
-Forbidden: `runners`, `perception`, `domains`, `runtime`, `events`, `serving`, `demo`, `training`.
+Forbidden: `runners`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 

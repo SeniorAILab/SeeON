@@ -2,7 +2,7 @@
 
 Backend `/ingest/*` is the only canonical edge ingress. It accepts camera-authenticated facts and turns them into backend-owned read-model, status, SSE, and delivery outbox state.
 
-Production live path: `RTSP -> ml-edge-worker -> backend /ingest/*`.
+Production live path: `RTSP -> ml-worker -> backend /ingest/*`.
 
 The ML edge worker signs requests per camera from `EDGE_CAMERA_CONFIG`; each camera has its own `camera_id`, `facility_id`, optional `resident_id`, `ingest_key_id`, and `ingest_secret`.
 The API service does not share one singleton ingest identity for camera streams, does not own live camera streams, and does not perform backend ingest side effects.

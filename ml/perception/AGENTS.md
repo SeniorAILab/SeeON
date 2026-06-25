@@ -14,7 +14,7 @@ Own L2 observation construction and scene state derived from frames and runner o
 
 Allowed: `contracts`, `features`, and local `perception`.
 
-Forbidden: `sources`, `runners`, `domains`, `runtime`, `events`, `serving`, `demo`, `training`.
+Forbidden: `sources`, `runners`, `domains`, `runtime`, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 
