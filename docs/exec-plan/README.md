@@ -64,7 +64,7 @@ modified. Enforcement is convention-level — no hook-based hard gate this cycle
 | Scope | Work-scoped (one feature/task) | Cross-cutting (constrains all future work) |
 | Lifespan | Archivable when work ends | Permanent (superseded, never deleted) |
 | Body | Immutable after finalize | Superseded by new ADR |
-| Author | omc-plan / omo / omx | documentation-and-adrs skill |
+| Author | omc-plan / omo / omx | craft-skills documents skill |
 
 When a plan contains a cross-cutting, expensive-to-reverse choice, that choice is **distilled** into a new `docs/decisions/ADR-NNN-*.md` — the plan entry itself is not replaced.
 
