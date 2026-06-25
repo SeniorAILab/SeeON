@@ -5,8 +5,10 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Final, Literal, TypeAlias
 from urllib.parse import urlsplit, urlunsplit
+from zoneinfo import ZoneInfo
 
 import yaml
 from pydantic import (
@@ -28,6 +30,7 @@ INGEST_ENDPOINT_SUFFIXES: Final = {
 KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
+HHMM_PATTERN: Final = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 ConfigValue: TypeAlias = (
     str | int | float | bool | None | list["ConfigValue"] | dict[str, "ConfigValue"]
 )
@@ -138,10 +141,58 @@ class WorkerModelsConfig(BaseModel):
     fall: FallModelConfig | None = None
 
 
+class NightWindowConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    start: str
+    end: str
+    tz: str
+
+    @field_validator("start", "end")
+    @classmethod
+    def _validate_hhmm(cls, value: str) -> str:
+        if not HHMM_PATTERN.fullmatch(value):
+            raise ValueError("night window time must use HH:MM")
+        return value
+
+    @field_validator("tz")
+    @classmethod
+    def _validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except Exception as exc:
+            raise ValueError("night window tz must be a valid IANA timezone") from exc
+        return value
+
+
+class FallDomainConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = True
+
+
+class BedExitDomainConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = True
+    night_window: NightWindowConfig | None = None
+
+
+class DisabledDomainConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: Literal[False] = False
+
+
 class DomainsConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     enabled: tuple[str, ...] | None = None
+    fall: FallDomainConfig | None = None
+    bed_exit: BedExitDomainConfig | None = None
+    wheelchair_standup: DisabledDomainConfig | None = None
+    long_lie: DisabledDomainConfig | None = None
+    risk: DisabledDomainConfig | None = None
 
     @field_validator("enabled")
     @classmethod
@@ -152,6 +203,32 @@ class DomainsConfig(BaseModel):
         if unknown:
             raise ValueError(f"domains.enabled contains unknown domain: {', '.join(unknown)}")
         return value
+
+    @model_validator(mode="after")
+    def _reject_mixed_legacy_and_map(self) -> DomainsConfig:
+        if self.enabled is not None and any(
+            name in self.model_fields_set for name in KNOWN_DOMAIN_NAMES
+        ):
+            raise ValueError("domains.enabled cannot be combined with per-domain config")
+        return self
+
+    def domain_config(self, name: str) -> BaseModel | None:
+        if name not in KNOWN_DOMAIN_NAMES:
+            raise ValueError(f"unknown domain: {name}")
+        return getattr(self, name)
+
+    @property
+    def enabled_domains(self) -> tuple[str, ...] | None:
+        if self.enabled is not None:
+            return self.enabled
+        configured = tuple(
+            name
+            for name in ("fall", "bed_exit", "wheelchair_standup", "long_lie", "risk")
+            if name in self.model_fields_set
+            and (config := self.domain_config(name)) is not None
+            and config.enabled
+        )
+        return configured if configured else None
 
 
 class EdgeWorkerConfig(BaseModel):
@@ -209,7 +286,7 @@ class EdgeWorkerConfig(BaseModel):
 
     @property
     def enabled_domains(self) -> tuple[str, ...] | None:
-        return self.domains.enabled
+        return self.domains.enabled_domains
 
     @property
     def resolved_heartbeat_api_url(self) -> str:
@@ -276,11 +353,15 @@ if __name__ == "__main__":
 __all__ = [
     "EDGE_CAMERA_CONFIG_ENV",
     "CameraRuntimeConfig",
+    "BedExitDomainConfig",
+    "DisabledDomainConfig",
     "DomainsConfig",
     "EdgeWorkerConfig",
     "EdgeWorkerConfigError",
     "FallModelConfig",
+    "FallDomainConfig",
     "IngestConfig",
+    "NightWindowConfig",
     "WorkerModelsConfig",
     "WorkerRuntimeConfig",
     "load_edge_worker_config",

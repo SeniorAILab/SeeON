@@ -37,7 +37,7 @@ def _valid_yaml(path: Path) -> Path:
                 "operating_threshold": 0.5,
             }
         },
-        "domains": {"enabled": ["fall"]},
+        "domains": {"fall": {"enabled": True}},
         "cameras": [
             {
                 "camera_id": "camera-1",
@@ -73,6 +73,7 @@ def test_ml_worker_yaml_config_loads_nested_contract(tmp_path: Path) -> None:
     assert config.models.fall.type == "lstm"
     assert config.models.fall.input_shape == (3, 51)
     assert config.enabled_domains == ("fall",)
+    assert config.domains.domain_config("fall").enabled is True
     assert len(config.cameras) == 1
 
 
@@ -92,13 +93,96 @@ def test_ml_worker_rejects_malformed_yaml(tmp_path: Path) -> None:
         load_edge_worker_config(path)
 
 
+def test_ml_worker_yaml_config_loads_legacy_enabled_domains(tmp_path: Path) -> None:
+    path = _valid_yaml(tmp_path / "ml-worker.yaml")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["domains"] = {"enabled": ["fall", "bed_exit"]}
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    config = load_edge_worker_config(path)
+
+    assert config.enabled_domains == ("fall", "bed_exit")
+    assert config.domains.domain_config("bed_exit") is None
+
+
+def test_ml_worker_yaml_config_loads_per_domain_bed_exit_night_window(tmp_path: Path) -> None:
+    path = _valid_yaml(tmp_path / "ml-worker.yaml")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["domains"] = {
+        "fall": {"enabled": True},
+        "bed_exit": {
+            "enabled": True,
+            "night_window": {"start": "21:00", "end": "05:00", "tz": "Asia/Seoul"},
+        },
+    }
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    config = load_edge_worker_config(path)
+
+    assert config.enabled_domains == ("fall", "bed_exit")
+    assert config.domains.bed_exit is not None
+    assert config.domains.bed_exit.night_window is not None
+    assert config.domains.bed_exit.night_window.start == "21:00"
+    assert config.domains.bed_exit.night_window.end == "05:00"
+    assert config.domains.bed_exit.night_window.tz == "Asia/Seoul"
+
+
+def test_ml_worker_yaml_rejects_mixed_legacy_and_per_domain_config(tmp_path: Path) -> None:
+    path = _valid_yaml(tmp_path / "ml-worker.yaml")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["domains"] = {"enabled": ["fall"], "bed_exit": {"enabled": True}}
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises(EdgeWorkerConfigError, match="domains"):
+        load_edge_worker_config(path)
+
+
 def test_ml_worker_yaml_rejects_unknown_domain(tmp_path: Path) -> None:
     path = _valid_yaml(tmp_path / "ml-worker.yaml")
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    payload["domains"]["enabled"] = ["fall", "unknown"]
+    payload["domains"] = {"enabled": ["fall", "unknown"]}
     path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     with pytest.raises(EdgeWorkerConfigError, match="domains.enabled"):
+        load_edge_worker_config(path)
+
+def test_ml_worker_yaml_rejects_unknown_per_domain_key(tmp_path: Path) -> None:
+    path = _valid_yaml(tmp_path / "ml-worker.yaml")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["domains"] = {"unknown": {"enabled": True}}
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises(EdgeWorkerConfigError, match="domains.unknown"):
+        load_edge_worker_config(path)
+
+
+def test_ml_worker_yaml_rejects_invalid_night_window_time(tmp_path: Path) -> None:
+    path = _valid_yaml(tmp_path / "ml-worker.yaml")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["domains"] = {
+        "bed_exit": {
+            "enabled": True,
+            "night_window": {"start": "9:00", "end": "05:00", "tz": "Asia/Seoul"},
+        }
+    }
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises(EdgeWorkerConfigError, match="night_window.start"):
+        load_edge_worker_config(path)
+
+
+def test_ml_worker_yaml_rejects_invalid_night_window_timezone(tmp_path: Path) -> None:
+    path = _valid_yaml(tmp_path / "ml-worker.yaml")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["domains"] = {
+        "bed_exit": {
+            "enabled": True,
+            "night_window": {"start": "21:00", "end": "05:00", "tz": "Mars/Base"},
+        }
+    }
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises(EdgeWorkerConfigError, match="night_window.tz"):
         load_edge_worker_config(path)
 
 

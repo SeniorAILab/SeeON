@@ -20,9 +20,14 @@ models:
     input_shape: [30, 51]
     operating_threshold: 0.5
 domains:
-  enabled:
-    - fall
-    - bed_exit
+  fall:
+    enabled: true
+  bed_exit:
+    enabled: true
+    night_window:
+      start: "21:00"
+      end: "05:00"
+      tz: Asia/Seoul
 cameras:
   - camera_id: camera-1
     facility_id: facility-1

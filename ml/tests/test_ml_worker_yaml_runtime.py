@@ -88,6 +88,46 @@ def test_worker_exits_nonzero_when_lstm_artifact_missing(tmp_path: Path) -> None
         load_edge_worker_config(config_path)
 
 
+def test_domain_detectors_inject_bed_exit_night_window(tmp_path: Path) -> None:
+    artifact_dir = _write_lstm_artifact(tmp_path / "models" / "fall" / "lstm")
+    config_path = _write_config(tmp_path / "ml-worker.yaml", artifact_dir=artifact_dir)
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    payload["domains"] = {
+        "fall": {"enabled": True},
+        "bed_exit": {
+            "enabled": True,
+            "night_window": {"start": "21:00", "end": "05:00", "tz": "Asia/Seoul"},
+        },
+    }
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    config = load_edge_worker_config(config_path)
+
+    detectors = edge_worker._domain_detectors(config)
+
+    assert tuple(detector.__class__.__name__ for detector in detectors) == (
+        "FallEventLatch",
+        "BedExitMonitor",
+    )
+    bed_exit = detectors[1]
+    assert bed_exit._night_window is not None
+    assert bed_exit._night_window.start == "21:00"
+    assert bed_exit._night_window.end == "05:00"
+    assert bed_exit._night_window.tz == "Asia/Seoul"
+
+
+def test_domain_detectors_leave_fall_without_time_gate(tmp_path: Path) -> None:
+    artifact_dir = _write_lstm_artifact(tmp_path / "models" / "fall" / "lstm")
+    config_path = _write_config(tmp_path / "ml-worker.yaml", artifact_dir=artifact_dir)
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    payload["domains"] = {"fall": {"enabled": True}}
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    config = load_edge_worker_config(config_path)
+
+    detectors = edge_worker._domain_detectors(config)
+
+    assert tuple(detector.__class__.__name__ for detector in detectors) == ("FallEventLatch",)
+    assert not hasattr(detectors[0], "_night_window")
+
 def test_video_file_source_is_still_available_for_rtsp_harness_input() -> None:
     assert VideoFileSource is not None
 

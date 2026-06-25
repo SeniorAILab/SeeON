@@ -191,10 +191,17 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
     )
 
 
+def _domain_config_payload(config: EdgeWorkerConfig, name: str) -> dict[str, object] | None:
+    domain_config = config.domains.domain_config(name)
+    if domain_config is None:
+        return None
+    return domain_config.model_dump(exclude={"enabled"}, exclude_none=True)
+
+
 def _domain_detectors(config: EdgeWorkerConfig) -> tuple[DomainDetectorProtocol, ...]:
     enabled = config.enabled_domains
     return tuple(
-        registration.factory()
+        registration.factory(_domain_config_payload(config, name))
         for name, registration in DOMAIN_REGISTRY.items()
         if (registration.enabled if enabled is None else name in enabled)
     )
