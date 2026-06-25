@@ -3,7 +3,7 @@ slug: thursday-mvp-live-fall-kakao-fanout
 status: active
 date: 2026-06-17
 issue: 211
-related-adrs: [ADR-042, ADR-043, ADR-044]
+related-adrs: [ADR-071, ADR-043, ADR-044]
 ---
 
 > Source: `.gjc/plans/ralplan/019ed409-ae5c-7000-88f2-8fd8cde221c8/pending-approval.md`.

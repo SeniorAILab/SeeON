@@ -5,6 +5,7 @@ const authServiceMock = vi.hoisted(() => ({
   bootstrap: vi.fn(),
   createFacility: vi.fn(),
   login: vi.fn(),
+  register: vi.fn(),
   logout: vi.fn(),
   startKakaoLogin: vi.fn(),
 }));
@@ -39,7 +40,6 @@ describe("authStore.login", () => {
         role: "FACILITY_ADMIN",
         facilityId: "facility-1",
       },
-      token: "",
     });
 
     const user = await useAuthStore.getState().login({
@@ -57,6 +57,39 @@ describe("authStore.login", () => {
   });
 });
 
+describe("authStore.register", () => {
+  it("stores the backend user returned by signup", async () => {
+    authServiceMock.register.mockResolvedValue({
+      user: {
+        id: "user-1",
+        name: "홍원장",
+        email: "owner@example.test",
+        role: "FACILITY_ADMIN",
+        facilityId: "facility-1",
+      },
+    });
+
+    const user = await useAuthStore.getState().register({
+      name: "홍원장",
+      email: "owner@example.test",
+      password: "Passw0rd!234",
+      phone: "010-1111-2222",
+      facilityName: "ULW 요양원",
+    });
+
+    expect(authServiceMock.register).toHaveBeenCalledWith({
+      name: "홍원장",
+      email: "owner@example.test",
+      password: "Passw0rd!234",
+      phone: "010-1111-2222",
+      facilityName: "ULW 요양원",
+    });
+    expect(user.email).toBe("owner@example.test");
+    expect(useAuthStore.getState().user?.facilityId).toBe("facility-1");
+    expect(useAuthStore.getState().loading).toBe(false);
+  });
+});
+
 describe("authStore.createFacility", () => {
   it("stores the backend user returned by onboarding", async () => {
     authServiceMock.createFacility.mockResolvedValue({
@@ -67,12 +100,10 @@ describe("authStore.createFacility", () => {
         role: "FACILITY_ADMIN",
         facilityId: "facility-1",
       },
-      token: "",
     });
 
     const user = await useAuthStore.getState().createFacility({
       facilityName: "Happy Care Home",
-      businessRegistrationNumber: null,
     });
 
     expect(user.facilityId).toBe("facility-1");

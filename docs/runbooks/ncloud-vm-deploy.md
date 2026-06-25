@@ -64,7 +64,11 @@ DIRECT_URL=postgresql://fall:replace-with-url-encoded-db-password@db:5432/fall_p
 
 FRONT_ORIGIN=http://101.79.18.95
 KAKAO_REST_API_KEY=replace-with-kakao-rest-api-key
+# Required only if Kakao Login Client Secret is enabled in Kakao Developers.
+# KAKAO_CLIENT_SECRET=replace-with-kakao-client-secret
 KAKAO_REDIRECT_URI=http://101.79.18.95/auth/kakao/callback
+# Defaults to talk_message when omitted; add profile_nickname only after consent setup.
+# KAKAO_SCOPES=talk_message
 SESSION_JWT_SECRET=replace-with-at-least-32-random-chars
 KAKAO_TOKEN_ENC_KEY=replace-with-64-hex-chars
 ALERT_DASHBOARD_URL=http://101.79.18.95
