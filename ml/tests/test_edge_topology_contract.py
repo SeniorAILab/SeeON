@@ -124,7 +124,6 @@ def test_rtsp_script_surface_uses_reusable_worker_names() -> None:
     scripts_dir = REPO_ROOT / "scripts"
     smoke_script = scripts_dir / "ml-worker-rtsp-smoke.sh"
 
-    assert (scripts_dir / "rtsp-loop-video.sh").exists()
     assert (scripts_dir / "ml-worker-nursing-home-backend-e2e.sh").exists()
     assert smoke_script.exists()
     assert not (scripts_dir / "ml-edge-four-rtsp-smoke.sh").exists()
@@ -132,9 +131,52 @@ def test_rtsp_script_surface_uses_reusable_worker_names() -> None:
     assert not (scripts_dir / "ml-edge-four-mock-rtsp-ingest-e2e.sh").exists()
 
     smoke_source = smoke_script.read_text(encoding="utf-8")
+    e2e_source = (scripts_dir / "ml-worker-nursing-home-backend-e2e.sh").read_text(
+        encoding="utf-8"
+    )
     assert "load_edge_worker_config" in smoke_source
     assert "expected exactly 4 cameras" not in smoke_source
     assert "ml-edge-four" not in smoke_source
+    assert "NURSING_HOME_RTSP_URL" in e2e_source
+    assert "rtsp-loop-video.sh" not in e2e_source
+
+
+def test_repo_does_not_own_rtsp_generation_surface() -> None:
+    scripts_dir = REPO_ROOT / "scripts"
+    package_json = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert not (scripts_dir / "rtsp-loop-video.sh").exists()
+    assert "dev:rtsp" not in package_json["scripts"]
+
+    active_surface = [
+        "\n".join(package_json["scripts"].values()),
+        *[
+            script.read_text(encoding="utf-8")
+            for script in sorted(scripts_dir.glob("*.sh"))
+        ],
+    ]
+    active_text = "\n".join(active_surface)
+
+    forbidden_generation_terms = (
+        "rtsp-loop-video",
+        "mediamtx",
+        "stream_loop",
+        "-f rtsp",
+        "NURSING_HOME_FALL_VIDEO",
+        "RTSP_FIXTURE_IMAGE",
+        "RTSP_FIXTURE_WAIT_SECONDS",
+        "E2E_RTSP_STREAM_NAME",
+        "RTSP_DOCKER_NETWORK",
+        "RTSP_NETWORK_ALIAS",
+        "RTSP_HOST_PORT",
+        "RTSP_DETACH",
+        "RTSP_READY_WAIT_SECONDS",
+    )
+    failures = [
+        term for term in forbidden_generation_terms if term.lower() in active_text.lower()
+    ]
+
+    assert not failures, f"RTSP generation terms remain in active surface: {failures}"
 
 
 def test_worker_imports_no_api_or_serving_packages() -> None:

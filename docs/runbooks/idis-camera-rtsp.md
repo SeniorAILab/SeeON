@@ -164,19 +164,33 @@ uv run --directory ml python -m worker.edge_worker \
 Nursing-home 영상 기반 production-shaped RTSP E2E:
 
 ```bash
-NURSING_HOME_FALL_VIDEO=/path/to/nursing-home-fall.mp4 \
+# 다른 터미널, SeniorAILab/rtsp-generator repo:
+uv run rtsp-generator start /path/to/nursing-home-fall.mp4 \
+  --vendor s1 \
+  --channel 1 \
+  --stream 2 \
+  --name nursing-home \
+  --detach
+
+# 이 repo:
+NURSING_HOME_RTSP_URL=rtsp://host.docker.internal:8554/s1/trackID-1/streamID-2 \
 ML_MODELS_DIR=/path/to/ml/models \
 DEMO_INGEST_SECRET=<seeded-demo-ingest-secret> \
 scripts/ml-worker-nursing-home-backend-e2e.sh
 ```
 
-개발 중 worker가 계속 소비할 RTSP 입력만 필요하면 같은 publisher를 직접 띄운다:
+개발 중 worker가 계속 소비할 RTSP 입력만 필요하면 external generator를 직접 띄운다:
 
 ```bash
-pnpm dev:rtsp -- /path/to/nursing-home-fall.mp4
+uv run rtsp-generator start /path/to/nursing-home-fall.mp4 --vendor s1 --detach
 ```
 
-이 명령은 영상을 반복 재생하며 `rtsp://127.0.0.1:8554/nursing-home`을 유지한다. `ml-worker.local.yaml`의 camera `rtsp_url`을 이 값으로 두면, 개발자는 실제 worker 소비 경로로 계속 작업할 수 있다. E2E 명령은 같은 `scripts/rtsp-loop-video.sh` publisher를 Docker network 안에서 재사용하고, `compose.edge.yaml`의 `ml-worker` production entrypoint가 그 RTSP를 소비하게 한다. alert/heartbeat는 stub이 아니라 `ml-api`를 통해 실제 backend `/ingest/*`로 전송하며, 마지막에 backend DB의 `alerts` 테이블에 낙상 alert가 기록됐는지 확인한다.
+이 repo는 RTSP를 생성하지 않는다. `ml-worker.local.yaml`의 camera `rtsp_url`을
+generator가 출력한 worker-reachable URL로 두면, 개발자는 실제 worker 소비 경로로
+계속 작업할 수 있다. E2E 명령은 `compose.edge.yaml`의 `ml-worker` production
+entrypoint가 그 RTSP를 소비하게 한다. alert/heartbeat는 stub이 아니라 `ml-api`를
+통해 실제 backend `/ingest/*`로 전송하며, 마지막에 backend DB의 `alerts` 테이블에 낙상 alert가
+기록됐는지 확인한다.
 
 Edge Compose 기동은 실제 camera config를 secret으로 마운트한다:
 
