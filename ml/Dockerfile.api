@@ -23,6 +23,7 @@ COPY ml/runners ./runners
 COPY ml/runtime ./runtime
 COPY ml/api ./api
 COPY ml/sources ./sources
+RUN mkdir -p /app/models/fall /app/models/pose /app/models/bed
 
 ENV HOST=127.0.0.1 \
     PORT=8000

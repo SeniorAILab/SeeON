@@ -23,5 +23,6 @@ COPY ml/runners ./runners
 COPY ml/runtime ./runtime
 COPY ml/sources ./sources
 COPY ml/worker ./worker
+RUN mkdir -p /app/models/fall/lstm-runtime /app/models/pose /app/models/bed
 
 CMD ["python", "-m", "worker.edge_worker"]
