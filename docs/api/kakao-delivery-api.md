@@ -46,7 +46,7 @@ Missing token means no recipient attempt for that user. It is delivery `UNAVAILA
 
 ## Token handling
 
-Kakao access tokens are encrypted at rest (`KakaoIdentity.accessTokenCipher`) under ADR-042. Delivery decrypts the recipient token immediately before send.
+Kakao access tokens are encrypted at rest (`KakaoIdentity.accessTokenCipher`) under ADR-071. Delivery decrypts the recipient token immediately before send.
 
 Terminal operator-action failures include:
 
