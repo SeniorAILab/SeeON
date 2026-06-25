@@ -83,11 +83,11 @@ def build_temporal_model(
     pose_module: ModelModule,
     threshold_override: float | None = None,
 ) -> TemporalFallClassifierModule:
-    """Build a temporal demo classifier backed by real serving HTTP.
+    """Build a temporal demo classifier backed by real api HTTP.
 
     Model artifacts still provide window/stride/threshold metadata, but the
     classifier object is `ServingFallClassifier`; it posts `[W][51]` windows to
-    ml-serving instead of loading an in-process model. ``threshold_override``,
+    ml-api instead of loading an in-process model. ``threshold_override``,
     when given, replaces the artifact's LE2I ``operating_threshold`` (demo
     threshold slider).
 
@@ -111,22 +111,22 @@ def build_temporal_model(
             "Run `uv run --group training python -m training.train` to produce one."
         )
     # === 단계 2: metadata.json 로드 (window / stride / operating_threshold) ===
-    # window/stride/threshold come from the shared artifact even in serving mode:
-    # the demo and serving point at the same ml/models dir, so these match
-    # serving's configured model — the demo only needs them to buffer correctly.
+    # window/stride/threshold come from the shared artifact even in api mode:
+    # the demo and api point at the same ml/models dir, so these match
+    # api's configured model — the demo only needs them to buffer correctly.
     meta = load_metadata(adir)
 
-    # === 단계 3: 모델 — serving HTTP only ===
+    # === 단계 3: 모델 — api HTTP only ===
     # ADR-029 / streamlit-demo §8: the fall decision runs through the real
-    # serving service. The demo emits the raw [W][51] window (mode="sequence");
-    # serving owns feature extraction + the decision.
-    from serving.client import ServingFallClassifier, serving_url_from_env
+    # api service. The demo emits the raw [W][51] window (mode="sequence");
+    # api owns feature extraction + the decision.
+    from api.client import ServingFallClassifier, serving_url_from_env
 
     serving_url = serving_url_from_env()
     if serving_url is None:
         raise RuntimeError(
             "FALL_SERVING_URL is required for temporal demo classification; "
-            "the demo must use serving.client.ServingFallClassifier, not an in-process fallback"
+            "the demo must use api.client.ServingFallClassifier, not an in-process fallback"
         )
     model: object = ServingFallClassifier(serving_url)
     mode = "sequence"
@@ -160,7 +160,7 @@ class TemporalFallClassifierModule:
     Anti-skew: live keypoints are normalised with ``normalize_person_keypoints``
     from ``training.extract_poses`` — the *same* function used by the training
     pipeline — so pixel → [0, 1] conversion and confidence-gating are identical
-    between training and serving.  The 1-tuple call convention
+    between training and api.  The 1-tuple call convention
     ``normalize_person_keypoints((keypoints[i],), ...)`` ensures person[0] of
     a 1-element tuple is exactly person i — no per-person index skew.
 

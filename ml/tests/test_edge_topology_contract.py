@@ -118,3 +118,20 @@ def test_api_image_does_not_copy_worker_package() -> None:
     dockerfile = (REPO_ROOT / "ml/Dockerfile.api").read_text(encoding="utf-8")
 
     assert "COPY ml/worker" not in dockerfile
+
+
+def test_rtsp_script_surface_uses_reusable_worker_names() -> None:
+    scripts_dir = REPO_ROOT / "scripts"
+    smoke_script = scripts_dir / "ml-worker-rtsp-smoke.sh"
+
+    assert (scripts_dir / "rtsp-loop-video.sh").exists()
+    assert (scripts_dir / "ml-worker-nursing-home-backend-e2e.sh").exists()
+    assert smoke_script.exists()
+    assert not (scripts_dir / "ml-edge-four-rtsp-smoke.sh").exists()
+    assert not (scripts_dir / "ml-edge-four-mock-rtsp-e2e.sh").exists()
+    assert not (scripts_dir / "ml-edge-four-mock-rtsp-ingest-e2e.sh").exists()
+
+    smoke_source = smoke_script.read_text(encoding="utf-8")
+    assert "load_edge_worker_config" in smoke_source
+    assert "expected exactly 4 cameras" not in smoke_source
+    assert "ml-edge-four" not in smoke_source
