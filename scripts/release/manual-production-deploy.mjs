@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, appendFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { buildAndPushImages } from "./manual-production-images.mjs";
 import { assertDbMode, packageAndDeploy } from "./manual-production-remote.mjs";
 
 const usage = `Usage:
@@ -168,34 +169,6 @@ function resolveGithubActor() {
   }
 }
 
-function buildAndPushImages({ imageNamespace, imagePlatform, sha, dryRun }) {
-  const backendImage = `${imageNamespace}/backend:${sha}`;
-  const frontImage = `${imageNamespace}/front:${sha}`;
-  const buildBase = ["build", "--platform", imagePlatform, "--target", "runner"];
-
-  run("docker", [...buildBase, "-f", "backend/Dockerfile", "-t", backendImage, "."], {
-    dryRun,
-  });
-  run("docker", ["push", backendImage], { dryRun });
-  run(
-    "docker",
-    [
-      ...buildBase,
-      "-f",
-      "front/Dockerfile",
-      "--build-arg",
-      "VITE_USE_MOCK=false",
-      "--build-arg",
-      "VITE_API_BASE_URL=/api",
-      "-t",
-      frontImage,
-      ".",
-    ],
-    { dryRun },
-  );
-  run("docker", ["push", frontImage], { dryRun });
-}
-
 function ensureSshKnownHost(host, dryRun) {
   const sshDir = join(homedir(), ".ssh");
   const knownHosts = join(sshDir, "known_hosts");
@@ -253,6 +226,7 @@ function main() {
     dryRun: checkedOptions.dryRun,
     imageNamespace: checkedOptions.imageNamespace,
     imagePlatform: checkedOptions.imagePlatform,
+    run,
     sha,
   });
   packageAndDeploy({
