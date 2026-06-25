@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the ML lifecycle and dependency-boundary clauses of retired source ADR-003. ADR-015 separately supersedes ADR-003's old artifact-path formula. ADR-003 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
+Accepted. Owns the ML serving/training lifecycle and dependency-group boundary decision (ADR-015 owns the artifact-path formula); earlier combined-ADR history is recoverable from git.
 
 ## Date
 

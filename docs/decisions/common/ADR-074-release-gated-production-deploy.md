@@ -1,4 +1,4 @@
-# ADR-068 - Release-gated production deploy
+# ADR-074 - Release-gated production deploy
 
 - Status: Accepted
 - Date: 2026-06-23

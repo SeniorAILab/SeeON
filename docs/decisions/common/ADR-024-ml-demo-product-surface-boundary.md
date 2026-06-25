@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the Streamlit-demo/product-frontend boundary clauses of retired source ADR-003. ADR-003 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
+Accepted. Owns the Streamlit-demo/product-frontend boundary decision; earlier combined-ADR history is recoverable from git.
 
 ## Date
 
