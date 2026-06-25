@@ -19,7 +19,7 @@ add knobs that duplicate model-contract internals.
   derived from `training.models.catalog.CATALOG`: every temporal model family whose
   trained artifact exists on disk is exposed automatically — never hand-list
   families in the demo. Fall classification is serving-only: temporal modules use
-  `serving.client.ServingFallClassifier` → `POST /debug/predict/window`;
+  `api.client.ServingFallClassifier` → `POST /debug/predict/window`;
   `rule_based` is not a selectable classifier.
 - **판정 임계값 slider** — `select_decision_threshold(spec)` from
   `demo.demo_ui`; shown for available temporal models only. Default comes from
@@ -133,7 +133,7 @@ framework internals.
 - **Import contract.** `streamlit run demo/app.py` only puts `ml/demo/` on the
   path; pytest uses `pythonpath=["."]` = `ml/`. `app.py` bootstraps `sys.path`
   with the `ml/` root so both resolve the same package-qualified imports
-  (`from demo.x import …`, `from sources.x import …`, `from serving.client import …`).
+  (`from demo.x import …`, `from sources.x import …`, `from api.client import …`).
   Do not reintroduce `core`/`util` imports or `try/except ModuleNotFoundError`
   dual-import shims.
 - **Never fabricate data.** Nothing in the demo may paint keypoints, boxes, or
@@ -151,13 +151,10 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
 **Do NOT:**
 
 - Classify falls **in-process** inside the demo as a shortcut. The fall-decision
-  signal (`fall_probability`) must come from the real **ml-serving
-  `/debug/predict/window`** service through `serving.client.ServingFallClassifier`
-  — the same inference path production uses — not a bypass that skips it.
+  signal (`fall_probability`) must come from the real **ml-api `/debug/predict/window`** service through `api.client.ServingFallClassifier` — the same inference path production uses — not a bypass that skips it.
 - Emit alerts through anything but the real `AlertClient` → `POST /ingest/alerts`
   path (HMAC-signed). No hardcoded recipients, no REST-key direct send, no
-  fabricated probability (the live fan-out path is owned by
-  [the live-fall runbook](../runbooks/live-fall-to-kakao-workflow.md)).
+  fabricated probability (the live fan-out path is owned by backend `src/alerts` + the exec-plan `docs/exec-plan/active/thursday-mvp-live-fall-kakao-fanout/`).
 - Add an `if demo:` branch, a mock, or a silent fallback that diverges the demo
   from production. If a dependency (serving, DB, backend) is down, the demo
   **fails loudly** — it does not quietly degrade to a fake path. When
