@@ -7,9 +7,9 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from serving.main import PredictRequest, app, predict
-from serving.pipeline import PipelineControls, PipelineError
-from serving.source_registry import SourceRegistry
+from api.main import PredictRequest, app, predict
+from api.pipeline import PipelineControls, PipelineError
+from api.source_registry import SourceRegistry
 
 
 class StubModel:
@@ -74,7 +74,7 @@ def _request(tmp_path: Path, mapping: dict, pipeline: StubPipeline | None = None
 
 @pytest.fixture(autouse=True)
 def _patch_model(monkeypatch):
-    import serving.main as main
+    import api.main as main
 
     monkeypatch.setattr(main, "get_model", lambda: StubModel())
     yield
@@ -212,7 +212,7 @@ def test_invalid_stride_rejected_by_schema():
 
 def test_timeout_returns_408(tmp_path: Path):
     _video(tmp_path)
-    from serving.pipeline import PipelineTimeoutError
+    from api.pipeline import PipelineTimeoutError
 
     request = _request(
         tmp_path,

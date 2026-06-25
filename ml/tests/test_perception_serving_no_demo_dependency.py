@@ -45,4 +45,4 @@ def test_perception_has_no_demo_imports() -> None:
 
 
 def test_serving_has_no_demo_imports() -> None:
-    _assert_no_demo_imports("serving")
+    _assert_no_demo_imports("api")

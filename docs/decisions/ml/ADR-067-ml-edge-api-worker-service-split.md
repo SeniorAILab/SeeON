@@ -23,9 +23,9 @@ singleton demo alert environment variables cannot represent four cameras safely.
 
 Run ML edge as two services:
 
-- `ml-edge-api`: FastAPI API service. It loads model/API state, exposes health, status,
+- `ml-api`: FastAPI API service. It loads model/API state, exposes health, status,
   model, and debug routes, and does not own production camera loops.
-- `ml-edge-worker`: dedicated worker process. It loads per-camera RTSP and ingest config,
+- `ml-worker`: dedicated worker process. It loads per-camera RTSP and ingest config,
   captures frames, runs the model/domain pipeline, sends heartbeats, and publishes alerts.
 
 The worker uses one capture thread per camera, bounded latest-frame buffers, and one

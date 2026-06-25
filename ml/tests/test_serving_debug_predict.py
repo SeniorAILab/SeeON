@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from serving.main import create_app, no_lifespan
+from api.main import create_app, no_lifespan
 
 
 class StubModel:

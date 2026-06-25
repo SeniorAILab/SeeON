@@ -1,4 +1,4 @@
-"""Compatibility shim for the serving fall model.
+"""Compatibility shim for the api fall model.
 
 The real sklearn fall runner lives in ``runners.sklearn_fall`` (ADR-057).
 """
