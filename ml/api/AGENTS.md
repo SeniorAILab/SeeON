@@ -1,19 +1,19 @@
 # Serving Agent Rules
 
-Own L5 FastAPI serving: app factory, lifespan boot, prediction pipeline, model facade, source registry facade, and route registration.
+Own L5 FastAPI api: app factory, lifespan boot, prediction pipeline, model facade, source registry facade, and route registration.
 
 ## Local Ownership
 
 - `main.py`: `create_app`, route registration, legacy direct-test shims.
 - `lifespan.py`: boot order and `app.state` assembly.
-- `model.py`: serving facade for the fall model runner.
+- `model.py`: api facade for the fall model runner.
 - `pipeline.py`: source/window prediction pipeline.
-- `source_registry.py`: serving import facade for `sources.registry`.
+- `source_registry.py`: api import facade for `sources.registry`.
 - `routes/`: HTTP route modules.
 
 ## Imports
 
-Allowed: production packages from lower layers, local `serving`, and FastAPI/Pydantic.
+Allowed: production packages from lower layers, local `api`, and FastAPI/Pydantic.
 
 Forbidden: `training`, `demo`, `worker`.
 

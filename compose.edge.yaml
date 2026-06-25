@@ -8,7 +8,7 @@
 #   docker compose -f compose.edge.yaml up -d --build
 #
 services:
-  ml-edge-api:
+  ml-api:
     build:
       context: .
       dockerfile: ml/Dockerfile.api
@@ -22,7 +22,7 @@ services:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
     command:
       - uvicorn
-      - serving.main:app
+      - api.main:app
       - --host
       # Container-internal bind only; host publishing above is loopback-only.
       - ${ML_SERVING_HOST:-0.0.0.0}
@@ -38,7 +38,7 @@ services:
       timeout: 5s
       retries: 3
 
-  ml-edge-worker:
+  ml-worker:
     build:
       context: .
       dockerfile: ml/Dockerfile.worker
