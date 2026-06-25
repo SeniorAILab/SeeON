@@ -15,12 +15,19 @@ interface AuthSessionResponseDto {
 
 export interface CreateFacilityInput {
   readonly facilityName: string;
-  readonly businessRegistrationNumber?: string | null;
 }
 
 export interface LoginInput {
   readonly email: string;
   readonly password: string;
+}
+
+export interface RegisterInput {
+  readonly name: string;
+  readonly email: string;
+  readonly password: string;
+  readonly phone: string;
+  readonly facilityName: string;
 }
 
 export function mapBackendRoleToFrontRole(
@@ -68,6 +75,23 @@ export async function loginEndpoint(input: LoginInput): Promise<AuthSession> {
   return session;
 }
 
+export async function registerEndpoint(
+  input: RegisterInput
+): Promise<AuthSession> {
+  const body = await requestJson(
+    "/auth/register",
+    {
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify(input),
+    },
+    { apiPrefix: false }
+  );
+  const session = parseAuthSessionResponse(body);
+  if (!session) throw new Error("회원가입 응답이 올바르지 않습니다.");
+  return session;
+}
+
 export async function restoreSessionEndpoint(): Promise<AuthSession | null> {
   const body = await requestJson(
     "/auth/session",
@@ -102,7 +126,6 @@ export function parseAuthSessionResponse(body: unknown): AuthSession | null {
   }
   return {
     user: mapAuthUser(body.user),
-    token: "",
   };
 }
 

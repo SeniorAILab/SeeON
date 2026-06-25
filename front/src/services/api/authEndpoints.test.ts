@@ -4,6 +4,7 @@ import {
   loginEndpoint,
   mapBackendRoleToFrontRole,
   parseAuthSessionResponse,
+  registerEndpoint,
 } from "./authEndpoints";
 
 function okJsonResponse(body: unknown): Response {
@@ -33,12 +34,11 @@ describe("auth endpoint mappers", () => {
       user: {
         id: "user-1",
         name: "원장",
-        email: "admin@sen.ai",
-        role: "FACILITY_ADMIN",
-        facilityId: "facility-1",
-      },
-      token: "",
-    });
+      email: "admin@sen.ai",
+      role: "FACILITY_ADMIN",
+      facilityId: "facility-1",
+    },
+  });
   });
 
   it("rejects malformed backend session responses", () => {
@@ -86,6 +86,47 @@ describe("auth endpoint mappers", () => {
     expect(session.user.email).toBe("admin@sen.ai");
   });
 
+  it("registers through the backend signup endpoint with cookie credentials", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        okJsonResponse({
+          user: {
+            id: "user-1",
+            email: "owner@example.test",
+            nickname: "홍원장",
+            role: "ADMIN",
+            facilityId: "facility-1",
+          },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const session = await registerEndpoint({
+      name: "홍원장",
+      email: "owner@example.test",
+      password: "Passw0rd!234",
+      phone: "010-1111-2222",
+      facilityName: "ULW 요양원",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/auth/register",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          name: "홍원장",
+          email: "owner@example.test",
+          password: "Passw0rd!234",
+          phone: "010-1111-2222",
+          facilityName: "ULW 요양원",
+        }),
+      })
+    );
+    expect(session.user.email).toBe("owner@example.test");
+  });
+
   it("creates a facility through the backend onboarding endpoint", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -103,7 +144,6 @@ describe("auth endpoint mappers", () => {
 
     const session = await createFacilityEndpoint({
       facilityName: "Happy Care Home",
-      businessRegistrationNumber: "123-45",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -113,7 +153,6 @@ describe("auth endpoint mappers", () => {
         credentials: "include",
         body: JSON.stringify({
           facilityName: "Happy Care Home",
-          businessRegistrationNumber: "123-45",
         }),
       })
     );

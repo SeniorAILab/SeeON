@@ -39,8 +39,8 @@ runner, initialize source registry/pipeline, then expose `/health`, `/status`,
 module and its tests.
 
 Production RTSP is not a serving-lifespan concern. The live path is
-`RTSP -> ml-edge-worker -> backend /ingest/*`; `ml-edge-api` remains a
-private/local FastAPI health, status, models, debug, and control surface. The
+`RTSP -> ml-edge-worker -> ml-edge-api -> backend /ingest/*`; `ml-edge-api` remains a
+private/local FastAPI health, status, models, debug, and control surface, and is the only backend gateway. The
 current RTSP backend is OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only and must not be added as production dependencies without a new
 decision and release-matrix pinning.

@@ -9,7 +9,7 @@ from edge_worker_fixtures import edge_config_payload
 from runtime.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 
 
-def test_edge_worker_config_loads_four_cameras_and_redacts_secrets(tmp_path: Path) -> None:
+def test_edge_worker_config_loads_four_cameras_and_redacts_relay_token(tmp_path: Path) -> None:
     config_path = tmp_path / "ml-worker.yaml"
     config_path.write_text(yaml.safe_dump(edge_config_payload()), encoding="utf-8")
 
@@ -22,9 +22,10 @@ def test_edge_worker_config_loads_four_cameras_and_redacts_secrets(tmp_path: Pat
         "camera-3",
         "camera-4",
     ]
-    assert config.alert_api_url == "http://backend.local/ingest/alerts"
-    assert config.heartbeat_api_url == "http://backend.local/ingest/heartbeat"
-    assert "secret-1" not in repr(config)
+    assert config.relay.url == "http://127.0.0.1:8000"
+    assert config.relay_alert_url == "http://127.0.0.1:8000/relay/alerts"
+    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/relay/heartbeat"
+    assert "relay-token-1" not in repr(config)
 
 
 def test_edge_worker_config_rejects_duplicate_camera_ids(tmp_path: Path) -> None:
@@ -58,29 +59,29 @@ def test_edge_worker_config_normalizes_blank_resident_id(tmp_path: Path) -> None
     assert config.cameras[0].resident_id is None
 
 
-def test_edge_worker_config_rejects_relative_ingest_url(tmp_path: Path) -> None:
+def test_edge_worker_config_rejects_relative_relay_url(tmp_path: Path) -> None:
     payload = edge_config_payload()
-    payload["alert_api_url"] = "/ingest/alerts"
+    payload["relay"]["url"] = "/relay"
     config_path = tmp_path / "ml-worker.yaml"
     config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
-    with pytest.raises(EdgeWorkerConfigError, match="alert_api_url"):
+    with pytest.raises(EdgeWorkerConfigError, match="relay.url"):
         load_edge_worker_config(config_path)
 
 
-def test_edge_worker_config_rejects_blank_ingest_key_id(tmp_path: Path) -> None:
-    payload = edge_config_payload()
-    payload["cameras"][0]["ingest_key_id"] = "  "
-    config_path = tmp_path / "ml-worker.yaml"
-    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
-
-    with pytest.raises(EdgeWorkerConfigError, match="ingest_key_id"):
-        load_edge_worker_config(config_path)
-
-
-def test_edge_worker_config_error_does_not_include_secret_value(tmp_path: Path) -> None:
+def test_edge_worker_config_rejects_backend_credentials(tmp_path: Path) -> None:
     payload = edge_config_payload()
     payload["cameras"][0]["ingest_secret"] = "super-secret-value"
+    config_path = tmp_path / "ml-worker.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises(EdgeWorkerConfigError, match="ingest_secret"):
+        load_edge_worker_config(config_path)
+
+
+def test_edge_worker_config_error_does_not_include_relay_token_value(tmp_path: Path) -> None:
+    payload = edge_config_payload()
+    payload["relay"]["token"] = "super-secret-value"
     payload["cameras"][0]["rtsp_url"] = "not-rtsp"
     config_path = tmp_path / "ml-worker.yaml"
     config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")

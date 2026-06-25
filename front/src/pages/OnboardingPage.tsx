@@ -19,7 +19,6 @@ export function OnboardingPage() {
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
   const setTheme = useUiStore((s) => s.setTheme);
   const [facilityName, setFacilityName] = useState("");
-  const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
 
   useEffect(() => {
     document.documentElement.classList.remove("dark");
@@ -39,7 +38,6 @@ export function OnboardingPage() {
     try {
       const created = await createFacility({
         facilityName: name,
-        businessRegistrationNumber: businessRegistrationNumber.trim() || null,
       });
       resolveForUser(created.facilityId ?? null);
       navigate(defaultPathForUser(created), { replace: true });
@@ -54,7 +52,7 @@ export function OnboardingPage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark size={56} className="mb-3" />
           <h1 className="text-xl font-bold text-ink">시설 등록</h1>
-          <p className="mt-1 text-sm text-ink-soft">처음 로그인한 계정의 시설을 연결합니다.</p>
+          <p className="mt-1 text-sm text-ink-soft">등록된 계정의 시설을 연결합니다.</p>
         </div>
 
         <Card className="p-6">
@@ -64,7 +62,7 @@ export function OnboardingPage() {
             </span>
             <div>
               <p className="text-sm font-semibold text-ink">{user.name}</p>
-              <p className="text-xs text-ink-soft">카카오 로그인 완료</p>
+              <p className="text-xs text-ink-soft">계정 확인 완료</p>
             </div>
           </div>
 
@@ -76,15 +74,6 @@ export function OnboardingPage() {
                 placeholder="예: 늘봄 요양원"
                 autoComplete="organization"
                 required
-              />
-            </Field>
-
-            <Field label="사업자등록번호">
-              <Input
-                value={businessRegistrationNumber}
-                onChange={(event) => setBusinessRegistrationNumber(event.target.value)}
-                placeholder="선택 입력"
-                inputMode="numeric"
               />
             </Field>
 

@@ -20,7 +20,7 @@ This is a pure push stream — the browser does not send data back on the realti
 
 Additional constraints:
 
-- Session authentication must use the `app_session` httpOnly cookie (ADR-033). `EventSource` does
+- Session authentication must use the `app_session` httpOnly cookie (ADR-071). `EventSource` does
   not support the `Authorization` header, so the auth mechanism must be cookie-based.
 - The production alert stream is same-origin at the frontend path `GET /api/sse`. The Next App
   Router route `front/src/app/api/sse/route.ts` proxies to backend `GET /api/sse`, forwarding the
@@ -59,7 +59,7 @@ resumption via `Last-Event-ID`.
 request goes to the single front origin. The SSE handler validates the session JWT and checks
 `ServerSession.revokedAt` on connect and on each keep-alive tick (configurable interval, e.g.,
 30 s). A revoked or expired session causes the server to close the stream — logout semantically
-severs the stream within one keep-alive tick (ADR-033 consequence).
+severs the stream within one keep-alive tick (ADR-071 consequence).
 
 **Null-org rejection**: a session whose `orgId` is null (pre-onboarding) is rejected with 403
 before the stream opens. Only fully onboarded sessions reach the stream.
@@ -206,7 +206,7 @@ of relying on cookies.
 - Cons: tokens in URLs appear in server logs, proxy logs, browser history, and `Referer` headers.
   A JWT in a log line is a leaked credential. The httpOnly cookie is specifically designed to
   prevent JavaScript access to the session token; surfacing it in a URL defeats that property.
-- **Rejected**: security regression relative to the httpOnly cookie model (ADR-033).
+- **Rejected**: security regression relative to the httpOnly cookie model (ADR-071).
 
 ## Consequences
 
@@ -218,7 +218,7 @@ of relying on cookies.
 - Cookie authentication is automatic because the browser connects to first-party `/api/sse`; the
   Next route handler proxies the cookie-bearing stream to backend `/api/sse`.
 - In-process write queue is simple, auditable, and requires no external dependencies at MVP scale.
-- Logout semantically closes the SSE stream within one keep-alive tick (ADR-033).
+- Logout semantically closes the SSE stream within one keep-alive tick (ADR-071).
 
 **Negative / trade-offs:**
 

@@ -1,10 +1,9 @@
-# ADR-071 - Local manual production deploy while Actions-backed CD is paused
+# ADR-072 - Local manual production deploy while Actions-backed CD is paused
 
 - Status: Accepted
 - Date: 2026-06-25
-- Partially supersedes: ADR-068 - Release-gated production deploy
 - Refines: ADR-041, ADR-062, ADR-063, ADR-068
-- Refined by: ADR-072 - Safe production DB migrations
+- Refined by: ADR-073 - Safe production DB migrations
 
 ## Context
 
