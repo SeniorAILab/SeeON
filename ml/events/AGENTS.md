@@ -7,7 +7,7 @@ Own L4 outbound alert/event shape, HMAC signing, publishers, outbox, and backend
 - `schemas.py`: emitted event and alert payload construction.
 - `signing.py`: canonical payload and HMAC helpers.
 - `local_publisher.py`: network-free publisher protocol and logging/stub implementation.
-- `publisher.py`: demo alert-client HTTP shim; do not import this from serving.
+- `publisher.py`: demo alert-client HTTP shim; do not import this from api.
 - `outbox.py`: publisher-backed outbox.
 - `edge_ingest_client.py`: backend alert and heartbeat HTTP client for edge worker.
 
@@ -15,7 +15,7 @@ Own L4 outbound alert/event shape, HMAC signing, publishers, outbox, and backend
 
 Allowed: `contracts` and local `events`.
 
-Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `serving`, `demo`, `training`.
+Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `api`, `demo`, `training`.
 
 ## Focused Tests
 

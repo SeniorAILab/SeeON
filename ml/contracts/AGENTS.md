@@ -14,7 +14,7 @@ Own L0 ML contract types: frames, observations, model protocols, artifact path h
 
 Allowed: standard library and local `contracts` modules.
 
-Forbidden: `features`, `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `serving`, `demo`, `training`, model loading, camera I/O, network I/O.
+Forbidden: `features`, `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`, model loading, camera I/O, network I/O.
 
 ## Focused Tests
 

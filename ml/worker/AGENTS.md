@@ -10,7 +10,7 @@ Own the deployable edge worker CLI/process that reads camera config, builds shar
 
 Allowed: `contracts`, `sources`, `runners`, `runtime`, `domains`, `events`, and local `worker`.
 
-Forbidden: `serving`, `demo`, `training`.
+Forbidden: `api`, `demo`, `training`.
 
 ## Focused Tests
 

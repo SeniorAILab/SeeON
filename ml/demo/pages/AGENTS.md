@@ -10,7 +10,7 @@ Own Streamlit page entrypoints only. Shared controls, rendering, registries, and
 
 Allowed: `demo`, `sources`, and Streamlit page dependencies.
 
-Forbidden: `training`, `serving` route internals, `runtime`, `events`, backend clients, model training.
+Forbidden: `training`, `api` route internals, `runtime`, `events`, backend clients, model training.
 
 ## Focused Tests
 

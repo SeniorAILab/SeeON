@@ -10,7 +10,7 @@ Accepted. Complements ADR-067; does not supersede it.
 
 ## Context
 
-ADR-067 split the ML edge process into `ml-edge-api` and `ml-edge-worker`.
+ADR-067 split the ML edge process into `ml-api` and `ml-worker`.
 That split fixes ownership: production camera loops belong to the worker, while
 FastAPI remains the local API surface for health, status, models, debug
 prediction, and control.
@@ -24,14 +24,14 @@ backend ingest contracts or moving RTSP ownership back into FastAPI.
 The production live path is:
 
 ```text
-RTSP -> ml-edge-worker -> backend /ingest/*
+RTSP -> ml-worker -> backend /ingest/*
 ```
 
-`ml-edge-worker` owns production RTSP capture, model/domain evaluation,
+`ml-worker` owns production RTSP capture, model/domain evaluation,
 heartbeat publishing, and alert/fact publishing to backend `/ingest/alerts` and
 `/ingest/heartbeat`.
 
-`ml-edge-api` is private/local edge infrastructure only. It exposes FastAPI
+`ml-api` is private/local edge infrastructure only. It exposes FastAPI
 health, status, model, debug, and bounded control surfaces. It does not own
 production RTSP streams, does not receive raw frame relay from the worker, and
 does not perform backend ingest side effects.
@@ -86,10 +86,11 @@ claim for the runtime.
 ## Consequences
 
 - Documentation and runbooks must describe native development as
-  `pnpm dev:ml` for FastAPI and `pnpm dev:ml-worker` for the worker, while edge
+  `pnpm dev:ml-api` for FastAPI and `pnpm dev:ml-worker` for the worker, while edge
   deployment uses `compose.edge.yaml`.
-- Deterministic synthetic RTSP-to-stub-ingest smoke testing is the default
-  portable verification path when real cameras or Jetson hardware are absent.
+- Nursing-home video published through RTSP and sent to the real backend
+  `/ingest/*` implementation is the default portable E2E verification path
+  when real cameras or Jetson hardware are absent.
 - Real four-camera and Jetson Nano checks are hardware-gated and must be
   reported separately from deterministic smoke success.
 - Future accelerated video backends can be added behind the worker video
