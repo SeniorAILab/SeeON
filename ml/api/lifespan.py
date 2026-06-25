@@ -9,6 +9,9 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 from fastapi import FastAPI
 
+from api.model import ModelLoadError, get_model
+from api.pipeline import FallPipeline
+from api.source_registry import SourceRegistryError, get_source_registry
 from domains import DOMAIN_REGISTRY
 from events.local_publisher import LoggingEventPublisher
 from events.outbox import Outbox
@@ -19,9 +22,6 @@ from runtime.camera_worker import DomainDetectorProtocol
 from runtime.edge_runtime import EdgeRuntime
 from runtime.incident_manager import IncidentManager
 from runtime.status_store import StatusStore
-from serving.model import ModelLoadError, get_model
-from serving.pipeline import FallPipeline
-from serving.source_registry import SourceRegistryError, get_source_registry
 from sources.registry import SourceRegistry
 
 
@@ -39,7 +39,7 @@ class _ModelMetadataProtocol(Protocol):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Boot serving in ADR-029 order and expose runtime state on ``app.state``."""
+    """Boot api in ADR-029 order and expose runtime state on ``app.state``."""
     _load_config(app)
     device_selector = getattr(app.state, "device_selector", select_device)
     app.state.device = device_selector() if callable(device_selector) else device_selector
@@ -104,8 +104,8 @@ def _warm_model(app: FastAPI, status_store: StatusStore) -> _ServingModelProtoco
     except ModelLoadError as exc:
         status_store.record_ops_event(
             "model.load_failed",
-            "serving",
-            "serving",
+            "api",
+            "api",
             "model.load_failed",
             detail=str(exc),
         )
@@ -121,7 +121,7 @@ def _resolve_sources(app: FastAPI, status_store: StatusStore) -> SourceRegistry 
         status_store.record_ops_event(
             "camera.offline",
             "sources",
-            "serving",
+            "api",
             "camera.offline",
             detail=str(exc),
         )
@@ -131,7 +131,7 @@ def _resolve_sources(app: FastAPI, status_store: StatusStore) -> SourceRegistry 
 def _serving_model_or_error(value) -> _ServingModelProtocol:
     if isinstance(value, _ServingModelProtocol):
         return value
-    raise ModelLoadError("model does not satisfy serving pipeline contract")
+    raise ModelLoadError("model does not satisfy api pipeline contract")
 
 
 def _enabled_domain_detectors() -> tuple[DomainDetectorProtocol, ...]:

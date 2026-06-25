@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import pytest
 
+from api.client import ServingFallClassifier
 from contracts import Frame, FrameObservation
 from demo.classifiers import CLASSIFIER_REGISTRY, ClassifierParams, available_classifier_keys
 from demo.demo_ui import build_model
 from demo.temporal_module import TemporalFallClassifierModule
-from serving.client import ServingFallClassifier
 
 
 class _FakePose:
     """Pose ModelModule stand-in.
 
     build_model constructs a real YoloPoseModule (which loads ultralytics) before
-    routing to the fall classifier. These tests only exercise the routing/serving
+    routing to the fall classifier. These tests only exercise the routing/api
     seam, so we patch in this lightweight pose to keep ultralytics out of
-    sys.modules — the serving import-boundary test (test_serving_model) asserts
+    sys.modules — the api import-boundary test (test_serving_model) asserts
     ultralytics is never imported by the loader path, and that check is global.
     """
 
@@ -47,7 +47,7 @@ def test_removed_rule_based_symbol_is_not_importable() -> None:
 
 
 def test_build_model_rejects_rule_based_key() -> None:
-    with pytest.raises(ValueError, match="serving-only via temporal models"):
+    with pytest.raises(ValueError, match="api-only via temporal models"):
         build_model("n", "rule_based", ClassifierParams())
 
 
