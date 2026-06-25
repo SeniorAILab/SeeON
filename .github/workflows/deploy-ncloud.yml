@@ -1,8 +1,10 @@
 name: Deploy Naver Cloud
 
 on:
-  release:
-    types: [published]
+  # Release-triggered CD is paused while local manual deploy is the current path.
+  # Restore this block when Actions-backed CD is allowed again:
+  # release:
+  #   types: [published]
   workflow_dispatch:
     inputs:
       ref:

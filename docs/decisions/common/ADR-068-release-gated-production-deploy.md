@@ -1,10 +1,16 @@
 # ADR-068 - Release-gated production deploy
 
-- Status: Accepted
+- Status: Accepted; partially superseded by ADR-071 for the temporary local-manual default
 - Date: 2026-06-23
 - Refines: ADR-041, ADR-062, ADR-063
+- Partially superseded by: ADR-071 - Local manual production deploy while Actions-backed CD is paused
 
 ## Context
+
+Update 2026-06-25: ADR-071 temporarily supersedes the release-triggered default
+below. The workflow body and explicit `workflow_dispatch` path are retained, but
+ordinary production deploys use local SHA-pinned image build/push while
+Actions-backed CD is paused for cost control.
 
 The Naver Cloud deploy workflow originally ran after the `CI` workflow succeeded
 on `main`. That kept deploys small, but it also meant every merge could spend
