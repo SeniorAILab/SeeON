@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, TypeAlias
 from urllib.parse import urlsplit, urlunsplit
+from zoneinfo import ZoneInfo
 
 import yaml
 from pydantic import (
@@ -15,19 +17,17 @@ from pydantic import (
     Field,
     SecretStr,
     ValidationError,
-    ValidationInfo,
     field_validator,
     model_validator,
 )
 
 EDGE_CAMERA_CONFIG_ENV = "EDGE_CAMERA_CONFIG"
-INGEST_ENDPOINT_SUFFIXES: Final = {
-    "alert_api_url": "/ingest/alerts",
-    "heartbeat_api_url": "/ingest/heartbeat",
-}
+EDGE_RELAY_ALERTS_PATH: Final = "/relay/alerts"
+EDGE_RELAY_HEARTBEAT_PATH: Final = "/relay/heartbeat"
 KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
+HHMM_PATTERN: Final = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 ConfigValue: TypeAlias = (
     str | int | float | bool | None | list["ConfigValue"] | dict[str, "ConfigValue"]
 )
@@ -48,13 +48,11 @@ class CameraRuntimeConfig(BaseModel):
     facility_id: str = Field(min_length=1)
     resident_id: str | None = None
     rtsp_url: str = Field(min_length=1)
-    ingest_key_id: str = Field(min_length=1)
-    ingest_secret: SecretStr = Field(repr=False)
     heartbeat_interval_sec: float = Field(default=30.0, gt=0)
     frame_stride: int = Field(default=1, gt=0)
     label: str | None = None
 
-    @field_validator("camera_id", "facility_id", "ingest_key_id")
+    @field_validator("camera_id", "facility_id")
     @classmethod
     def _strip_required_text(cls, value: str) -> str:
         stripped = value.strip()
@@ -79,11 +77,16 @@ class CameraRuntimeConfig(BaseModel):
         return None if stripped == "" else stripped
 
 
-class IngestConfig(BaseModel):
+class RelayConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    alert_api_url: str = Field(min_length=1)
-    heartbeat_api_url: str | None = None
+    url: str = Field(min_length=1)
+    token: SecretStr = Field(repr=False)
+
+    @field_validator("url")
+    @classmethod
+    def _require_http_url(cls, value: str) -> str:
+        return _normalize_http_base_url(value, "relay.url")
 
 
 class WorkerRuntimeConfig(BaseModel):
@@ -138,10 +141,58 @@ class WorkerModelsConfig(BaseModel):
     fall: FallModelConfig | None = None
 
 
+class NightWindowConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    start: str
+    end: str
+    tz: str
+
+    @field_validator("start", "end")
+    @classmethod
+    def _validate_hhmm(cls, value: str) -> str:
+        if not HHMM_PATTERN.fullmatch(value):
+            raise ValueError("night window time must use HH:MM")
+        return value
+
+    @field_validator("tz")
+    @classmethod
+    def _validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except Exception as exc:
+            raise ValueError("night window tz must be a valid IANA timezone") from exc
+        return value
+
+
+class FallDomainConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = True
+
+
+class BedExitDomainConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = True
+    night_window: NightWindowConfig | None = None
+
+
+class DisabledDomainConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: Literal[False] = False
+
+
 class DomainsConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     enabled: tuple[str, ...] | None = None
+    fall: FallDomainConfig | None = None
+    bed_exit: BedExitDomainConfig | None = None
+    wheelchair_standup: DisabledDomainConfig | None = None
+    long_lie: DisabledDomainConfig | None = None
+    risk: DisabledDomainConfig | None = None
 
     @field_validator("enabled")
     @classmethod
@@ -153,14 +204,38 @@ class DomainsConfig(BaseModel):
             raise ValueError(f"domains.enabled contains unknown domain: {', '.join(unknown)}")
         return value
 
+    @model_validator(mode="after")
+    def _reject_mixed_legacy_and_map(self) -> DomainsConfig:
+        if self.enabled is not None and any(
+            name in self.model_fields_set for name in KNOWN_DOMAIN_NAMES
+        ):
+            raise ValueError("domains.enabled cannot be combined with per-domain config")
+        return self
+
+    def domain_config(self, name: str) -> BaseModel | None:
+        if name not in KNOWN_DOMAIN_NAMES:
+            raise ValueError(f"unknown domain: {name}")
+        return getattr(self, name)
+
+    @property
+    def enabled_domains(self) -> tuple[str, ...] | None:
+        if self.enabled is not None:
+            return self.enabled
+        configured = tuple(
+            name
+            for name in ("fall", "bed_exit", "wheelchair_standup", "long_lie", "risk")
+            if name in self.model_fields_set
+            and (config := self.domain_config(name)) is not None
+            and config.enabled
+        )
+        return configured if configured else None
+
 
 class EdgeWorkerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     version: int = 1
-    ingest: IngestConfig | None = None
-    alert_api_url: str = Field(min_length=1)
-    heartbeat_api_url: str | None = None
+    relay: RelayConfig
     runtime: WorkerRuntimeConfig = Field(default_factory=WorkerRuntimeConfig)
     models: WorkerModelsConfig = Field(default_factory=WorkerModelsConfig)
     domains: DomainsConfig = Field(default_factory=DomainsConfig)
@@ -168,35 +243,23 @@ class EdgeWorkerConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _flatten_ingest(cls, data: ConfigValue) -> ConfigValue:
+    def _reject_legacy_backend_ingest(cls, data: ConfigValue) -> ConfigValue:
         if not isinstance(data, dict):
             return data
-        ingest = data.get("ingest")
-        if not isinstance(ingest, dict):
-            return data
-        flattened = dict(data)
-        flattened.setdefault("alert_api_url", ingest.get("alert_api_url"))
-        flattened.setdefault("heartbeat_api_url", ingest.get("heartbeat_api_url"))
-        return flattened
-
-    @field_validator("alert_api_url", "heartbeat_api_url")
-    @classmethod
-    def _require_http_url(cls, value: str | None, info: ValidationInfo) -> str | None:
-        if value is None:
-            return None
-        stripped = value.strip()
-        parsed = urlsplit(stripped)
-        if parsed.scheme.lower() not in {"http", "https"} or parsed.netloc == "":
-            raise EdgeWorkerConfigError(f"{info.field_name} must be absolute HTTP(S)")
-        if parsed.query or parsed.fragment:
-            raise EdgeWorkerConfigError(f"{info.field_name} must not include query or fragment")
-        path = parsed.path.rstrip("/")
-        expected_suffix = INGEST_ENDPOINT_SUFFIXES.get(str(info.field_name))
-        if expected_suffix is not None and not path.endswith(expected_suffix):
-            raise EdgeWorkerConfigError(
-                f"{info.field_name} must target backend {expected_suffix}"
+        legacy_fields = [
+            name for name in ("ingest", "alert_api_url", "heartbeat_api_url") if name in data
+        ]
+        for index, camera in enumerate(data.get("cameras", ())):
+            if isinstance(camera, dict):
+                for name in ("ingest_key_id", "ingest_secret"):
+                    if name in camera:
+                        legacy_fields.append(f"cameras.{index}.{name}")
+        if legacy_fields:
+            raise ValueError(
+                "worker config must use relay only; backend ingest fields are forbidden: "
+                + ", ".join(legacy_fields)
             )
-        return urlunsplit(parsed._replace(path=path))
+        return data
 
     def model_post_init(self, __context: None) -> None:
         duplicate_ids = sorted(
@@ -209,15 +272,25 @@ class EdgeWorkerConfig(BaseModel):
 
     @property
     def enabled_domains(self) -> tuple[str, ...] | None:
-        return self.domains.enabled
+        return self.domains.enabled_domains
 
     @property
-    def resolved_heartbeat_api_url(self) -> str:
-        if self.heartbeat_api_url is not None:
-            return self.heartbeat_api_url
-        if self.alert_api_url.endswith("/alerts"):
-            return f"{self.alert_api_url.removesuffix('/alerts')}/heartbeat"
-        return f"{self.alert_api_url.rstrip('/')}/heartbeat"
+    def relay_alert_url(self) -> str:
+        return f"{self.relay.url}{EDGE_RELAY_ALERTS_PATH}"
+
+    @property
+    def relay_heartbeat_url(self) -> str:
+        return f"{self.relay.url}{EDGE_RELAY_HEARTBEAT_PATH}"
+
+
+def _normalize_http_base_url(value: str, field_name: str) -> str:
+    stripped = value.strip()
+    parsed = urlsplit(stripped)
+    if parsed.scheme.lower() not in {"http", "https"} or parsed.netloc == "":
+        raise EdgeWorkerConfigError(f"{field_name} must be absolute HTTP(S)")
+    if parsed.query or parsed.fragment:
+        raise EdgeWorkerConfigError(f"{field_name} must not include query or fragment")
+    return urlunsplit(parsed._replace(path=parsed.path.rstrip("/")))
 
 
 def load_edge_worker_config(path: str | Path) -> EdgeWorkerConfig:
@@ -276,11 +349,15 @@ if __name__ == "__main__":
 __all__ = [
     "EDGE_CAMERA_CONFIG_ENV",
     "CameraRuntimeConfig",
+    "BedExitDomainConfig",
+    "DisabledDomainConfig",
     "DomainsConfig",
     "EdgeWorkerConfig",
     "EdgeWorkerConfigError",
     "FallModelConfig",
-    "IngestConfig",
+    "FallDomainConfig",
+    "RelayConfig",
+    "NightWindowConfig",
     "WorkerModelsConfig",
     "WorkerRuntimeConfig",
     "load_edge_worker_config",

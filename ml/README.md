@@ -4,10 +4,10 @@ Python (uv) project. Owns **two lifecycles**:
 
 - `training/` — **batch**: dataset → model artifact.
 - `api/` — **online API**: private/local FastAPI app exposing health, status, models, debug routes, and bounded control surfaces.
-- `worker.edge_worker` — **online worker**: production RTSP camera ownership, model/domain evaluation, heartbeat, and backend ingest publishing.
+- `worker.edge_worker` — **online worker**: production RTSP camera ownership, model/domain evaluation, heartbeat/alert fact creation, and local relay to `ml-api`.
 
-Production live path: `RTSP -> ml-worker -> backend /ingest/*`. `ml-api`
-does not own production RTSP, raw frame relay, or backend ingest side effects.
+Production live path: `RTSP -> ml-worker -> ml-api -> backend /ingest/*` (ADR-067/029). `ml-api`
+does not own production RTSP or raw frame relay; it owns backend ingest gateway side effects.
 
 Plus `demo/` (Streamlit ML-demo UI), `tests/`, and `models/` artifact storage.
 
@@ -65,9 +65,9 @@ EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
-`EDGE_CAMERA_CONFIG` is a gitignored per-camera YAML file. Each camera entry
-holds the RTSP URL, backend `/ingest/*` URLs, camera/facility/resident identity,
-`ingest_key_id`, and `ingest_secret`.
+`EDGE_CAMERA_CONFIG` is a gitignored YAML file. It holds the local `ml-api`
+relay URL/token plus per-camera RTSP URL and camera/facility/resident identity.
+Backend `/ingest/*` URLs and key/secret configuration live in `ml-api`.
 
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future
@@ -76,7 +76,7 @@ For development without a live camera, run `pnpm dev:rtsp -- /path/to/video.mp4`
 from the repo root and point a camera entry at
 `rtsp://127.0.0.1:8554/nursing-home`. Run
 `scripts/ml-worker-nursing-home-backend-e2e.sh` from the repo root for the
-production-shaped nursing-home RTSP flow against the real backend ingest
+production-shaped nursing-home RTSP flow through `ml-api` to the real backend ingest
 implementation; it reuses the same looping video publisher.
 
 ## Boundaries
