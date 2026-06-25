@@ -61,6 +61,14 @@ describe('KakaoClient.buildAuthorizeUrl scope resolution', () => {
     expect(url.searchParams.get('state')).toBe('test-state');
   });
 
+  it('rejects the local placeholder REST API key before redirecting to Kakao', () => {
+    expect(() =>
+      client({
+        KAKAO_REST_API_KEY: 'dev-placeholder-kakao-rest-api-key',
+      }).buildAuthorizeUrl('test-state'),
+    ).toThrow(ServiceUnavailableException);
+  });
+
   it('resolveScopes is reusable for token-scope alignment (no broad fallback)', () => {
     expect(client().resolveScopes()).toBe('talk_message');
     expect(client().resolveScopes()).not.toContain('profile_nickname');

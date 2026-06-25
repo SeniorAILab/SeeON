@@ -4,6 +4,7 @@ import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RouterBootstrap } from "@/components/RouterBootstrap";
 import { LoginPage } from "@/pages/LoginPage";
+import { SignupPage } from "@/pages/SignupPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { NowPage } from "@/pages/staff/NowPage";
 import { RoomsPage } from "@/pages/staff/RoomsPage";
@@ -31,6 +32,14 @@ export const router = createBrowserRouter([
     element: (
       <RouterBootstrap>
         <LoginPage />
+      </RouterBootstrap>
+    ),
+  },
+  {
+    path: "/signup",
+    element: (
+      <RouterBootstrap>
+        <SignupPage />
       </RouterBootstrap>
     ),
   },

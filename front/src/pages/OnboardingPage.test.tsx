@@ -72,7 +72,6 @@ describe("OnboardingPage", () => {
         credentials: "include",
         body: JSON.stringify({
           facilityName: "Happy Care Home",
-          businessRegistrationNumber: null,
         }),
       })
     );

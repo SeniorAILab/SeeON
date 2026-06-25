@@ -29,7 +29,7 @@ source: deep-interview (.gjc/specs) → ralplan consensus (.gjc/plans/ralplan/20
 - F9: DTO 레이어 부재: residents/cameras/guardians 컨트롤러 인라인 타입 + validation 없음.
 - F10: IngestController 로직 과적재: 검증/freshness/tenant/멱등키/P2002/outbox 모두 컨트롤러 인라인.
 - F11: front 소비 경로: `/api/status`, `/api/alerts(?limit/beforeSeq)`, `/api/alerts/:id`, `/api/alerts/:id/ack`, `/api/cameras|residents|guardians`, `/api/snapshots/:alertId`, `/api/sse`, `/auth/kakao/login`, `/auth/logout`, `/auth/session`, `/orgs`.
-- F12: 기존 ADR: ADR-035/036/037/038, ADR-042/043/044, ADR-022/023(ML=예측, backend=정책), ADR-009.
+- F12: 기존 ADR: ADR-035/036/037/038, ADR-071/043/044, ADR-022/023(ML=예측, backend=정책), ADR-009.
 - F13: Kakao 자가알림 이미 배선: `kakao.client.ts buildAuthorizeUrl` scope=`talk_message profile_nickname`; `/ingest/alerts`→`ensureOutboxForIngest`→`findKakaoRecipients(orgId)`가 토큰 보유 org 유저 전원에게 per-user send-to-me fan-out. 레거시 `/api.alerts/events`(createAndDispatch)는 per-user 아님 → 제거 시 per-user 경로로 일원화.
 
 ## Decisions (확정)

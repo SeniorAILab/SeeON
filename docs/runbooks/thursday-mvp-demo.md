@@ -8,7 +8,7 @@
 ## 0. 외부 선행조건 (Phase 0 — 코드 아님, 사용자 수동)
 > 이게 안 되면 카카오 로그인도 알림도 동작하지 않는다. 데모 전날까지 완료할 것.
 
-- 카카오 Developers 앱: 카카오 로그인 활성화, 동의항목 `talk_message` + `profile_nickname`; **나 + 형 둘 다 앱 '팀원'(테스트 사용자) 등록**(개발 단계에선 등록 사용자만 `talk_message` 동의 가능); Redirect URI `http://localhost:8080/auth/kakao/callback`.
+- 카카오 Developers 앱: 카카오 로그인 활성화, 동의항목 `talk_message`; **나 + 형 둘 다 앱 '팀원'(테스트 사용자) 등록**(개발 단계에선 등록 사용자만 `talk_message` 동의 가능); Redirect URI `http://localhost:8080/auth/kakao/callback`. `profile_nickname`은 기본 필수가 아니며 닉네임 동의항목을 의도적으로 승인·설정한 경우에만 `KAKAO_SCOPES="talk_message profile_nickname"`로 opt-in한다.
 - repo root `.env.local` (`.env.local.example` 복사 후 실값):
   - `KAKAO_REST_API_KEY=<실키>`, (선택) `KAKAO_CLIENT_SECRET`
   - `KAKAO_REDIRECT_URI=http://localhost:8080/auth/kakao/callback`
@@ -91,7 +91,7 @@ DEMO_FACILITY_ID=demo-org-01
 
 ## 8. #226 업데이트 — Kakao scope env화 + 한글 리치 메시지
 
-이 브랜치(`feat/226`)가 위 절차에 더하는 델타. 관련: ADR-051(scope), ADR-052(메시지 DTO/포맷), ADR-053(수신자 모델).
+이 브랜치(`feat/226`)가 위 절차에 더하는 델타. 관련: ADR-071(scope/auth), ADR-052(메시지 DTO/포맷), ADR-053(수신자 모델).
 
 - **콘솔 동의항목 부담 감소**: scope 기본값이 이제 `talk_message`만이다(`KakaoClient.resolveScopes`). **`profile_nickname` 동의항목은 더 이상 필수가 아니다** — 닉네임이 필요해 일부러 켤 때만 `KAKAO_SCOPES="talk_message profile_nickname"`로 opt-in. profile_nickname 미동의로 인한 `invalid_scope`가 사라진다. (닉네임 미수집 시 `Kakao User`로 폴백.)
 - **env 추가**(root `.env.local`):

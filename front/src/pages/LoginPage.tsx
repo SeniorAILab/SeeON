@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ShieldCheck, UserPlus } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
@@ -19,6 +19,7 @@ function KakaoSymbol({ className }: { className?: string }) {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const login = useAuthStore((s) => s.login);
   const kakaoLogin = useAuthStore((s) => s.kakaoLogin);
   const error = useAuthStore((s) => s.error);
@@ -27,6 +28,7 @@ export function LoginPage() {
   const setTheme = useUiStore((s) => s.setTheme);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const authError = authErrorMessage(searchParams.get("auth_error"));
 
   useEffect(() => {
     document.documentElement.classList.remove("dark");
@@ -52,7 +54,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#eef2fb] to-bg p-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-[#eef2fb] to-bg p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark size={56} className="mb-3" />
@@ -112,10 +114,20 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {error && (
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-4 w-full"
+            onClick={() => navigate("/signup")}
+          >
+            <UserPlus className="h-4 w-4" />
+            회원가입
+          </Button>
+
+          {(authError || error) && (
             <div className="mt-4">
               <p className="rounded-lg bg-status-dangerBg px-3 py-2 text-sm text-status-danger">
-                {error}
+                {authError ?? error}
               </p>
             </div>
           )}
@@ -129,4 +141,16 @@ export function LoginPage() {
       </div>
     </div>
   );
+}
+
+function authErrorMessage(code: string | null): string | null {
+  switch (code) {
+    case "kakao_unavailable":
+    case "kakao_config":
+      return "카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+    case "kakao_unregistered":
+      return "등록된 카카오 계정이 없습니다. 원장님은 회원가입을 진행하고, 직원은 관리자에게 계정 등록을 요청해 주세요.";
+    default:
+      return null;
+  }
 }
