@@ -162,11 +162,7 @@ function resolveDeploySha(ref) {
 }
 
 function resolveGithubActor() {
-  try {
-    return capture("gh", ["api", "user", "--jq", ".login"]);
-  } catch {
-    return "GoBeromsu";
-  }
+  return capture("gh", ["api", "user", "--jq", ".login"]);
 }
 
 function ensureSshKnownHost(host, dryRun) {
