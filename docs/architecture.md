@@ -88,7 +88,7 @@ NestJS 11, `@nestjs/config`, Prisma 6 (PostgreSQL). Listens on `PORT` (local def
 
 Key responsibilities (all deferred, ownership defined now):
 
-- Call ML API (`ML_SERVING_URL=http://localhost:8000`) with a video window
+- Call ML API (`ML_SERVING_URL=http://localhost:8000`) with a video window — dormant ADR-048 pull seam; the live path is edge-push (`ml-worker` → `ml-api` → backend `/ingest/*`, ADR-029/067)
 - Apply alert policy (threshold, dedup, rate-limit)
 - Dispatch webhooks (Kakao alert, etc.)
 - Persist all events to PostgreSQL via Prisma
@@ -101,7 +101,7 @@ Independent uv project. Two distinct lifecycles share one project:
 
 | Lifecycle            | Entry                                          | Runtime       | Trigger                   |
 | -------------------- | ---------------------------------------------- | ------------- | ------------------------- |
-| **Serving** (online) | `api/main.py` (FastAPI)                        | milliseconds  | HTTP request from backend |
+| **Serving** (online) | `api/main.py` (FastAPI)                        | milliseconds  | edge relay + debug HTTP (backend pull dormant, ADR-048) |
 | **Training** (batch) | `training/` (scaffolded; pipeline operational) | minutes–hours | manual / scheduled job    |
 | **Demo** (dev tool)  | `demo/app.py` (Streamlit)                      | interactive   | developer                 |
 
