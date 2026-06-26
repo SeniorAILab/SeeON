@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.heartbeat_store import get_heartbeat_store
 from events.schemas import AlertEventType
 
 RELAY_TOKEN_HEADER = "X-Edge-Relay-Token"
@@ -80,6 +81,9 @@ def relay_heartbeat(
 ) -> dict[str, str]:
     _authorize(request, relay_token)
     _camera_binding(request, payload.camera_id, payload.facility_id)
+    # Stamp local liveness AFTER auth + camera binding and BEFORE backend egress
+    # so /status reflects edge-local truth even if backend egress fails.
+    get_heartbeat_store(request.app).record(payload.camera_id, payload.facility_id)
     client = _backend_ingest_client(request)
     if not client.send_heartbeat():
         raise HTTPException(

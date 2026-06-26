@@ -6,7 +6,7 @@ import pytest
 import yaml
 from edge_worker_fixtures import edge_config_payload
 
-from runtime.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
+from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 
 
 def test_edge_worker_config_loads_four_cameras_and_redacts_relay_token(tmp_path: Path) -> None:
