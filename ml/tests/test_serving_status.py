@@ -2,20 +2,42 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from api.heartbeat_store import HeartbeatStore
 from api.main import create_app, no_lifespan
-from runtime.status_store import CameraStatus, StatusStore
 
 
-def test_status_reflects_status_store_ops_and_camera_state() -> None:
-    store = StatusStore()
-    store.set_status("cam-a", "facility-a", CameraStatus.OFFLINE, error_category="camera.offline")
-    store.record_ops_event("camera.offline", "cam-a", "facility-a", "camera.offline", detail="down")
+def test_status_reports_online_and_never_seen_from_heartbeats() -> None:
     app = create_app(lifespan=no_lifespan)
-    app.state.status_store = store
+    app.state.camera_inventory = {
+        "cam-a": {"camera_id": "cam-a", "facility_id": "fac-1"},
+        "cam-b": {"camera_id": "cam-b", "facility_id": "fac-1"},
+    }
+    store = HeartbeatStore(stale_after_sec=90.0)
+    store.record("cam-a", "fac-1")
+    app.state.heartbeat_store = store
 
     response = TestClient(app).get("/status")
 
     assert response.status_code == 200
     body = response.json()
-    assert body["cameras"]["cam-a"]["status"] == "OFFLINE"
-    assert body["ops_events"][0]["event_type"] == "camera.offline"
+    assert body["cameras"]["cam-a"]["status"] == "online"
+    assert body["cameras"]["cam-b"]["status"] == "never_seen"
+    assert body["stale_after_sec"] == 90.0
+
+
+def test_status_defaults_to_never_seen_without_heartbeats() -> None:
+    app = create_app(lifespan=no_lifespan)
+    app.state.camera_inventory = {"cam-x": {"camera_id": "cam-x", "facility_id": "fac"}}
+
+    body = TestClient(app).get("/status").json()
+
+    assert body["cameras"]["cam-x"]["status"] == "never_seen"
+
+
+def test_status_does_not_read_worker_runtime_state() -> None:
+    # /status must derive purely from the api-owned heartbeat store, never from a
+    # worker runtime object (zero cross-boundary shared state).
+    app = create_app(lifespan=no_lifespan)
+    body = TestClient(app).get("/status").json()
+    assert body == {"cameras": {}, "stale_after_sec": HeartbeatStore().stale_after_sec}
+    assert not hasattr(app.state, "runtime")

@@ -9,7 +9,7 @@ from edge_worker_fixtures import edge_config_payload
 from pydantic import ValidationError
 
 from events.edge_ingest_client import EdgeIngestClient
-from runtime.edge_worker_config import EdgeWorkerConfig
+from worker.edge_worker_config import EdgeWorkerConfig
 
 
 def test_edge_worker_config_uses_local_relay_and_has_no_backend_ingest_urls() -> None:

@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from contracts.frame import Frame
-from runtime.camera_worker import CameraWorker
-from runtime.latest_frame import LatestFrameBuffer
-from runtime.status_store import CameraStatus, StatusStore
+from worker.camera_worker import CameraWorker
+from worker.latest_frame import LatestFrameBuffer
+from worker.status_store import CameraStatus, StatusStore
 
 
 class HeartbeatSink(Protocol):

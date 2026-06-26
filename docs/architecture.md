@@ -42,7 +42,7 @@ eldercare-fall-ai/                  ← orchestration layer only (no app deps he
 │   ├── runners/                   ← L1 model/runtime adapters and warmup
 │   ├── perception/                ← L2 observation building, tracking, bed detection
 │   ├── domains/                   ← L3 fall/bed-exit/long-lie/risk domain logic
-│   ├── runtime/                   ← L3 edge runtime orchestration and status
+│   ├── worker/                    ← ml-worker process + worker-owned live orchestration/state
 │   ├── events/                    ← L4 alert/event schemas, signing, publishing
 │   ├── api/                   ← L5 FastAPI: /health, /status, /models, /debug/predict/*
 │   ├── training/                  ← batch lifecycle; pipeline operational
@@ -105,12 +105,12 @@ Independent uv project. Two distinct lifecycles share one project:
 | **Training** (batch) | `training/` (scaffolded; pipeline operational) | minutes–hours | manual / scheduled job    |
 | **Demo** (dev tool)  | `demo/app.py` (Streamlit)                      | interactive   | developer                 |
 
-Serving exposes `GET /health`, `GET /status`, `GET /models`, `POST /debug/predict/window`, and `POST /debug/predict/source`. The temporary `POST /predict` alias is removed. Lifespan boot order is detector model → pose warmup → source registry/pipeline → routes. The `FallDetector` class in `api/model.py` loads `ml/models/fall/<model_type>/metadata.json`; model weights are gitignored and must be placed manually (or produced by training). See ADR-015 for the `ml/models/` single-root layout.
+Serving exposes `GET /health`, `GET /status`, `GET /models`, `POST /debug/predict/window`, and `POST /debug/predict/source`. The temporary `POST /predict` alias is removed. `ml-api` boots as a thin gateway (config → device/model warmup → debug pipeline → backend-ingest gateway → heartbeat store → bounded debug source registry → readiness); it does not assemble camera loops or worker runtime (ADR-067). `/status` is derived from the relay-heartbeat store; production camera loops run in `ml-worker`. The fall runner loads `ml/models/fall/<model_type>/metadata.json`; model weights are gitignored and must be placed manually (or produced by training). See ADR-015 for the `ml/models/` single-root layout.
 
 Dependency ladder: `contracts/features` (L0) → `sources/runners` (L1) →
-`perception` (L2) → `domains/runtime` (L3) → `events` (L4) →
-`api/demo` (L5). Lower layers never import higher layers; `ml/core/` and
-`ml/util/` are removed.
+`perception` (L2) → `domains` (L3) → `events` (L4) → `api/demo` (L5). Lower
+layers never import higher layers. `ml-worker` owns the live orchestration/state
+(there is no `runtime` package; ADR-067); `ml/core/` and `ml/util/` are removed.
 
 Runs via: `pnpm dev:ml` → `uv run --directory ml uvicorn api.main:app --reload --host 127.0.0.1 --port 8000`
 

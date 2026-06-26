@@ -5,7 +5,7 @@ import threading
 import numpy as np
 
 from contracts.frame import Frame
-from runtime.latest_frame import LatestFrameBuffer
+from worker.latest_frame import LatestFrameBuffer
 
 
 def test_latest_frame_buffer_overwrites_stale_pending_frame() -> None:

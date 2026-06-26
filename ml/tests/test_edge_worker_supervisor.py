@@ -7,10 +7,10 @@ import numpy as np
 
 from contracts.frame import Frame, FrameSource
 from contracts.observation import FrameObservation
-from runtime.camera_worker import CameraWorker, RunnerOutput
-from runtime.edge_worker_supervisor import EdgeWorkerSupervisor
-from runtime.scheduler import Scheduler
-from runtime.status_store import CameraStatus, StatusStore
+from worker.camera_worker import CameraWorker, RunnerOutput
+from worker.edge_worker_supervisor import EdgeWorkerSupervisor
+from worker.scheduler import Scheduler
+from worker.status_store import CameraStatus, StatusStore
 
 
 class _FiniteSource:
@@ -53,9 +53,7 @@ class _ObservationRecorder:
     def __init__(self) -> None:
         self.observations: list[FrameObservation] = []
 
-    def update(
-        self, observation: FrameObservation, time_sec: float | None = None
-    ) -> None:
+    def update(self, observation: FrameObservation, time_sec: float | None = None) -> None:
         del time_sec
         self.observations.append(observation)
 

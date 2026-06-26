@@ -37,7 +37,7 @@ config_path="$(cd "$(dirname "$config")" && pwd)/$(basename "$config")"
 urls_output="$(
   uv run --directory "$repo_root/ml" python - "$config_path" <<'PY'
 import sys
-from runtime.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
+from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 
 try:
     config = load_edge_worker_config(sys.argv[1])
