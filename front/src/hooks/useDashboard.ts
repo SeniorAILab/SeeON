@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { buildSseUrl, isAbsoluteApiUrl, USE_MOCK } from "@/services/apiClient";
 import { dashboardService } from "@/services/dashboardService";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
@@ -19,12 +20,42 @@ export function useDashboard(pollMs = 20_000) {
     setLoading(false);
   }, [facilityId]);
 
+  const handleSessionInvalid = useCallback(() => {
+    useAuthStore.getState().logout().catch(() => {
+      useAuthStore.setState({ user: null });
+    });
+  }, []);
+
+
   useEffect(() => {
     setLoading(true);
     reload();
     const t = setInterval(reload, pollMs);
     return () => clearInterval(t);
   }, [reload, pollMs]);
+
+  useEffect(() => {
+    if (USE_MOCK || typeof EventSource === "undefined") return;
+
+    const url = buildSseUrl();
+    const eventSource = isAbsoluteApiUrl(url)
+      ? new EventSource(url, { withCredentials: true })
+      : new EventSource(url);
+
+    eventSource.onmessage = reload;
+    eventSource.addEventListener("alert", reload);
+    eventSource.addEventListener("status", reload);
+    eventSource.addEventListener("status-snapshot", reload);
+    eventSource.addEventListener("session-invalid", () => {
+      eventSource.close();
+      handleSessionInvalid();
+    });
+    eventSource.onerror = () => {
+      // EventSource reconnects automatically; polling remains as fallback.
+    };
+
+    return () => eventSource.close();
+  }, [handleSessionInvalid, reload]);
 
   return { data, loading, reload };
 }

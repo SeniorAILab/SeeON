@@ -24,7 +24,7 @@ import type {
 } from './dto/resident.dto.js';
 import { ResidentsService } from './residents.service.js';
 
-@Controller('api/residents')
+@Controller({ path: 'residents', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ResidentsController {

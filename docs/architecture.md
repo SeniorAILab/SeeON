@@ -42,7 +42,7 @@ eldercare-fall-ai/                  ← orchestration layer only (no app deps he
 │   ├── runners/                   ← L1 model/runtime adapters and warmup
 │   ├── perception/                ← L2 observation building, tracking, bed detection
 │   ├── domains/                   ← L3 fall/bed-exit/long-lie/risk domain logic
-│   ├── runtime/                   ← L3 edge runtime orchestration and status
+│   ├── worker/                    ← ml-worker process + worker-owned live orchestration/state
 │   ├── events/                    ← L4 alert/event schemas, signing, publishing
 │   ├── api/                   ← L5 FastAPI: /health, /status, /models, /debug/predict/*
 │   ├── training/                  ← batch lifecycle; pipeline operational
@@ -76,7 +76,7 @@ eldercare-fall-ai/                  ← orchestration layer only (no app deps he
 
 ### 1. `front/` — Product UI
 
-Vite 5 + React 18 + Tailwind CSS v3, React Router for routing. The frontend defaults to real backend mode (`VITE_USE_MOCK` unset or `false`) through the apiClient seam. Login/session/facility onboarding is backend-direct in dev/prod via email/password `POST /auth/login`, Kakao OAuth for existing Kakao-linked local accounts, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` keeps the mock runtime available only for tests/demo-only surfaces while remaining dashboard/admin service wiring is replaced incrementally. Realtime transport strategy (SSE / WebSocket / polling) is not yet finalized.
+Vite 5 + React 18 + Tailwind CSS v3, React Router for routing. The frontend defaults to real backend mode (`VITE_USE_MOCK` unset or `false`) through the apiClient seam. Login/session/facility onboarding is backend-direct in dev/prod via email/password `POST /auth/login`, Kakao OAuth for existing Kakao-linked local accounts, `/auth/session`, and `POST /api/v1/facilities`; explicit `VITE_USE_MOCK=true` keeps the mock runtime available only for tests/demo-only surfaces while remaining dashboard/admin service wiring is replaced incrementally. Realtime transport strategy (SSE / WebSocket / polling) is not yet finalized.
 
 Runs via: `pnpm dev:front` → `pnpm --filter front dev`
 
@@ -84,11 +84,11 @@ Runs via: `pnpm dev:front` → `pnpm --filter front dev`
 
 NestJS 11, `@nestjs/config`, Prisma 6 (PostgreSQL). Listens on `PORT` (local default 8080 from `.env.local`).
 
-`AppModule` wires `ConfigModule` (global, reads root `.env.local` for native/local runs) and `PrismaModule`. The domain model (facility tenant root, auth/session, floor, space, zone, resident, residentAssignment, guardian, camera, alert, residentStatus) is defined in the Prisma schema with facility-scoped row-level security on the `app.facility_id` GUC ([ADR-031](decisions/backend/ADR-031-prisma-domain-model.md), superseded for the facility rename + placement domain by [ADR-058](decisions/backend/ADR-058-facility-placement-domain-model.md)/[ADR-059](decisions/backend/ADR-059-facility-rls-guc-rename.md)). Placement/resident CRUD is implemented; camera/space-status/detection-event/alert-rule/resident-risk read models are guarded 501 skeletons pending the ML read-model.
+`AppModule` wires `ConfigModule` (global, reads root `.env.local` for native/local runs) and `PrismaModule`. The domain model (facility tenant root, auth/session, floor, space, zone, resident, residentAssignment, guardian, camera, alert, residentStatus) is defined in the Prisma schema with facility-scoped row-level security on the `app.facility_id` GUC ([ADR-031](decisions/backend/ADR-031-prisma-domain-model.md), superseded for the facility rename + placement domain by [ADR-058](decisions/backend/ADR-058-facility-placement-domain-model.md)/[ADR-059](decisions/backend/ADR-059-facility-rls-guc-rename.md)). Placement/resident CRUD is implemented; space-status and resident-risk read models are guarded 501 skeletons pending the ML read-model, while the alert-rule and detection-event skeleton routes have been removed.
 
 Key responsibilities (all deferred, ownership defined now):
 
-- Call ML API (`ML_SERVING_URL=http://localhost:8000`) with a video window
+- Call ML API (`ML_SERVING_URL=http://localhost:8000`) with a video window — dormant ADR-048 pull seam; the live path is edge-push (`ml-worker` → `ml-api` → backend `/ingest/*`, ADR-029/067)
 - Apply alert policy (threshold, dedup, rate-limit)
 - Dispatch webhooks (Kakao alert, etc.)
 - Persist all events to PostgreSQL via Prisma
@@ -101,16 +101,16 @@ Independent uv project. Two distinct lifecycles share one project:
 
 | Lifecycle            | Entry                                          | Runtime       | Trigger                   |
 | -------------------- | ---------------------------------------------- | ------------- | ------------------------- |
-| **Serving** (online) | `api/main.py` (FastAPI)                        | milliseconds  | HTTP request from backend |
+| **Serving** (online) | `api/main.py` (FastAPI)                        | milliseconds  | edge relay + debug HTTP (backend pull dormant, ADR-048) |
 | **Training** (batch) | `training/` (scaffolded; pipeline operational) | minutes–hours | manual / scheduled job    |
 | **Demo** (dev tool)  | `demo/app.py` (Streamlit)                      | interactive   | developer                 |
 
-Serving exposes `GET /health`, `GET /status`, `GET /models`, `POST /debug/predict/window`, and `POST /debug/predict/source`. The temporary `POST /predict` alias is removed. Lifespan boot order is detector model → pose warmup → source registry/pipeline → routes. The `FallDetector` class in `api/model.py` loads `ml/models/fall/<model_type>/metadata.json`; model weights are gitignored and must be placed manually (or produced by training). See ADR-015 for the `ml/models/` single-root layout.
+Serving exposes `GET /health`, `GET /status`, `GET /models`, `POST /debug/predict/window`, and `POST /debug/predict/source`. The temporary `POST /predict` alias is removed. `ml-api` boots as a thin gateway (config → device/model warmup → debug pipeline → backend-ingest gateway → heartbeat store → bounded debug source registry → readiness); it does not assemble camera loops or worker runtime (ADR-067). `/status` is derived from the relay-heartbeat store; production camera loops run in `ml-worker`. The fall runner loads `ml/models/fall/<model_type>/metadata.json`; model weights are gitignored and must be placed manually (or produced by training). See ADR-015 for the `ml/models/` single-root layout.
 
 Dependency ladder: `contracts/features` (L0) → `sources/runners` (L1) →
-`perception` (L2) → `domains/runtime` (L3) → `events` (L4) →
-`api/demo` (L5). Lower layers never import higher layers; `ml/core/` and
-`ml/util/` are removed.
+`perception` (L2) → `domains` (L3) → `events` (L4) → `api/demo` (L5). Lower
+layers never import higher layers. `ml-worker` owns the live orchestration/state
+(there is no `runtime` package; ADR-067); `ml/core/` and `ml/util/` are removed.
 
 Runs via: `pnpm dev:ml-api` → `uv run --directory ml uvicorn api.main:app --reload --host 127.0.0.1 --port 8000`
 

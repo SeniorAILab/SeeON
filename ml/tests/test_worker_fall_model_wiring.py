@@ -6,9 +6,9 @@ import numpy as np
 
 from contracts.frame import Frame
 from domains.fall.detector import FallEventLatch
-from runtime.camera_worker import CameraWorker
-from runtime.fall_window_classifier import FallWindowClassifier
-from runtime.scheduler import Scheduler
+from worker.camera_worker import CameraWorker
+from worker.fall_window_classifier import FallWindowClassifier
+from worker.scheduler import Scheduler
 
 
 @dataclass(frozen=True, slots=True)

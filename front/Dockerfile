@@ -23,9 +23,9 @@ CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0", "--port", "3000"]
 FROM deps AS build
 COPY front ./front
 # Browser-baked build args. Same-origin deployment: the browser calls the relative
-# /api path that nginx reverse-proxies to the backend, so no absolute API host is baked.
+# /api/v1 path that nginx reverse-proxies to the backend, so no absolute API host is baked.
 ARG VITE_USE_MOCK=false
-ARG VITE_API_BASE_URL=/api
+ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_USE_MOCK=$VITE_USE_MOCK
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN pnpm --filter front build

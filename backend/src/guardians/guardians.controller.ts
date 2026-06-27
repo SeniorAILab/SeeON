@@ -21,7 +21,7 @@ import type {
 } from './dto/guardian.dto.js';
 import { GuardiansService } from './guardians.service.js';
 
-@Controller('api/guardians')
+@Controller({ path: 'guardians', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class GuardiansController {
