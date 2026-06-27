@@ -66,10 +66,11 @@ eflab() {
 
 #### Reusable lab slots (`lab/a`, `lab/b`)
 
-Persistent personal sandboxes, **outside** the issue-driven `git wt` convention (raw worktree
+Persistent personal sandboxes, **outside** the issue-driven lane-pool convention (raw worktree
 add off `main`; no hook blocks creation — only commit/push are guarded). Use plain `gjc` here,
 not `gjc --worktree` (which lands in a separate `.gajae-code-worktrees/` bucket symlinking only
-`node_modules`). For a real PR, branch properly inside the slot: `git wt <issue#>`.
+`node_modules`). For a real PR, branch properly inside the slot:
+`git switch -c <type>/<issue#>-<slug> origin/main`.
 
 Recreate the slots if missing (run on m1-pro):
 
@@ -97,7 +98,7 @@ The repo lives at the same absolute path as on the local machine:
 
 ## First-time clone setup
 
-After a fresh clone on m1-pro, run the git-guard setup once. Without it the `git wt` alias and `.githooks/` enforcement are inactive, and the entire worktree workflow is broken.
+After a fresh clone on m1-pro, run the git-guard setup once. Without it `core.hooksPath` and the `.githooks/` enforcement are inactive, and the protected-branch guard is off.
 
 ```bash
 cd ~/Documents/01_Project/eldercare-fall-ai
@@ -109,27 +110,25 @@ sh scripts/git-guard/setup-hooks.sh
 Run these steps inside the `eldercare-fall` tmux session every time you start a new task.
 
 ```bash
-# 1. Bring main up to date
-cd ~/Documents/01_Project/eldercare-fall-ai
-git pull
+# 1. Enter an idle lane and refresh origin
+cd $WORKTREE_ROOT/lane-<n>
+git fetch origin
 
-# 2. Create the worktree (reads issue title + label automatically)
-git wt <issue#>
-# e.g. git wt 74  →  worktree at ../eldercare-fall-ai-worktrees/feat/74-fall-autoresearch-loop
+# 2. Branch off fresh origin/main (name it from the issue's type: label)
+git switch -c <type>/<issue#>-<slug> origin/main
+# e.g. git switch -c feat/74-fall-autoresearch-loop origin/main
 
-# 3. Enter the worktree
-cd <worktree-path>   # path printed by git wt
-
-# 4. Asset symlinks
-#    ml/data, ml/models, ml/artifacts are git-ignored — a fresh worktree lacks them.
-#    git wt already symlinks ml/data automatically.
-#    You must manually link ml/models and ml/artifacts from the MAIN clone.
+# 3. Asset symlinks (one-time per lane — see ml-models.md / ml-filesystem-layout.md)
+#    ml/data, ml/models, ml/artifacts are git-ignored — a plain worktree lacks them.
+#    Wire them once when the lane is created; they persist across branch switches.
+#    You must link ml/models, ml/data and ml/artifacts from the MAIN clone.
 
 MAIN=~/Documents/01_Project/eldercare-fall-ai
 
 # ml/artifacts may not exist before first training — create it so the symlink survives
 mkdir -p "$MAIN/ml/artifacts"
 
+ln -s "$MAIN/ml/data"      ml/data
 ln -s "$MAIN/ml/models"    ml/models
 ln -s "$MAIN/ml/artifacts" ml/artifacts
 

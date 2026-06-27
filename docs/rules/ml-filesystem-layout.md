@@ -119,7 +119,7 @@ Nothing else — no new conventions, no registry.
   externally deployed demo; `uploads/` is the only externally reachable input
   surface (mechanism in [streamlit-demo.md](./streamlit-demo.md)).
 - **The canonical physical store is the MAIN checkout's `ml/data/`.** Worktrees
-  use a symlink `<worktree>/ml/data → <main>/ml/data` created by `git wt`.
+  use a symlink `<worktree>/ml/data → <main>/ml/data` wired once during lane setup.
 - **Upstream weights load from `ml/models/`, never the `ml/` root**, via
   `pose_weight_path(size)` / `bed_weight_path()`. The cache is disposable and
   re-downloadable; never curate a weight outside `ml/models/`.
