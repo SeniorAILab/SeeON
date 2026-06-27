@@ -13,7 +13,7 @@ Items marked **DEFERRED** below are still not implemented. Auth is no longer def
 | `eventService` | `POST /api/events/:id/acknowledge`, `POST /api/events/:id/action-note`. | DEFERRED — not implemented in Phase 1. |
 | `residentService` | `GET /api/facilities/:id/focus-residents`, `GET /api/residents/:id`, `POST /api/residents/:id/action`. | DEFERRED — not implemented in Phase 1. |
 | `zoneService` | `/api/spaces/:id/zones`, `/api/assignments`. | DEFERRED — not implemented in Phase 1. |
-| `adminService` | `/api/floors`, `/api/spaces`, `/api/facilities`, `/api/alert-rules`. | DEFERRED — not implemented in Phase 1. |
+| `adminService` | `/api/floors`, `/api/spaces`, `/api/facilities`; alert-rules were removed and now return `404`. | DEFERRED — not implemented in Phase 1. |
 | `aiIngestService` | `POST /api/ai/detection-result` for frontend demo simulation; canonical ML ingest remains `/ingest` with HMAC. | DEFERRED — not implemented in Phase 1. |
 | `kakaoService` | `POST /api/alerts/kakao/send`, reusing the existing backend fan-out model. | DEFERRED — not implemented in Phase 1. |
 | `videoService` | `GET /api/events/:id/video`, `GET /api/videos/:id/signed-url`, `POST /api/videos/:id/access-log`. | DEFERRED — not implemented in Phase 1. |

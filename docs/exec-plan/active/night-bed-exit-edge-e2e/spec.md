@@ -44,8 +44,8 @@
 | ID | Source | Fact | Disputed |
 |----|--------|------|----------|
 | F1 | codebase | 프로덕션 경로 = ml --HMAC--> POST `/ingest/alerts`(NestJS 단일 ingress). FastAPI 서빙은 main 4a192cd에서 `ml/serving`→`ml/api` rename(ADR-067), 데모/디버그·status 전용 별개 경로 | — |
-| F2 | codebase | (의도) AlertRule 평가·DetectionEvent/SpaceStatus 기록·Kakao fan-out은 backend 정책 소유; ml 직접쓰기/신규 ingress 금지 | disputed: ADR 의도이나 미착륙(alert-rules 501, ingest는 persist+fanout만) |
-| F3 | codebase | backend `alert-rules` 컨트롤러는 가드+501(NotImplemented), read-model 미착륙 | — |
+| F2 | codebase | (의도) AlertRule 평가·DetectionEvent/SpaceStatus 기록·Kakao fan-out은 backend 정책 소유; ml 직접쓰기/신규 ingress 금지 | disputed: ADR 의도이나 미착륙(alert-rules/detection-events skeleton routes removed; ingest persists alerts + fanout only) |
+| F3 | codebase | backend alert-rules and detection-events skeleton controllers were removed; those routes now return 404, and the read-model remains unlanded | — |
 | F4 | codebase | prisma에 rule/time-window/night/schedule/threshold/setting 모델 부재 → 시간윈도우 영속 모델 없음 | — |
 | F5 | codebase | front 설정 UI 존재하나 `monitorSettingsStore`는 localStorage 전용(서버 미영속); `MonitorSettings`에 시간창 필드 없음(nightMode boolean만) | — |
 | F6 | codebase | ml worker config는 YAML 전용(main 4a192cd, `ml/config/ml-worker.example.yaml`); `.json` 거부; 시작 시 정적 로드, 런타임 fetch 없음 | — |
@@ -106,7 +106,7 @@
 - [ ] 본 슬라이스에서 backend/front/prisma 변경 0(scope fidelity).
 
 ## Deferrals
-- Phase 2 (backend SSOT): 야간창 영속 모델(prisma) + GET/PUT(현 `alert-rules` 501 활성화 또는 소형 monitoring-config 모듈). F3/F4.
+- Phase 2 (backend SSOT): 야간창 영속 모델(prisma) + new monitoring-config/read-model API; deleted alert-rules skeleton routes are not a Phase 2 base. F3/F4.
 - Phase 3 (front + 라이브 전파): `MonitorSettings` 시간창 UI·서버 영속(F5); backend→edge B(boot fetch)→C(주기 reconcile + 로컬 default fallback), **pull only, push 금지**(F16/F17).
 - C7: per-camera/per-room 도메인 계약 오버라이드.
 - Convergence Pacing: min-round floor/score-drop cap/dampening 미도입 — 양방향 스코어링이 pacing 메커니즘.
@@ -114,7 +114,7 @@
 ## Assumptions Exposed & Resolved
 | Assumption | Challenge | Resolution |
 |------------|-----------|------------|
-| 시간 게이팅은 backend 정책에서(ADR-023/047/044) | 사용자: ADR stale, alert-rules 501·시간엔진 미구현(F2/F3) | 게이트는 엣지 `bed_exit` 도메인(계약-aware), backend는 설정 SSOT(F15/F17) |
+| 시간 게이팅은 backend 정책에서(ADR-023/047/044) | 사용자: ADR stale, alert-rules skeleton deleted·시간엔진 미구현(F2/F3) | 게이트는 엣지 `bed_exit` 도메인(계약-aware), backend는 설정 SSOT(F15/F17) |
 | worker는 edge-api 경유해 backend로 | 코드: worker→`/ingest/alerts` 직접, serving import 금지(F12) | 직접 egress 확정; demo→serving `/debug/predict`와 혼동 해소 |
 | 야간 게이트로 ml 자원 절약 | 다중 도메인 시 24/7 프레임 수신 불가피(F8) | 게이트는 emit 필터(탐지 끄기 아님) |
 | 낮 침상이탈도 alert | 도메인 의미론: 낮 침대 이탈=정상 | bed_exit suppress(야간만 alert), fall은 항상(F19) |
@@ -131,7 +131,7 @@
 - `ml/contracts/event.py` — `DetectionEventType.BED_EXIT`, registry `"bed-exit"`; `ml/events/schemas.py:15` `AlertEventType` Literal에 `"bed-exit"` 포함.
 - `ml/events/edge_ingest_client.py` — `EdgeIngestClient` → `/ingest/alerts` HMAC POST.
 - `backend/src/ingest/ingest-alert.service.ts` — `type:"bed-exit"` 수용, freshness 5분, idempotency, Alert+outbox. 시간윈도우 평가 없음.
-- `backend/src/alert-rules/controllers/alert-rules.controller.ts` — 501 stub(Phase 2 거점).
+- Deleted alert-rules skeleton controller — formerly a not-implemented placeholder; no longer a Phase 2 base.
 - `front/src/stores/monitorSettingsStore.ts`, `front/src/types/index.ts:342` — `MonitorSettings`(localStorage, 시간창 필드 없음; Phase 3 거점).
 - `scripts/ml-edge-single-mock-rtsp-bedexit.sh` — 단일 카메라 bed-exit RTSP E2E 하네스(미추적); 모델 레이어만 스크립트 지오메트리 스텁, 나머지는 실 런타임. 첫 E2E 기반.
 - `ml/config/ml-worker.example.yaml` — `domains.enabled:[fall,bed_exit]` 현행; 여기에 per-domain 맵 + `night_window` 시드.

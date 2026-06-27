@@ -26,7 +26,7 @@ import type {
 } from '../dto/zone.dto.js';
 import { ZonesService } from '../services/zones.service.js';
 
-@Controller('api/zones')
+@Controller({ path: 'zones', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ZonesController {
