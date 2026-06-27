@@ -29,7 +29,7 @@ user action / page effect
 
 | 계층 | 주요 파일 | 책임 |
 | --- | --- | --- |
-| API client seam | `front/src/services/apiClient.ts` | `VITE_API_BASE_URL`, `/sse` URL 생성, `fetch` wrapper, cookie credentials, `ApiError` 표준화 |
+| API client seam | `front/src/services/apiClient.ts` | `VITE_API_BASE_URL`, `/dashboard/stream` SSE URL 생성, `fetch` wrapper, cookie credentials, `ApiError` 표준화 |
 | Endpoint mapper | `front/src/services/api/authEndpoints.ts` | backend DTO 검증·frontend domain type 매핑. 예: `loginEndpoint()`, `restoreSessionEndpoint()`, `mapBackendRoleToFrontRole()` |
 | Workflow service | `front/src/services/authService.ts`, `dashboardService.ts`, `eventService.ts`, `adminService.ts`, `videoService.ts`, `zoneService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
@@ -41,15 +41,15 @@ user action / page effect
 
 ## 3. Backend 수신 방식: SSE 중심 갱신
 
-실시간 backend push의 제품 계약은 `GET /api/v1/sse` SSE다. API 계약상 session cookie auth와 `RequireFacilityGuard`가 적용되고, 브라우저의 native `EventSource`가 reconnect 시 마지막 수신 `id`를 `Last-Event-ID`로 보내면 backend는 bigint `alertSeq` cursor로 replay한다. wire shape 전체는 `../api/realtime-events.md`가 소유하고, 이 문서는 프론트 소비 흐름만 요약한다.
+실시간 backend push의 제품 계약은 `GET /api/v1/dashboard/stream` SSE다. API 계약상 session cookie auth와 `RequireFacilityGuard`가 적용되고, 브라우저의 native `EventSource`가 reconnect 시 마지막 수신 `id`를 `Last-Event-ID`로 보내면 backend는 bigint `alertSeq` cursor로 replay한다. wire shape 전체는 `../api/realtime-events.md`가 소유하고, 이 문서는 프론트 소비 흐름만 요약한다.
 
 ### 실제 EventSource 구현 위치
 
-실제 `EventSource` 생성은 `front/src/hooks/useDashboard.ts`에 있다. 이 파일은 `buildSseUrl()`로 `/api/v1/sse`를 만들고, URL이 absolute일 때만 `new EventSource(url, { withCredentials: true })`를 사용한다. same-origin 상대 URL(`/api/v1/sse`)에서는 browser cookie가 자동 포함된다.
+실제 `EventSource` 생성은 `front/src/hooks/useDashboard.ts`에 있다. 이 파일은 `buildSseUrl()`로 `/api/v1/dashboard/stream`을 만들고, URL이 absolute일 때만 `new EventSource(url, { withCredentials: true })`를 사용한다. same-origin 상대 URL(`/api/v1/dashboard/stream`)에서는 browser cookie가 자동 포함된다.
 
 ```text
 backend alert/status stream
-  → `GET /api/v1/sse` (`EventSource`, cookie auth, Last-Event-ID replay)
+  → `GET /api/v1/dashboard/stream` (`EventSource`, cookie auth, Last-Event-ID replay)
   → `front/src/hooks/useDashboard.ts`
       - `onmessage` / `event: alert` / `event: status` / `event: status-snapshot` → `reload()`
       - `event: session-invalid` → close stream → `useAuthStore.logout()`
@@ -59,7 +59,7 @@ backend alert/status stream
   → `DashboardPage`, staff/monitor components render
 ```
 
-`front/src/services/apiClient.ts`의 `buildSseUrl()`은 `SSE_PATH = "/sse"`를 `API_BASE_URL`에 붙이므로 기본 real backend 모드에서 `/api/v1/sse`가 된다. `front/src/hooks/useDashboard.ts`는 `USE_MOCK`이거나 `EventSource`가 없으면 SSE를 열지 않고, 초기 load와 `setInterval(reload, pollMs)` polling을 유지한다. 이 fallback은 SSE reconnect 중에도 read-model을 다시 가져올 수 있게 하는 안전장치다.
+`front/src/services/apiClient.ts`의 `buildSseUrl()`은 `SSE_PATH = "/dashboard/stream"`를 `API_BASE_URL`에 붙이므로 기본 real backend 모드에서 `/api/v1/dashboard/stream`가 된다. `front/src/hooks/useDashboard.ts`는 `USE_MOCK`이거나 `EventSource`가 없으면 SSE를 열지 않고, 초기 load와 `setInterval(reload, pollMs)` polling을 유지한다. 이 fallback은 SSE reconnect 중에도 read-model을 다시 가져올 수 있게 하는 안전장치다.
 
 ### SSE frame별 frontend 처리
 
@@ -111,7 +111,7 @@ backend alert/status stream
 ### Backend push → hook/store → component
 
 ```text
-backend `GET /api/v1/sse`
+backend `GET /api/v1/dashboard/stream`
   ├─ unnamed alert (`id` = alertSeq)
   ├─ `event: status`
   ├─ `event: status-snapshot`
