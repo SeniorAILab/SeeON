@@ -11,6 +11,10 @@ on:
         description: Git ref to deploy (tag, branch, or SHA)
         required: true
         default: main
+      host_only:
+        description: Deploy host backend/front only (skip ml-api/ml-worker edge image builds)
+        required: false
+        default: "false"
 
 concurrency:
   group: deploy-ncloud-production
@@ -81,6 +85,7 @@ jobs:
 
 
       - name: Build and push ml-api image
+        if: ${{ github.event.inputs.host_only != 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -92,6 +97,7 @@ jobs:
           cache-to: type=gha,scope=ml-api,mode=max
 
       - name: Build and push ml-worker image
+        if: ${{ github.event.inputs.host_only != 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
