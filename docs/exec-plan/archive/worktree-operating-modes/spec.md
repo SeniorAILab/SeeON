@@ -1,6 +1,6 @@
 ---
 slug: worktree-operating-modes
-status: active
+status: done
 author: gobeumsu
 date: 2026-06-27
 issue: 402
