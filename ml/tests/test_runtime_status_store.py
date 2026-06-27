@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from runtime.status_store import CameraStatus, StatusStore
+from worker.status_store import CameraStatus, StatusStore
 
 
 def test_status_store_records_transitions_and_snapshot() -> None:

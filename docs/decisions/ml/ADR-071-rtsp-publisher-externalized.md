@@ -33,8 +33,8 @@ or any local RTSP publisher.
 
 ## Consequences
 
-- E2E evidence for this repo stays focused on `RTSP -> ml-worker -> backend
-  /ingest/* -> DB side effect`.
+- E2E evidence for this repo stays focused on `RTSP -> ml-worker -> ml-api ->
+  backend /ingest/* -> DB side effect`.
 - Developers who need a synthetic RTSP source start `rtsp-generator` separately
   and pass a worker-reachable URL, typically using `host.docker.internal` when
   the worker runs in Docker.
