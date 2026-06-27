@@ -8,7 +8,7 @@ decisions made, work plans, standing rules, and API/domain notes.
 
 | Task | Location | Notes |
 | --- | --- | --- |
-| Architecture map | `architecture.md` | System-level overview only. |
+| Architecture map | `architecture.md`, `onboarding/` | System-level overview plus deep-dive onboarding set for edge/frontend/backend flows. |
 | Tooling notes | `Tools.md` | MCP and operator tooling notes. |
 | API contracts | `api/` | Backend, ML serving, Kakao, realtime, route inventory. |
 | Domain model | `domain/` | Alert pipeline and data dictionary. |
