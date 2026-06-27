@@ -146,33 +146,36 @@ refactor/<short-description>  → refactor/auth-module
 
 ## Working with Worktrees
 
-This project uses issue-driven worktrees via `git wt`. Do **not** hand-roll
-`git worktree add` or branch directly from `main`.
+This project uses a fixed pool of **persistent lane worktrees** (`lane-1/2/3`, …), reused
+across issues. Do **not** create a fresh worktree per task or branch directly from `main`.
 
-Full convention and teardown rules: `docs/rules/worktree-workflow.md`.
+Full convention and lane rules: `docs/rules/worktree-workflow.md`.
 
 ```bash
-# Start work on a GitHub issue — creates branch + worktree automatically
-git wt <issue#>          # e.g. git wt 17  →  feat/17-fall-webhook
+# Start work on a GitHub issue — branch inside an idle lane off fresh origin/main
+cd $WORKTREE_ROOT/lane-<n>
+git fetch origin
+git switch -c <type>/<issue#>-<slug> origin/main   # e.g. feat/17-fall-webhook
 
-# List active worktrees
-git wt ls
+# List worktrees
+git worktree list
 
-# Remove a worktree after merging (never use rm -rf)
-git wt rm <issue#>       # calls git worktree remove + git worktree prune
+# After merge: return the lane to idle, delete the merged branch (never rm -rf the lane)
+git switch lane/<n>
+git branch -D <type>/<issue#>-<slug>
 ```
 
-Branch naming is automatic: `<type>/<issue#>-<slug>` where `<type>` comes from
-the issue's `type:` label (feat/fix/chore/docs/refactor/test; falls back to feat).
-Worktrees land outside the repo root to keep `git status` clean.
+Branch naming is by hand: `<type>/<issue#>-<slug>` where `<type>` comes from the issue's
+`type:` label (feat/fix/chore/docs/refactor/test). The lanes live outside the repo root to
+keep `git status` clean. Branch naming is a traceability convention, not a hard gate.
 
-**Teardown discipline:** always use `git wt rm`, never `rm -rf`. Manual deletion
-leaves phantom `.git/worktrees/` entries that block `git branch -d` until pruned.
+**Lane discipline:** never delete a lane and never `rm -rf` a worktree. Reuse the warm lane
+across issues; if a lane must ever be removed use `git worktree remove` + `git worktree prune`.
 
 Benefits:
-- One issue → one branch → one worktree: no accidental cross-contamination
-- Consistent naming: every actor (human, Claude, Codex) follows the same convention
-- Safe teardown enforced by the script (`git worktree prune` called automatically)
+- One issue → one branch inside a reused lane: no accidental cross-contamination
+- Warm `node_modules`/`.venv` per lane: no cold `pnpm install` / `uv sync` per task
+- One enforced invariant (never work on `main`) every actor (human, Claude, Codex) follows
 
 ## The Save Point Pattern
 

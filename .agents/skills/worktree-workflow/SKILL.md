@@ -1,45 +1,54 @@
 ---
 name: worktree-workflow
-description: Create, manage, and tear down issue-driven git worktrees via `git wt`. Use when starting work on a GitHub issue, listing active worktrees, or removing a worktree after merging. Prevents direct work on protected branches.
+description: Start, name, and finish issue-driven work inside a persistent lane-pool worktree. Use when starting work on a GitHub issue, listing worktrees, or returning a lane to idle after merging. The one hard rule is never commit/push on a protected branch (main).
 ---
 
 # Worktree Workflow
 
-This project enforces issue-driven worktrees. Every task starts from a GitHub Issue.
-Do **not** hand-roll `git worktree add` or branch directly from `main`.
+This project uses a fixed pool of **persistent lane worktrees** (`lane-1/2/3`, …), reused
+across issues and kept warm. Every task starts from a GitHub Issue and is cut onto its own
+feature branch inside an idle lane. The one hard invariant: **never commit or push on a
+protected branch (`main`)** — enforced by `assert-not-main.sh` (pre-commit/pre-push) and the
+`pr-check.yml` head≠`main` check.
+
+Do **not** create a fresh worktree per task. There is no issue→worktree automation tool.
 
 Full convention: `docs/rules/worktree-workflow.md`.
 
 ## Start work on an issue
 
-```bash
-git wt <issue#>          # reads issue title + label, creates branch + worktree
-```
-
-Example: `git wt 17` creates branch `feat/17-fall-webhook` and a worktree at
-`<WORKTREE_ROOT>/feat/17-fall-webhook`, then prints the path.
-
-Override the type label if needed:
+Pick an idle lane, fetch, and branch from fresh `origin/main`:
 
 ```bash
-git wt 17 --type fix
+cd $WORKTREE_ROOT/lane-<n>
+git fetch origin
+git switch -c <type>/<issue#>-<slug> origin/main
 ```
+
+You name the branch yourself: `<type>` is the issue's `type:` label
+(feat/fix/chore/docs/refactor/test), `<slug>` is a short kebab slug of the title that must
+start with `[a-z0-9]`. Example: `feat/17-fall-webhook`.
+
+Branch naming is a **traceability convention, not a hard gate** — fix drift during review.
 
 ## List worktrees
 
 ```bash
-git wt ls
+git worktree list
 ```
 
-## Remove a worktree (after merging)
+## Finishing a task (after the PR merges)
+
+Return the lane to idle and delete the merged feature branch — **keep the warm worktree;
+never delete a lane**:
 
 ```bash
-git wt rm <issue#>       # or: git wt rm <branch>
+git switch lane/<n>                # park on the idle ref
+git branch -D <type>/<issue#>-<slug>
 ```
 
-**Never** use `rm -rf` on a worktree directory — manual deletion leaves phantom
-`.git/worktrees/` entries that block `git branch -d`. `git wt rm` calls
-`git worktree remove` + `git worktree prune` automatically.
+**Never** `rm -rf` a worktree. If a lane must ever be removed, use `git worktree remove` +
+`git worktree prune` so no phantom `.git/worktrees/` entry is left.
 
 ## Setup (first time after clone)
 
@@ -47,5 +56,5 @@ git wt rm <issue#>       # or: git wt rm <branch>
 sh scripts/git-guard/setup-hooks.sh
 ```
 
-Registers the `git wt` alias and activates `.githooks/` enforcement.
+Sets `core.hooksPath .githooks` and chmods the guard scripts, activating enforcement.
 The Codex hook trust prompt on first run is expected — approve it.

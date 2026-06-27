@@ -56,9 +56,9 @@ absent (e.g. on a fresh clone or new worktree):
 
 ## Worktree rule
 
-`ml/models/` is gitignored and physically lives in the **main checkout only**. Each worktree
-gets a symlink `<worktree>/ml/models → <main-checkout>/ml/models`, created automatically by
-`git wt <issue#>` via `link_ml_models()` in `scripts/git-guard/wt.sh`.
+`ml/models/` is gitignored and physically lives in the **main checkout only**. Each lane
+worktree gets a symlink `<worktree>/ml/models → <main-checkout>/ml/models`, wired once during
+lane setup (alongside the `ml/data` symlink).
 
 - If the symlink is missing, serving code reports all trained models as unavailable and
   `pose_weight_path()` resolves to a non-existent path — check the link first.

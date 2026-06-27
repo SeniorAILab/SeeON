@@ -87,9 +87,9 @@ Existing fields in trained and pretrained `metadata.json` files are preserved; `
 
 ### 4. Worktree infrastructure
 
-`scripts/git-guard/wt.sh` gains `link_ml_models()` (mirrors `link_ml_data()`) that auto-symlinks
-`<worktree>/ml/models → <main-checkout>/ml/models` on `git wt <issue#>`. The physical store stays
-in the main checkout; worktrees access it via the symlink.
+Each lane worktree is symlinked `<worktree>/ml/models → <main-checkout>/ml/models` once during
+lane setup (alongside the `ml/data` symlink). The physical store stays in the main checkout;
+worktrees access it via the symlink.
 
 ## Alternatives Considered
 
@@ -129,3 +129,9 @@ independent paths; that is not the current situation. Version belongs in `metada
 | 7 | Upstream ephemeral pose weight cache | `ml/models/pose/` | **ADR-015** |
 
 Rows 3–6 from ADR-012 are unchanged.
+
+## Changelog
+
+- 2026-06-27: Worktree-infrastructure note no longer references the retired `git wt`/`wt.sh`
+  auto-symlink. The `ml/models` symlink is now wired once during lane setup (lane-pool is the
+  single worktree mode per ADR-008). The single-root decision itself is unchanged (#407).

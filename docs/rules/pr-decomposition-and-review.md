@@ -23,9 +23,9 @@ working state after merge.
 ## Issue to PR mapping
 
 One issue may fan out into multiple PRs when the issue is larger than one
-reviewable unit. Each PR still gets its own branch/worktree; keep the issue
-number in the branch and use a slice-specific slug via
-`git wt <issue#> --slug <slice-slug>`, for example
+reviewable unit. Each PR still gets its own feature branch in a lane; keep the
+issue number in the branch and give each a slice-specific slug via
+`git switch -c <type>/<issue#>-<slice-slug> origin/main`, for example
 `docs/97-archive-showcase-records` and `test/97-demo-apptest-controls`.
 
 Use this pattern:
