@@ -66,7 +66,7 @@ eldercare-fall-ai/                  ← orchestration layer only (no app deps he
 │
 └── docs/
     ├── architecture.md             ← this file
-    ├── architecture/                ← onboarding deep dives: edge, frontend, backend flows
+    ├── onboarding/                 ← onboarding deep dives: edge, frontend, backend flows
     ├── decisions/                   ← ADRs by MECE category: {ml,backend,frontend,common}/
     └── rules/                       ← standing conventions (e.g. streamlit-demo.md)
 ```
@@ -170,11 +170,11 @@ ML is intentionally edge-local and signal-only: it predicts and emits relay fact
 
 | 문서 | 읽는 이유 |
 | --- | --- |
-| [`architecture/README.md`](architecture/README.md) | 온보딩 읽기 순서와 문서 컬렉션 역할 |
-| [`architecture/edge-device.md`](architecture/edge-device.md) | edge device(`ml-api` + `ml-worker`) 구성과 배포/연결 |
-| [`architecture/edge-worker-streaming.md`](architecture/edge-worker-streaming.md) | `ml-worker` 내부 RTSP→pose→domain fact 스트리밍 절차 |
-| [`architecture/frontend.md`](architecture/frontend.md) | frontend SSE 수신, 서비스 seam, 컴포넌트 재사용성 |
-| [`architecture/backend.md`](architecture/backend.md) | backend layered 책임, RLS, Event API→SSE/Kakao 흐름 |
+| [`onboarding/README.md`](onboarding/README.md) | 온보딩 읽기 순서와 문서 컬렉션 역할 |
+| [`onboarding/edge-device.md`](onboarding/edge-device.md) | edge device(`ml-api` + `ml-worker`) 구성과 배포/연결 |
+| [`onboarding/edge-worker-streaming.md`](onboarding/edge-worker-streaming.md) | `ml-worker` 내부 RTSP→pose→domain fact 스트리밍 절차 |
+| [`onboarding/frontend.md`](onboarding/frontend.md) | frontend SSE 수신, 서비스 seam, 컴포넌트 재사용성 |
+| [`onboarding/backend.md`](onboarding/backend.md) | backend layered 책임, RLS, Event API→SSE/Kakao 흐름 |
 
 ---
 
@@ -280,11 +280,11 @@ ADRs are organized by active MECE category under `docs/decisions/{ml,backend,fro
 
 ### Deep dives
 
-- [`architecture/README.md`](architecture/README.md) — 아키텍처 온보딩 인덱스
-- [`architecture/edge-device.md`](architecture/edge-device.md) — Edge device(`ml-api` + `ml-worker`) 아키텍처
-- [`architecture/edge-worker-streaming.md`](architecture/edge-worker-streaming.md) — worker 내부 스트리밍 절차
-- [`architecture/frontend.md`](architecture/frontend.md) — frontend SSE 수신과 컴포넌트 구조
-- [`architecture/backend.md`](architecture/backend.md) — backend layered 책임과 Event API 흐름
+- [`onboarding/README.md`](onboarding/README.md) — 아키텍처 온보딩 인덱스
+- [`onboarding/edge-device.md`](onboarding/edge-device.md) — Edge device(`ml-api` + `ml-worker`) 아키텍처
+- [`onboarding/edge-worker-streaming.md`](onboarding/edge-worker-streaming.md) — worker 내부 스트리밍 절차
+- [`onboarding/frontend.md`](onboarding/frontend.md) — frontend SSE 수신과 컴포넌트 구조
+- [`onboarding/backend.md`](onboarding/backend.md) — backend layered 책임과 Event API 흐름
 
 ### Hubs
 
