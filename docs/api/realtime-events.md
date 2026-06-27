@@ -6,7 +6,7 @@ Dashboard realtime events are served by `GET /api/v1/dashboard/stream` as Server
 
 ```http
 GET /api/v1/dashboard/stream
-Cookie: session=...
+Cookie: app_session=...
 Last-Event-ID: 42
 Accept: text/event-stream
 ```
