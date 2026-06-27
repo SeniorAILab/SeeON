@@ -105,40 +105,52 @@ cd ~/Documents/01_Project/eldercare-fall-ai
 sh scripts/git-guard/setup-hooks.sh
 ```
 
-## Worktree procedure
+## Lane setup (once per lane)
 
-Run these steps inside the `eldercare-fall` tmux session every time you start a new task.
+Create each persistent lane once and wire its git-ignored ML payload. The symlinks survive
+branch switches, so this is **not** repeated per task — never re-run it in an existing lane
+(the `ln -s` calls would fail with `File exists`).
 
 ```bash
+MAIN=~/Documents/01_Project/eldercare-fall-ai
+WT=~/Documents/01_Project/eldercare-fall-ai-worktrees
+
+# Create the lane parked on an idle ref (n = 1, 2, 3, …)
+git -C "$MAIN" worktree add -b lane/<n> "$WT/lane-<n>" origin/main
+cd "$WT/lane-<n>"
+
+# ml/data, ml/models, ml/artifacts are git-ignored — link them from the MAIN clone
+# (rule owned by ml-models.md / ml-filesystem-layout.md). ml/artifacts may not exist
+# before first training — create it so the symlink survives.
+mkdir -p "$MAIN/ml/artifacts"
+ln -s "$MAIN/ml/data"      ml/data
+ln -s "$MAIN/ml/models"    ml/models
+ln -s "$MAIN/ml/artifacts" ml/artifacts
+
+# Verify all three links resolve (guard against dangling symlinks)
+ls -la ml/data ml/models ml/artifacts
+```
+
+## Worktree procedure (every task)
+
+Run these steps inside the `eldercare-fall` tmux session each time you start a new task. The
+lane and its symlinks already exist — never recreate them per task.
+
+```bash
+WT=~/Documents/01_Project/eldercare-fall-ai-worktrees
+
 # 1. Enter an idle lane and refresh origin
-cd $WORKTREE_ROOT/lane-<n>
+cd "$WT/lane-<n>"
 git fetch origin
 
 # 2. Branch off fresh origin/main (name it from the issue's type: label)
 git switch -c <type>/<issue#>-<slug> origin/main
 # e.g. git switch -c feat/74-fall-autoresearch-loop origin/main
 
-# 3. Asset symlinks (one-time per lane — see ml-models.md / ml-filesystem-layout.md)
-#    ml/data, ml/models, ml/artifacts are git-ignored — a plain worktree lacks them.
-#    Wire them once when the lane is created; they persist across branch switches.
-#    You must link ml/models, ml/data and ml/artifacts from the MAIN clone.
-
-MAIN=~/Documents/01_Project/eldercare-fall-ai
-
-# ml/artifacts may not exist before first training — create it so the symlink survives
-mkdir -p "$MAIN/ml/artifacts"
-
-ln -s "$MAIN/ml/data"      ml/data
-ln -s "$MAIN/ml/models"    ml/models
-ln -s "$MAIN/ml/artifacts" ml/artifacts
-
-# 5. Verify all three links resolve (guard against dangling symlinks)
-ls -la ml/data ml/models ml/artifacts
-
-# 6. Update Claude Code before launching
+# 3. Update Claude Code before launching
 claude update
 
-# 7. Launch Claude Code inside the tmux session
+# 4. Launch Claude Code inside the tmux session
 claude
 ```
 
