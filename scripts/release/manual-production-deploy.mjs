@@ -8,7 +8,7 @@ import { buildAndPushImages } from "./manual-production-images.mjs";
 import { assertDbMode, packageAndDeploy } from "./manual-production-remote.mjs";
 
 const usage = `Usage:
-  pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--platform <host-platform>] [--ml-platform <edge-platform>] [--db-mode migrate|baseline-existing|reset-demo|skip] [--allow-baseline-existing] [--allow-destructive-reset] [--backup-dir <path>] [--dry-run]
+  pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--db-mode migrate|baseline-existing|reset-demo|skip] [--allow-baseline-existing] [--allow-destructive-reset] [--backup-dir <path>] [--dry-run]
 
 Builds/pushes the four same-SHA production images locally (backend, front,
 ml-api, ml-worker), then deploys the pull-only Naver Cloud host VM stack. Edge
@@ -26,8 +26,6 @@ function parseArgs(argv) {
     dryRun: false,
     host: "101.79.18.95",
     imageNamespace: "ghcr.io/seniorailab/eldercare-fall-ai",
-    imagePlatform: "linux/amd64",
-    mlImagePlatform: "linux/arm64",
     sshKey: "~/.ssh/eldercare-fall-ai-ncloud",
     user: "deploy",
   };
@@ -78,16 +76,6 @@ function parseArgs(argv) {
     }
     if (arg === "--namespace") {
       options.imageNamespace = readValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === "--platform") {
-      options.imagePlatform = readValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === "--ml-platform") {
-      options.mlImagePlatform = readValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -209,7 +197,7 @@ function main() {
   const sha = resolveDeploySha(ref);
   const actor = resolveGithubActor();
 
-  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nCurrent production path: local build/push of four GHCR SHA tags, then VM pull-only host deploy.\nEdge ml-api/ml-worker deploy is a separate pinned-image compose.edge.yaml step.\nActions-backed CD is paused but preserved for later re-enable.\nHost image platform (backend/front)=${checkedOptions.imagePlatform}\nEdge ml image platform (ml-api/ml-worker)=${checkedOptions.mlImagePlatform}\nDB mode=${checkedOptions.dbMode}\n`);
+  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nCurrent production path: local build/push of four GHCR SHA tags, then VM pull-only host deploy.\nEdge ml-api/ml-worker deploy is a separate pinned-image compose.edge.yaml step.\nActions-backed CD is paused but preserved for later re-enable.\nDB mode=${checkedOptions.dbMode}\n`);
 
   run("gh", ["auth", "status"], { dryRun: checkedOptions.dryRun });
   run("docker", ["version"], { dryRun: checkedOptions.dryRun });
@@ -228,8 +216,6 @@ function main() {
   buildAndPushImages({
     dryRun: checkedOptions.dryRun,
     imageNamespace: checkedOptions.imageNamespace,
-    imagePlatform: checkedOptions.imagePlatform,
-    mlImagePlatform: checkedOptions.mlImagePlatform,
     run,
     sha,
   });
