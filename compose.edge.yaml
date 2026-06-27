@@ -1,7 +1,7 @@
 # Edge device stack — runs on the external edge node, NOT on the host stack.
 # The edge performs ML inference locally. ml-worker relays alert/heartbeat facts
 # to local ml-api over the compose network, and ml-api is the only process that
-# signs and pushes backend /ingest requests over the public network (ADR-067/029).
+# pushes backend Event API requests over the public network (ADR-067/029).
 #
 # Usage (on the edge device):
 #   docker compose -f compose.edge.yaml up -d --build
@@ -17,10 +17,7 @@ services:
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ML_SERVING_HOST: 0.0.0.0
-      API_BACKEND_ALERT_URL: ${API_BACKEND_ALERT_URL:?edge api requires backend alert ingest URL}
-      API_BACKEND_HEARTBEAT_URL: ${API_BACKEND_HEARTBEAT_URL:?edge api requires backend heartbeat ingest URL}
-      API_INGEST_KEY_ID: ${API_INGEST_KEY_ID:?edge api requires backend ingest key id}
-      API_INGEST_SECRET: ${API_INGEST_SECRET:?edge api requires backend ingest secret}
+      API_BACKEND_EVENTS_URL: ${API_BACKEND_EVENTS_URL:?edge api requires backend Event API URL}
       API_EDGE_RELAY_TOKEN: ${API_EDGE_RELAY_TOKEN:?edge api requires worker relay token}
       API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:?edge api requires camera inventory JSON}
       API_BACKEND_INGEST_TIMEOUT_SEC: ${API_BACKEND_INGEST_TIMEOUT_SEC:-0.5}

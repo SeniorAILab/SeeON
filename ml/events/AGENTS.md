@@ -1,15 +1,14 @@
 # Events Agent Rules
 
-Own L4 outbound alert/event shape, HMAC signing, publishers, outbox, and backend ingest client.
+Own L4 outbound alert/event shape, publishers, outbox, and backend Event API client.
 
 ## Local Ownership
 
-- `schemas.py`: emitted event and alert payload construction.
-- `signing.py`: canonical payload and HMAC helpers.
+- `schemas.py`: emitted event and backend Event API payload construction.
 - `local_publisher.py`: network-free publisher protocol and logging/stub implementation.
-- `publisher.py`: demo alert-client HTTP shim; do not import this from api.
+- `publisher.py`: demo Event API HTTP shim; do not import this from api.
 - `outbox.py`: publisher-backed outbox.
-- `edge_ingest_client.py`: backend alert and heartbeat HTTP client for edge worker.
+- `edge_ingest_client.py`: backend Event API alert and heartbeat HTTP client for edge worker.
 
 ## Imports
 
@@ -20,7 +19,6 @@ Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `api`, `dem
 ## Focused Tests
 
 - `tests/test_events_schema.py`
-- `tests/test_events_signing.py`
 - `tests/test_events_outbox.py`
 - `tests/test_events_ingest_client.py`
 - `tests/test_alert_client.py`
@@ -28,4 +26,4 @@ Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `api`, `dem
 
 ## Gotchas
 
-Signing tests protect backend ingest compatibility. Keep timestamp, canonical payload, and key-derivation changes synchronized with backend ingest tests.
+The backend egress contract is the no-auth Event API: POST events to `API_BACKEND_EVENTS_URL` and heartbeats to `API_BACKEND_EVENTS_URL + "/heartbeat"` with JSON bodies only.

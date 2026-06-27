@@ -1,6 +1,6 @@
-"""Publisher seams and the live alert ingest client.
+"""Demo Event API publisher.
 
-ML emits typed signed events. Backend owns severity/channel/policy/final-dedup;
+ML emits typed events. Backend owns severity/channel/policy/final-dedup;
 ML runtime incident management owns only idempotency and cooldown.
 """
 
@@ -14,22 +14,13 @@ import urllib.parse
 import urllib.request
 from typing import Final
 
-from events.schemas import AlertEventType, AlertPayload
-from events.signing import (
-    _derive_hmac_key,
-    _ingest_timestamp,
-    _is_iso_timestamp,
-    _parse_required_value,
-    _signature,
-)
+from events.edge_ingest_client import _utc_iso_timestamp
+from events.schemas import AlertEventType, EventApiPayload
 
 DEFAULT_QUEUE_SIZE: Final = 8
 DEFAULT_TIMEOUT_SEC: Final = 0.5
-ALERT_API_URL_ENV: Final = "ALERT_API_URL"
-INGEST_KEY_ID_ENV: Final = "INGEST_KEY_ID"
-INGEST_SECRET_ENV: Final = "INGEST_SECRET"
-DEMO_RESIDENT_ID_ENV: Final = "DEMO_RESIDENT_ID"
-DEMO_FACILITY_ID_ENV: Final = "DEMO_FACILITY_ID"
+API_BACKEND_EVENTS_URL_ENV: Final = "API_BACKEND_EVENTS_URL"
+DEMO_CAMERA_ID_ENV: Final = "DEMO_CAMERA_ID"
 ALERT_EVENT_TYPES: Final[frozenset[str]] = frozenset({"fall", "bed-exit"})
 
 
@@ -39,22 +30,16 @@ class AlertClient:
         *,
         api_url: str,
         source_id: str,
-        ingest_key_id: str,
-        ingest_secret: str,
-        resident_id: str,
-        facility_id: str,
+        camera_id: str,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         timeout_sec: float = DEFAULT_TIMEOUT_SEC,
         autostart: bool = True,
     ) -> None:
         self.api_url = _parse_http_url(api_url)
         self.source_id = source_id
+        self.camera_id = _parse_required_value(camera_id, "camera_id")
         self.timeout_sec = timeout_sec
-        self.ingest_key_id = _parse_required_value(ingest_key_id, "ingest_key_id")
-        self._signing_key = _derive_hmac_key(ingest_secret)
-        self.resident_id = _parse_required_value(resident_id, "resident_id")
-        self.facility_id = _parse_required_value(facility_id, "facility_id")
-        self._queue: queue.Queue[AlertPayload] = queue.Queue(maxsize=max(1, queue_size))
+        self._queue: queue.Queue[EventApiPayload] = queue.Queue(maxsize=max(1, queue_size))
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._worker: threading.Thread | None = None
@@ -64,32 +49,16 @@ class AlertClient:
 
     @classmethod
     def from_env(cls, *, source_id: str) -> AlertClient | None:
-        api_url = os.environ.get(ALERT_API_URL_ENV, "").strip()
+        api_url = os.environ.get(API_BACKEND_EVENTS_URL_ENV, "").strip()
         if not api_url:
             return None
-        missing = [
-            name
-            for name in (
-                INGEST_KEY_ID_ENV,
-                INGEST_SECRET_ENV,
-                DEMO_RESIDENT_ID_ENV,
-                DEMO_FACILITY_ID_ENV,
-            )
-            if not os.environ.get(name, "").strip()
-        ]
-        if missing:
+        camera_id = os.environ.get(DEMO_CAMERA_ID_ENV, "").strip()
+        if not camera_id:
             raise ValueError(
-                "Alert ingest configuration missing required environment variables: "
-                + ", ".join(missing)
+                "Event API configuration missing required environment variable: "
+                + DEMO_CAMERA_ID_ENV
             )
-        return cls(
-            api_url=api_url,
-            source_id=source_id,
-            ingest_key_id=os.environ[INGEST_KEY_ID_ENV],
-            ingest_secret=os.environ[INGEST_SECRET_ENV],
-            resident_id=os.environ[DEMO_RESIDENT_ID_ENV],
-            facility_id=os.environ[DEMO_FACILITY_ID_ENV],
-        )
+        return cls(api_url=api_url, source_id=source_id, camera_id=camera_id)
 
     @property
     def failure_count(self) -> int:
@@ -109,17 +78,16 @@ class AlertClient:
         self,
         *,
         event_type: AlertEventType,
-        detected_at: str,
+        detected_at: str | None = None,
         confidence: float | None = None,
         external_event_id: str | None = None,
     ) -> bool:
         del external_event_id
         payload = _parse_payload(
             event_type=event_type,
-            resident_id=self.resident_id,
-            facility_id=self.facility_id,
-            detected_at=detected_at,
-            probability=1.0 if event_type == "bed-exit" else confidence,
+            camera_id=self.camera_id,
+            detected_at=_utc_iso_timestamp() if detected_at is None else detected_at,
+            confidence=1.0 if event_type == "bed-exit" and confidence is None else confidence,
         )
         if payload is None:
             self._increment_failure()
@@ -147,13 +115,7 @@ class AlertClient:
             except queue.Empty:
                 return
             try:
-                _post_payload(
-                    self.api_url,
-                    payload,
-                    timeout_sec=self.timeout_sec,
-                    ingest_key_id=self.ingest_key_id,
-                    signing_key=self._signing_key,
-                )
+                _post_payload(self.api_url, payload, timeout_sec=self.timeout_sec)
             except (TimeoutError, OSError, urllib.error.URLError, urllib.error.HTTPError):
                 self._increment_failure()
             finally:
@@ -170,7 +132,7 @@ class AlertClient:
         with self._lock:
             if self._worker is not None:
                 return
-            self._worker = threading.Thread(target=self._run, name="demo-alert-client", daemon=True)
+            self._worker = threading.Thread(target=self._run, name="demo-event-client", daemon=True)
             self._worker.start()
 
     def _run(self) -> None:
@@ -180,13 +142,7 @@ class AlertClient:
             except queue.Empty:
                 continue
             try:
-                _post_payload(
-                    self.api_url,
-                    payload,
-                    timeout_sec=self.timeout_sec,
-                    ingest_key_id=self.ingest_key_id,
-                    signing_key=self._signing_key,
-                )
+                _post_payload(self.api_url, payload, timeout_sec=self.timeout_sec)
             except (TimeoutError, OSError, urllib.error.URLError, urllib.error.HTTPError):
                 self._increment_failure()
             finally:
@@ -204,55 +160,50 @@ class AlertClient:
 def _parse_payload(
     *,
     event_type: AlertEventType,
-    resident_id: str,
-    facility_id: str,
+    camera_id: str,
     detected_at: str,
-    probability: float | None,
-) -> AlertPayload | None:
+    confidence: float | None,
+) -> EventApiPayload | None:
     if event_type not in ALERT_EVENT_TYPES:
         return None
-    if resident_id == "":
+    if camera_id.strip() == "":
         return None
-    if facility_id == "":
+    if detected_at.strip() == "":
         return None
-    if not _is_iso_timestamp(detected_at):
+    if confidence is None or not 0.0 <= confidence <= 1.0:
         return None
-    if probability is None or not 0.0 <= probability <= 1.0:
-        return None
-    return AlertPayload(
+    return EventApiPayload(
+        camera_id=camera_id,
         type=event_type,
-        resident_id=resident_id,
-        facility_id=facility_id,
         detected_at=detected_at,
-        probability=probability,
+        confidence=confidence,
     )
+
+
+def _parse_required_value(value: str, name: str) -> str:
+    stripped = value.strip()
+    if stripped == "":
+        raise ValueError(f"{name} must be set")
+    return stripped
 
 
 def _parse_http_url(api_url: str) -> str:
     parsed = urllib.parse.urlparse(api_url)
     if parsed.scheme not in {"http", "https"} or parsed.netloc == "":
-        raise ValueError(f"Alert API URL must be absolute HTTP(S): {api_url}")
+        raise ValueError(f"Event API URL must be absolute HTTP(S): {api_url}")
     return api_url
 
 
 def _post_payload(
     api_url: str,
-    payload: AlertPayload,
+    payload: EventApiPayload,
     *,
     timeout_sec: float,
-    ingest_key_id: str,
-    signing_key: str,
 ) -> None:
-    headers = {
-        "Content-Type": "application/json",
-        "X-Ingest-Key-Id": ingest_key_id,
-        "X-Ingest-Timestamp": _ingest_timestamp(),
-        "X-Signature": _signature(payload, signing_key=signing_key),
-    }
     request = urllib.request.Request(
         api_url,
         data=payload.as_json_bytes(),
-        headers=headers,
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout_sec) as response:
@@ -260,14 +211,11 @@ def _post_payload(
 
 
 __all__ = [
-    "ALERT_API_URL_ENV",
     "ALERT_EVENT_TYPES",
+    "API_BACKEND_EVENTS_URL_ENV",
     "DEFAULT_QUEUE_SIZE",
     "DEFAULT_TIMEOUT_SEC",
-    "DEMO_FACILITY_ID_ENV",
-    "DEMO_RESIDENT_ID_ENV",
-    "INGEST_KEY_ID_ENV",
-    "INGEST_SECRET_ENV",
+    "DEMO_CAMERA_ID_ENV",
     "AlertClient",
     "_parse_http_url",
     "_parse_payload",

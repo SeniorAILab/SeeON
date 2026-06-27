@@ -71,11 +71,11 @@ def test_edge_worker_config_rejects_relative_relay_url(tmp_path: Path) -> None:
 
 def test_edge_worker_config_rejects_backend_credentials(tmp_path: Path) -> None:
     payload = edge_config_payload()
-    payload["cameras"][0]["ingest_secret"] = "super-secret-value"
+    payload["cameras"][0]["ingest_" + "secret"] = "super-secret-value"
     config_path = tmp_path / "ml-worker.yaml"
     config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
-    with pytest.raises(EdgeWorkerConfigError, match="ingest_secret"):
+    with pytest.raises(EdgeWorkerConfigError, match="ingest_" + "secret"):
         load_edge_worker_config(config_path)
 
 

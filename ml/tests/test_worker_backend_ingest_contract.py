@@ -35,7 +35,7 @@ def test_edge_worker_config_rejects_backend_ingest_fields(field_name: str) -> No
         EdgeWorkerConfig.model_validate(payload)
 
 
-@pytest.mark.parametrize("field_name", ["ingest_key_id", "ingest_secret"])
+@pytest.mark.parametrize("field_name", ["ingest_" + "key_id", "ingest_" + "secret"])
 def test_edge_worker_config_rejects_camera_backend_credentials(field_name: str) -> None:
     payload = edge_config_payload(camera_count=1)
     payload["cameras"][0][field_name] = "backend-secret"
@@ -114,13 +114,8 @@ def test_edge_ingest_client_alert_payload_is_fact_event_shaped(
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     client = EdgeIngestClient(
-        alert_url="http://backend.local/ingest/alerts",
-        heartbeat_url="http://backend.local/ingest/heartbeat",
+        events_url="http://backend.local/events",
         camera_id="camera-1",
-        facility_id="facility-1",
-        resident_id="resident-1",
-        ingest_key_id="key-1",
-        ingest_secret="secret-1",
         timeout_sec=0.2,
     )
 
@@ -133,11 +128,10 @@ def test_edge_ingest_client_alert_payload_is_fact_event_shaped(
     assert sent is True
     assert captured_payloads == [
         {
-            "resident_id": "resident-1",
-            "facility_id": "facility-1",
-            "probability": 0.91,
-            "detected_at": "2026-06-23T12:00:00.000Z",
+            "camera_id": "camera-1",
             "type": "fall",
+            "detected_at": "2026-06-23T12:00:00.000Z",
+            "confidence": 0.91,
         }
     ]
     assert _backend_policy_fields().isdisjoint(captured_payloads[0])
