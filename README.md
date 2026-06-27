@@ -74,12 +74,7 @@ EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
 `EDGE_CAMERA_CONFIG` points to a gitignored per-camera YAML file with RTSP URLs,
 relay URL/token, camera identity, and the LSTM fall-model artifact contract.
 Backend `/ingest/*` endpoints, key IDs, and signing secrets live in `ml-api`
-per ADR-067/029. For development without a live camera, start the external
-`SeniorAILab/rtsp-generator` CLI with a video file, then point
-`ml-worker.local.yaml` at the printed RTSP URL. Use
-`scripts/ml-worker-nursing-home-backend-e2e.sh` with `NURSING_HOME_RTSP_URL` for
-a production-shaped RTSP worker run through `ml-api` to the real backend ingest
-implementation.
+per ADR-067/029.
 
 On macOS, prefer the native `pnpm dev:*` loop for daily frontend/backend/ML work. The container host stack (`pnpm compose:local:up`) builds runner images for parity/deploy shaping, not hot-reload dev - there is no `compose.override.yaml` container-dev overlay (ADR-063).
 
@@ -116,7 +111,7 @@ eldercare-fall-ai/
 │   ├── runners/    # L1 model runners + ModelRegistry
 │   ├── perception/ # L2 observation assembly
 │   ├── domains/    # L3 domain interpreters (fall, bed_exit)
-│   ├── runtime/    # L3 edge orchestration for ml-worker
+│   ├── worker/     # ml-worker process + worker-owned live orchestration/state
 │   ├── events/     # L4 alert signing/outbox/publisher (-> POST /ingest/alerts)
 │   ├── api/        # ml-api FastAPI: /health, /status, /models, /debug/*
 │   ├── demo/       # Streamlit demo UI (fall classification via api)

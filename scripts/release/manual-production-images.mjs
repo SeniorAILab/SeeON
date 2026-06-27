@@ -16,7 +16,7 @@ export function buildAndPushImages({ imageNamespace, imagePlatform, run, sha, dr
       "--build-arg",
       "VITE_USE_MOCK=false",
       "--build-arg",
-      "VITE_API_BASE_URL=/api",
+      "VITE_API_BASE_URL=/api/v1",
       "-t",
       frontImage,
       ".",

@@ -20,7 +20,7 @@ import {
 } from '../../auth/session.guard.js';
 import type { RequestWithAuth } from '../../auth/session.guard.js';
 
-@Controller('api/resident-risk-summaries')
+@Controller({ path: 'resident-risk-summaries', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ResidentRiskSummariesController {

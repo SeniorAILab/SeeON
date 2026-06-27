@@ -5,6 +5,7 @@ import type { App } from 'supertest/types';
 import * as crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
+import { AlertWriterService } from '../src/alerts/alert-writer.service';
 import { AppModule } from '../src/app.module';
 
 /**
@@ -117,6 +118,25 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
     await app.close();
   });
 
+  function signAlertBody(body: {
+    resident_id?: string | null;
+    facility_id: string;
+    type: string;
+    detected_at: string;
+  }): string {
+    return crypto
+      .createHmac('sha256', SECRET_HASH)
+      .update(
+        [
+          body.resident_id ?? '',
+          body.facility_id,
+          body.type,
+          body.detected_at,
+        ].join('|'),
+      )
+      .digest('hex');
+  }
+
   it('creates Alert + ResidentStatus(FALL) + AlertEvent for a valid HMAC fall ingest', async () => {
     const detectedAt = new Date().toISOString();
     const body = {
@@ -126,16 +146,7 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
       detected_at: detectedAt,
       type: 'fall',
     };
-    const canonical = [
-      body.resident_id,
-      body.facility_id,
-      body.type,
-      body.detected_at,
-    ].join('|');
-    const signature = crypto
-      .createHmac('sha256', SECRET_HASH)
-      .update(canonical)
-      .digest('hex');
+    const signature = signAlertBody(body);
 
     const res = await request(app.getHttpServer() as App)
       .post('/ingest/alerts')
@@ -173,7 +184,69 @@ describe('ingest pipeline e2e (POST /ingest/alerts)', () => {
     });
     expect(attempts.length).toBe(0);
   });
+  it('returns duplicate for repeated legacy alert ingest without a second Alert or SSE emit', async () => {
+    await direct.alert.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.residentStatus.deleteMany({ where: { facilityId: FACILITY } });
+    await direct.alertEvent.deleteMany({ where: { sourceId: CAM } });
 
+    const received: unknown[] = [];
+    app.get(AlertWriterService).subscribe(FACILITY, (event) => received.push(event));
+
+    const detectedAt = new Date().toISOString();
+    const body = {
+      resident_id: RES,
+      facility_id: FACILITY,
+      probability: 0.95,
+      detected_at: detectedAt,
+      type: 'fall',
+    };
+    const signature = signAlertBody(body);
+
+    const first = await request(app.getHttpServer() as App)
+      .post('/ingest/alerts')
+      .set('x-ingest-key-id', KEY_ID)
+      .set('x-signature', signature)
+      .set('x-ingest-timestamp', detectedAt)
+      .send(body)
+      .expect(201);
+    expect((first.body as { status: string }).status).toBe('created');
+
+    const second = await request(app.getHttpServer() as App)
+      .post('/ingest/alerts')
+      .set('x-ingest-key-id', KEY_ID)
+      .set('x-signature', signature)
+      .set('x-ingest-timestamp', detectedAt)
+      .send(body)
+      .expect(201);
+    expect((second.body as { status: string }).status).toBe('duplicate');
+    expect((second.body as { id: string }).id).toBe((first.body as { id: string }).id);
+
+    const alerts = await direct.alert.findMany({
+      where: { facilityId: FACILITY },
+    });
+    expect(alerts).toHaveLength(1);
+    expect(received).toHaveLength(1);
+  });
+
+  it('keeps the legacy HMAC heartbeat live', async () => {
+    const detectedAt = new Date().toISOString();
+    const signature = crypto
+      .createHmac('sha256', SECRET_HASH)
+      .update('|||')
+      .digest('hex');
+
+    await request(app.getHttpServer() as App)
+      .post('/ingest/heartbeat')
+      .set('x-ingest-key-id', KEY_ID)
+      .set('x-signature', signature)
+      .set('x-ingest-timestamp', detectedAt)
+      .send({})
+      .expect(200, { ok: true });
+
+    const camera = await direct.camera.findUniqueOrThrow({ where: { id: CAM } });
+    expect(camera.online).toBe(true);
+    expect(camera.lastSeenAt).toBeInstanceOf(Date);
+  });
   it('rejects an ingest request with an invalid HMAC signature (401)', async () => {
     const detectedAt = new Date().toISOString();
     await request(app.getHttpServer() as App)

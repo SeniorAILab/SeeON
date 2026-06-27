@@ -331,7 +331,7 @@ def resolve_config_path(value: str | None = None) -> Path:
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args != ["--check"]:
-        print("usage: python -m runtime.edge_worker_config --check", file=sys.stderr)
+        print("usage: python -m worker.edge_worker_config --check", file=sys.stderr)
         return 2
     try:
         config = load_edge_worker_config(resolve_config_path())
