@@ -138,7 +138,7 @@ Assignment responses use `{ id, facilityId, residentId, spaceId, zoneId, active,
 |---|---|---|---|
 | GET | `/api/v1/cameras` | none | camera list |
 | GET | `/api/v1/cameras/:id` | none | one camera |
-| POST | `/api/v1/cameras` | `{ label: string, spaceId: string }` | created camera plus one-time `ingestSecret` |
+| POST | `/api/v1/cameras` | `{ label: string, spaceId: string }` | created camera |
 | PATCH | `/api/v1/cameras/:id` | partial `{ label?: string, spaceId?: string }` | updated camera |
 | DELETE | `/api/v1/cameras/:id` | none | delete result |
 
