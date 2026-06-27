@@ -8,7 +8,7 @@ Own L4 outbound alert/event shape, publishers, outbox, and backend Event API cli
 - `local_publisher.py`: network-free publisher protocol and logging/stub implementation.
 - `publisher.py`: demo Event API HTTP shim; do not import this from api.
 - `outbox.py`: publisher-backed outbox.
-- `edge_ingest_client.py`: backend Event API alert and heartbeat HTTP client for edge worker.
+- `edge_ingest_client.py`: no-HMAC backend Event API alert and heartbeat HTTP client using the single `API_BACKEND_EVENTS_URL` base.
 
 ## Imports
 
@@ -26,4 +26,4 @@ Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `api`, `dem
 
 ## Gotchas
 
-The backend egress contract is the no-auth Event API: POST events to `API_BACKEND_EVENTS_URL` and heartbeats to `API_BACKEND_EVENTS_URL + "/heartbeat"` with JSON bodies only.
+The backend egress contract is the no-HMAC Event API: post events to the single configured `API_BACKEND_EVENTS_URL` and heartbeats to `API_BACKEND_EVENTS_URL + "/heartbeat"` with JSON bodies only.
