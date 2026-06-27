@@ -107,7 +107,10 @@ compose_full() {
 }
 
 sync_app_role() {
-  compose exec -T db sh /docker-entrypoint-initdb.d/02-sync-app-role.sh
+  # Pipe the script from the freshly-extracted host bundle via stdin instead of the
+  # container's /docker-entrypoint-initdb.d mount: a long-running db container can hold a
+  # stale bind mount after `current` is rm'd+re-extracted, making the mounted path unreadable.
+  compose exec -T db sh < backend/prisma/init/02-sync-app-role.sh
 }
 
 backup_and_validate() {
