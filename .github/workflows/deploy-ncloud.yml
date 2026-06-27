@@ -15,6 +15,10 @@ on:
         description: Deploy host backend/front only (skip ml-api/ml-worker edge image builds)
         required: false
         default: "false"
+      db_mode:
+        description: "DB deploy mode: migrate (default) | reset-demo (WIPES the DB + reseeds) | baseline-existing | skip"
+        required: false
+        default: "migrate"
 
 concurrency:
   group: deploy-ncloud-production
@@ -147,6 +151,9 @@ jobs:
 
       - name: Deploy
         run: |
+          DB_MODE="${{ github.event.inputs.db_mode || 'migrate' }}"
+          RESET_GUARD=""
+          if [ "$DB_MODE" = "reset-demo" ]; then RESET_GUARD="ALLOW_DESTRUCTIVE_DB_RESET=I_UNDERSTAND_THIS_WIPES_PUBLIC_SCHEMA"; fi
           printf '%s' '${{ github.token }}' | ssh -i ~/.ssh/ncloud_deploy "$NCLOUD_SSH_USER@$NCLOUD_HOST" \
             "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
           ssh -i ~/.ssh/ncloud_deploy "$NCLOUD_SSH_USER@$NCLOUD_HOST" \
@@ -158,5 +165,5 @@ jobs:
              install -m 600 /tmp/eldercare.env /opt/eldercare-fall-ai/shared/.env && \
              rm -f /tmp/eldercare.env && \
              chmod +x /tmp/ncloud-deploy.sh && \
-             IMAGE_NAMESPACE='$IMAGE_NAMESPACE' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
+             IMAGE_NAMESPACE='$IMAGE_NAMESPACE' IMAGE_TAG='$DEPLOY_SHA' DEPLOY_DB_MODE='$DB_MODE' $RESET_GUARD /tmp/ncloud-deploy.sh"
           echo "Host deploy completed for backend/front. Edge ml-api/ml-worker use the same DEPLOY_SHA via compose.edge.yaml pins."
