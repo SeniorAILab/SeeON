@@ -1,7 +1,7 @@
-// ML routing (ADR-023/047): ML signal --(HMAC)--> POST /ingest/alerts  [single canonical ingress]
+// ML routing (ADR-023/047/388): ML signal --> POST /api/v1/events [single canonical ingress]
 //   -> backend policy owns: DetectionEvent(space/zone) write -> SpaceStatus(read-model) update
 //   -> AlertRule evaluation -> Kakao fan-out (ADR-044).
-// ML must NOT write DetectionEvent/SpaceStatus directly and MUST NOT add a new ingress namespace.
+// ML must NOT write DetectionEvent/SpaceStatus directly and MUST NOT add another ingress namespace.
 // This controller is a deferred read-model surface: guarded + 501 until the read-model lands.
 
 import {
