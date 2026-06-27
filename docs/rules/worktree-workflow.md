@@ -1,8 +1,8 @@
 # Worktree Workflow
 
-> Standing convention. See [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md)
-> for the cross-cutting rationale. Enforcement is
-> automatic via `scripts/git-guard/` and `.githooks/` after running
+> The branch & worktree facet of version control (hub: `docs/rules/version-control.md`).
+> See [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md) for the
+> rationale. Enforcement is automatic via `scripts/git-guard/` and `.githooks/` after running
 > `scripts/git-guard/setup-hooks.sh`.
 
 ## Rule
@@ -13,6 +13,19 @@ which maps to a branch, which maps to a worktree.
 ```
 GitHub Issue  →  branch <type>/<issue#>-<slice-slug>  →  worktree at $WORKTREE_ROOT/<branch>
 ```
+
+## Operating modes
+
+Two sanctioned worktree lifecycles. Both honor the same invariant — **never commit or push
+on a protected branch**, every task starts from fresh `origin/main`, branch naming is
+`<type>/<issue#>-<slug>`. They differ only in worktree *lifespan*.
+
+| Mode | When | Worktree lifespan |
+|------|------|-------------------|
+| **A. Per-task** (default) | Occasional / sequential work; CI agents | One worktree per issue via `git wt`, torn down with `git wt rm` after merge |
+| **B. Lane pool** | Single human orchestrating **concurrent** agents | A fixed set of persistent `lane-N` worktrees, reused across issues |
+
+Mode A is the documented default below. Mode B is described in [Lane-pool mode](#lane-pool-mode-single-human-multi-agent).
 
 ## Creating a worktree
 
@@ -41,7 +54,7 @@ git wt 17 --slug webhook-contract
 
 - `<type>`: from the issue's `type: feat|fix|chore|docs|refactor|test` label; falls back to `feat`
 - `<issue#>`: the GitHub issue number
-- `<slug>`: issue title lowercased, non-alnum → `-`, capped at 50 chars for a 1-PR issue; for fan-out work, replace it with a slice-specific slug while keeping the same issue number
+- `<slug>`: issue title lowercased, non-alnum → `-`, **must start with `[a-z0-9]`** (the `pr-check.yml` branch regex and `wt.sh` slugify both enforce this), capped at 50 chars for a 1-PR issue; for fan-out work, replace it with a slice-specific slug while keeping the same issue number
 
 Examples: `feat/17-fall-webhook`, `fix/23-rtsp-timeout`, `chore/31-update-deps`
 
@@ -77,6 +90,59 @@ After merging your PR, delete the local branch:
 ```bash
 git branch -d <branch>
 ```
+
+## Lane-pool mode (single-human multi-agent)
+
+For a single human driving **multiple concurrent agents**, creating and destroying a
+worktree per task is wasteful: every new worktree re-runs `pnpm install` / `uv sync` (cold
+deps) and abandoned worktrees accumulate. Concurrent agents still cannot share one working
+directory, so keep a **fixed pool of persistent lanes** and reuse them.
+
+### Layout
+
+```
+eldercare-fall-ai/                 # main worktree = orchestration home
+                                   #   never edit here; keep clean as the branch base
+$WORKTREE_ROOT/lane-1/             # agent lane 1 (persistent)
+$WORKTREE_ROOT/lane-2/             # agent lane 2 (persistent)
+$WORKTREE_ROOT/lane-3/             # agent lane 3 (persistent)
+```
+
+- Pool size **N = the max number of agents you run at once** (typically 2–4).
+- Each lane is created once (`git worktree add -b lane/<n> $WORKTREE_ROOT/lane-<n> origin/main`)
+  and **never torn down per task** — its `node_modules` / `.venv` stay warm.
+- The persistent `lane/<n>` branch is just an idle parking ref; real work happens on a
+  per-issue feature branch checked out inside the lane.
+
+### Starting a task in a free lane
+
+Always branch from **fresh `origin/main`** — this is the "pull before work" step:
+
+```bash
+cd $WORKTREE_ROOT/lane-<n>
+git fetch origin
+git switch -c <type>/<issue#>-<slug> origin/main
+```
+
+### Finishing a task
+
+After the PR merges, return the lane to idle and delete the merged feature branch — keep
+the warm worktree:
+
+```bash
+git switch lane/<n>                # park on the idle ref
+git branch -D <type>/<issue#>-<slug>
+```
+
+The next task reuses the same lane via the start command above.
+
+### Rules
+
+- Do **not** `git wt` / `git wt rm` per task in this mode — that reintroduces the churn the
+  pool exists to avoid. Cap the lane count; do not let worktrees pile up.
+- One branch cannot be checked out in two worktrees at once — each lane is on a distinct
+  branch, so this holds naturally.
+- All enforcement and freshness gates below still apply unchanged.
 
 ## Freshness
 
@@ -115,6 +181,8 @@ The hook trust prompt in Codex on first run is expected — approve it.
 | `scripts/git-guard/lib.sh` | Shared helpers (single source of truth for all layers) |
 | `scripts/git-guard/assert-not-main.sh` | Exits 1 when HEAD is on a protected branch |
 | `scripts/git-guard/check-freshness.sh` | Compares HEAD to upstream; block or warn mode |
+| `scripts/git-guard/check-lint.sh` | Lint + typecheck on changed packages at pre-push (mirrors `ci.yml`); `GIT_GUARD_SKIP_LINT=1` bypass |
+| `scripts/git-guard/deny-assets.sh` | Blocks committing large/binary asset classes (irreversible-leak gate, ADR-016) |
 | `scripts/git-guard/sync-main.sh` | Fast-forwards local default branch to `origin` (ff-only, safe); run at session start |
 | `scripts/git-guard/check-migrations.sh` | Rejects out-of-order Prisma migrations (new ts ≤ latest on base); run in backend CI |
 | `scripts/git-guard/wt.sh` | Issue → worktree creator and manager |
