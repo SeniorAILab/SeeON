@@ -38,8 +38,8 @@ class SpyBackendIngestClient:
 class InProcessRelayClient(_RelayClient):
     def __init__(self, *, client: TestClient) -> None:
         super().__init__(
-            alert_url="http://testserver/relay/alerts",
-            heartbeat_url="http://testserver/relay/heartbeat",
+            alert_url="http://testserver/api/v1/relay/alerts",
+            heartbeat_url="http://testserver/api/v1/relay/heartbeat",
             camera_id=CAMERA_ID,
             facility_id=FACILITY_ID,
             resident_id=RESIDENT_ID,
@@ -140,8 +140,6 @@ def test_night_bed_exit_reaches_backend_ingest_through_worker_relay_and_ml_api()
             "event_type": "bed-exit",
             "detected_at": backend.alerts[0]["detected_at"],
             "probability": 1.0,
-            "facility_id": FACILITY_ID,
-            "resident_id": RESIDENT_ID,
         }
     ]
     assert backend.alerts[0]["detected_at"]

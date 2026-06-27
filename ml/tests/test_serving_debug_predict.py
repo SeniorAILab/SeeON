@@ -28,7 +28,7 @@ def _client() -> TestClient:
 
 
 def test_debug_predict_window_works() -> None:
-    response = _client().post("/debug/predict/window", json={"window": _window()})
+    response = _client().post("/api/v1/debug/predict/window", json={"window": _window()})
 
     assert response.status_code == 200
     assert response.json()["fall_probability"] == 0.73

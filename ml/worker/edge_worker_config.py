@@ -22,8 +22,8 @@ from pydantic import (
 )
 
 EDGE_CAMERA_CONFIG_ENV = "EDGE_CAMERA_CONFIG"
-EDGE_RELAY_ALERTS_PATH: Final = "/relay/alerts"
-EDGE_RELAY_HEARTBEAT_PATH: Final = "/relay/heartbeat"
+EDGE_RELAY_ALERTS_PATH: Final = "/api/v1/relay/alerts"
+EDGE_RELAY_HEARTBEAT_PATH: Final = "/api/v1/relay/heartbeat"
 KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )

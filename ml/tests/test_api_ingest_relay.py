@@ -49,14 +49,14 @@ def _alert_payload(**overrides) -> dict:
 
 
 def test_relay_alert_rejects_missing_token() -> None:
-    response = _client().post("/relay/alerts", json=_alert_payload())
+    response = _client().post("/api/v1/relay/alerts", json=_alert_payload())
 
     assert response.status_code == 401
 
 
 def test_relay_alert_rejects_wrong_token() -> None:
     response = _client().post(
-        "/relay/alerts",
+        "/api/v1/relay/alerts",
         json=_alert_payload(),
         headers={"X-Edge-Relay-Token": "wrong"},
     )
@@ -66,7 +66,7 @@ def test_relay_alert_rejects_wrong_token() -> None:
 
 def test_relay_alert_rejects_unknown_camera() -> None:
     response = _client().post(
-        "/relay/alerts",
+        "/api/v1/relay/alerts",
         json=_alert_payload(camera_id="camera-unknown"),
         headers={"X-Edge-Relay-Token": "relay-token"},
     )
@@ -77,7 +77,7 @@ def test_relay_alert_rejects_unknown_camera() -> None:
 
 def test_relay_alert_rejects_facility_mismatch() -> None:
     response = _client().post(
-        "/relay/alerts",
+        "/api/v1/relay/alerts",
         json=_alert_payload(facility_id="facility-2"),
         headers={"X-Edge-Relay-Token": "relay-token"},
     )
@@ -89,7 +89,7 @@ def test_relay_alert_rejects_facility_mismatch() -> None:
 def test_relay_alert_forwards_valid_event_to_backend_ingest_client() -> None:
     fake = FakeBackendIngestClient()
     response = _client(fake).post(
-        "/relay/alerts",
+        "/api/v1/relay/alerts",
         json=_alert_payload(),
         headers={"X-Edge-Relay-Token": "relay-token"},
     )
@@ -108,7 +108,7 @@ def test_relay_alert_forwards_valid_event_to_backend_ingest_client() -> None:
 def test_relay_heartbeat_forwards_valid_camera_to_backend_ingest_client() -> None:
     fake = FakeBackendIngestClient()
     response = _client(fake).post(
-        "/relay/heartbeat",
+        "/api/v1/relay/heartbeat",
         json={"camera_id": "camera-1", "facility_id": "facility-1"},
         headers={"X-Edge-Relay-Token": "relay-token"},
     )
@@ -122,7 +122,7 @@ def test_relay_alert_rejects_raw_frame_payloads() -> None:
     payload = _alert_payload(frame=[0, 1, 2])
 
     response = _client().post(
-        "/relay/alerts",
+        "/api/v1/relay/alerts",
         json=payload,
         headers={"X-Edge-Relay-Token": "relay-token"},
     )
