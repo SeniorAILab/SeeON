@@ -10,11 +10,7 @@ Accepted
 
 ## References
 
-- Retires source ADR: ADR-033 Kakao OAuth auth boundary.
-- Retires source ADR: ADR-042 Kakao per-user token encrypted storage.
-- Retires source ADR: ADR-051 Kakao OAuth scope minimal permission.
-- Retires source ADR: ADR-069 dual auth session model.
-- Related: ADR-034 SSE realtime transport, ADR-044 send-to-me fan-out, ADR-052 Kakao alert message DTO, ADR-053 registered-user recipients, ADR-055 Vite React frontend SSOT, ADR-060 facility session claim and onboarding.
+- References: ADR-034 SSE realtime transport, ADR-044 send-to-me fan-out, ADR-052 Kakao alert message DTO, ADR-053 registered-user recipients, ADR-055 Vite React frontend SSOT, ADR-060 facility session claim and onboarding.
 - Sources: Kakao Login prerequisites, REST API, troubleshooting, security guideline, app settings, and Kakao Talk Message docs:
   - <https://developers.kakao.com/docs/en/kakaologin/prerequisite>
   - <https://developers.kakao.com/docs/en/kakaologin/rest-api>
@@ -23,8 +19,6 @@ Accepted
   - <https://developers.kakao.com/docs/ko/app-setting/app>
   - <https://developers.kakao.com/docs/en/kakaotalk-message/common>
   - <https://developers.kakao.com/docs/en/kakaotalk-message/rest-api>
-
-The retired ADR bodies are intentionally removed from the visible category folder after this ADR and `docs/decisions/README.md` map their active clauses. The exact original bodies remain recoverable from git history.
 
 ## Context
 
@@ -256,25 +250,9 @@ These are recurring failure modes this ADR exists to prevent. They are not separ
 | Treating `8-16 characters` as the whole password standard.                              | 8 characters is an acceptable minimum for this launch UX, but 16-character maximums block safer passphrases and password managers.                                                                                                                                       | Enforce 8+ characters, allow up to 128 Unicode code points, and do not add composition rules.                                                                                                                                                                                 |
 | Letting `AuthService` absorb every signup, facility, and policy responsibility.         | Auth edits become riskier as unrelated responsibilities accumulate in the same service.                                                                                                                                                                                  | Extract focused policy and registration helpers before adding more auth behavior.                                                                                                                                                                                             |
 
-## Clause Coverage for Retired Auth ADRs
-
-| Retired source                                                          | Active clause now owned here                                                           |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| ADR-033 backend-owned OAuth callback                                    | Backend-owned identity boundary; Kakao OAuth and token custody.                        |
-| ADR-033 single httpOnly session JWT and `ServerSession`                 | Session and token contract.                                                            |
-| ADR-033 no browser tokens / no NextAuth-like frontend session ownership | Backend-owned identity boundary; frontend proxy and cookie checklist.                  |
-| ADR-033 old Next.js same-origin rewrite assumption                      | Superseded by Vite/nginx same-origin `/auth/`, `/api/`, and `/ingest/` proxy contract. |
-| ADR-042 encrypted per-user Kakao token storage                          | Kakao OAuth and token custody.                                                         |
-| ADR-042 no plaintext token/key logging                                  | Kakao OAuth and token custody.                                                         |
-| ADR-051 env-driven minimal `talk_message` scope                         | Kakao Developers checklist and repository env checklist.                               |
-| ADR-051 `profile_nickname` opt-in                                       | Kakao Developers checklist.                                                            |
-| ADR-069 email/password plus Kakao dual login                            | Supported login mechanisms.                                                            |
-| ADR-069 frontend must restore through `/auth/session`                   | Session and token contract.                                                            |
-| ADR-069 account linking not solved by login transport                   | Signup and onboarding contract; account linking remains future product work.           |
-
 ## Consequences
 
-- ADR-071 is the current login/auth SSOT. ADR-033, ADR-042, ADR-051, and ADR-069 are retired from the visible backend ADR corpus.
+- ADR-071 is the current login/auth SSOT.
 - `/auth/session` remains required and must not be removed as "duplicative" of OAuth or email/password login.
 - Auth debugging starts with the Kakao console, env, proxy, cookie, and `/auth/session` gate before changing backend auth code.
 - The current public IP deployment is explicitly supported as a temporary HTTP deployment with `AUTH_COOKIE_SECURE=false`.
@@ -309,7 +287,7 @@ Then manually verify:
 
 ## Changelog
 
-- 2026-06-25: Promoted ADR-071 from an operational gate into the login/auth SSOT and retired ADR-033, ADR-042, ADR-051, and ADR-069 from the visible corpus.
+- 2026-06-25: Consolidated login/auth into this single current ADR (in-place; git holds the prior separate-ADR history).
 - 2026-06-25: Recorded login/auth anti-patterns from the PR-376 implementation loop, including Kakao placeholder handling, session restore, role defaults, signup fields, and password validation boundaries.
 - 2026-06-25: Lowered public signup password minimum from 15 to 8 Unicode code points for launch UX while preserving 128-character maximum support for passphrases.
 - 2026-06-25: Changed Kakao config failure handling to expose only a generic user-facing unavailable state while retaining operator diagnostics in backend/docs surfaces.

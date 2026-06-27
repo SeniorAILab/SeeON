@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-06-21
-Supersedes: ADR-032 clauses that name `org_id`, `app.org_id`, `withOrgContext`, and org-based ingest camera lookup.
+Refines: ADR-032 clauses that name `org_id`, `app.org_id`, `withOrgContext`, and org-based ingest camera lookup.
 
 ## Context
 

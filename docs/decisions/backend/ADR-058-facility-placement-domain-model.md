@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-06-21
-Supersedes: ADR-031 clauses that model placement as free-form resident room text or otherwise treat room placement outside the Facility/Floor/Space/Zone domain.
+Refines: ADR-031 clauses that model placement as free-form resident room text or otherwise treat room placement outside the Facility/Floor/Space/Zone domain.
 
 ## Context
 

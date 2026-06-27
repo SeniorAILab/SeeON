@@ -41,7 +41,8 @@ Collectively Exhaustive — with respect to the decisions it records.
 The boundary test: if a choice is implementation detail of one feature, it
 belongs in that feature's plan, not an ADR. If it is cross-cutting and
 expensive-to-reverse, it gets its **own** ADR — not a paragraph bolted onto an
-existing one. When a decision changes, write a new ADR that supersedes the old
-one (never edit a finalized ADR's body, never delete it).
+existing one. When a decision changes, edit the ADR in place so it states only the
+current decision, add one line to its `## Changelog`, and link related atomic ADRs
+with `References:` / `Refines:` (never delete an ADR; git holds the history).
 
 See [docs/decisions/README.md](../decisions/README.md) for the ADR lifecycle.

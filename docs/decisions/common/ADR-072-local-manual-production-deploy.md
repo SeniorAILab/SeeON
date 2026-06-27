@@ -2,12 +2,12 @@
 
 - Status: Accepted
 - Date: 2026-06-25
-- Refines: ADR-041, ADR-062, ADR-063, ADR-068
+- Refines: ADR-041, ADR-062, ADR-063, ADR-076
 - Refined by: ADR-073 - Safe production DB migrations
 
 ## Context
 
-ADR-068 moved production deploy away from every `main` merge and made release
+ADR-076 moved production deploy away from every `main` merge and made release
 publication the production gate. That still leaves GitHub-hosted runners doing
 the expensive backend/front image builds for every production release.
 
