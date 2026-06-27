@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import Final
 
 from contracts.event import EventPayload
-from events.schemas import AlertEventType, EventApiPayload, EmittedEvent
+from events.schemas import AlertEventType, EmittedEvent, EventApiPayload
 
 DEFAULT_TIMEOUT_SEC: Final = 0.5
 
