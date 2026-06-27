@@ -7,7 +7,7 @@ author: gobeumsu
 interview: deep-interview
 issue: 167
 prs: [171, 173, 175, 178, 179]
-adrs: [ADR-039, ADR-040]
+adrs: [ADR-008] # ADR-039 + ADR-040 folded into ADR-008 (2026-06-27, #393)
 source: deep-interview spec (gjc workflow scratch, gitignored)
 note: >-
   deep-interview 산출 spec을 plan-first mandate 라이프사이클에 맞춰 git-canonical archive로 이관.
