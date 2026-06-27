@@ -4,19 +4,19 @@ Python/uv edge runtime for fall and bed-exit detection. Root run/boot flow stays
 
 ## Package Ladder
 
-Lower layers may import only same-layer or lower-layer packages, except `domains` and `runtime` must not import each other.
+Lower layers may import only same-layer or lower-layer packages.
 
 | Layer | Packages | Ownership |
 | --- | --- | --- |
 | L0 | `contracts`, `features` | Dataclasses, protocols, constants, and pure feature math |
 | L1 | `sources`, `runners` | Frame intake, camera probing, model runners, registry, device/warmup |
 | L2 | `perception` | Observation construction, tracking, scene state, bed detection, frame windows |
-| L3 | `domains`, `runtime` | Domain event interpretation and edge runtime orchestration |
+| L3 | `domains` | Domain event interpretation (observation → events) |
 | L4 | `events` | Alert/event schemas, signing, publishers, outbox, backend ingest client |
 | L5 | `api`, `demo` | FastAPI api and Streamlit developer demo |
 
 `training` is a batch lifecycle package: it may import only `training`, `contracts`, `features`, `sources`, and `runners`.
-`worker` is the deployable edge process: it composes `sources`, `runners`, `runtime`, `domains`, and `events` but should not become a shared library.
+`worker` is the deployable edge process and owns the live orchestration/state (camera workers, supervisor, scheduler, status/latest-frame/incident, edge-worker config). It composes `sources`, `runners`, `perception`, `domains`, and `events`; it is not a shared library, and there is no `runtime` package.
 
 ## Runtime Topology
 
@@ -40,10 +40,9 @@ ml/
 ├── runners/          # L1 model runners and ModelRegistry
 ├── perception/       # L2 observation builders and tracking state
 ├── domains/          # L3 domain detectors and DomainRegistry
-├── runtime/          # L3 camera workers, scheduler, status, edge runtime
 ├── events/           # L4 alert schema, signing, publisher, outbox, ingest client
-├── api/          # L5 FastAPI app, lifespan, routes, prediction pipeline
-├── worker/           # edge worker CLI/process entrypoint
+├── api/              # L5 FastAPI gateway: lifespan, routes, debug pipeline, heartbeat-status
+├── worker/           # edge worker process + live orchestration/state (camera_worker, supervisor, scheduler, status_store, latest_frame, incident_manager, config)
 ├── training/         # batch training/evaluation lifecycle
 ├── demo/             # Streamlit demo harness
 └── tests/            # pytest suite and dependency-ladder guard
@@ -54,7 +53,7 @@ ml/
 ## Global Boundaries
 
 - Keep `contracts` and `features` pure: no I/O, no model loading, no runtime boot.
-- Keep `runtime` independent of `events`; pass event sinks in from `api` or `worker`.
+- Keep worker-owned orchestration/state under `worker`; pass event sinks in by protocol so `api` and `worker` inject their own. No cross-boundary shared state between `ml-api` and `ml-worker` (connection is one-directional relay HTTP facts).
 - Keep `api` independent of `training`; api loads trained artifacts through `runners` and api adapters.
 - Keep `demo` as a harness. It may render overlays and call api, but production classification belongs in `api`.
 - Do not add AGENTS files outside the approved ML allowlist.

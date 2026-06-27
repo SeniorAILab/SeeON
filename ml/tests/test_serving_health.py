@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
 from api.model import ModelLoadError
-from runtime.camera_manager import CameraConfig
 
 
 class _StubMetadata:
@@ -35,11 +34,9 @@ def test_health_ready_503_when_model_load_fails() -> None:
     app.state.source_registry_loader = lambda: None
     with TestClient(app) as client:
         response = client.get("/health/ready")
-        status = client.get("/status").json()
 
     assert response.status_code == 503
     assert response.json()["reason"] == "model.load_failed"
-    assert status["ops_events"][0]["event_type"] == "model.load_failed"
 
 
 def test_health_ready_200_when_model_loads() -> None:
@@ -54,30 +51,18 @@ def test_health_ready_200_when_model_loads() -> None:
     assert response.json()["ready"] is True
 
 
-def test_fastapi_lifespan_does_not_start_camera_workers() -> None:
+def test_fastapi_lifespan_does_not_assemble_camera_runtime() -> None:
     app = create_app()
     app.state.model_loader = lambda: StubModel()
     app.state.source_registry_loader = lambda: None
     app.state.runner_warmup = lambda runner: runner
-    app.state.start_camera_workers = True
-    app.state.camera_configs = (
-        CameraConfig(
-            camera_id="camera-1",
-            facility_id="facility-1",
-            frame_source=_SourceThatMustNotStart(),
-            runners={},
-        ),
-    )
 
     with TestClient(app) as client:
-        ready_response = client.get("/health/ready")
-        status_response = client.get("/status")
+        status_body = client.get("/status").json()
 
-    assert ready_response.status_code == 200
-    assert status_response.json()["ops_events"] == []
-
-
-class _SourceThatMustNotStart:
-    def __iter__(self):
-        raise AssertionError("FastAPI must not start camera workers")
-        yield
+    # ml-api must not assemble a worker camera runtime (ADR-067).
+    assert not hasattr(app.state, "runtime")
+    assert not hasattr(app.state, "incident_manager")
+    # /status is heartbeat-derived; no camera loop started -> no heartbeats.
+    assert status_body["cameras"] == {}
+    assert "stale_after_sec" in status_body

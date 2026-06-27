@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from runtime.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
+from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 
 
 def _valid_yaml(path: Path) -> Path:

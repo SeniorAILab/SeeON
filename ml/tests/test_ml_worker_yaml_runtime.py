@@ -10,9 +10,9 @@ import torch
 import yaml
 
 from contracts.frame import Frame
-from runtime.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 from sources.video_file import VideoFileSource
 from worker import edge_worker
+from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 
 
 class _Sink:

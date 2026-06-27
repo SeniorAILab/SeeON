@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from runtime.edge_worker_config import CameraRuntimeConfig, EdgeWorkerConfig
-from runtime.status_store import StatusStore
 from worker import edge_worker
+from worker.edge_worker_config import CameraRuntimeConfig, EdgeWorkerConfig
+from worker.status_store import StatusStore
 
 
 @dataclass(frozen=True, slots=True)
