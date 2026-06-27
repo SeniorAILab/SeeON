@@ -24,7 +24,7 @@ class OverlayRenderer:
         for box in observation.boxes:
             _draw_box(image, box, (0, 255, 0), "person")
         for box in observation.bed_boxes:
-            _draw_box(image, box, (255, 0, 0), "bed")
+            _draw_bed(image, box, (255, 0, 0), "bed")
         for snapshot in debug_snapshots:
             if snapshot.bed_exit is None:
                 continue
@@ -69,3 +69,25 @@ def _draw_box(image: np.ndarray, box: BoundingBox, color: tuple[int, int, int], 
         color,
         1,
     )
+
+
+def _draw_bed(image: np.ndarray, box: BoundingBox, color: tuple[int, int, int], label: str) -> None:
+    """Draw a bed as its segmentation mask (translucent fill + outline) when the
+    box carries a polygon contour; fall back to an axis-aligned box otherwise."""
+    if box.polygon:
+        points = np.array(box.polygon, dtype=np.int32).reshape((-1, 1, 2))
+        mask = image.copy()
+        cv2.fillPoly(mask, [points], color)
+        cv2.addWeighted(mask, 0.3, image, 0.7, 0, image)
+        cv2.polylines(image, [points], isClosed=True, color=color, thickness=2)
+        cv2.putText(
+            image,
+            label,
+            (box.x1, max(12, box.y1 - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            color,
+            1,
+        )
+        return
+    _draw_box(image, box, color, label)

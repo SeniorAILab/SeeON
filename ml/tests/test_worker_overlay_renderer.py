@@ -47,3 +47,22 @@ def test_overlay_renderer_encodes_jpeg() -> None:
         (),
     )
     assert jpeg.startswith(b"\xff\xd8")
+
+
+def test_overlay_renderer_draws_bed_segmentation_polygon() -> None:
+    # A bed box carrying a mask contour is rendered as a translucent segmentation
+    # fill, not an axis-aligned box; person stays a bbox.
+    polygon = ((4, 4), (28, 4), (28, 28), (4, 28))
+    bed = BoundingBox(4, 4, 28, 28, 0.9, polygon)
+    observation = FrameObservation(detections=((), ()), regions=((bed,), ()))
+
+    rendered = OverlayRenderer().render(
+        Frame(index=1, time_sec=1.0, image=np.zeros((32, 32, 3), dtype=np.uint8)),
+        observation,
+        (),
+    )
+
+    # Interior pixel is tinted by the translucent mask fill (bed color BGR (255,0,0)).
+    assert int(rendered[16, 16][0]) > 0
+    # A pixel outside the polygon stays black (no full-frame fill / no box-only draw).
+    assert int(rendered[1, 1].sum()) == 0
