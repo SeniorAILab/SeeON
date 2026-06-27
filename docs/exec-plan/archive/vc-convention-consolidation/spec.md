@@ -1,7 +1,7 @@
 ---
 slug: vc-convention-consolidation
 issue: 393
-status: active
+status: done
 author: gobeumsu
 created: 2026-06-27
 ---
