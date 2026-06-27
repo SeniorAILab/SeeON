@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Final
 
 # DetectionResult is the documented raw-detection interchange type at the
@@ -97,3 +98,22 @@ class FrameObservation:
             bed_boxes=bed_boxes,
             bed_exit_statuses=bed_exit_statuses,
         )
+
+
+class BedRegionSourceState(StrEnum):
+    """Provenance of the bed ROI applied to a frame (dev overlay + ops telemetry)."""
+
+    FRESH = "fresh"
+    CACHED = "cached"
+    EMPTY = "empty"
+    EXPIRED = "expired"
+
+
+@dataclass(frozen=True, slots=True)
+class BedRegionDebugSnapshot:
+    """Per-frame bed-ROI cache provenance for the dev overlay and ops telemetry."""
+
+    source: BedRegionSourceState
+    age_frames: int | None = None
+    empty_cycles: int = 0
+    reset_reason: str | None = None

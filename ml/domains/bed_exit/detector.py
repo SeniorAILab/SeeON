@@ -86,22 +86,20 @@ class BedExitMonitor:
                 bed_boxes=(),
                 statuses=(),
                 events=(),
-                bed_region=getattr(observation, "bed_region_debug", None),
+                bed_region=None,
             )
             return ()
         frame = self.update_boxes(
             bed_boxes=observation.bed_boxes,
             person_boxes=observation.boxes,
         )
-        frame_index = getattr(observation, "frame_index", None)
-        bed_region = getattr(observation, "bed_region_debug", None)
         self.last_debug_snapshot = BedExitDebugSnapshot(
-            frame_index=frame_index if isinstance(frame_index, int) else None,
+            frame_index=None,
             person_boxes=observation.boxes,
             bed_boxes=observation.bed_boxes,
             statuses=frame.statuses,
             events=frame.events,
-            bed_region=bed_region,
+            bed_region=None,
         )
         if self._night_window is not None:
             assert self._clock is not None
