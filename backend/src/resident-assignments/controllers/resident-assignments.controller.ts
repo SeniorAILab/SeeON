@@ -16,7 +16,7 @@ import {
 import type { ResidentAssignmentQueryDto } from '../dto/resident-assignment-query.dto.js';
 import { ResidentAssignmentsService } from '../services/resident-assignments.service.js';
 
-@Controller('api/resident-assignments')
+@Controller({ path: 'resident-assignments', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ResidentAssignmentsController {

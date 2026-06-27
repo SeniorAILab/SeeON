@@ -16,6 +16,8 @@ import {
   Post,
   Req,
   UseGuards,
+  VERSION_NEUTRAL,
+  Version,
 } from '@nestjs/common';
 import { HmacIngestGuard } from './hmac.guard.js';
 import type {
@@ -36,6 +38,7 @@ export class IngestController {
     private readonly ingestAlertService: IngestAlertService,
   ) {}
 
+  @Version(VERSION_NEUTRAL)
   @Post('alerts')
   @UseGuards(HmacIngestGuard)
   @HttpCode(201)
@@ -54,6 +57,7 @@ export class IngestController {
    * (same HmacIngestGuard, empty-body canonical).
    * Updates Camera.lastSeenAt + Camera.online.
    */
+  @Version(VERSION_NEUTRAL)
   @Post('heartbeat')
   @UseGuards(HmacIngestGuard)
   @HttpCode(200)

@@ -135,7 +135,7 @@ describe("authService backend session", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/facilities",
+      "/api/v1/facilities",
       expect.objectContaining({
         method: "POST",
         credentials: "include",

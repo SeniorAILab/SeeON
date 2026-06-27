@@ -66,7 +66,7 @@ describe("OnboardingPage", () => {
 
     await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/facilities",
+      "/api/v1/facilities",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
