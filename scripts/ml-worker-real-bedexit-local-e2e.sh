@@ -76,7 +76,7 @@ require_rtsp() {
   if [[ -z "$rtsp_url" ]]; then
     printf 'NURSING_HOME_RTSP_URL or BED_EXIT_RTSP_URL is required.\n' >&2
     printf 'Start external SeniorAILab/rtsp-generator or use a real camera, then pass a worker-reachable rtsp:// URL.\n' >&2
-    printf 'Do not start MediaMTX/FFmpeg/file-to-RTSP inside this repository.\n' >&2
+    printf 'Do not run an in-repo synthetic RTSP publisher; this repo is consumer-only (ADR-075).\n' >&2
     return 1
   fi
   if [[ "$rtsp_url" != rtsp://* ]]; then
