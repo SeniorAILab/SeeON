@@ -1,16 +1,19 @@
 export function buildAndPushImages({ imageNamespace, imagePlatform, run, sha, dryRun }) {
   const backendImage = `${imageNamespace}/backend:${sha}`;
   const frontImage = `${imageNamespace}/front:${sha}`;
-  const buildBase = ["build", "--platform", imagePlatform, "--target", "runner"];
+  const mlApiImage = `${imageNamespace}/ml-api:${sha}`;
+  const mlWorkerImage = `${imageNamespace}/ml-worker:${sha}`;
+  const buildBase = ["build", "--platform", imagePlatform];
+  const runnerBuildBase = [...buildBase, "--target", "runner"];
 
-  run("docker", [...buildBase, "-f", "backend/Dockerfile", "-t", backendImage, "."], {
+  run("docker", [...runnerBuildBase, "-f", "backend/Dockerfile", "-t", backendImage, "."], {
     dryRun,
   });
   run("docker", ["push", backendImage], { dryRun });
   run(
     "docker",
     [
-      ...buildBase,
+      ...runnerBuildBase,
       "-f",
       "front/Dockerfile",
       "--build-arg",
@@ -24,4 +27,12 @@ export function buildAndPushImages({ imageNamespace, imagePlatform, run, sha, dr
     { dryRun },
   );
   run("docker", ["push", frontImage], { dryRun });
+  run("docker", [...buildBase, "-f", "ml/Dockerfile.api", "-t", mlApiImage, "."], {
+    dryRun,
+  });
+  run("docker", ["push", mlApiImage], { dryRun });
+  run("docker", [...buildBase, "-f", "ml/Dockerfile.worker", "-t", mlWorkerImage, "."], {
+    dryRun,
+  });
+  run("docker", ["push", mlWorkerImage], { dryRun });
 }

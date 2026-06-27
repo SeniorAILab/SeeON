@@ -58,11 +58,11 @@ def test_fastapi_lifespan_does_not_assemble_camera_runtime() -> None:
     app.state.runner_warmup = lambda runner: runner
 
     with TestClient(app) as client:
-        status_body = client.get("/status").json()
+        status_body = client.get("/api/v1/status").json()
 
     # ml-api must not assemble a worker camera runtime (ADR-067).
     assert not hasattr(app.state, "runtime")
     assert not hasattr(app.state, "incident_manager")
-    # /status is heartbeat-derived; no camera loop started -> no heartbeats.
+    # /api/v1/status is heartbeat-derived; no camera loop started -> no heartbeats.
     assert status_body["cameras"] == {}
     assert "stale_after_sec" in status_body

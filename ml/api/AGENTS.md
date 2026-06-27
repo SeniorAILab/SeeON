@@ -2,13 +2,13 @@
 
 Own the L5 FastAPI api: app factory, lifespan boot, the bounded debug prediction
 pipeline, model facade, source registry facade (debug only), the worker→api
-relay gateway, and a relay-heartbeat-derived `/status`. `ml-api` is the edge
-node's single backend gateway (ADR-067/029); it does not assemble live camera
+`/api/v1/relay/*` gateway, and a relay-heartbeat-derived `/status`. `ml-api` is the edge
+node's single no-HMAC Event API backend gateway (ADR-067/029); it does not assemble live camera
 loops and shares no in-memory state with `ml-worker`.
 
 ## Local Ownership
 
-- `main.py`: `create_app`, route registration, legacy direct-test shims.
+- `main.py`: `create_app`, `/api/v1` route registration, legacy direct-test shims.
 - `lifespan.py`: thin-gateway boot and `app.state` assembly.
 - `model.py`: api facade for the fall model runner.
 - `pipeline.py`: source/window prediction pipeline (ADR-048 debug seam).
@@ -36,4 +36,4 @@ Forbidden: `training`, `demo`, `worker`, and worker-owned runtime modules. There
 
 ## Gotchas
 
-`lifespan.py` boots a thin gateway: config, device/model/warmup, debug pipeline, backend-ingest gateway (relay token, camera inventory, ingest client), the heartbeat store, source registry (bounded debug), and readiness. It does NOT assemble camera loops, domain detectors, an `EdgeRuntime`, or worker runtime/state. `/relay/heartbeat` stamps local `received_at` after auth + camera binding and before backend egress so `/status` reflects edge-local truth even when backend egress fails. Keep route modules thin.
+`lifespan.py` boots a thin gateway: config, device/model/warmup, debug pipeline, backend Event API gateway (relay token, camera inventory, no-HMAC ingest client), the heartbeat store, source registry (bounded debug), and readiness. It does NOT assemble camera loops, domain detectors, an `EdgeRuntime`, or worker runtime/state. `/api/v1/relay/heartbeat` stamps local `received_at` after auth + camera binding and before backend egress so `/api/v1/status` reflects edge-local truth even when backend egress fails. Keep route modules thin; product routes stay under `/api/v1`, while `/health/live` and `/health/ready` remain unversioned.

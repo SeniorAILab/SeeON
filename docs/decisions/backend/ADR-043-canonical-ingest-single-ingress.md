@@ -15,11 +15,11 @@ The backend previously had two alert planes that could diverge during a real fal
 
 When those planes are fed by separate API paths, one fall can update the dashboard without producing Kakao delivery attempts, or enqueue delivery without updating the realtime read-model. The Thursday MVP requires one live fall from the ML demo to produce both visible dashboard state and durable per-recipient delivery work.
 
-This ADR extends ADR-035 and ADR-037 by making `/ingest/alerts` the canonical ingress that creates both records for the same idempotent event.
+Supersession note: this historical HMAC ingest ADR is superseded for live traffic by the issue #388 Event API cutover. Live ML ingress is `POST /api/v1/events`, with backend policy deriving alerts/outbox from the Event SSOT.
 
 ## Decision
 
-Treat `POST /ingest/alerts` as the single canonical backend ingress for ML-originated fall alerts.
+Historical decision: treat the HMAC alert route as the single backend ingress for ML-originated fall alerts during that phase.
 
 For each valid ingest request:
 
@@ -31,7 +31,7 @@ For each valid ingest request:
 6. Return a retryable 5xx if outbox pre-persistence fails after the read-model is written, so ML retry can repair the missing outbox.
 7. On duplicate repair, send only `PENDING` delivery attempts; do not re-send already terminal or sent attempts.
 
-The legacy `POST /api.alerts/events` pilot-endpoint retention clause is superseded by ADR-047. The pilot endpoint has been removed from the live contract; `/ingest/alerts` is the only live backend alert ingress.
+The legacy `POST /api.alerts/events` pilot-endpoint retention clause was superseded by ADR-047. The later Event API cutover supersedes this HMAC route for live ML ingress.
 
 ## Alternatives Considered
 
@@ -49,8 +49,8 @@ The legacy `POST /api.alerts/events` pilot-endpoint retention clause is supersed
 
 ## Consequences
 
-- `/ingest/alerts` becomes the authoritative live fall ingestion contract for the MVP.
+- Historical: the HMAC route was the authoritative fall ingestion contract for the MVP; live ML ingress is now the Event API.
 - Read-model/SSE and outbox state are tied to one idempotency key.
 - Duplicate ingest requests are useful repair attempts, not silent no-ops that can leave missing outbox state.
 - The ingest transaction boundary must protect provider sends from happening before durable `PENDING` attempts exist.
-- The temporary `api.alerts/events` pilot surface area was removed from the live contract by ADR-047; `/ingest/alerts` is the only live backend alert ingress.
+- The temporary `api.alerts/events` pilot surface area was removed from the live contract by ADR-047; the later Event API cutover supersedes the HMAC route for live ML ingress.

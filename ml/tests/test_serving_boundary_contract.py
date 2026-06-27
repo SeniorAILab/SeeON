@@ -14,19 +14,19 @@ from api.main import create_app, no_lifespan
 ML_ROOT: Final = Path(__file__).resolve().parents[1]
 SERVING_ROOT: Final = ML_ROOT / "api"
 ALLOWED_PATHS: Final = {
-    "/debug/predict/source",
-    "/debug/predict/window",
+    "/api/v1/debug/predict/source",
+    "/api/v1/debug/predict/window",
+    "/api/v1/health",
+    "/api/v1/models",
+    "/api/v1/relay/alerts",
+    "/api/v1/relay/heartbeat",
+    "/api/v1/status",
     "/docs",
     "/docs/oauth2-redirect",
-    "/health",
     "/health/live",
     "/health/ready",
-    "/models",
     "/openapi.json",
     "/redoc",
-    "/relay/alerts",
-    "/relay/heartbeat",
-    "/status",
 }
 PRODUCTION_ROUTE_TERMS: Final = (
     "rtsp",
@@ -45,7 +45,7 @@ def _serving_python_files() -> list[Path]:
     return sorted(path for path in SERVING_ROOT.rglob("*.py") if "__pycache__" not in path.parts)
 
 
-def _route_signature(route: APIRoute) -> str:
+def _route_descriptor(route: APIRoute) -> str:
     tags = " ".join(str(tag) for tag in route.tags)
     return f"{route.name} {route.path} {tags}".lower()
 
@@ -70,7 +70,7 @@ def test_serving_app_exposes_only_documented_boundary_routes() -> None:
     production_routes = [
         route.path
         for route in api_routes
-        if any(term in _route_signature(route) for term in PRODUCTION_ROUTE_TERMS)
+        if any(term in _route_descriptor(route) for term in PRODUCTION_ROUTE_TERMS)
     ]
 
     assert exposed_paths == ALLOWED_PATHS
@@ -88,7 +88,7 @@ def test_debug_predict_window_rejects_raw_frame_or_image_payloads() -> None:
         {"image": "data:image/jpeg;base64,AA=="},
         {"image_bytes": "AA=="},
     ):
-        response = client.post("/debug/predict/window", json=payload)
+        response = client.post("/api/v1/debug/predict/window", json=payload)
         assert response.status_code in {400, 422}
 
 

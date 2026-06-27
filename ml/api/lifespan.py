@@ -21,10 +21,7 @@ from runners.registry import DEFAULT_REGISTRY
 from runners.warmup import warmup_runner
 from sources.registry import SourceRegistry
 
-API_BACKEND_ALERT_URL_ENV = "API_BACKEND_ALERT_URL"
-API_BACKEND_HEARTBEAT_URL_ENV = "API_BACKEND_HEARTBEAT_URL"
-API_INGEST_KEY_ID_ENV = "API_INGEST_KEY_ID"
-API_INGEST_SECRET_ENV = "API_INGEST_SECRET"
+API_BACKEND_EVENTS_URL_ENV = "API_BACKEND_EVENTS_URL"
 API_EDGE_RELAY_TOKEN_ENV = "API_EDGE_RELAY_TOKEN"
 API_CAMERA_INVENTORY_ENV = "API_CAMERA_INVENTORY"
 API_BACKEND_INGEST_TIMEOUT_SEC_ENV = "API_BACKEND_INGEST_TIMEOUT_SEC"
@@ -86,22 +83,14 @@ def _configure_backend_ingest(app: FastAPI) -> None:
     if hasattr(app.state, "backend_ingest_client"):
         return
 
-    alert_url = os.environ.get(API_BACKEND_ALERT_URL_ENV)
-    heartbeat_url = os.environ.get(API_BACKEND_HEARTBEAT_URL_ENV)
-    ingest_key_id = os.environ.get(API_INGEST_KEY_ID_ENV)
-    ingest_secret = os.environ.get(API_INGEST_SECRET_ENV)
-    if not all((alert_url, heartbeat_url, ingest_key_id, ingest_secret)):
+    events_url = os.environ.get(API_BACKEND_EVENTS_URL_ENV)
+    if not events_url:
         return
 
     first_camera = next(iter(app.state.camera_inventory.values()), {})
     app.state.backend_ingest_client = EdgeIngestClient(
-        alert_url=alert_url,
-        heartbeat_url=heartbeat_url,
+        events_url=events_url,
         camera_id=str(first_camera.get("camera_id", "api-relay")),
-        facility_id=str(first_camera.get("facility_id", "api-relay")),
-        resident_id=first_camera.get("resident_id"),
-        ingest_key_id=ingest_key_id,
-        ingest_secret=ingest_secret,
         timeout_sec=_backend_ingest_timeout_sec(),
     )
 

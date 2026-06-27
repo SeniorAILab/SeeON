@@ -66,8 +66,8 @@ def test_ml_worker_yaml_config_loads_nested_contract(tmp_path: Path) -> None:
 
     assert config.version == 1
     assert config.relay.url == "http://127.0.0.1:8000"
-    assert config.relay_alert_url == "http://127.0.0.1:8000/relay/alerts"
-    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/relay/heartbeat"
+    assert config.relay_alert_url == "http://127.0.0.1:8000/api/v1/relay/alerts"
+    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/api/v1/relay/heartbeat"
     assert config.runtime.max_failures == 30
     assert config.models.fall.type == "lstm"
     assert config.models.fall.input_shape == (3, 51)

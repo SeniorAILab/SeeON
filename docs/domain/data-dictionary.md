@@ -1,15 +1,14 @@
 # Domain data dictionary
 
-This dictionary names the backend domain objects used by the dashboard, ingest edge, session system, and alert delivery pipeline. Prisma model names and field names are referenced from `backend/prisma/schema.prisma`. Relationship cardinality, FK direction, and RLS enrollment are canonicalized in [data-model.md](./data-model.md).
+This dictionary names the backend domain objects used by the dashboard, Event API edge, session system, and alert delivery pipeline. Prisma model names and field names are referenced from `backend/prisma/schema.prisma`. Relationship cardinality, FK direction, and RLS enrollment are canonicalized in [data-model.md](./data-model.md).
 
 ## Naming convention
 
-Prisma model fields and product `/api/*` DTOs are camelCase. Database table/column names and edge `/ingest/*` payloads are snake_case through `@map`, `@@map`, and ingest DTO boundaries.
+Prisma model fields and product `/api/*` DTOs are camelCase. Database table/column names and ML Event API payloads are snake_case through `@map`, `@@map`, and DTO boundaries.
 
 Examples:
 
 - `User.facilityId` maps to `facility_id`.
-- `Camera.ingestKeyId` maps to `ingest_key_id`.
 - `Alert.alertSeq` maps to `alert_seq`.
 - `AlertEvent.externalEventId` maps to `external_event_id`.
 - Tables use `@@map`, such as `facilities`, `server_sessions`, `resident_statuses`, `alert_events`, and `delivery_attempts`.
@@ -80,21 +79,27 @@ Important fields: `id`, `facilityId`, `residentId`, `name`, `phone`, `relation`.
 
 ### Camera
 
-Ingest-capable edge source. `ingestKeyId` is the selector sent with ingest requests; `ingestSecretHash` is the stored SHA-256 hash of the HMAC secret and never stores the plaintext secret. Target model assigns each camera to exactly one space through `spaceId`; legacy resident assignment is removed.
+Event-capable edge source. Cameras are identified by `camera_id` in the no-HMAC Event API; backend resolves facility and space from the camera record. Target model assigns each camera to exactly one space through `spaceId`; legacy resident assignment is removed.
 
-Important fields: target `id`, `facilityId`, `spaceId`, `label`, `ingestKeyId`, `ingestSecretHash`, `lastSeenAt`, `online`.
+Important fields: target `id`, `facilityId`, `spaceId`, `label`, `lastSeenAt`, `online`.
 
 ### Alert
 
-Dashboard read-model for a detected fall/alert. `Alert` is tenant/RLS-scoped and is what REST list/detail and SSE alert frames expose. `alertSeq` is the monotonic SSE replay key used as `Last-Event-ID`; `idempotencyKey` is server-derived for exact duplicate ingest detection. Target model anchors every alert to `spaceId`; `cameraId` is source metadata and `residentId` is nullable when the person is unknown.
+Dashboard read-model for a detected fall/alert. `Alert` is tenant/RLS-scoped and is what REST list/detail and SSE alert frames expose. `alertSeq` is the monotonic SSE replay key used as `Last-Event-ID`; `idempotencyKey` is server-derived for exact duplicate event detection. `originEventId` links alerts derived from the Event SSOT. Target model anchors every alert to `spaceId`; `cameraId` is source metadata and `residentId` is nullable when the person is unknown.
 
-Important fields: target `id`, `alertSeq`, `facilityId`, `spaceId`, `residentId`, `cameraId`, `type`, `probability`, `snapshotKey`, `detectedAt`, `status`, `idempotencyKey`.
+Important fields: target `id`, `alertSeq`, `facilityId`, `spaceId`, `residentId`, `cameraId`, `type`, `probability`, `snapshotKey`, `detectedAt`, `status`, `idempotencyKey`, `originEventId`.
 
 ### ResidentStatus
 
 Per-resident current-state read model. State is one of `NORMAL`, `WARNING`, or `FALL`. It also tracks whether the source camera is currently online and the last seen timestamp used by dashboard status badges. Empty-room/unknown-person alerts do not update resident status.
 
 Important fields: `residentId`, `facilityId`, `state`, `lastSeenAt`, `cameraOnline`, `sourceId`.
+
+### Event
+
+Immutable ML event SSOT created by `POST /api/v1/events`. It is tenant/RLS-scoped, append-only for the app role, and deduplicated by a server-derived key from camera, detection timestamp, and type. Backend alert policy may derive `Alert` rows from events; those alerts retain `Alert.originEventId` for traceability.
+
+Important fields: `id`, `facilityId`, `cameraId`, `spaceId`, `type`, `confidence`, `detectedAt`, `dedupKey`, `createdAt`, `modifiedAt`.
 
 ### AlertEvent
 

@@ -1,6 +1,6 @@
 # IDIS 카메라 RTSP 연결 / SEED-128 암호화 게이트 (finding)
 
-IDIS IP 카메라(WebGuard 펌웨어)에서 RTSP 스트림을 ffmpeg/VLC/OpenCV로 받을 때의 연결 절차와, 모든 클라이언트가 `DESCRIBE`에서 막히는 SEED-128 암호화 게이트의 진단·해제 방법을 정리한다. production 낙상 live path는 `RTSP -> ml-worker -> ml-api -> backend /ingest/*`이며(ADR-067/029), 카메라 자체의 연결성은 이 path와 무관한 하드웨어 사전조건이다.
+IDIS IP 카메라(WebGuard 펌웨어)에서 RTSP 스트림을 ffmpeg/VLC/OpenCV로 받을 때의 연결 절차와, 모든 클라이언트가 `DESCRIBE`에서 막히는 SEED-128 암호화 게이트의 진단·해제 방법을 정리한다. production 낙상 live path는 `RTSP -> ml-worker -> ml-api -> backend /api/v1/events`이며(ADR-067/029), 카메라 자체의 연결성은 이 path와 무관한 하드웨어 사전조건이다.
 
 > 실측(2026-06-22, `10.10.79.121`): IDIS WebGuard 카메라를 SEED 암호화 OFF 상태로 연결했다. 트리플 스트림이 전부 HEVC(H.265) Main이었고 trackID=1은 `1920×1080@30`, trackID=2는 `640×360@30`, trackID=3은 `352×240@15`였다. H.264 트랙은 없었다. ML 입력은 추론 부하와 프레임율 균형 때문에 trackID=2를 권장한다. 실제 IP와 자격증명은 git 밖 local config에만 둔다.
 

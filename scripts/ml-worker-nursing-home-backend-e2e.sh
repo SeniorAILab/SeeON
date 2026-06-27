@@ -7,12 +7,12 @@ models_dir="${ML_MODELS_DIR:?ML_MODELS_DIR with pose/bed/fall weights is require
 backend_base_url="${BACKEND_BASE_URL:-http://host.docker.internal:8080}"
 relay_url="${RELAY_URL:-http://ml-api:8000}"
 relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
+ml_api_image="${ML_API_IMAGE:-ghcr.io/seniorailab/eldercare-fall-ai/ml-api:local}"
+ml_worker_image="${ML_WORKER_IMAGE:-ghcr.io/seniorailab/eldercare-fall-ai/ml-worker:local}"
 frames="${MAX_FRAMES_PER_CAMERA:-45}"
 facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
 camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
-ingest_key_id="${E2E_INGEST_KEY_ID:-demo-cam-2f-202-keyid}"
-ingest_secret="${DEMO_INGEST_SECRET:?DEMO_INGEST_SECRET must match backend seed}"
 db_container="${E2E_DB_CONTAINER:-eldercare-fall-db}"
 postgres_user="${POSTGRES_USER:-fall}"
 postgres_db="${POSTGRES_DB:-fall_dev}"
@@ -145,29 +145,27 @@ YAML
 }
 
 start_compose_network() {
-  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
-    API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
-    API_INGEST_KEY_ID="$ingest_key_id" \
-    API_INGEST_SECRET="$ingest_secret" \
+  ML_API_IMAGE="$ml_api_image" \
+    ML_WORKER_IMAGE="$ml_worker_image" \
+    API_BACKEND_EVENTS_URL="${backend_base_url}/api/v1/events" \
     API_EDGE_RELAY_TOKEN="$relay_token" \
     API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
     EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
-    create --build ml-api ml-worker >/dev/null
+    create ml-api ml-worker >/dev/null
 }
 
 run_worker() {
-  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
-    API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
-    API_INGEST_KEY_ID="$ingest_key_id" \
-    API_INGEST_SECRET="$ingest_secret" \
+  ML_API_IMAGE="$ml_api_image" \
+    ML_WORKER_IMAGE="$ml_worker_image" \
+    API_BACKEND_EVENTS_URL="${backend_base_url}/api/v1/events" \
     API_EDGE_RELAY_TOKEN="$relay_token" \
     API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
     EDGE_CAMERA_CONFIG="$config" ML_MODELS_DIR="$edge_models_dir" docker compose \
     -p "$compose_project" \
     -f compose.edge.yaml \
-    run -T --rm --build \
+    run -T --rm \
     ml-worker \
     python -m worker.edge_worker \
     --config /run/secrets/ml-worker.yaml \

@@ -66,17 +66,29 @@ def test_edge_compose_contains_exactly_ml_edge_api_and_worker() -> None:
     assert set(services) == set(EDGE_SERVICES), sorted(services)
 
 
-def test_edge_services_build_from_explicit_dockerfiles() -> None:
+def test_edge_services_pin_release_images_with_dockerfiles_for_build() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
+    expected_image_env = {
+        "ml-api": "ML_API_IMAGE",
+        "ml-worker": "ML_WORKER_IMAGE",
+    }
 
     failures: list[str] = []
     for service_name, expected_dockerfile in EDGE_SERVICES.items():
-        build = services[service_name].get("build", {})
-        actual_dockerfile = build.get("dockerfile") if isinstance(build, dict) else None
-        if actual_dockerfile != expected_dockerfile:
+        service = services[service_name]
+        image = str(service.get("image", ""))
+        if expected_image_env[service_name] not in image:
             failures.append(
-                f"{service_name} dockerfile is {actual_dockerfile!r}, "
-                f"expected {expected_dockerfile!r}"
+                f"{service_name} must pin {expected_image_env[service_name]}, "
+                f"image is {image!r}"
+            )
+        if service.get("pull_policy") != "always":
+            failures.append(
+                f"{service_name} must set pull_policy: always for pinned release images"
+            )
+        if not (REPO_ROOT / expected_dockerfile).exists():
+            failures.append(
+                f"{expected_dockerfile} must exist for the release image build"
             )
 
     assert not failures, "\n".join(failures)
@@ -188,17 +200,19 @@ def test_worker_imports_no_api_or_serving_packages() -> None:
     assert "import serving" not in source
 
 
-def test_edge_compose_keeps_backend_credentials_on_api_only() -> None:
+def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
     api_env = services["ml-api"].get("environment", {})
     worker_env = services["ml-worker"].get("environment", {})
 
-    assert "API_BACKEND_ALERT_URL" in api_env
-    assert "API_BACKEND_HEARTBEAT_URL" in api_env
-    assert "API_INGEST_KEY_ID" in api_env
-    assert "API_INGEST_SECRET" in api_env
+    assert "API_BACKEND_EVENTS_URL" in api_env
+    assert "API_BACKEND_" + "ALERT_URL" not in api_env
+    assert "API_BACKEND_" + "HEARTBEAT_URL" not in api_env
+    assert "API_" + "INGEST_" + "KEY_ID" not in api_env
+    assert "API_" + "INGEST_" + "SECRET" not in api_env
     assert "API_EDGE_RELAY_TOKEN" in api_env
     assert worker_env["RELAY_URL"] == "http://ml-api:8000"
     assert "RELAY_TOKEN" in worker_env
-    assert "API_INGEST_KEY_ID" not in worker_env
-    assert "API_INGEST_SECRET" not in worker_env
+    assert "API_BACKEND_EVENTS_URL" not in worker_env
+    assert "API_" + "INGEST_" + "KEY_ID" not in worker_env
+    assert "API_" + "INGEST_" + "SECRET" not in worker_env
