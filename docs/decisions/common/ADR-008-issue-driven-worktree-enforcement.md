@@ -53,14 +53,14 @@ scripts in `scripts/git-guard/`.
 ### 1. Issue-driven worktrees, enforced git-natively
 
 1. **Unit of work.** Each GitHub issue maps to exactly one branch named
-   `<type>/<issue#>-<slug>` and one isolated git worktree. `<type>` is read from the issue's
-   `type:` label (feat/fix/chore/…, fallback `feat`); `<slug>` is the slugified title. The
-   worktree lives outside the repo so it never dirties status.
+   `<type>/<issue#>-<slug>`, checked out inside a persistent lane (a worktree that lives outside
+   the repo so it never dirties status). `<type>` is read from the issue's `type:` label
+   (feat/fix/chore/…, fallback `feat`); `<slug>` is a short slug from the title.
 
 2. **Single source of truth.** All enforcement logic is POSIX `sh` in `scripts/git-guard/`
-   (`lib.sh`, `assert-not-main.sh`, `check-freshness.sh`, `wt.sh`). No layer reimplements it —
-   every layer *invokes* these scripts. Change behavior once, and it is identical across every
-   actor by construction.
+   (`lib.sh`, `assert-not-main.sh`, `check-freshness.sh`, `sync-main.sh`). No layer reimplements
+   it — every layer *invokes* these scripts. Change behavior once, and it is identical across
+   every actor by construction.
 
 3. **Git-native enforcement is primary.** `git config core.hooksPath .githooks` wires
    `.githooks/pre-commit` and `.githooks/pre-push` to the guard scripts. Commits and pushes on
@@ -73,28 +73,30 @@ scripts in `scripts/git-guard/`.
    Codex hooks see only shell commands, not file edits — that gap is acceptable because the
    git-native `pre-commit` catches the edit at commit time regardless of actor.
 
-5. **One front door.** `scripts/git-guard/setup-hooks.sh` (run once per clone) sets
-   `core.hooksPath` and registers a `git wt` alias → `wt.sh`. `git wt <issue#>` creates the
-   worktree; `git wt rm <issue#>` tears it down via `git worktree remove` + `git worktree prune`
-   (never `rm -rf`), so no phantom entry is left and `git branch -d` works afterward without
-   manual prune.
+5. **One setup front door.** `scripts/git-guard/setup-hooks.sh` (run once per clone) sets
+   `core.hooksPath` and chmods the guard scripts. Worktrees are a persistent **lane pool**
+   created once with `git worktree add`; per-task branches are cut inside an idle lane with
+   `git switch -c <type>/<issue#>-<slug> origin/main`, and the lane returns to an idle parking
+   ref after merge. Lanes are not torn down per task; if a worktree must ever be removed, use
+   `git worktree remove` + `git worktree prune` (never `rm -rf`) so no phantom entry is left.
 
 6. **Escape hatch.** `GIT_GUARD_PROTECTED=` (empty) disables the protected-branch check for
    deliberate maintenance on `main` — documented, explicit, opt-in.
 
-### 2. Worktree lifecycle: per-task default, lane pool for concurrency
+### 2. Worktree lifecycle: a persistent lane pool
 
 The invariant above — one issue → one branch, never on a protected branch, fresh `origin/main`
-per task, git-native gates — is fixed. *How long a worktree lives* is an operational choice
-that does not change any gate:
+per task, git-native gates — is fixed. The worktree lifecycle that realizes it is a **fixed pool
+of persistent lanes**:
 
-- **Per-task (default).** `git wt` create / `git wt rm` teardown, one worktree per issue.
-- **Lane pool.** A single human running **concurrent** agents keeps a fixed set of persistent
-  `lane-N` worktrees, reused across issues (warm `node_modules`/`.venv`), each task on its own
-  per-issue feature branch cut from fresh `origin/main`. Concurrent agents cannot share one
-  working directory, so isolation is mandatory; capping the pool prevents worktree sprawl.
+- A small set of `lane-N` worktrees is created once and reused across issues, keeping
+  `node_modules`/`.venv` warm. Each task is cut onto its own per-issue feature branch from fresh
+  `origin/main` inside an idle lane; on merge the lane returns to an idle parking ref.
+- Concurrent agents cannot share one working directory, so a lane per agent is mandatory;
+  capping the pool prevents worktree sprawl. There is no per-issue create/teardown churn and no
+  issue→worktree automation tool — branches are named by hand from the issue's `type:` label.
 
-Both modes honor every gate in part 1. The mechanics live in
+Every gate in part 1 holds unchanged. The mechanics live in
 `docs/rules/worktree-workflow.md`.
 
 ### 3. PR size gate — logic-churn based, hard at > 1000 (absorbed from former ADR-039)
@@ -119,10 +121,11 @@ The standing convention lives in `docs/rules/pr-decomposition-and-review.md`.
 
 ### 4. Issue Type auto-label — fail-closed mapping to `type:` (absorbed from former ADR-040)
 
-The `type:` label is the source of truth for the branch `<type>` prefix that `git wt <issue#>`
-derives. Because the issue form (`.github/ISSUE_TEMPLATE/task.yml`) has a required **Type**
-dropdown but opens issues with `labels: []`, a new issue carries no `type:` label until someone
-adds it by hand — and `git wt` then silently falls back to `feat`, producing wrong prefixes for
+The `type:` label is the source of truth for the branch `<type>` prefix you write when cutting
+the feature branch (`git switch -c <type>/<issue#>-<slug>`). Because the issue form
+(`.github/ISSUE_TEMPLATE/task.yml`) has a required **Type** dropdown but opens issues with
+`labels: []`, a new issue carries no `type:` label until someone adds it by hand — so the author
+has nothing authoritative to copy the prefix from and is liable to guess wrong for
 `fix`/`chore`/`docs`/`refactor`/`test` work. `.github/workflows/issue-auto-label.yml`
 (github-script) closes that gap:
 
@@ -188,10 +191,10 @@ raw-churn gate stacked on the logic gate adds friction with no clear benefit. Ch
 
 ### F. Type labeling — manual only, or default to `feat` on missing/unknown
 
-**Rejected (both).** Manual-only leaves the `git wt` fallback gap (humans forget). Defaulting to
-`type: feat` on a missing/unknown Type silently masks the error and produces wrong branch
-prefixes — violating fail-fast (ADR-014). Chosen: fail-closed Type→`type:` mapping that warns
-instead of guessing.
+**Rejected (both).** Manual-only leaves a prefix gap — without a label the author has nothing to
+copy and guesses the branch `<type>`. Defaulting to `type: feat` on a missing/unknown Type
+silently masks the error and produces wrong branch prefixes — violating fail-fast (ADR-014).
+Chosen: fail-closed Type→`type:` mapping that warns instead of guessing.
 
 ## Consequences
 
@@ -201,7 +204,8 @@ instead of guessing.
   layer none of them can bypass. Behavior is identical by construction, not by discipline.
 - Bad states (work on `main`, stale push, oversized PR, wrong branch type) are prevented or
   flagged early rather than detected after the fact.
-- Teardown is safe: `git wt rm` leaves no phantom worktree, so branch deletion just works.
+- Teardown is safe: lanes are reused, not deleted; a feature branch merges and the lane returns
+  to its idle parking ref, so `git branch -D` just works and no phantom worktree is left.
 - Adding a new actor or front-end means writing one more thin invoker of the same scripts.
 - `size/L` PRs merge without a hard block (reviewers treat `size/L` as a recommended-split
   signal); fewer `size/override` escapes, so the override label regains its "audited exception"
@@ -239,3 +243,9 @@ instead of guessing.
   (PR size gate — logic churn, hard at > 1000) and ADR-040 (issue Type fail-closed auto-label);
   those ADR files are removed and their anchors forward here. ADR-016 stays a separate
   cross-cutting decision, only cross-linked (#393).
+- 2026-06-27: Retire `git wt`/`wt.sh`. The worktree lifecycle is now a single persistent **lane
+  pool** (branches cut with `git switch -c <type>/<issue#>-<slug> origin/main` inside a reused
+  lane), not per-issue worktree automation. The hard-enforced invariant is reduced to **never
+  work on `main`** (`assert-not-main` + CI head≠`main`); branch naming is demoted to a soft
+  traceability convention. All other `scripts/git-guard/` scripts and `.githooks/` gates are
+  unchanged (#407).

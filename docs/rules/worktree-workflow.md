@@ -7,120 +7,51 @@
 
 ## Rule
 
-**Never work directly on a protected branch (`main`).** Every task maps to a GitHub Issue,
-which maps to a branch, which maps to a worktree.
+**Never commit or push on a protected branch (`main`).** This is the one hard invariant —
+enforced locally by `assert-not-main.sh` (pre-commit/pre-push) and on the remote by the
+`pr-check.yml` head≠`main` check. Every task maps to a GitHub Issue, which maps to a feature
+branch, which is checked out inside a persistent **lane**.
 
 ```
-GitHub Issue  →  branch <type>/<issue#>-<slice-slug>  →  worktree at $WORKTREE_ROOT/<branch>
+GitHub Issue  →  branch <type>/<issue#>-<slug>  →  checked out inside an idle lane
 ```
 
-## Operating modes
+## The lane pool
 
-Two sanctioned worktree lifecycles. Both honor the same invariant — **never commit or push
-on a protected branch**, every task starts from fresh `origin/main`, branch naming is
-`<type>/<issue#>-<slug>`. They differ only in worktree *lifespan*.
-
-| Mode | When | Worktree lifespan |
-|------|------|-------------------|
-| **A. Per-task** (default) | Occasional / sequential work; CI agents | One worktree per issue via `git wt`, torn down with `git wt rm` after merge |
-| **B. Lane pool** | Single human orchestrating **concurrent** agents | A fixed set of persistent `lane-N` worktrees, reused across issues |
-
-Mode A is the documented default below. Mode B is described in [Lane-pool mode](#lane-pool-mode-single-human-multi-agent).
-
-## Creating a worktree
-
-```bash
-git wt <issue#>          # e.g. git wt 17
-```
-
-`git wt` (alias registered by `setup-hooks.sh`) reads the issue's `type:` label and title via
-`gh`, derives the branch name, fetches `origin/main`, and creates the worktree outside the repo
-root so `git status` stays clean. The worktree path is printed on success.
-
-Override the type if the label is missing or wrong:
-
-```bash
-git wt 17 --type fix
-
-# Fan-out slice for the same issue
-git wt 17 --slug webhook-contract
-```
-
-## Branch naming
-
-```
-<type>/<issue#>-<slug>
-```
-
-- `<type>`: from the issue's `type: feat|fix|chore|docs|refactor|test` label; falls back to `feat`
-- `<issue#>`: the GitHub issue number
-- `<slug>`: issue title lowercased, non-alnum → `-`, **must start with `[a-z0-9]`** (the `pr-check.yml` branch regex and `wt.sh` slugify both enforce this), capped at 50 chars for a 1-PR issue; for fan-out work, replace it with a slice-specific slug while keeping the same issue number
-
-Examples: `feat/17-fall-webhook`, `fix/23-rtsp-timeout`, `chore/31-update-deps`
-
-Branch naming is a traceability convention, not a CI hard gate. The hard boundary is
-that work must not happen directly on a protected branch (`main`), and PRs must target
-an allowed base branch. CI also rejects same-repo PRs whose head branch is `main`,
-matching the local protected-branch guard. A misnamed non-protected head branch is
-reversible: prefer creating branches through `git wt`, and fix naming drift during
-review or periodic audit instead of blocking the PR only for its head branch name.
-
-Fan-out note: when one issue must be split into multiple PRs, keep one branch and one
-worktree per PR, keep the same issue number, and use a distinct slice slug via
-`git wt <issue#> --slug <slice-slug>`. Record the slice boundary in the PR body.
-
-## Listing worktrees
-
-```bash
-git wt ls
-```
-
-## Tearing down a worktree
-
-```bash
-git wt rm <issue#>       # or: git wt rm <branch>
-```
-
-Use `git wt rm`, **never** `rm -rf`. Manual deletion leaves phantom `.git/worktrees/` entries
-that block `git branch -d` and `git checkout` until `git worktree prune` is run manually.
-`git wt rm` calls `git worktree remove` + `git worktree prune` automatically.
-
-After merging your PR, delete the local branch:
-
-```bash
-git branch -d <branch>
-```
-
-## Lane-pool mode (single-human multi-agent)
-
-For a single human driving **multiple concurrent agents**, creating and destroying a
-worktree per task is wasteful: every new worktree re-runs `pnpm install` / `uv sync` (cold
-deps) and abandoned worktrees accumulate. Concurrent agents still cannot share one working
-directory, so keep a **fixed pool of persistent lanes** and reuse them.
+There is one worktree lifecycle: a **fixed pool of persistent lanes**, reused across issues.
+Creating and destroying a worktree per task is wasteful — every new worktree re-runs
+`pnpm install` / `uv sync` (cold deps) and abandoned worktrees accumulate. Concurrent agents
+cannot share one working directory, so keep N long-lived lanes (one per agent you run at once)
+warm and switch branches inside them.
 
 ### Layout
 
 ```
 eldercare-fall-ai/                 # main worktree = orchestration home
                                    #   never edit here; keep clean as the branch base
-$WORKTREE_ROOT/lane-1/             # agent lane 1 (persistent)
-$WORKTREE_ROOT/lane-2/             # agent lane 2 (persistent)
-$WORKTREE_ROOT/lane-3/             # agent lane 3 (persistent)
+$WORKTREE_ROOT/lane-1/             # agent lane 1 (persistent)   $WORKTREE_ROOT = sibling
+$WORKTREE_ROOT/lane-2/             # agent lane 2 (persistent)   dir next to the repo, e.g.
+$WORKTREE_ROOT/lane-3/             # agent lane 3 (persistent)   ../eldercare-fall-ai.…-worktrees/
 ```
 
 - Pool size **N = the max number of agents you run at once** (typically 2–4).
-- Each lane is created once (`git worktree add -b lane/<n> $WORKTREE_ROOT/lane-<n> origin/main`)
-  and **never torn down per task** — its `node_modules` / `.venv` stay warm.
-- **Resources are not auto-wired** in this mode: `git worktree add` (unlike `git wt`) does not
-  symlink the gitignored ML payload. Wire each lane once — symlink `ml/models` and the ignored
-  `ml/data/{le2i,nursing-home,uploads}` subdirs to the main checkout (`ml/data/eval` stays a
-  tracked checkout), and link `.env.local`. The symlink rule is owned by
-  [`ml-models.md`](./ml-models.md) / [`ml-filesystem-layout.md`](./ml-filesystem-layout.md) —
-  follow it, do not restate it.
-- The persistent `lane/<n>` branch is just an idle parking ref; real work happens on a
-  per-issue feature branch checked out inside the lane.
+- Each lane is created once and **never torn down per task** — its `node_modules` / `.venv`
+  stay warm:
+  ```bash
+  git worktree add -b lane/<n> $WORKTREE_ROOT/lane-<n> origin/main
+  ```
+- **Resources must be wired once per lane.** A plain `git worktree add` does not populate the
+  gitignored ML payload. Symlink `ml/models` and the ignored `ml/data/{le2i,nursing-home,uploads}`
+  subdirs to the main checkout (`ml/data/eval` stays a tracked checkout), and link `.env.local`.
+  The symlink rule is owned by [`ml-models.md`](./ml-models.md) /
+  [`ml-filesystem-layout.md`](./ml-filesystem-layout.md) — follow it, do not restate it.
+- The persistent `lane/<n>` branch is just an **idle parking ref** — real work always happens
+  on a per-issue feature branch checked out inside the lane.
 
-### Starting a task in a free lane
+> tmux convenience wrappers for opening the local/remote lane pool side by side are
+> machine-specific (shell dotfiles), not a repo concern.
+
+## Starting a task in a free lane
 
 Always branch from **fresh `origin/main`** — this is the "pull before work" step:
 
@@ -130,25 +61,53 @@ git fetch origin
 git switch -c <type>/<issue#>-<slug> origin/main
 ```
 
-### Finishing a task
+No issue→branch automation tool is involved — you name the branch yourself from the issue's
+`type:` label and a short slug (see [Branch naming](#branch-naming)).
 
-After the PR merges, return the lane to idle and delete the merged feature branch — keep
-the warm worktree:
+## Branch naming
+
+```
+<type>/<issue#>-<slug>
+```
+
+- `<type>`: the issue's `type: feat|fix|chore|docs|refactor|test` label (auto-applied by
+  `issue-auto-label.yml`; see [`github-labels.md`](./github-labels.md))
+- `<issue#>`: the GitHub issue number
+- `<slug>`: issue title lowercased, non-alnum → `-`, **must start with `[a-z0-9]`** (the
+  `pr-check.yml` branch regex enforces this), capped at ~50 chars; for fan-out work, use a
+  distinct slice-specific slug while keeping the same issue number
+
+Examples: `feat/17-fall-webhook`, `fix/23-rtsp-timeout`, `chore/31-update-deps`
+
+Branch naming is a **traceability convention, not a CI hard gate**. The hard boundary is that
+work must not happen directly on a protected branch (`main`), and PRs must target an allowed
+base branch. CI rejects same-repo PRs whose head branch is `main`, matching the local
+protected-branch guard. A misnamed non-protected head branch is reversible — fix naming drift
+during review or periodic audit instead of blocking the PR for its head branch name alone.
+
+Fan-out note: when one issue must be split into multiple PRs, use one lane + one feature branch
+per PR, keep the same issue number, and give each a distinct slice slug. Record the slice
+boundary in the PR body.
+
+## Finishing a task
+
+After the PR merges, return the lane to idle and delete the merged feature branch — **keep the
+warm worktree; never delete a lane**:
 
 ```bash
 git switch lane/<n>                # park on the idle ref
 git branch -D <type>/<issue#>-<slug>
 ```
 
-The next task reuses the same lane via the start command above.
+The next task reuses the same lane via the start command above. Never `rm -rf` a worktree;
+if a lane ever must be removed, use `git worktree remove` + `git worktree prune` so no phantom
+`.git/worktrees/` entry is left behind.
 
-### Rules
+## Listing worktrees
 
-- Do **not** `git wt` / `git wt rm` per task in this mode — that reintroduces the churn the
-  pool exists to avoid. Cap the lane count; do not let worktrees pile up.
-- One branch cannot be checked out in two worktrees at once — each lane is on a distinct
-  branch, so this holds naturally.
-- All enforcement and freshness gates below still apply unchanged.
+```bash
+git worktree list
+```
 
 ## Freshness
 
@@ -177,7 +136,7 @@ Run once per clone:
 sh scripts/git-guard/setup-hooks.sh
 ```
 
-This sets `core.hooksPath .githooks` and registers the `git wt` alias. Safe to re-run.
+This sets `core.hooksPath .githooks` and chmods the guard scripts. Safe to re-run.
 The hook trust prompt in Codex on first run is expected — approve it.
 
 ## Files
@@ -191,7 +150,6 @@ The hook trust prompt in Codex on first run is expected — approve it.
 | `scripts/git-guard/deny-assets.sh` | Blocks committing large/binary asset classes (irreversible-leak gate, ADR-016) |
 | `scripts/git-guard/sync-main.sh` | Fast-forwards local default branch to `origin` (ff-only, safe); run at session start |
 | `scripts/git-guard/check-migrations.sh` | Rejects out-of-order Prisma migrations (new ts ≤ latest on base); run in backend CI |
-| `scripts/git-guard/wt.sh` | Issue → worktree creator and manager |
 | `scripts/git-guard/setup-hooks.sh` | Post-clone setup (idempotent) |
 | `.githooks/pre-commit` | git hook: assert-not-main + freshness warn |
 | `.githooks/pre-push` | git hook: assert-not-main + freshness block |

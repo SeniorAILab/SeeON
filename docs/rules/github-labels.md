@@ -23,8 +23,9 @@ label; it never defaults to `feat` (ADR-008 §4).
 | `type: refactor` | `#cfd3d7` | Code change that neither fixes a bug nor adds a feature |
 | `type: test` | `#cfd3d7` | Test-only changes |
 
-Every issue must have exactly one `type:` label. `git wt` falls back to `feat` when
-missing, but the label should always be set explicitly.
+Every issue must have exactly one `type:` label — it is the source of the branch `<type>`
+prefix you write by hand, so set it explicitly (the auto-label workflow is fail-closed and
+never guesses a default).
 
 ### Domain (optional — narrows triage and search)
 

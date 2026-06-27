@@ -10,7 +10,7 @@ How a unit of work moves from a GitHub issue to a merged change. The domain is *
 
 | Facet | Rule SSOT | Covers |
 |-------|-----------|--------|
-| **Branch & worktree** | [`worktree-workflow.md`](./worktree-workflow.md) | One issue → one branch `<type>/<issue#>-<slug>` → one worktree; `git wt`; per-task vs. lane-pool lifecycle; freshness gates; `git-guard` enforcement. |
+| **Branch & worktree** | [`worktree-workflow.md`](./worktree-workflow.md) | One issue → one branch `<type>/<issue#>-<slug>` cut with `git switch -c` inside a persistent lane; freshness gates; `git-guard` enforcement (the one hard invariant: never work on `main`). |
 | **Issue labeling** | [`github-labels.md`](./github-labels.md) | The `type:`/`domain:` taxonomy; the required single `type:` label that drives the branch `<type>` (fail-closed auto-label). |
 | **Commit** | [`commit-convention.md`](./commit-convention.md) | Conventional-commit subject reusing `<type>`, atomicity, body, Co-Authored-By trailers. |
 | **PR, review & merge** | [`pr-decomposition-and-review.md`](./pr-decomposition-and-review.md) | One reviewable change; size gate (logic churn, hard at >1000); fan-out slices; per-PR review pass; merge discipline (local gate is the real gate). |

@@ -66,10 +66,11 @@ eflab() {
 
 #### Reusable lab slots (`lab/a`, `lab/b`)
 
-Persistent personal sandboxes, **outside** the issue-driven `git wt` convention (raw worktree
+Persistent personal sandboxes, **outside** the issue-driven lane-pool convention (raw worktree
 add off `main`; no hook blocks creation — only commit/push are guarded). Use plain `gjc` here,
 not `gjc --worktree` (which lands in a separate `.gajae-code-worktrees/` bucket symlinking only
-`node_modules`). For a real PR, branch properly inside the slot: `git wt <issue#>`.
+`node_modules`). For a real PR, branch properly inside the slot:
+`git switch -c <type>/<issue#>-<slug> origin/main`.
 
 Recreate the slots if missing (run on m1-pro):
 
@@ -97,49 +98,59 @@ The repo lives at the same absolute path as on the local machine:
 
 ## First-time clone setup
 
-After a fresh clone on m1-pro, run the git-guard setup once. Without it the `git wt` alias and `.githooks/` enforcement are inactive, and the entire worktree workflow is broken.
+After a fresh clone on m1-pro, run the git-guard setup once. Without it `core.hooksPath` and the `.githooks/` enforcement are inactive, and the protected-branch guard is off.
 
 ```bash
 cd ~/Documents/01_Project/eldercare-fall-ai
 sh scripts/git-guard/setup-hooks.sh
 ```
 
-## Worktree procedure
+## Lane setup (once per lane)
 
-Run these steps inside the `eldercare-fall` tmux session every time you start a new task.
+Create each persistent lane once and wire its git-ignored ML payload. The symlinks survive
+branch switches, so this is **not** repeated per task — never re-run it in an existing lane
+(the `ln -s` calls would fail with `File exists`).
 
 ```bash
-# 1. Bring main up to date
-cd ~/Documents/01_Project/eldercare-fall-ai
-git pull
-
-# 2. Create the worktree (reads issue title + label automatically)
-git wt <issue#>
-# e.g. git wt 74  →  worktree at ../eldercare-fall-ai-worktrees/feat/74-fall-autoresearch-loop
-
-# 3. Enter the worktree
-cd <worktree-path>   # path printed by git wt
-
-# 4. Asset symlinks
-#    ml/data, ml/models, ml/artifacts are git-ignored — a fresh worktree lacks them.
-#    git wt already symlinks ml/data automatically.
-#    You must manually link ml/models and ml/artifacts from the MAIN clone.
-
 MAIN=~/Documents/01_Project/eldercare-fall-ai
+WT=~/Documents/01_Project/eldercare-fall-ai-worktrees
 
-# ml/artifacts may not exist before first training — create it so the symlink survives
+# Create the lane parked on an idle ref (n = 1, 2, 3, …)
+git -C "$MAIN" worktree add -b lane/<n> "$WT/lane-<n>" origin/main
+cd "$WT/lane-<n>"
+
+# ml/data, ml/models, ml/artifacts are git-ignored — link them from the MAIN clone
+# (rule owned by ml-models.md / ml-filesystem-layout.md). ml/artifacts may not exist
+# before first training — create it so the symlink survives.
 mkdir -p "$MAIN/ml/artifacts"
-
+ln -s "$MAIN/ml/data"      ml/data
 ln -s "$MAIN/ml/models"    ml/models
 ln -s "$MAIN/ml/artifacts" ml/artifacts
 
-# 5. Verify all three links resolve (guard against dangling symlinks)
+# Verify all three links resolve (guard against dangling symlinks)
 ls -la ml/data ml/models ml/artifacts
+```
 
-# 6. Update Claude Code before launching
+## Worktree procedure (every task)
+
+Run these steps inside the `eldercare-fall` tmux session each time you start a new task. The
+lane and its symlinks already exist — never recreate them per task.
+
+```bash
+WT=~/Documents/01_Project/eldercare-fall-ai-worktrees
+
+# 1. Enter an idle lane and refresh origin
+cd "$WT/lane-<n>"
+git fetch origin
+
+# 2. Branch off fresh origin/main (name it from the issue's type: label)
+git switch -c <type>/<issue#>-<slug> origin/main
+# e.g. git switch -c feat/74-fall-autoresearch-loop origin/main
+
+# 3. Update Claude Code before launching
 claude update
 
-# 7. Launch Claude Code inside the tmux session
+# 4. Launch Claude Code inside the tmux session
 claude
 ```
 
