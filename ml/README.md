@@ -71,11 +71,6 @@ Backend `/ingest/*` URLs and key/secret configuration live in `ml-api`.
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future
 NVIDIA dGPU support needs release-matrix pinning before operators can rely on it.
-For development without a live camera, run the external
-`SeniorAILab/rtsp-generator` CLI with a video file and point a camera entry at
-the printed RTSP URL. Run `scripts/ml-worker-nursing-home-backend-e2e.sh` from
-the repo root with `NURSING_HOME_RTSP_URL` for the production-shaped nursing-home
-RTSP flow through `ml-api` to the real backend ingest implementation.
 
 ## Boundaries
 
