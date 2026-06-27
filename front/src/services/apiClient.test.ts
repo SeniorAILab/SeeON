@@ -95,21 +95,23 @@ describe("apiClient.requestJson", () => {
     );
   });
 
-  it("builds the default SSE URL under the versioned API prefix", async () => {
+  it("test_build_sse_url_uses_dashboard_stream_path", async () => {
     vi.stubEnv("VITE_API_BASE_URL", undefined);
 
     const { buildSseUrl, isAbsoluteApiUrl } = await import("./apiClient");
 
-    expect(buildSseUrl()).toBe("/api/v1/sse");
+    expect(buildSseUrl()).toBe("/api/v1/dashboard/stream");
+    expect(buildSseUrl()).not.toContain(["", "api", "v1", "sse"].join("/"));
     expect(isAbsoluteApiUrl(buildSseUrl())).toBe(false);
   });
 
-  it("builds an absolute SSE URL when VITE_API_BASE_URL is absolute", async () => {
+  it("builds an absolute dashboard stream SSE URL when VITE_API_BASE_URL is absolute", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "http://localhost:8080/api/v1");
 
     const { buildSseUrl, isAbsoluteApiUrl } = await import("./apiClient");
 
-    expect(buildSseUrl()).toBe("http://localhost:8080/api/v1/sse");
+    expect(buildSseUrl()).toBe("http://localhost:8080/api/v1/dashboard/stream");
+    expect(buildSseUrl()).not.toContain(["", "api", "v1", "sse"].join("/"));
     expect(isAbsoluteApiUrl(buildSseUrl())).toBe(true);
   });
 });

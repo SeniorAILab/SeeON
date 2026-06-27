@@ -1,5 +1,6 @@
-// Dashboard / Space 상태 조회 서비스 (mock)
-// 실제: GET /api/facilities/:id/dashboard, /api/spaces/:id/status, /api/spaces/:id/events
+// Dashboard / Space 상태 조회 서비스: real backend by default, mock only with VITE_USE_MOCK=true.
+import { getDashboardFromBackend } from "@/services/api/dashboardEndpoints";
+import { USE_MOCK } from "@/services/apiClient";
 import { db } from "./db";
 import { delay } from "@/lib/utils";
 import type {
@@ -22,6 +23,7 @@ function buildSummary(statuses: SpaceStatus[], unack: number): DashboardSummary 
 
 export const dashboardService = {
   async getDashboard(facilityId: string): Promise<DashboardResponse> {
+    if (!USE_MOCK) return getDashboardFromBackend();
     const facility = db.facilities.find((f) => f.id === facilityId);
     if (!facility) throw new Error("시설을 찾을 수 없습니다.");
 
@@ -61,10 +63,16 @@ export const dashboardService = {
   },
 
   async getSpaceStatus(spaceId: string): Promise<SpaceStatus | undefined> {
+    if (!USE_MOCK) return (await getDashboardFromBackend()).statuses[spaceId];
     return delay(db.statuses.find((s) => s.spaceId === spaceId));
   },
 
   async getSpaceEvents(spaceId: string): Promise<DetectionEvent[]> {
+    if (!USE_MOCK) {
+      return (await getDashboardFromBackend()).unacknowledgedEvents
+        .filter((e) => e.spaceId === spaceId)
+        .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt));
+    }
     const list = db.events
       .filter((e) => e.spaceId === spaceId)
       .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt));

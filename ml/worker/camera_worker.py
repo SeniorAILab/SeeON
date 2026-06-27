@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from contracts.event import EventPayload, MutableEventPayload
 from contracts.frame import Frame, FrameSource
 from contracts.observation import BoundingBox, DetectionResult, FrameObservation
 from contracts.runner import BedBoxOutput, BoxOutput, PoseOutput, RunnerOutput, RunnerProtocol
+from domains.bed_exit.schema import BedExitDebugSnapshot, DomainDebugSnapshot
 from perception.observation_builder import build_frame_observation
+from perception.scene_state import BedRegionDebugSnapshot, SceneState
 from worker.fall_window_classifier import FallWindowClassifier
 from worker.incident_manager import IncidentManager
 from worker.scheduler import Scheduler
@@ -29,6 +31,16 @@ class PublishEventSinkProtocol(Protocol):
     def publish(self, event: EventPayload) -> None: ...
 
 
+class OverlaySinkProtocol(Protocol):
+    def publish(
+        self,
+        camera_id: str,
+        frame: Frame,
+        observation: FrameObservation,
+        debug_snapshots: tuple[DomainDebugSnapshot, ...],
+    ) -> None: ...
+
+
 ObservationBuilder = Callable[..., FrameObservation]
 
 
@@ -45,10 +57,18 @@ class CameraWorker:
     incident_manager: IncidentManager = field(default_factory=IncidentManager)
     status_store: StatusStore = field(default_factory=StatusStore)
     fall_classifier: FallWindowClassifier | None = None
+    scene_state: SceneState | None = None
+    overlay_sink: OverlaySinkProtocol | None = None
+
+    def __post_init__(self) -> None:
+        if self.scene_state is None:
+            self.scene_state = SceneState(self.camera_id)
 
     def run(self, *, max_frames: int | None = None) -> int:
         processed = 0
         self.status_store.set_status(self.camera_id, self.facility_id, CameraStatus.STARTING)
+        if self.scene_state is not None:
+            self.scene_state.reset_for_new_source("source_iterator_start")
         # Source construction is the camera/source boundary: failure soft-degrades.
         try:
             frame_iter = iter(self.frame_source)
@@ -63,6 +83,8 @@ class CameraWorker:
                 break
             except Exception as exc:  # noqa: BLE001 - source iteration soft-degrades worker
                 self._mark_source_failure(exc)
+                if self.scene_state is not None:
+                    self.scene_state.reset_for_new_source("source_failure")
                 continue
             # Per-frame processing (runners/perception/domains/incident/sink) is a
             # distinct failure domain: it MUST NOT be misreported as camera.offline.
@@ -74,12 +96,7 @@ class CameraWorker:
         return processed
 
     def _mark_processing_failure(self, exc: Exception) -> None:
-        """Record a per-frame processing failure WITHOUT marking the camera offline.
-
-        Runner/perception/domain/incident/sink errors are processing-domain faults,
-        not source faults; they surface as a distinct ops event preserving the true
-        failure category while the camera/source stays READY.
-        """
+        """Record a per-frame processing failure WITHOUT marking the camera offline."""
         category = exc.__class__.__name__
         self.status_store.record_ops_event(
             "frame.processing_error",
@@ -90,16 +107,26 @@ class CameraWorker:
         )
 
     def process_frame(self, frame: Frame) -> FrameObservation:
-        outputs = self._run_scheduled_runners(frame)
-        observation = self._build_observation(outputs)
+        scheduled_tasks = self.scheduler.tasks_for_frame(frame.index)
+        outputs = self._run_scheduled_runners(frame, scheduled_tasks)
+        observation, bed_debug = self._build_observation(
+            outputs,
+            frame_index=frame.index,
+            bed_scheduled="bed" in scheduled_tasks,
+            bed_interval=self.scheduler.task_intervals.get("bed", 30),
+        )
         if self.fall_classifier is not None:
             observation = self.fall_classifier.classify(
                 observation,
                 frame.image.shape[1],
                 frame.image.shape[0],
             )
+        debug_snapshots: list[DomainDebugSnapshot] = []
         for detector in self.domain_detectors:
             detector_result = detector.update(observation, time_sec=frame.time_sec)
+            debug_snapshot = _domain_debug_snapshot(detector, frame.index, bed_debug)
+            if debug_snapshot is not None:
+                debug_snapshots.append(debug_snapshot)
             for event in _events_from_detector(detector_result):
                 event = _with_camera_identity(
                     event,
@@ -109,18 +136,41 @@ class CameraWorker:
                 )
                 if self.incident_manager.admit(event, now_sec=frame.time_sec):
                     self._emit(event)
+        if self.overlay_sink is not None:
+            self.overlay_sink.publish(
+                self.camera_id,
+                frame,
+                observation,
+                tuple(debug_snapshots),
+            )
         return observation
 
-    def _run_scheduled_runners(self, frame: Frame) -> dict[str, RunnerOutput]:
+    def _run_scheduled_runners(
+        self,
+        frame: Frame,
+        scheduled_tasks: tuple[str, ...] | None = None,
+    ) -> dict[str, RunnerOutput]:
         outputs: dict[str, RunnerOutput] = {}
-        for task in self.scheduler.tasks_for_frame(frame.index):
+        tasks = (
+            scheduled_tasks
+            if scheduled_tasks is not None
+            else self.scheduler.tasks_for_frame(frame.index)
+        )
+        for task in tasks:
             runner = self.runners.get(task)
             if runner is None:
                 continue
             outputs[task] = _run_runner(runner, frame)
         return outputs
 
-    def _build_observation(self, outputs: Mapping[str, RunnerOutput]) -> FrameObservation:
+    def _build_observation(
+        self,
+        outputs: Mapping[str, RunnerOutput],
+        *,
+        frame_index: int | None = None,
+        bed_scheduled: bool = False,
+        bed_interval: int = 30,
+    ) -> tuple[FrameObservation, BedRegionDebugSnapshot]:
         detections: DetectionResult | None = None
         poses: PoseOutput | None = None
         raw_boxes: BoxOutput | None = None
@@ -142,11 +192,37 @@ class CameraWorker:
         if bed_output is not None:
             bed_boxes = _bed_boxes_from_output(bed_output)
 
-        return self.observation_builder(
+        observation = self.observation_builder(
             detections=detections,
             raw_boxes=raw_boxes,
             poses=poses,
             bed_boxes=bed_boxes,
+        )
+        if frame_index is None or self.scene_state is None:
+            debug = BedRegionDebugSnapshot(
+                source="fresh" if bed_boxes else "empty",
+                age_frames=0 if bed_boxes else None,
+            )
+            return observation, debug
+        resolved, debug = self.scene_state.resolve_bed_regions(
+            observation,
+            frame_index=frame_index,
+            bed_scheduled=bed_scheduled,
+            bed_interval=bed_interval,
+        )
+        self._record_bed_debug(debug)
+        return resolved, debug
+
+    def _record_bed_debug(self, debug: BedRegionDebugSnapshot) -> None:
+        self.status_store.record_ops_event(
+            "bed_roi.cache",
+            self.camera_id,
+            self.facility_id,
+            debug.source,
+            detail=(
+                f"age={debug.age_frames};empty_cycles={debug.empty_cycles}"
+                + (f";reset={debug.reset_reason}" if debug.reset_reason else "")
+            ),
         )
 
     def _emit(self, event: EventPayload) -> None:
@@ -175,6 +251,20 @@ class CameraWorker:
             category,
             detail=str(exc) or None,
         )
+
+
+def _domain_debug_snapshot(
+    detector: DomainDetectorProtocol,
+    frame_index: int,
+    bed_debug: BedRegionDebugSnapshot,
+) -> DomainDebugSnapshot | None:
+    snapshot = getattr(detector, "last_debug_snapshot", None)
+    if isinstance(snapshot, BedExitDebugSnapshot):
+        return DomainDebugSnapshot(
+            domain="bed_exit",
+            bed_exit=replace(snapshot, frame_index=frame_index, bed_region=bed_debug),
+        )
+    return None
 
 
 def _run_runner(runner: RunnerProtocol, frame: Frame) -> RunnerOutput:
