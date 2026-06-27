@@ -1,7 +1,10 @@
 export const USE_MOCK =
   import.meta.env.VITE_USE_MOCK?.toString() === "true";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
+const SSE_PATH = "/sse";
+
 
 interface ApiClientOptions {
   apiPrefix?: boolean;
@@ -11,8 +14,16 @@ export function buildApiUrl(
   path: string,
   { apiPrefix = true }: ApiClientOptions = {}
 ): string {
-  const base = apiPrefix ? API_BASE_URL : API_BASE_URL.replace(/\/api\/?$/, "");
+  const base = apiPrefix ? API_BASE_URL : API_BASE_URL.replace(/\/api(?:\/v\d+)?\/?$/, "");
   return `${base}${path}`;
+}
+
+export function buildSseUrl(): string {
+  return buildApiUrl(SSE_PATH);
+}
+
+export function isAbsoluteApiUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
 }
 
 export async function requestJson(

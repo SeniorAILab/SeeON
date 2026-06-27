@@ -16,7 +16,6 @@ Forbidden: `perception`, `runtime`, `events`, `api`, `demo`, `training`, model r
 ## Focused Tests
 
 - `tests/test_domains_fall.py`
-- `tests/test_edge_runtime_e2e.py`
 - `tests/test_import_dependency_ladder.py`
 
 ## Gotchas

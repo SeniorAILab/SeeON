@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from runtime.camera_worker import RunnerOutput
-from runtime.edge_worker_config import CameraRuntimeConfig, EdgeWorkerConfig
-from runtime.status_store import StatusStore
+from worker.camera_worker import RunnerOutput
+from worker.edge_worker_config import CameraRuntimeConfig, EdgeWorkerConfig
+from worker.status_store import StatusStore
 
 
 class _Runner:

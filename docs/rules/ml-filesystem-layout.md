@@ -7,11 +7,13 @@
 > supersedes retired source ADR-003 §3 and ADR-007 rows 1/2/5). Runtime process
 > ownership lives in [ADR-067](../decisions/ml/ADR-067-ml-edge-api-worker-service-split.md);
 > portable worker video backend policy lives in
-> [ADR-068](../decisions/ml/ADR-068-ml-edge-worker-portable-video-runtime.md).
+> [ADR-068](../decisions/ml/ADR-068-ml-edge-worker-portable-video-runtime.md); edge/central
+> state and config-distribution split lives in
+> [ADR-074](../decisions/ml/ADR-074-ml-edge-central-state-and-config-distribution.md).
 
 ## Edge-device package tree
 
-`ml/` has nine production packages plus `training/` and `demo/`:
+`ml/` has eight shared production packages plus the `worker/` process, `training/`, and `demo/`:
 
 ```text
 ml/
@@ -21,25 +23,29 @@ ml/
 ├── runners/     # L1 model/runtime adapters: YOLO pose/bed, sklearn fall, device/warmup
 ├── perception/  # L2 observation construction, tracking, scene state, bed detection, frame features
 ├── domains/     # L3 domain detectors/latches: fall, bed-exit, long-lie, risk, wheelchair standup
-├── runtime/     # L3 edge runtime orchestration, camera workers, scheduler, status store
 ├── events/      # L4 outbound alert/event schemas, signing, publishing, outbox
-└── serving/     # L5 FastAPI serving app, lifespan boot, routes, source prediction pipeline
+├── api/         # L5 ml-api gateway: lifespan, routes, debug pipeline, relay-heartbeat /status
+└── worker/      # ml-worker process + worker-owned live orchestration/state (camera_worker, supervisor, scheduler, status_store, latest_frame, incident_manager, config)
 ```
 
-Dependency ladder: lower layers never import higher layers. `domains` and
-`runtime` are same-rank but must not import each other; `runtime` must not import
-`events`. `demo/` is a developer harness at L5 and may import production packages
-plus training catalog metadata. `training/` may import only `contracts`,
-`features`, `sources`, and `runners` from the production tree. `ml/core/` and
-`ml/util/` do not exist.
+Dependency ladder: lower layers never import higher layers. There is no `runtime`
+package — worker-owned live orchestration/state lives in `worker/` (ADR-067).
+`api` and `worker` are separate deployable processes with **zero cross-boundary
+shared state**; their only connection is one-directional relay HTTP facts
+(`worker -> ml-api /relay/*`). `demo/` is a developer harness at L5 and may import
+production packages plus training catalog metadata. `training/` may import only
+`contracts`, `features`, `sources`, and `runners` from the production tree.
+`ml/core/` and `ml/util/` do not exist.
 
-Serving boot order is owned by `serving.lifespan`: load detector model, warm pose
-runner, initialize source registry/pipeline, then expose `/health`, `/status`,
-`/models`, and `/debug/predict/{window,source}`. Keep boot-order changes in that
-module and its tests.
+`ml-api` boot is owned by `api.lifespan` as a thin gateway: load config, warm the
+debug model/pose runner, build the debug pipeline, configure the backend-ingest
+gateway + relay-heartbeat store, resolve the bounded debug source registry, then
+expose `/health`, `/status`, `/models`, and `/debug/predict/{window,source}`.
+`/status` is derived from the relay-heartbeat store; `ml-api` does not assemble
+camera loops. Keep boot-order changes in that module and its tests.
 
-Production RTSP is not a serving-lifespan concern. The live path is
-`RTSP -> ml-edge-worker -> ml-edge-api -> backend /ingest/*`; `ml-edge-api` remains a
+Production RTSP is not an `ml-api` concern. The live path is
+`RTSP -> ml-worker -> ml-api -> backend /ingest/*`; `ml-api` remains a
 private/local FastAPI health, status, models, debug, and control surface, and is the only backend gateway. The
 current RTSP backend is OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only and must not be added as production dependencies without a new
@@ -73,11 +79,13 @@ Nothing else — no new conventions, no registry.
 
 ## Where each file category lives
 
-> Package authority: the 9-package edge-runtime layout below is established by
+> Package authority: the edge package layout below is established by
 > **ADR-056** (frame intake → `sources/`, `Frame`/`FrameSource` contract → `contracts/`)
 > and **ADR-057** (FrameObservation runner contracts, `ModelRegistry`, and the edge
 > package tree + dependency ladder + boot order), both under issue #268; they supersede
 > the retired `ml/core/` + `ml/util/` layout (ADR-006 frame-intake-in-`ml/util/`).
+> **ADR-067** refines this: the `runtime` package is removed and its worker-owned
+> orchestration/state moves to `worker/`, with `api` as the thin backend gateway.
 
 | File category | Home | Committed? | ADR |
 |---------------|------|-----------|-----|
@@ -87,9 +95,9 @@ Nothing else — no new conventions, no registry.
 | Runner adapters and hardware/model warmup | `ml/runners/` | yes | ADR-025/057 |
 | Perception state/tracking/observation code | `ml/perception/` | yes | ADR-057 |
 | Domain detectors and latches | `ml/domains/` | yes | ADR-057 |
-| Edge runtime orchestration | `ml/runtime/` | yes | ADR-029/057/067/068 |
+| Edge worker orchestration/state (camera workers, supervisor, scheduler, status, latest-frame, incident, config) | `ml/worker/` | yes | ADR-067/068 |
 | Event/alert seam | `ml/events/` | yes | ADR-029/057 |
-| Serving API and lifespan | `ml/serving/` | yes | ADR-022/057 |
+| ml-api gateway + lifespan + debug pipeline + heartbeat status | `ml/api/` | yes | ADR-022/057/067 |
 | Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` | no (gitignored) | ADR-015 |
 | Third-party comparison checkpoints | `ml/models/fall/pretrained/*/` | no (gitignored) | ADR-015 |
 | Upstream pose/bed weight cache | `ml/models/{pose,bed}/` | no (gitignored) | ADR-015 |

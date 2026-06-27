@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 from api.main import create_app, no_lifespan
 from contracts.frame import Frame
 from domains.bed_exit.detector import BedExitMonitor, NightWindow
-from runtime.camera_worker import CameraWorker
-from runtime.scheduler import Scheduler
+from worker.camera_worker import CameraWorker
 from worker.edge_worker import _RelayClient
+from worker.scheduler import Scheduler
 
 CAMERA_ID = "camera-night-bed-exit"
 FACILITY_ID = "facility-night"
@@ -150,4 +150,25 @@ def test_night_bed_exit_reaches_backend_ingest_through_worker_relay_and_ml_api()
 def test_daytime_bed_exit_is_suppressed_before_worker_relay_and_backend_ingest() -> None:
     backend = _run_worker_once(now="2026-06-25T13:00:00+09:00")
 
+    assert backend.alerts == []
+
+
+def test_disabled_bed_exit_emits_no_alerts_through_relay() -> None:
+    # `enabled=false` for the bed-exit domain means no detector is wired, so the
+    # worker -> ml-api relay path produces zero alerts even at night.
+    backend = SpyBackendIngestClient()
+    api_client = _api_client(backend)
+    relay = InProcessRelayClient(client=api_client)
+    worker = CameraWorker(
+        camera_id=CAMERA_ID,
+        facility_id=FACILITY_ID,
+        frame_source=ScriptedFrameSource(),
+        runners={"pose": ScriptedPersonRunner(), "bed": ScriptedBedRunner()},
+        scheduler=Scheduler({"pose": 1, "bed": 1}),
+        domain_detectors=(),
+        event_sink=relay,
+    )
+
+    assert worker.run(max_frames=2) == 2
+    assert relay.failure_count == 0
     assert backend.alerts == []

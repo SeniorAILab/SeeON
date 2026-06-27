@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from runtime.incident_manager import IncidentManager
+from worker.incident_manager import IncidentManager
 
 
 def test_incident_manager_dedupes_duplicate_idempotency_key() -> None:

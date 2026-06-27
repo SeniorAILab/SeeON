@@ -62,7 +62,7 @@ fi
 if [ ! -f "$ENV_FILE" ]; then
   cat >&2 <<EOF
 Missing $ENV_FILE.
-Create it from docs/runbooks/ncloud-vm-deploy.md before deploying.
+Create it from .env.host.prod.example before deploying.
 EOF
   exit 1
 fi

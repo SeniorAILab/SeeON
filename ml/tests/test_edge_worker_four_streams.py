@@ -5,9 +5,9 @@ from collections.abc import Iterator
 import numpy as np
 
 from contracts.frame import Frame
-from runtime.camera_worker import CameraWorker
-from runtime.edge_worker_supervisor import EdgeWorkerSupervisor
-from runtime.status_store import StatusStore
+from worker.camera_worker import CameraWorker
+from worker.edge_worker_supervisor import EdgeWorkerSupervisor
+from worker.status_store import StatusStore
 
 
 class _ThreeFrameSource:
