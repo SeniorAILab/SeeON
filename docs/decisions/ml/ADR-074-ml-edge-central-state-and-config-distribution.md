@@ -35,7 +35,7 @@ cross-boundary shared **mutable runtime** state between `ml-api` and `ml-worker`
    single backend-facing process and the worker pulls config from `ml-api`
    (the worker runs no inbound server; no second FastAPI in the worker).
 2. **Events / facts** (fall, bed-exit, heartbeat): produced by the **worker**,
-   forwarded **upward** via `worker -> ml-api /relay/* -> backend /ingest/*`.
+   forwarded **upward** via `worker -> ml-api /api/v1/relay/* -> backend /api/v1/events`.
 3. **Runtime / flow state** (detection windows, onset/cooldown latches, camera
    liveness/status, latest-frame buffers): **process-local**, never shared.
    The worker owns its detection/liveness/dedup state; `ml-api` owns a separate

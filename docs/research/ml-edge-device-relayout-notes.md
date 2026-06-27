@@ -48,7 +48,7 @@ ml/
 | perception/ | 모델 output→공통 관측 정규화(track window/scene) | 정규화 방식 변경 | Kakao/DB/route | core/tracking, core/features(런타임 조립) |
 | domains/ | fall/bed_exit 제품 판단 rule | 판단 규칙 변경 | raw 모델 호출 | core/bed_exit, serving/pipeline 판정부 |
 | runtime/ | camera worker/manager, scheduler, buffer, status, incident(dedupe/cooldown/idempotency) | 루프·스케줄·중복억제 변경 | route 정의/정책 | 신규(현 demo/live_view 일부) |
-| events/ | alert/camera/heartbeat 생성·서명(HMAC)·outbox·전송(대상 추상, event/ 네임스페이스) | **백엔드 이벤트 계약 변경** | 모델 추론 | core/alert_client |
+| events/ | alert/camera/heartbeat 생성·Event API outbox·전송(대상 추상, event/ 네임스페이스) | **백엔드 이벤트 계약 변경** | 모델 추론 | core/alert_client |
 | serving/ | FastAPI app, lifespan(부팅), health/status/debug | 엔드포인트 변경 | business rule 구현 | serving/main 분해 |
 | training/ | 학습·평가·artifact (오프라인) | 학습 변경 | serving/perception import | training/* |
 | models/ | weight·metadata·manifest | 모델 버전 변경 | Python code | models/* (ADR-015 유지) |

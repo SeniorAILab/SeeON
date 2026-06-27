@@ -211,7 +211,7 @@ The deployed frontend must keep `front/nginx.conf` as the same-origin gateway:
 
 - `/auth/` proxies to backend for Kakao login, callback, session, and logout.
 - `/api/` proxies to backend product APIs.
-- `/ingest/` proxies edge ingest.
+- `/api/` includes the Event API; no separate edge ingest proxy is live.
 
 Frontend auth requests must use `credentials: include`.
 
@@ -249,6 +249,7 @@ These are recurring failure modes this ADR exists to prevent. They are not separ
 | Relying on frontend password validation as the security boundary.                       | Browser validation is bypassable and inconsistent across clients.                                                                                                                                                                                                        | Frontend validation is UX only; backend enforces the password policy.                                                                                                                                                                                                         |
 | Treating `8-16 characters` as the whole password standard.                              | 8 characters is an acceptable minimum for this launch UX, but 16-character maximums block safer passphrases and password managers.                                                                                                                                       | Enforce 8+ characters, allow up to 128 Unicode code points, and do not add composition rules.                                                                                                                                                                                 |
 | Letting `AuthService` absorb every signup, facility, and policy responsibility.         | Auth edits become riskier as unrelated responsibilities accumulate in the same service.                                                                                                                                                                                  | Extract focused policy and registration helpers before adding more auth behavior.                                                                                                                                                                                             |
+
 
 ## Consequences
 

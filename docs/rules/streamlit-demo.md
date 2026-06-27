@@ -152,8 +152,8 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
 
 - Classify falls **in-process** inside the demo as a shortcut. The fall-decision
   signal (`fall_probability`) must come from the real **ml-api `/debug/predict/window`** service through `api.client.ServingFallClassifier` — the same inference path production uses — not a bypass that skips it.
-- Emit alerts through anything but the real `AlertClient` → `POST /ingest/alerts`
-  path (HMAC-signed). No hardcoded recipients, no REST-key direct send, no
+- Emit alerts through anything but the real Event API client → `POST /api/v1/events`
+  path. No hardcoded recipients, no REST-key direct send, no
   fabricated probability (the live fan-out path is owned by backend `src/alerts` + the exec-plan `docs/exec-plan/active/thursday-mvp-live-fall-kakao-fanout/`).
 - Add an `if demo:` branch, a mock, or a silent fallback that diverges the demo
   from production. If a dependency (serving, DB, backend) is down, the demo

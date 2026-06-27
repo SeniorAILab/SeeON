@@ -22,7 +22,7 @@ Concretely:
 
 - Public product API routes use slash-separated REST paths such as `/api/alerts`, `/api/alerts/:id/ack`, `/api/cameras`, `/api/residents`, `/api/guardians`, `/api/status`, and `/api/sse`.
 - Auth/session routes remain under `/auth/...` when they are authentication concerns rather than product resources.
-- Machine ingest routes remain under `/ingest/...`; alert ingestion is governed by ADR-043 and ADR-047.
+- Machine-originated ML events use the versioned Event API under `/api/v1/events`; historical ingest routes are governed by ADR-043/047 and superseded by the issue #388 cutover.
 - Dotted route prefixes such as `/api.alerts/...` are not used for new live API contracts.
 - Controllers are transport adapters: parse route/query/body DTOs, call an application/service boundary, and return presenter/output DTOs.
 - Services own use-case orchestration, domain policy, transaction boundaries, and calls to ports.

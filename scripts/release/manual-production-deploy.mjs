@@ -10,9 +10,10 @@ import { assertDbMode, packageAndDeploy } from "./manual-production-remote.mjs";
 const usage = `Usage:
   pnpm deploy:prod:manual -- <ref> [--host <host>] [--user <user>] [--ssh-key <path>] [--namespace <image-namespace>] [--platform <platform>] [--db-mode migrate|baseline-existing|reset-demo|skip] [--allow-baseline-existing] [--allow-destructive-reset] [--backup-dir <path>] [--dry-run]
 
-Builds/pushes SHA-pinned production images locally, then deploys the pull-only
-Naver Cloud VM stack. This is the current production deploy path while
-Actions-backed CD is paused.
+Builds/pushes the four same-SHA production images locally (backend, front,
+ml-api, ml-worker), then deploys the pull-only Naver Cloud host VM stack. Edge
+ml-api/ml-worker rollout is a separate pinned-image compose.edge.yaml step. This
+is the current production deploy path while Actions-backed CD is paused.
 
 `;
 
@@ -202,7 +203,7 @@ function main() {
   const sha = resolveDeploySha(ref);
   const actor = resolveGithubActor();
 
-  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nCurrent production path: local build/push of GHCR SHA tags, then VM pull-only deploy.\nActions-backed CD is paused but preserved for later re-enable.\nImage platform=${checkedOptions.imagePlatform}\nDB mode=${checkedOptions.dbMode}\n`);
+  process.stdout.write(`Manual production deploy ref=${ref} sha=${sha}\nCurrent production path: local build/push of four GHCR SHA tags, then VM pull-only host deploy.\nEdge ml-api/ml-worker deploy is a separate pinned-image compose.edge.yaml step.\nActions-backed CD is paused but preserved for later re-enable.\nImage platform=${checkedOptions.imagePlatform}\nDB mode=${checkedOptions.dbMode}\n`);
 
   run("gh", ["auth", "status"], { dryRun: checkedOptions.dryRun });
   run("docker", ["version"], { dryRun: checkedOptions.dryRun });

@@ -119,13 +119,11 @@ Composite unique: `@@unique([orgId, id])` — required for composite FK targets 
 | `orgId` | `String` | FK → Organization |
 | `residentId` | `String?` | Composite FK `(orgId, residentId) → Resident(orgId, id)` |
 | `label` | `String` | Human-readable label; unique within org |
-| `ingestKeyId` | `String` | HMAC key selector (not a secret) |
-| `ingestSecretHash` | `String` | Bcrypt/argon2 hash of the HMAC secret |
 | `lastSeenAt` | `DateTime?` | Updated on ingest; drives online indicator |
 | `online` | `Boolean @default(false)` | Computed from lastSeenAt staleness |
 | `createdAt` | `DateTime @default(now())` | |
 
-Composite unique: `@@unique([orgId, id])` (composite FK target); `@@unique([orgId, label])`; `@@unique([orgId, ingestKeyId])`.
+Composite unique: `@@unique([orgId, id])` (composite FK target); `@@unique([orgId, label])`.
 
 **`Alert`** — append-only fall detection event record.
 

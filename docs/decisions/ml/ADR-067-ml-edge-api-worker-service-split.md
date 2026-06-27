@@ -12,25 +12,25 @@ Accepted
 
 The edge node runs multiple camera streams and must keep API availability separate from long-running RTSP health. FastAPI is the local health, status, model, debug, and bounded control surface; production camera loops are worker concerns. ADR-057's earlier serving-starts-workers clause mixed those responsibilities and could make API readiness depend on camera stream health.
 
-The egress topology is now also part of this split. The worker creates domain facts from camera input, but it must not hold backend ingest credentials or sign public backend requests. The edge needs one backend-facing process so secrets, HMAC signing, outbox/retry, and public egress policy are centralized and auditable.
+The egress topology is now also part of this split. The worker creates domain facts from camera input, but it must not call the backend directly. The edge needs one backend-facing process so the no-HMAC Event API URL, outbox/retry, and public egress policy are centralized and auditable.
 
 ## Decision
 
 Run the ML edge node as two cooperating services:
 
-- `ml-worker`: owns RTSP capture, model runners, perception, domain judgment, and event creation. It produces fall, bed-exit, heartbeat, and camera-status facts with camera identity, but has no backend ingest secret and never calls backend `/ingest/*` directly.
-- `ml-api`: owns the private/local FastAPI surface and is the edge node's single backend gateway. It receives worker facts over loopback relay endpoints, validates the relay token and camera identity, signs backend ingest requests, and owns outbox/retry state.
+- `ml-worker`: owns RTSP capture, model runners, perception, domain judgment, and event creation. It produces fall, bed-exit, heartbeat, and camera-status facts with camera identity, but never calls backend directly.
+- `ml-api`: owns the private/local FastAPI surface and is the edge node's single backend gateway. It receives worker facts over loopback relay endpoints, validates the relay token and camera identity, posts to the backend Event API through `API_BACKEND_EVENTS_URL`, and owns outbox/retry state.
 
 The worker-to-api contract is local-only:
 
-- `POST /relay/alerts` for domain alert facts.
-- `POST /relay/heartbeat` for worker/camera liveness facts.
+- `POST /api/v1/relay/alerts` for domain alert facts.
+- `POST /api/v1/relay/heartbeat` for worker/camera liveness facts.
 - `X-Edge-Relay-Token` authenticates the local worker to `ml-api`.
-- Payload camera identity is bound to configured camera identity before `ml-api` signs any backend request.
+- Payload camera identity is bound to configured camera identity before `ml-api` posts any backend request.
 
-`ml-api` then maps accepted facts to backend `/ingest/alerts` and `/ingest/heartbeat` according to ADR-029. It is the only edge process that stores backend ingest secrets, derives HMAC signatures, and performs public backend egress.
+`ml-api` then maps accepted facts to backend `POST /api/v1/events` and `POST /api/v1/events/heartbeat` according to ADR-029. It is the only edge process that performs public backend Event API egress, and that egress uses no HMAC.
 
-ADR-057 remains current for frame observation and runtime package contracts not changed here. ADR-068 remains current for portable worker video runtime policy; it must describe the live path as `RTSP -> ml-worker -> ml-api -> backend /ingest/*`.
+ADR-057 remains current for frame observation and runtime package contracts not changed here. ADR-068 remains current for portable worker video runtime policy; it must describe the live path as `RTSP -> ml-worker -> ml-api -> backend /api/v1/events`.
 
 ## References
 
@@ -40,9 +40,9 @@ ADR-057 remains current for frame observation and runtime package contracts not 
 
 ## Alternatives Considered
 
-### Worker signs backend ingest directly
+### Worker calls backend directly
 
-Rejected. It gives every worker backend credentials and creates multiple backend-facing code paths. That increases attack surface and makes retry/outbox, key rotation, and camera identity validation harder to audit.
+Rejected. It creates multiple backend-facing code paths. That increases attack surface and makes retry/outbox and camera identity validation harder to audit.
 
 ### FastAPI owns camera loops
 
@@ -55,11 +55,12 @@ Rejected for this slice. Local loopback relay endpoints are enough for the curre
 ## Consequences
 
 - Edge deployment has two ML processes with explicit responsibilities.
-- Worker code can be reasoned about as inference/domain/event creation only; backend credentials and HMAC signing are absent from the worker boundary.
-- `ml-api` becomes the single place for backend ingest secrets, HMAC signing, outbox/retry, and camera identity enforcement.
-- Camera config still includes RTSP/domain inputs for the worker, but backend-facing credentials move to `ml-api` configuration.
+- Worker code can be reasoned about as inference/domain/event creation only; backend egress is absent from the worker boundary.
+- `ml-api` becomes the single place for backend Event API egress, outbox/retry, and camera identity enforcement.
+- Camera config still includes RTSP/domain inputs for the worker, while backend-facing `API_BACKEND_EVENTS_URL` belongs to `ml-api` configuration.
 - Four-RTSP and hardware verification remain separate from deterministic tests when local camera credentials are unavailable.
 
 ## Changelog
 
 - 2026-06-25: 프로세스 분리 → worker↔ml-api egress 계약·책임으로 확장(ml-api 단일 backend 관문).
+- 2026-06-27: issue #388 cutover supersedes the HMAC ingest clauses: worker relay routes are `/api/v1/relay/*`, and `ml-api` posts no-HMAC backend events to `/api/v1/events` via `API_BACKEND_EVENTS_URL`.

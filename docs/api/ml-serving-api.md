@@ -2,14 +2,13 @@
 
 ML API is a FastAPI service for private/local edge health, status, model, debug, and bounded control surfaces. Its prediction boundary is classification only: ML receives a normalized pose window and returns fall probability/classification. Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR-023). Edge deployment keeps pose extraction and classification on the edge node while preserving backend ownership of alert policy and delivery (ADR-048).
 
-Production live path: `RTSP -> ml-worker -> ml-api -> backend /ingest/*` (ADR-067/029).
+Production live path: `RTSP -> ml-worker -> ml-api /api/v1/relay/* -> backend /api/v1/events` (ADR-067/029).
 
 Production camera ownership is not part of the API process. The edge node runs
-`ml-api` for health/status/debug routes. It runs `ml-worker` for
+`ml-api` for unversioned health probes and `/api/v1` status/debug/relay routes. It runs `ml-worker` for
 long-running RTSP capture, model/domain evaluation, heartbeat facts, and alert fact
 creation (ADR-067/ADR-068). The API service does not own live camera streams or
-raw frame relay; it is the local relay and backend gateway for signed `/ingest/*` side
-effects.
+raw frame relay; it is the local relay and no-HMAC backend Event API gateway.
 
 Bare `POST /predict` is removed and returns 404. Callers must use the explicit debug prediction routes below.
 
@@ -29,11 +28,11 @@ Readiness probe. Returns the API service readiness snapshot from app state. When
 
 Legacy aggregate health report for local/demo observability. It reports service status, loaded model metadata, model load errors, pose-weight availability, and random-forest artifact availability. Health does not fake model availability: artifact/model failures produce `status: "degraded"`, `model_status: "error"`, and a concrete `model_error`.
 
-## `GET /status`
+## `GET /api/v1/status`
 
-Runtime status snapshot. This is operational state for the edge API process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and relay heartbeat/alert facts to `ml-api`, which publishes backend ingest per ADR-067/029.
+Runtime status snapshot. This is operational state for the edge API process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and relay heartbeat/alert facts to `ml-api`, which publishes backend Event API requests to `API_BACKEND_EVENTS_URL` per ADR-067/029.
 
-## `GET /models`
+## `GET /api/v1/models`
 
 Model registry snapshot. Returns registered task names, loaded model metadata when a model is attached to the app, and the api device descriptor.
 
@@ -47,9 +46,9 @@ Example shape:
 }
 ```
 
-## `POST /debug/predict/window` — canonical window contract
+## `POST /api/v1/debug/predict/window` — canonical window contract
 
-Current-effective classification contract. `POST /debug/predict/window` accepts a normalized pose window and returns fall probability, operating threshold, and boolean classification. This is the route used by the edge/demo classifier client; no raw images or video are sent across this boundary.
+Current-effective classification contract. `POST /api/v1/debug/predict/window` accepts a normalized pose window and returns fall probability, operating threshold, and boolean classification. This is the route used by the edge/demo classifier client; no raw images or video are sent across this boundary.
 
 ### Request
 
@@ -100,7 +99,7 @@ Field rules:
 - `is_fall`: boolean computed from probability and threshold.
 - `model` and `version`: model metadata for observability.
 
-## `POST /debug/predict/source` — bounded source/upload debug mode
+## `POST /api/v1/debug/predict/source` — bounded source/upload debug mode
 
 Source-backed prediction is retained for local demo/evaluation only, separate from the production RTSP and backend alert-ingest boundary. It accepts exactly one trusted `source_id` or `upload_id` plus optional bounded controls:
 
@@ -128,4 +127,4 @@ Or:
 }
 ```
 
-This route resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It returns the same response shape as `/debug/predict/window`. It is for demo/eval surfaces, not production RTSP, not raw frame relay, and not the backend alert-ingest boundary. It rejects requests that include `window`.
+This route resolves a bounded server-side `FrameSource`, runs YOLO pose extraction, normalizes the primary person, builds a pose window, and calls the same random forest. It returns the same response shape as `/api/v1/debug/predict/window`. It is for demo/eval surfaces, not production RTSP, not raw frame relay, and not the backend Event API boundary. It rejects requests that include `window`.

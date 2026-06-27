@@ -24,10 +24,10 @@ backend ingest contracts or moving RTSP ownership back into FastAPI.
 The production live path is:
 
 ```text
-RTSP -> ml-worker -> ml-api -> backend /ingest/*
+RTSP -> ml-worker -> ml-api -> backend /api/v1/events
 ```
 
-`ml-worker` owns production RTSP capture, model/domain evaluation, heartbeat fact creation, and alert/fact creation. It relays those facts to local `ml-api`; `ml-api` signs and publishes backend `/ingest/alerts` and `/ingest/heartbeat` per ADR-067/029.
+`ml-worker` owns production RTSP capture, model/domain evaluation, heartbeat fact creation, and alert/fact creation. It relays those facts to local `ml-api` at `/api/v1/relay/*`; `ml-api` publishes no-HMAC backend `POST /api/v1/events` and `POST /api/v1/events/heartbeat` per ADR-067/029.
 
 `ml-api` is private/local edge infrastructure. It exposes FastAPI
 health, status, model, debug, and bounded control surfaces. It does not own
@@ -47,7 +47,7 @@ requires release-matrix pinning across driver, CUDA, container runtime,
 DeepStream or Triton version, base image, PyTorch/Ultralytics compatibility, and
 model artifact format before deployment.
 
-`EDGE_CAMERA_CONFIG` remains the edge-worker runtime input for camera RTSP URLs and domain/model settings. Backend ingest endpoints, key IDs, signing secrets, HMAC signing, and outbox/retry belong to `ml-api` per ADR-067/029 and must stay outside git.
+`EDGE_CAMERA_CONFIG` remains the edge-worker runtime input for camera RTSP URLs and domain/model settings. Backend Event API URL configuration and outbox/retry belong to `ml-api` per ADR-067/029 and must stay outside git.
 
 ## MECE boundary
 
@@ -85,13 +85,14 @@ claim for the runtime.
   `pnpm dev:ml-api` for FastAPI and `pnpm dev:ml-worker` for the worker, while edge
   deployment uses `compose.edge.yaml`.
 - Nursing-home video published through RTSP and relayed through `ml-api` to the real backend
-  `/ingest/*` implementation is the default portable E2E verification path
+  `/api/v1/events` implementation is the default portable E2E verification path
   when real cameras or Jetson hardware are absent.
 - Real four-camera and Jetson Nano checks are hardware-gated and must be
   reported separately from deterministic smoke success.
 - Future accelerated video backends can be added behind the worker video
-  backend boundary without changing the `ml-api` relay or backend `/ingest/*` contracts.
+  backend boundary without changing the `ml-api` relay or backend Event API contracts.
 
 ## Changelog
 
-- 2026-06-25: 라이브 경로를 `RTSP -> ml-worker -> ml-api -> backend /ingest/*`로 갱신.
+- 2026-06-25: 라이브 경로를 `RTSP -> ml-worker -> ml-api -> backend /api/v1/events`로 갱신.
+- 2026-06-27: issue #388 cutover updates backend egress to no-HMAC Event API via `API_BACKEND_EVENTS_URL` and worker relay to `/api/v1/relay/*`.
