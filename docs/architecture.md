@@ -4,6 +4,43 @@
 
 ---
 
+## 시스템 토폴로지 (인스턴스 상호작용)
+
+각 인스턴스가 어디에 배치되고 서로 어떻게 호출하는지의 한눈 지도다. 실선은 요청/egress, 점선은 backend가 되돌려주는 실시간 push와 휴면(dormant) seam이다. 단계별 데이터 흐름은 아래 "End-to-end live data path" 섹션을, 각 런타임 내부는 "상세 아키텍처(deep dives)"의 문서를 본다.
+
+```mermaid
+flowchart LR
+  user["관리자 / 직원<br/>브라우저"]
+
+  subgraph site["현장 Edge device — compose.edge.yaml"]
+    cam["RTSP 카메라"]
+    worker["ml-worker<br/>capture → pose → domain fact"]
+    mlapi["ml-api :8000<br/>relay gateway"]
+  end
+
+  subgraph hoststack["Host stack — compose.yaml"]
+    front["front :3000<br/>nginx + Vite SPA"]
+    backend["backend :8080<br/>NestJS 정책/영속/SSE"]
+    db[("PostgreSQL :5432<br/>RLS app.facility_id")]
+  end
+
+  kakao["Kakao API<br/>send-to-me"]
+
+  cam -->|"RTSP stream"| worker
+  worker -->|"POST /api/v1/relay/{alerts,heartbeat}<br/>X-Edge-Relay-Token"| mlapi
+  mlapi -->|"POST /api/v1/events (+heartbeat)<br/>no-HMAC · camera_id"| backend
+  backend -->|"Prisma · facility-scoped RLS"| db
+  backend -->|"send-to-me (outbox/delivery)"| kakao
+  user -->|"HTTPS /auth/*, /api/v1/*<br/>session cookie"| front
+  front -->|"reverse proxy /api, /auth"| backend
+  backend -.->|"SSE /api/v1/sse<br/>alert · status frames"| user
+  backend -.->|"ML_SERVING_URL pull seam<br/>dormant · ADR-048/062"| mlapi
+```
+
+> 라이브 ingress는 `ml-api → backend POST /api/v1/events` 하나뿐이다. `ml-worker`는 backend를 직접 호출하지 않고 local `ml-api` relay만 부른다. SSE는 같은 nginx same-origin 프록시를 통해 backend가 브라우저로 push한다.
+
+---
+
 ## Directory tree
 
 ```
