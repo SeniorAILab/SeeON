@@ -7,7 +7,7 @@ author: gobeumsu
 planner: ralplan
 issue: 167
 prs: [171, 173, 175, 178, 179]
-adrs: [ADR-039, ADR-040]
+adrs: [ADR-008] # ADR-039 + ADR-040 folded into ADR-008 (2026-06-27, #393)
 source: ralplan consensus final (gjc workflow scratch, gitignored)
 note: >-
   ralplan 합의(Planner/Architect/Critic, 2 iterations, Critic APPROVE) 최종안.

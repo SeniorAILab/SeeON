@@ -14,7 +14,7 @@ PROPOSED.
 
 Phase 1 of the migration replaced the Next.js starter with the Vite app in `front/`, initially kept the application mock-driven with `USE_MOCK=true`, unified TypeScript package management under pnpm via `pnpm import` and exact pins, and preserved the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). After the local backend/db development infrastructure landed, the default frontend runtime moved to real backend mode (`VITE_USE_MOCK` unset or `false`). Login/session/facility onboarding is backend-direct in dev/prod via email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains for tests and demo-only surfaces while remaining dashboard/admin backend endpoint wiring is completed incrementally.
 
-This migration was stacked as atomic commits on PR #257. That is a deliberate exception to the normal issue/worktree path in [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md) and the PR size governance in [ADR-039](../common/ADR-039-pr-size-gate-threshold.md): the worktree starts from an existing PR branch, and the size gate is waived for this migration series because the change replaces a starter frontend with a pre-existing product app while keeping backend/ML behavior unchanged.
+This migration was stacked as atomic commits on PR #257. That is a deliberate exception to the normal issue/worktree path and PR size governance in [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md): the worktree starts from an existing PR branch, and the size gate is waived for this migration series because the change replaces a starter frontend with a pre-existing product app while keeping backend/ML behavior unchanged.
 
 ## Decision
 
@@ -44,7 +44,7 @@ Rejected. Two product frontend stacks would create competing sources of truth, d
 
 ### Restart from a fresh branch off `main` and split into separate PRs
 
-Rejected. The migration target already existed as PR #257, and preserving review continuity for the replacement app is more valuable than manufacturing a fresh branch history. This is an explicit, bounded exception to ADR-008 and ADR-039 for this PR only.
+Rejected. The migration target already existed as PR #257, and preserving review continuity for the replacement app is more valuable than manufacturing a fresh branch history. This is an explicit, bounded exception to ADR-008 (issue/worktree path and PR size governance) for this PR only.
 
 ### Delete lockfiles and perform a fresh pnpm install re-resolution
 
