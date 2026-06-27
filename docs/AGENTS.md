@@ -13,6 +13,7 @@ decisions made, work plans, standing rules, and API/domain notes.
 | API contracts | `api/` | Backend, ML serving, Kakao, realtime, route inventory. |
 | Domain model | `domain/` | Alert pipeline and data dictionary. |
 | Work plans | `exec-plan/` | Active/archive lifecycle for specs and plans. |
+| Retired reference | `archive/` | 은퇴 참고문서 보관소 — preserved, non-normative historical docs; distinct from `exec-plan/archive/` work plans. |
 | Decisions | `decisions/{ml,backend,frontend,common}/` | ADRs by active MECE category. |
 | Evidence | `research/` | Findings and source comparisons before decisions. |
 | Standing rules | `rules/` | Ongoing conventions that apply beyond one work item. |
@@ -28,6 +29,7 @@ decisions made, work plans, standing rules, and API/domain notes.
 - Plans live in `exec-plan/active/{slug}/` while work is active and move as a
   whole folder to `exec-plan/archive/{slug}/` when done, discarded, or
   superseded.
+- `docs/archive/` stores retired reference documents (preserved but non-normative); keep it distinct from `docs/exec-plan/archive/`, which stores completed or superseded work-plan folders.
 - Plan slug is authoritative from the folder name. Frontmatter `slug` must
   match it exactly.
 - ADRs must be MECE and live in exactly one category: `ml`, `backend`,

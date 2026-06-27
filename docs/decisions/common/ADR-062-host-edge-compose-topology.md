@@ -40,7 +40,7 @@ The deployment target is therefore two units: a single host running `front + bac
 
 - The front container depends on nginx and on the backend being reachable as `backend:8080` inside the host network; the edge depends on the backend's public ingest URL.
 - The edge image now packages the ML runtime sibling packages needed by both API and worker services; camera credentials stay outside git and enter only through the mounted edge-camera config.
-- Front defaults to real backend mode (`VITE_USE_MOCK` unset or `false`) so the nginx same-origin proxy is the normal local/prod path. Login/session/facility onboarding is backend-direct in dev/prod through email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains available only for tests and demo-only mock surfaces while remaining dashboard/admin service wiring is replaced incrementally.
+- Front defaults to real backend mode (`VITE_USE_MOCK` unset or `false`) so the nginx same-origin proxy is the normal local/prod path. Login/session/facility onboarding is backend-direct in dev/prod through email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains available only for automated tests and is not part of dev/prod runtime (the front-alone mock "demo" path is retired; canonical doctrine in [../../architecture.md](../../architecture.md)), while remaining dashboard/admin service wiring is replaced incrementally.
 
 ## Follow-ups
 
@@ -50,3 +50,5 @@ The deployment target is therefore two units: a single host running `front + bac
 ## Changelog
 
 - 2026-06-25: Repointed the DB-durability reference from the removed `docs/runbooks/db-backup-restore.md` to `scripts/db-backup.sh`, whose header now documents the backup and clean-volume restore procedure. Decision unchanged.
+
+- 2026-06-27: Aligned the front mock wording with the corrected demo/mock doctrine — `VITE_USE_MOCK=true` is automated-tests-only and not part of dev/prod runtime; the front-alone mock "demo" path is retired. Canonical doctrine: `docs/architecture.md`. Decision unchanged.

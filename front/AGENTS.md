@@ -23,7 +23,9 @@ See `src/AGENTS.md` before changing frontend application code.
 - Backend endpoint calls live under `src/services/api/*`; service files consume endpoint functions instead of scattering `fetch()` or backend JSON casts.
 - `src/types/index.ts` is the frontend domain SSOT until Phase 2.
 - Real backend mode is default (`VITE_USE_MOCK` unset or `false`). Mock mode
-  requires explicit `VITE_USE_MOCK=true` and is for tests/demo-only surfaces.
+  (`VITE_USE_MOCK=true`, the frontend-alone "demo" path) is for automated tests
+  only and is NOT used in dev/prod runtime — dev/prod run on the real backend +
+  seeded DB. See `../docs/architecture.md`.
 - Login in dev/prod is backend-owned for both email/password and Kakao OAuth.
   Both paths must mint the same httpOnly backend session cookie and restore via
   `/auth/session`. Do not reintroduce frontend mock auth users or localStorage
