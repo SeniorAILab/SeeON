@@ -15,7 +15,7 @@ state, mocks, and tests for the Vite React app.
 | Pages | `pages/` | Route-level UI surfaces. |
 | Reusable UI | `components/` | Dashboard widgets, monitor UI, layout, video. |
 | State | `store/`, `stores/`, `hooks/` | Client state and shared hooks. |
-| Mock mode | `mocks/`, `data/` | Test/demo-only runtime when `VITE_USE_MOCK=true`. |
+| Mock mode | `mocks/`, `data/` | Automated-tests-only runtime (`VITE_USE_MOCK=true`); not in dev/prod. |
 | Tests | `test/`, `*.test.tsx`, `*.test.ts` | Vitest/jsdom setup and colocated specs. |
 
 ## Conventions
@@ -23,8 +23,9 @@ state, mocks, and tests for the Vite React app.
 - Components never call backend endpoints directly. Use `services/*`.
 - Endpoint functions live under `services/api/*`; higher services consume them.
 - Keep backend DTO parsing/mapping at the service seam, not inside components.
-- Real backend mode is default. Mock mode requires explicit
-  `VITE_USE_MOCK=true`.
+- Real backend mode is default. Mock mode (`VITE_USE_MOCK=true`, the
+  frontend-alone "demo" path) is for automated tests only, not dev/prod runtime
+  — see `../../docs/architecture.md`.
 - Auth is backend-owned. Restore session through `/auth/session`; do not add
   frontend mock users or localStorage auth sessions.
 - Use the `@/*` alias for source imports where it improves readability.
