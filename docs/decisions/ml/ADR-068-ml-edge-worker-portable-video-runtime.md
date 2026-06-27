@@ -47,6 +47,30 @@ requires release-matrix pinning across driver, CUDA, container runtime,
 DeepStream or Triton version, base image, PyTorch/Ultralytics compatibility, and
 model artifact format before deployment.
 
+### Edge build platform and Jetson Nano B01 GPU
+
+Release image builds pin each image's target architecture as a constant rather
+than a deploy-time flag: host images (`backend`, `front`) build for
+`linux/amd64`, while edge images (`ml-api`, `ml-worker`) build for
+`linux/arm64`. The edge runtime remains the current CPU stack:
+Python 3.11, `torch>=2.3`, and `ultralytics>=8.3`.
+
+Jetson Nano B01 GPU acceleration is deferred. Nano's practical GPU stack is
+JetPack 4.6, CUDA 10.2, and Python 3.6, which caps GPU PyTorch around 1.10.
+PyTorch 2.x GPU support requires CUDA 11 / JetPack 5+ hardware, and current
+Ultralytics requires Python >=3.8. Downgrading to a Nano-compatible YOLOv5-era
+stack would also remove pose/keypoint support needed by the fall-pose pipeline,
+so "just downgrade versions" is effectively a separate dev-versus-Nano dual
+stack and violates this ADR's portable runtime position.
+
+This is consistent with the existing ADR-068 position: Jetson Nano is a
+legacy/constrained, hardware-gated target, not a general GPU-support claim, and
+future dGPU support requires an explicit release matrix. If CPU edge runtime FPS
+is insufficient after real Nano measurement, the follow-up path is TensorRT
+export or replacing the board with Jetson Orin (JetPack 5/6, native torch 2.x GPU
+support while keeping the current stack). Track that follow-up in GitHub issue
+#417.
+
 `EDGE_CAMERA_CONFIG` remains the edge-worker runtime input for camera RTSP URLs and domain/model settings. Backend Event API URL configuration and outbox/retry belong to `ml-api` per ADR-067/029 and must stay outside git.
 
 ## MECE boundary
