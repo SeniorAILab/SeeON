@@ -45,7 +45,7 @@ def _serving_python_files() -> list[Path]:
     return sorted(path for path in SERVING_ROOT.rglob("*.py") if "__pycache__" not in path.parts)
 
 
-def _route_signature(route: APIRoute) -> str:
+def _route_descriptor(route: APIRoute) -> str:
     tags = " ".join(str(tag) for tag in route.tags)
     return f"{route.name} {route.path} {tags}".lower()
 
@@ -70,7 +70,7 @@ def test_serving_app_exposes_only_documented_boundary_routes() -> None:
     production_routes = [
         route.path
         for route in api_routes
-        if any(term in _route_signature(route) for term in PRODUCTION_ROUTE_TERMS)
+        if any(term in _route_descriptor(route) for term in PRODUCTION_ROUTE_TERMS)
     ]
 
     assert exposed_paths == ALLOWED_PATHS

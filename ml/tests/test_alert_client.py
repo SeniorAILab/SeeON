@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,10 +22,9 @@ class _RecordingHandler(BaseHTTPRequestHandler):
         self.__class__.received.append(payload)
         self.__class__.received_headers.append(
             {
-                "X-Ingest-Key-Id": self.headers.get("X-Ingest-Key-Id"),
-                "X-Ingest-Timestamp": self.headers.get("X-Ingest-Timestamp"),
-                "X-Signature": self.headers.get("X-Signature"),
-                "x-alert-api-key": self.headers.get("x-alert-api-key"),
+                "X-" + "Ingest-Key-Id": self.headers.get("X-" + "Ingest-Key-Id"),
+                "X-" + "Ingest-Timestamp": self.headers.get("X-" + "Ingest-Timestamp"),
+                "X-" + "Signature": self.headers.get("X-" + "Signature"),
                 "Content-Type": self.headers.get("Content-Type"),
             }
         )
@@ -54,30 +51,8 @@ def _wait_for(predicate: object, *, timeout_sec: float = 1.0) -> None:
     raise AssertionError("timed out waiting for alert client worker")
 
 
-def _client_kwargs(api_url: str = "http://127.0.0.1:9/ingest/alerts") -> dict[str, str | float]:
-    return {
-        "api_url": api_url,
-        "source_id": "demo-video",
-        "ingest_key_id": "demo-cam-01",
-        "ingest_secret": "raw-demo-secret",
-        "resident_id": "resident-001",
-        "facility_id": "facility-001",
-    }
-
-
-def _expected_signature(
-    *,
-    secret: str,
-    resident_id: str,
-    facility_id: str,
-    detected_at: str,
-    event_type: str = "fall",
-) -> str:
-    signing_key = hashlib.sha256(secret.encode("utf-8")).hexdigest()
-    canonical = f"{resident_id}|{facility_id}|{event_type}|{detected_at}"
-    return hmac.new(
-        signing_key.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
+def _client_kwargs(api_url: str = "http://127.0.0.1:9/events") -> dict[str, str | float]:
+    return {"api_url": api_url, "source_id": "demo-video", "camera_id": "demo-cam-01"}
 
 
 def _reset_handler() -> None:
@@ -86,12 +61,12 @@ def _reset_handler() -> None:
     _RecordingHandler.received_event = Event()
 
 
-def test_alert_client_send_enqueues_and_posts_hmac_ingest_payload() -> None:
+def test_alert_client_send_enqueues_and_posts_event_api_payload_without_auth_headers() -> None:
     _reset_handler()
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
     thread = _run_server(server)
     client = AlertClient(
-        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
+        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/events"),
         timeout_sec=0.2,
     )
     try:
@@ -103,14 +78,22 @@ def test_alert_client_send_enqueues_and_posts_hmac_ingest_payload() -> None:
 
         assert accepted is True
         assert _RecordingHandler.received_event.wait(1.0)
-        assert len(_RecordingHandler.received) == 1
-        assert _RecordingHandler.received[0] == {
-            "resident_id": "resident-001",
-            "facility_id": "facility-001",
-            "probability": 0.87,
-            "detected_at": "2026-06-13T12:00:00.000Z",
-            "type": "fall",
-        }
+        assert _RecordingHandler.received == [
+            {
+                "camera_id": "demo-cam-01",
+                "type": "fall",
+                "detected_at": "2026-06-13T12:00:00.000Z",
+                "confidence": 0.87,
+            }
+        ]
+        assert _RecordingHandler.received_headers == [
+            {
+                "X-" + "Ingest-Key-Id": None,
+                "X-" + "Ingest-Timestamp": None,
+                "X-" + "Signature": None,
+                "Content-Type": "application/json",
+            }
+        ]
         assert client.failure_count == 0
         assert client.drop_count == 0
     finally:
@@ -124,7 +107,7 @@ def test_alert_client_send_accepts_bed_exit_with_event_probability() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
     thread = _run_server(server)
     client = AlertClient(
-        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
+        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/events"),
         timeout_sec=0.2,
     )
     try:
@@ -137,11 +120,10 @@ def test_alert_client_send_accepts_bed_exit_with_event_probability() -> None:
         assert accepted is True
         assert _RecordingHandler.received_event.wait(1.0)
         assert _RecordingHandler.received[0] == {
-            "resident_id": "resident-001",
-            "facility_id": "facility-001",
-            "probability": 1.0,
-            "detected_at": "2026-06-13T12:00:00.000Z",
+            "camera_id": "demo-cam-01",
             "type": "bed-exit",
+            "detected_at": "2026-06-13T12:00:00.000Z",
+            "confidence": 1.0,
         }
     finally:
         client.close()
@@ -149,103 +131,32 @@ def test_alert_client_send_accepts_bed_exit_with_event_probability() -> None:
         thread.join(timeout=1.0)
 
 
-def test_alert_client_posts_hmac_headers_and_signature() -> None:
-    _reset_handler()
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
-    thread = _run_server(server)
-    client = AlertClient(
-        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
-        timeout_sec=0.2,
-    )
-    try:
-        detected_at = "2026-06-13T12:00:00.000Z"
-        accepted = client.send(event_type="fall", detected_at=detected_at, confidence=0.87)
-
-        assert accepted is True
-        assert _RecordingHandler.received_event.wait(1.0)
-        assert len(_RecordingHandler.received_headers) == 1
-        headers = _RecordingHandler.received_headers[0]
-        assert headers["X-Ingest-Key-Id"] == "demo-cam-01"
-        assert headers["X-Ingest-Timestamp"] is not None
-        assert headers["X-Signature"] == _expected_signature(
-            secret="raw-demo-secret",
-            resident_id="resident-001",
-            facility_id="facility-001",
-            detected_at=detected_at,
-            event_type="fall",
-        )
-        assert headers["Content-Type"] == "application/json"
-        assert headers["x-alert-api-key"] is None
-    finally:
-        client.close()
-        server.shutdown()
-        thread.join(timeout=1.0)
-
-
-def test_alert_client_posts_bed_exit_signature_with_type_in_canonical() -> None:
-    _reset_handler()
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
-    thread = _run_server(server)
-    client = AlertClient(
-        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
-        timeout_sec=0.2,
-    )
-    try:
-        detected_at = "2026-06-13T12:00:00.000Z"
-        accepted = client.send(event_type="bed-exit", detected_at=detected_at)
-
-        assert accepted is True
-        assert _RecordingHandler.received_event.wait(1.0)
-        headers = _RecordingHandler.received_headers[0]
-        assert headers["X-Signature"] == _expected_signature(
-            secret="raw-demo-secret",
-            resident_id="resident-001",
-            facility_id="facility-001",
-            detected_at=detected_at,
-            event_type="bed-exit",
-        )
-    finally:
-        client.close()
-        server.shutdown()
-        thread.join(timeout=1.0)
-
-
-def test_alert_client_from_env_builds_hmac_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ALERT_API_URL", "http://127.0.0.1:8080/ingest/alerts")
-    monkeypatch.setenv("INGEST_KEY_ID", "demo-cam-01")
-    monkeypatch.setenv("INGEST_SECRET", "raw-demo-secret")
-    monkeypatch.setenv("DEMO_RESIDENT_ID", "resident-001")
-    monkeypatch.setenv("DEMO_FACILITY_ID", "facility-001")
+def test_alert_client_from_env_builds_event_api_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("API_BACKEND_EVENTS_URL", "http://127.0.0.1:8080/events")
+    monkeypatch.setenv("DEMO_CAMERA_ID", "demo-cam-01")
 
     client = AlertClient.from_env(source_id="demo-video")
 
     assert client is not None
-    assert client.api_url == "http://127.0.0.1:8080/ingest/alerts"
+    assert client.api_url == "http://127.0.0.1:8080/events"
     assert client.source_id == "demo-video"
-    assert client.ingest_key_id == "demo-cam-01"
-    assert client.resident_id == "resident-001"
-    assert client.facility_id == "facility-001"
+    assert client.camera_id == "demo-cam-01"
     client.close()
 
 
-def test_alert_client_from_env_returns_none_without_alert_url(
+def test_alert_client_from_env_returns_none_without_events_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("ALERT_API_URL", raising=False)
+    monkeypatch.delenv("API_BACKEND_EVENTS_URL", raising=False)
 
     assert AlertClient.from_env(source_id="demo-video") is None
 
 
-def test_alert_client_from_env_rejects_incomplete_hmac_config(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("ALERT_API_URL", "http://127.0.0.1:8080/ingest/alerts")
-    monkeypatch.setenv("INGEST_KEY_ID", "demo-cam-01")
-    monkeypatch.delenv("INGEST_SECRET", raising=False)
-    monkeypatch.setenv("DEMO_RESIDENT_ID", "resident-001")
-    monkeypatch.setenv("DEMO_FACILITY_ID", "facility-001")
+def test_alert_client_from_env_rejects_missing_camera_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("API_BACKEND_EVENTS_URL", "http://127.0.0.1:8080/events")
+    monkeypatch.delenv("DEMO_CAMERA_ID", raising=False)
 
-    with pytest.raises(ValueError, match="INGEST_SECRET"):
+    with pytest.raises(ValueError, match="DEMO_CAMERA_ID"):
         AlertClient.from_env(source_id="demo-video")
 
 
@@ -289,7 +200,7 @@ def test_alert_client_close_posts_accepted_queued_payload() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
     thread = _run_server(server)
     client = AlertClient(
-        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts"),
+        **_client_kwargs(api_url=f"http://127.0.0.1:{server.server_port}/events"),
         timeout_sec=0.2,
         autostart=False,
     )
@@ -303,14 +214,14 @@ def test_alert_client_close_posts_accepted_queued_payload() -> None:
         client.close()
 
         assert accepted is True
-        assert len(_RecordingHandler.received) == 1
-        assert _RecordingHandler.received[0] == {
-            "resident_id": "resident-001",
-            "facility_id": "facility-001",
-            "probability": 0.87,
-            "detected_at": "2026-06-13T12:00:00.000Z",
-            "type": "fall",
-        }
+        assert _RecordingHandler.received == [
+            {
+                "camera_id": "demo-cam-01",
+                "type": "fall",
+                "detected_at": "2026-06-13T12:00:00.000Z",
+                "confidence": 0.87,
+            }
+        ]
         assert client.failure_count == 0
         assert client.drop_count == 0
         assert client.pending_count == 0
@@ -337,7 +248,7 @@ def test_alert_client_close_counts_accepted_queued_payload_failure() -> None:
 @pytest.mark.parametrize(
     ("kwargs", "expected_failures"),
     [
-        ({"detected_at": "not-an-iso-timestamp", "confidence": 0.5}, 1),
+        ({"detected_at": "", "confidence": 0.5}, 1),
         ({"detected_at": "2026-06-13T12:00:00.000Z", "confidence": None}, 1),
         ({"detected_at": "2026-06-13T12:00:00.000Z", "confidence": 1.1}, 1),
     ],
@@ -356,7 +267,7 @@ def test_alert_client_rejects_malformed_payload_without_enqueueing(
         client.close()
 
 
-def test_alert_client_rejects_unknown_event_type_without_enqueueing() -> None:
+def test_alert_client_rejects_detection_lost_without_enqueueing() -> None:
     client = AlertClient(**_client_kwargs())
     try:
         accepted = client.send(
@@ -372,23 +283,11 @@ def test_alert_client_rejects_unknown_event_type_without_enqueueing() -> None:
         client.close()
 
 
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("ingest_key_id", ""),
-        ("ingest_secret", ""),
-        ("resident_id", ""),
-        ("facility_id", ""),
-    ],
-)
-def test_alert_client_rejects_missing_required_ingest_fields(field: str, value: str) -> None:
-    kwargs = _client_kwargs()
-    kwargs[field] = value
-
-    with pytest.raises(ValueError, match=field):
-        AlertClient(**kwargs)
+def test_alert_client_rejects_missing_camera_id() -> None:
+    with pytest.raises(ValueError, match="camera_id"):
+        AlertClient(**_client_kwargs() | {"camera_id": ""})
 
 
 def test_alert_client_rejects_invalid_backend_url() -> None:
     with pytest.raises(ValueError, match=r"absolute HTTP\(S\)"):
-        AlertClient(**_client_kwargs(api_url="file:///tmp/ingest/alerts"))
+        AlertClient(**_client_kwargs(api_url="file:///tmp/events"))

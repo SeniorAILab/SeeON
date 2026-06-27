@@ -1,6 +1,6 @@
-"""Event schemas for ML-emitted events and legacy alert ingest payloads.
+"""Event schemas for ML-emitted events and backend Event API payloads.
 
-ML emits typed signed events. Backend owns severity/channel/policy/final-dedup;
+ML emits typed events. Backend owns severity/channel/policy/final-dedup;
 ML runtime incident management owns only idempotency and cooldown.
 """
 
@@ -17,20 +17,18 @@ EventLifecycle: TypeAlias = Literal["detected", "updated", "resolved"]
 
 
 @dataclass(frozen=True, slots=True)
-class AlertPayload:
+class EventApiPayload:
+    camera_id: str
     type: AlertEventType
-    resident_id: str
-    facility_id: str
     detected_at: str
-    probability: float
+    confidence: float
 
     def as_dict(self) -> dict[str, str | float]:
         return {
-            "resident_id": self.resident_id,
-            "facility_id": self.facility_id,
-            "probability": self.probability,
-            "detected_at": self.detected_at,
+            "camera_id": self.camera_id,
             "type": self.type,
+            "detected_at": self.detected_at,
+            "confidence": self.confidence,
         }
 
     def as_json_bytes(self) -> bytes:
@@ -88,8 +86,8 @@ def build_emitted_event(
 
 __all__ = [
     "AlertEventType",
-    "AlertPayload",
     "EmittedEvent",
+    "EventApiPayload",
     "EventLifecycle",
     "build_emitted_event",
 ]

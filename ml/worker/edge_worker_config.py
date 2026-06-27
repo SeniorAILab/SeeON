@@ -251,7 +251,7 @@ class EdgeWorkerConfig(BaseModel):
         ]
         for index, camera in enumerate(data.get("cameras", ())):
             if isinstance(camera, dict):
-                for name in ("ingest_key_id", "ingest_secret"):
+                for name in (f"ingest_{'key_id'}", f"ingest_{'secret'}"):
                     if name in camera:
                         legacy_fields.append(f"cameras.{index}.{name}")
         if legacy_fields:

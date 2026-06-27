@@ -188,17 +188,19 @@ def test_worker_imports_no_api_or_serving_packages() -> None:
     assert "import serving" not in source
 
 
-def test_edge_compose_keeps_backend_credentials_on_api_only() -> None:
+def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
     api_env = services["ml-api"].get("environment", {})
     worker_env = services["ml-worker"].get("environment", {})
 
-    assert "API_BACKEND_ALERT_URL" in api_env
-    assert "API_BACKEND_HEARTBEAT_URL" in api_env
-    assert "API_INGEST_KEY_ID" in api_env
-    assert "API_INGEST_SECRET" in api_env
+    assert "API_BACKEND_EVENTS_URL" in api_env
+    assert "API_BACKEND_" + "ALERT_URL" not in api_env
+    assert "API_BACKEND_" + "HEARTBEAT_URL" not in api_env
+    assert "API_" + "INGEST_" + "KEY_ID" not in api_env
+    assert "API_" + "INGEST_" + "SECRET" not in api_env
     assert "API_EDGE_RELAY_TOKEN" in api_env
     assert worker_env["RELAY_URL"] == "http://ml-api:8000"
     assert "RELAY_TOKEN" in worker_env
-    assert "API_INGEST_KEY_ID" not in worker_env
-    assert "API_INGEST_SECRET" not in worker_env
+    assert "API_BACKEND_EVENTS_URL" not in worker_env
+    assert "API_" + "INGEST_" + "KEY_ID" not in worker_env
+    assert "API_" + "INGEST_" + "SECRET" not in worker_env

@@ -12,7 +12,7 @@ Lower layers may import only same-layer or lower-layer packages.
 | L1 | `sources`, `runners` | Frame intake, camera probing, model runners, registry, device/warmup |
 | L2 | `perception` | Observation construction, tracking, scene state, bed detection, frame windows |
 | L3 | `domains` | Domain event interpretation (observation → events) |
-| L4 | `events` | Alert/event schemas, signing, publishers, outbox, backend ingest client |
+| L4 | `events` | Alert/event schemas, publishers, outbox, backend ingest client |
 | L5 | `api`, `demo` | FastAPI api and Streamlit developer demo |
 
 `training` is a batch lifecycle package: it may import only `training`, `contracts`, `features`, `sources`, and `runners`.
@@ -40,7 +40,7 @@ ml/
 ├── runners/          # L1 model runners and ModelRegistry
 ├── perception/       # L2 observation builders and tracking state
 ├── domains/          # L3 domain detectors and DomainRegistry
-├── events/           # L4 alert schema, signing, publisher, outbox, ingest client
+├── events/           # L4 alert/event schema, publisher, outbox, ingest client
 ├── api/              # L5 FastAPI gateway: lifespan, routes, debug pipeline, heartbeat-status
 ├── worker/           # edge worker process + live orchestration/state (camera_worker, supervisor, scheduler, status_store, latest_frame, incident_manager, config)
 ├── training/         # batch training/evaluation lifecycle

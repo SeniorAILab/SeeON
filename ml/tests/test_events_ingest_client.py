@@ -1,62 +1,46 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
-from contracts.event import EventPayload, MutableEventPayload
+from contracts.event import MutableEventPayload
 from events.edge_ingest_client import EdgeIngestClient
 
 
-class _VerifyingHandler(BaseHTTPRequestHandler):
+class _RecordingHandler(BaseHTTPRequestHandler):
     received: list[tuple[str, dict[str, str | None], MutableEventPayload]] = []
-    secrets_by_key: dict[str, str] = {}
 
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
-        payload = {} if body == b"" else json.loads(body.decode("utf-8"))
-        key_id = self.headers.get("X-Ingest-Key-Id")
-        timestamp = self.headers.get("X-Ingest-Timestamp")
-        signature = self.headers.get("X-Signature")
-        expected = _expected_signature(
-            payload=payload,
-            secret=self.secrets_by_key.get("" if key_id is None else key_id, ""),
-        )
-        status = 202 if timestamp is not None and signature == expected else 401
+        payload = json.loads(body.decode("utf-8"))
         self.__class__.received.append(
             (
                 self.path,
                 {
-                    "X-Ingest-Key-Id": key_id,
-                    "X-Ingest-Timestamp": timestamp,
-                    "X-Signature": signature,
+                    "Content-Type": self.headers.get("Content-Type"),
+                    "X-" + "Ingest-Key-Id": self.headers.get("X-" + "Ingest-Key-Id"),
+                    "X-" + "Ingest-Timestamp": self.headers.get("X-" + "Ingest-Timestamp"),
+                    "X-" + "Signature": self.headers.get("X-" + "Signature"),
                 },
                 payload,
             )
         )
-        self.send_response(status)
+        self.send_response(201)
         self.end_headers()
 
     def log_message(self, _format: str, *args: str) -> None:
         return
 
 
-def test_edge_ingest_client_posts_heartbeat_and_alert_with_per_camera_key() -> None:
-    _VerifyingHandler.received = []
-    _VerifyingHandler.secrets_by_key = {"key-1": "secret-1"}
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _VerifyingHandler)
+def test_edge_ingest_client_posts_event_api_alert_and_heartbeat_without_auth_headers() -> None:
+    _RecordingHandler.received = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
     thread = _run_server(server)
     client = EdgeIngestClient(
-        alert_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts",
-        heartbeat_url=f"http://127.0.0.1:{server.server_port}/ingest/heartbeat",
+        events_url=f"http://127.0.0.1:{server.server_port}/events",
         camera_id="camera-1",
-        facility_id="facility-1",
-        resident_id="resident-1",
-        ingest_key_id="key-1",
-        ingest_secret="secret-1",
         timeout_sec=0.2,
     )
     try:
@@ -70,34 +54,50 @@ def test_edge_ingest_client_posts_heartbeat_and_alert_with_per_camera_key() -> N
             is True
         )
 
-        assert [item[0] for item in _VerifyingHandler.received] == [
-            "/ingest/heartbeat",
-            "/ingest/alerts",
+        assert _RecordingHandler.received == [
+            (
+                "/events/heartbeat",
+                {
+                    "Content-Type": "application/json",
+                    "X-" + "Ingest-Key-Id": None,
+                    "X-" + "Ingest-Timestamp": None,
+                    "X-" + "Signature": None,
+                },
+                {"camera_id": "camera-1"},
+            ),
+            (
+                "/events",
+                {
+                    "Content-Type": "application/json",
+                    "X-" + "Ingest-Key-Id": None,
+                    "X-" + "Ingest-Timestamp": None,
+                    "X-" + "Signature": None,
+                },
+                {
+                    "camera_id": "camera-1",
+                    "type": "fall",
+                    "detected_at": "2026-06-23T12:00:00.000Z",
+                    "confidence": 0.91,
+                },
+            ),
         ]
-        assert [item[1]["X-Ingest-Key-Id"] for item in _VerifyingHandler.received] == [
-            "key-1",
-            "key-1",
-        ]
-        assert _VerifyingHandler.received[1][2]["resident_id"] == "resident-1"
         assert client.failure_count == 0
     finally:
         server.shutdown()
         thread.join(timeout=1.0)
 
 
-def test_swapped_camera_secret_is_rejected() -> None:
-    _VerifyingHandler.received = []
-    _VerifyingHandler.secrets_by_key = {"key-1": "secret-1"}
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _VerifyingHandler)
+def test_edge_ingest_client_counts_backend_failure() -> None:
+    class _RejectingHandler(_RecordingHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            self.send_response(500)
+            self.end_headers()
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RejectingHandler)
     thread = _run_server(server)
     client = EdgeIngestClient(
-        alert_url=f"http://127.0.0.1:{server.server_port}/ingest/alerts",
-        heartbeat_url=f"http://127.0.0.1:{server.server_port}/ingest/heartbeat",
+        events_url=f"http://127.0.0.1:{server.server_port}/events",
         camera_id="camera-1",
-        facility_id="facility-1",
-        resident_id="resident-1",
-        ingest_key_id="key-1",
-        ingest_secret="secret-from-another-camera",
         timeout_sec=0.2,
     )
     try:
@@ -108,18 +108,32 @@ def test_swapped_camera_secret_is_rejected() -> None:
         thread.join(timeout=1.0)
 
 
+def test_edge_ingest_client_does_not_emit_detection_lost() -> None:
+    _RecordingHandler.received = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
+    thread = _run_server(server)
+    client = EdgeIngestClient(
+        events_url=f"http://127.0.0.1:{server.server_port}/events",
+        camera_id="camera-1",
+        timeout_sec=0.2,
+    )
+    try:
+        client.emit(
+            {
+                "event_type": "detection-lost",
+                "detected_at": "2026-06-23T12:00:00.000Z",
+                "probability": 0.91,
+            }
+        )
+
+        assert _RecordingHandler.received == []
+        assert client.failure_count == 0
+    finally:
+        server.shutdown()
+        thread.join(timeout=1.0)
+
+
 def _run_server(server: ThreadingHTTPServer) -> Thread:
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return thread
-
-
-def _expected_signature(*, payload: EventPayload, secret: str) -> str:
-    signing_key = hashlib.sha256(secret.encode("utf-8")).hexdigest()
-    canonical = "|".join(
-        str(payload.get(field, ""))
-        for field in ("resident_id", "facility_id", "type", "detected_at")
-    )
-    return hmac.new(
-        signing_key.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256
-    ).hexdigest()

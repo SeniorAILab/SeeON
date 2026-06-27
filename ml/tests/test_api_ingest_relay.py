@@ -101,8 +101,6 @@ def test_relay_alert_forwards_valid_event_to_backend_ingest_client() -> None:
             "event_type": "bed-exit",
             "detected_at": "2026-06-25T12:00:00.000Z",
             "probability": 0.87,
-            "facility_id": "facility-1",
-            "resident_id": "resident-1",
         }
     ]
 
