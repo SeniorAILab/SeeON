@@ -69,6 +69,43 @@ Fan-out note: when one issue must be split into multiple PRs, keep one branch an
 worktree per PR, keep the same issue number, and use a distinct slice slug via
 `git wt <issue#> --slug <slice-slug>`. Record the slice boundary in the PR body.
 
+## Operating modes
+
+Two ways to map work onto worktrees. Both obey the same rule — never work on `main`, one
+branch per reviewable change — and differ only in lifecycle.
+
+### Per-task mode (default)
+
+One issue → `git wt <issue#>` → a fresh worktree on `<type>/<issue#>-<slug>` → PR → tear down
+(`git wt rm`). `git wt` auto-symlinks the gitignored ML resources from the main checkout:
+`ml/models` is linked; `ml/data` is skipped when the tracked `ml/data/eval` checkout already
+exists (see `scripts/git-guard/wt.sh` and [`ml-models.md`](./ml-models.md)). Disposable and
+fully isolated — the right default for almost all work.
+
+### Lane-pool mode (single-human, multi-agent)
+
+A fixed pool of persistent worktrees `lane-1..N` lives outside the repo root, each on a
+long-lived `lane/N` branch. At the start of a task, hard-reset the chosen lane to `origin/main`:
+
+```bash
+git -C <lane-N> fetch origin && git -C <lane-N> reset --hard origin/main
+```
+
+do the work, open a PR from `lane/N`, then leave the lane in place for the next task. Best for
+one human driving several agents in parallel (e.g. one lane per tmux pane).
+
+- **Resource wiring is manual.** A lane created with raw `git worktree add` does **not** get the
+  `ml/models` / `ml/data` / `.env.local` wiring that `git wt` performs. Wire each lane once:
+  symlink the gitignored payload to the main checkout (`ml/models`, and the ignored
+  `ml/data/{le2i,nursing-home,uploads}` subdirs; `ml/data/eval` stays a tracked checkout) and
+  link `.env.local`. The symlink rule is owned by [`ml-models.md`](./ml-models.md) and
+  [`ml-filesystem-layout.md`](./ml-filesystem-layout.md) — follow it, do not restate it.
+- **Deps are warmed once per lane** (`pnpm install`, then `cd ml && uv sync`); they survive
+  `reset --hard`.
+- **Entry tooling is out of scope here.** The local/remote tmux helpers and session names are
+  machine-specific and live in the operator's shell config (and, for m1-pro access, a project
+  skill) — not in this rule.
+
 ## Listing worktrees
 
 ```bash
