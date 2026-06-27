@@ -12,7 +12,7 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
    - `/onboarding` when the user needs to create one.
 5. Frontend/server rendering reads `GET /auth/session` for the current user.
 6. Onboarding creates the facility through `POST /api/v1/facilities`.
-7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/zones`, `/api/v1/residents`, `/api/v1/resident-assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/sse`.
+7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/zones`, `/api/v1/residents`, `/api/v1/resident-assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
 
 `POST /auth/logout` revokes the session and clears the session cookie.
 

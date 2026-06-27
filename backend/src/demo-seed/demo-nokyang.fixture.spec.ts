@@ -30,8 +30,21 @@ describe('nokyang demo fixture', () => {
     expect(nokyangResidents).toHaveLength(5);
     expect(nokyangAssignments).toHaveLength(5);
     expect(nokyangGuardians).toHaveLength(5);
-    expect(nokyangCameras).toHaveLength(5);
+    expect(nokyangCameras).toHaveLength(6);
     expect(nokyangStatuses).toHaveLength(5);
+  });
+
+  it('contains cam_sp_201 bound to room 201 for local bed-exit E2E', () => {
+    expect(nokyangCameras).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'cam_sp_201',
+          facilityId: NOKYANG_FACILITY_ID,
+          spaceId: 'sp_201',
+          label: 'CAM-2F-201',
+        },
+      ]),
+    );
   });
 
   it('creates 침대A and 침대B zones only for room spaces', () => {

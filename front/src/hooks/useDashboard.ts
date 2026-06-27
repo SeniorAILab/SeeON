@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { buildSseUrl, isAbsoluteApiUrl, USE_MOCK } from "@/services/apiClient";
 import { dashboardService } from "@/services/dashboardService";
+import { mapAlertDto } from "@/services/api/alertEndpoints";
+import { mergeAlertsIntoDashboard } from "@/services/alertMerge";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
 import type { DashboardResponse } from "@/types";
@@ -42,8 +44,17 @@ export function useDashboard(pollMs = 20_000) {
       ? new EventSource(url, { withCredentials: true })
       : new EventSource(url);
 
-    eventSource.onmessage = reload;
-    eventSource.addEventListener("alert", reload);
+    const mergeAlertMessage = (event: MessageEvent) => {
+      try {
+        const alert = mapAlertDto(JSON.parse(event.data));
+        setData((current) => (current ? mergeAlertsIntoDashboard(current, [alert]) : current));
+      } catch {
+        reload();
+      }
+    };
+
+    eventSource.onmessage = mergeAlertMessage;
+    eventSource.addEventListener("alert", (event) => mergeAlertMessage(event as MessageEvent));
     eventSource.addEventListener("status", reload);
     eventSource.addEventListener("status-snapshot", reload);
     eventSource.addEventListener("session-invalid", () => {
