@@ -6,13 +6,35 @@ import cv2
 import numpy as np
 
 from contracts.frame import Frame
-from contracts.observation import BoundingBox, FrameObservation
+from contracts.observation import FrameObservation
 from domains.bed_exit.schema import DomainDebugSnapshot
+from perception.overlay_renderer import (
+    Color,
+    draw_box,
+    draw_label,
+    draw_pose,
+    draw_region,
+)
+
+PERSON_COLOR: Color = (0, 255, 0)
+BED_COLOR: Color = (255, 0, 0)
+BED_ROI_TEXT_COLOR: Color = (255, 255, 0)
+BED_EXIT_STATUS_COLOR: Color = (0, 0, 255)
+BED_PRESENT_STATUS_COLOR: Color = (0, 255, 255)
+POSE_DOT_COLOR: Color = (255, 255, 255)
 
 
 @dataclass(frozen=True, slots=True)
 class OverlayRenderer:
-    draw_pose: bool = False
+    """Worker dev-MJPEG overlay.
+
+    Composes the shared ``perception.overlay_renderer`` drawing primitives with
+    bed-exit-specific debug annotations, then encodes JPEG for transport. It is a
+    pure function of (frame, observation, debug snapshots) and never mutates the
+    bed-exit detector.
+    """
+
+    show_pose: bool = False
 
     def render(
         self,
@@ -22,27 +44,22 @@ class OverlayRenderer:
     ) -> np.ndarray:
         image = frame.image.copy()
         for box in observation.boxes:
-            _draw_box(image, box, (0, 255, 0), "person")
+            draw_box(image, box, PERSON_COLOR)
+            draw_label(image, "person", box.x1, max(12, box.y1 - 4), PERSON_COLOR)
         for box in observation.bed_boxes:
-            _draw_bed(image, box, (255, 0, 0), "bed")
+            draw_region(image, box, BED_COLOR, fill=True)
+            draw_label(image, "bed", box.x1, max(12, box.y1 - 4), BED_COLOR)
         for snapshot in debug_snapshots:
-            if snapshot.bed_exit is None:
-                continue
-            bed_debug = snapshot.bed_exit.bed_region
-            label = "bed_roi"
-            if bed_debug is not None:
-                label = f"bed_roi:{bed_debug.source}"
-                if bed_debug.age_frames is not None:
-                    label = f"{label} age={bed_debug.age_frames}"
-            cv2.putText(image, label, (8, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
-            for status in snapshot.bed_exit.statuses:
-                color = (0, 0, 255) if status.occupancy == "exit" else (0, 255, 255)
-                _draw_box(image, status.box, color, f"bed:{status.occupancy}")
-        if self.draw_pose:
+            _draw_bed_exit_debug(image, snapshot)
+        if self.show_pose:
             for keypoints in observation.keypoints:
-                for x, y, confidence in keypoints:
-                    if confidence > 0:
-                        cv2.circle(image, (int(x), int(y)), 2, (255, 255, 255), -1)
+                draw_pose(
+                    image,
+                    keypoints,
+                    color=POSE_DOT_COLOR,
+                    dot_radius=2,
+                    skeleton=False,
+                )
         return image
 
     def encode_jpeg(
@@ -58,36 +75,23 @@ class OverlayRenderer:
         return bytes(encoded)
 
 
-def _draw_box(image: np.ndarray, box: BoundingBox, color: tuple[int, int, int], label: str) -> None:
-    cv2.rectangle(image, (box.x1, box.y1), (box.x2, box.y2), color, 2)
-    cv2.putText(
-        image,
-        label,
-        (box.x1, max(12, box.y1 - 4)),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.45,
-        color,
-        1,
-    )
-
-
-def _draw_bed(image: np.ndarray, box: BoundingBox, color: tuple[int, int, int], label: str) -> None:
-    """Draw a bed as its segmentation mask (translucent fill + outline) when the
-    box carries a polygon contour; fall back to an axis-aligned box otherwise."""
-    if box.polygon:
-        points = np.array(box.polygon, dtype=np.int32).reshape((-1, 1, 2))
-        mask = image.copy()
-        cv2.fillPoly(mask, [points], color)
-        cv2.addWeighted(mask, 0.3, image, 0.7, 0, image)
-        cv2.polylines(image, [points], isClosed=True, color=color, thickness=2)
-        cv2.putText(
-            image,
-            label,
-            (box.x1, max(12, box.y1 - 4)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            color,
-            1,
-        )
+def _draw_bed_exit_debug(image: np.ndarray, snapshot: DomainDebugSnapshot) -> None:
+    if snapshot.bed_exit is None:
         return
-    _draw_box(image, box, color, label)
+    bed_debug = snapshot.bed_exit.bed_region
+    label = "bed_roi"
+    if bed_debug is not None:
+        label = f"bed_roi:{bed_debug.source}"
+        if bed_debug.age_frames is not None:
+            label = f"{label} age={bed_debug.age_frames}"
+    draw_label(image, label, 8, 18, BED_ROI_TEXT_COLOR, scale=0.5)
+    for status in snapshot.bed_exit.statuses:
+        color = BED_EXIT_STATUS_COLOR if status.occupancy == "exit" else BED_PRESENT_STATUS_COLOR
+        draw_box(image, status.box, color)
+        draw_label(
+            image,
+            f"bed:{status.occupancy}",
+            status.box.x1,
+            max(12, status.box.y1 - 4),
+            color,
+        )
