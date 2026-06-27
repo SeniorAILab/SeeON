@@ -12,7 +12,7 @@ PROPOSED.
 
 `front/` was originally scaffolded as a Next.js/TypeScript browser client under [ADR-001](../common/ADR-001-polyglot-monorepo.md). During PR #257, Junho's Vite 5 + React 18 dashboard became the product frontend implementation that needed to be preserved as the single source of truth instead of maintaining a parallel Next.js starter.
 
-Phase 1 of the migration replaced the Next.js starter with the Vite app in `front/`, initially kept the application mock-driven with `USE_MOCK=true`, unified TypeScript package management under pnpm via `pnpm import` and exact pins, and preserved the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). After the local backend/db development infrastructure landed, the default frontend runtime moved to real backend mode (`VITE_USE_MOCK` unset or `false`). Login/session/facility onboarding is backend-direct in dev/prod via email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains for tests and demo-only surfaces while remaining dashboard/admin backend endpoint wiring is completed incrementally.
+Phase 1 of the migration replaced the Next.js starter with the Vite app in `front/`, initially kept the application mock-driven with `USE_MOCK=true`, unified TypeScript package management under pnpm via `pnpm import` and exact pins, and preserved the repository's standardized frontend port 3000 from [ADR-041](../common/ADR-041-port-standardization-compose-strategy.md). After the local backend/db development infrastructure landed, the default frontend runtime moved to real backend mode (`VITE_USE_MOCK` unset or `false`). Login/session/facility onboarding is backend-direct in dev/prod via email/password `POST /auth/login`, Kakao OAuth, `/auth/session`, and `POST /api/facilities`; explicit `VITE_USE_MOCK=true` remains for automated tests only and is not used in dev/prod runtime (the front-alone mock "demo" path is retired; canonical doctrine in [architecture.md](../../architecture.md)), while remaining dashboard/admin backend endpoint wiring is completed incrementally.
 
 This migration was stacked as atomic commits on PR #257. That is a deliberate exception to the normal issue/worktree path and PR size governance in [ADR-008](../common/ADR-008-issue-driven-worktree-enforcement.md): the worktree starts from an existing PR branch, and the size gate is waived for this migration series because the change replaces a starter frontend with a pre-existing product app while keeping backend/ML behavior unchanged.
 
@@ -86,3 +86,7 @@ Phase 2 must implement the deferred backend-matching contract documented in [`do
 - Keep the hybrid auth boundary from ADR-071: email/password and Kakao both mint backend-owned sessions; Kakao tokens never reach the browser.
 - Map ML Event API events into backend status/read-model and delivery side effects.
 - Keep realtime SSE plus ticket behavior from ADR-034 deferred until the backend contract is ready.
+
+## Changelog
+
+- 2026-06-27: Aligned the Phase 1 context wording with the corrected demo/mock doctrine — `VITE_USE_MOCK=true` is automated-tests-only and not part of dev/prod runtime; the front-alone mock "demo" path is retired. Canonical doctrine now lives in `docs/architecture.md`.

@@ -1,3 +1,6 @@
+> ARCHIVED · 일부 내용 stale
+> 이 문서는 원본 front 핸드오프 문서 보존본입니다. 데모/백엔드/API 기준은 현역 정본인 ../architecture.md를 따르며(예: 데모/mock·API base 등 일부 서술은 stale), 상세 TTS/모니터/실시간 엔진 맥락은 참고용입니다.
+
 # Senior AI Lab — 프로젝트 컨텍스트 (LLM 핸드오프 문서)
 
 > 이 문서는 ChatGPT/Claude 등 다른 AI가 이 코드베이스를 **처음부터 끝까지 이해**하도록 작성한 단일 컨텍스트 파일입니다.
