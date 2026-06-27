@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the pose-framework adoption clauses of retired source ADR-005. ADR-005 is intentionally absent from the visible corpus; its exact source body is recoverable from git history and mapped in [the coverage matrix](../README.md#coverage-matrix-for-adr-mece-reorganization).
+Accepted. Owns the YOLO26-pose framework adoption decision; earlier combined-ADR history is recoverable from git.
 
 ## Date
 

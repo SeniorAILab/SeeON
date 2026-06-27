@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-06-21
-Extends: ADR-071 login/auth SSOT by renaming the tenant session claim and onboarding route.
+Refines: ADR-071 login/auth SSOT by renaming the tenant session claim and onboarding route.
 
 ## Context
 

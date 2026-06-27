@@ -4,7 +4,7 @@ date: 2026-06-25
 owner: ml
 ---
 
-# ADR-071: RTSP Publisher Externalized
+# ADR-075: RTSP Publisher Externalized
 
 This ADR is the single canonical record for why this repository does not generate
 RTSP and how it consumes externally generated streams. Other docs (README, ML
