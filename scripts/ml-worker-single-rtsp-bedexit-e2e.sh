@@ -8,8 +8,6 @@ relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
 facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
 camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
-ingest_key_id="${E2E_INGEST_KEY_ID:-demo-cam-2f-202-keyid}"
-ingest_secret="${DEMO_INGEST_SECRET:?DEMO_INGEST_SECRET must match backend seed}"
 night_now="${BED_EXIT_NIGHT_NOW:-2026-06-25T22:00:00+09:00}"
 day_now="${BED_EXIT_DAY_NOW:-2026-06-25T13:00:00+09:00}"
 night_window_start="${BED_EXIT_NIGHT_WINDOW_START:-21:00}"
@@ -75,16 +73,13 @@ YAML
 }
 
 start_api() {
-  API_BACKEND_ALERT_URL="${backend_base_url}/ingest/alerts" \
-  API_BACKEND_HEARTBEAT_URL="${backend_base_url}/ingest/heartbeat" \
-  API_INGEST_KEY_ID="$ingest_key_id" \
-  API_INGEST_SECRET="$ingest_secret" \
+  API_BACKEND_EVENTS_URL="${backend_base_url}/api/v1/events" \
   API_EDGE_RELAY_TOKEN="$relay_token" \
   API_CAMERA_INVENTORY="[{\"camera_id\":\"${camera_id}\",\"facility_id\":\"${facility_id}\",\"resident_id\":\"${resident_id}\"}]" \
   uv run --directory "$repo_root/ml" uvicorn api.main:app --host 127.0.0.1 --port "${relay_base_url##*:}" >"$api_log" 2>&1 &
   api_pid="$!"
   for _ in $(seq 1 60); do
-    if curl -fsS "${relay_base_url}/health" >/dev/null 2>&1; then
+    if curl -fsS "${relay_base_url}/health/live" >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
@@ -189,14 +184,14 @@ trap cleanup EXIT
 require_backend
 write_config
 start_api
-printf 'clock night=%s day=%s night_window=%s-%s %s relay=%s backend_ingest=%s rtsp=%s\n' \
+printf 'clock night=%s day=%s night_window=%s-%s %s relay=%s backend_events=%s rtsp=%s\n' \
   "$night_now" "$day_now" "$night_window_start" "$night_window_end" "$night_window_tz" \
   "$relay_base_url" "$backend_base_url" "$rtsp_url"
 night_started_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 run_worker_with_clock "$night_now"
 night_count="$(alert_count_since "$night_started_utc")"
 if [[ "$night_count" -lt 1 ]]; then
-  printf 'night bed-exit did not reach backend ingest; worker log follows:\n' >&2
+  printf 'night bed-exit did not reach backend Event API; worker log follows:\n' >&2
   sed -n '1,160p' "$worker_log" >&2
   printf '%s\n' '--- ml-api log ---' >&2
   sed -n '1,200p' "$api_log" >&2

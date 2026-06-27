@@ -14,7 +14,7 @@ Controllers own HTTP only:
 - Calling exactly one use-case service method for the request.
 - Mapping use-case results to response DTOs/presenters.
 
-Controllers must not own business policy, idempotency rules, tenant-state transitions, Prisma error repair, or external delivery logic. `backend/src/ingest/ingest.controller.ts` is the current thin-controller example: it applies the HMAC guard, parses `IngestAlertDto` from `backend/src/ingest/dto/ingest-alert.dto.ts`, and delegates the ingest use case to `IngestAlertService`. Freshness, tenant coherence, idempotency, dashboard alert writes, and outbox orchestration belong in services/repositories/adapters. `backend/src/dashboard/sse.controller.ts` is allowed to own SSE transport details, but domain event formatting still belongs in presenter-mapper helpers.
+Controllers must not own business policy, idempotency rules, tenant-state transitions, Prisma error repair, or external delivery logic. `backend/src/events/events.controller.ts` is the current thin-controller example: it accepts no-HMAC Event API JSON, parses event/heartbeat DTOs, and delegates event creation/heartbeat use cases to services. Tenant coherence, idempotency, dashboard alert writes, and outbox orchestration belong in services/repositories/adapters. `backend/src/dashboard/sse.controller.ts` is allowed to own SSE transport details, but domain event formatting still belongs in presenter-mapper helpers.
 
 ### DTO + parser
 
@@ -27,7 +27,7 @@ DTOs and parsers own the external request/response shape:
 
 Examples already present:
 
-- `backend/src/ingest/dto/ingest-alert.dto.ts` defines the `/ingest/alerts` boundary DTO and parser for snake_case fields such as `resident_id`, `facility_id`, `type`, and `detected_at`.
+- `backend/src/events/dto/*.dto.ts` defines the Event API boundary DTOs for snake_case fields such as `camera_id`, `type`, `detected_at`, and `confidence`.
 - `backend/src/alerts/dto/alert-events.dto.ts` defines retained alert-event/outbox DTOs such as `source_id`, `external_event_id`, `detected_at`, and `fall_probability`.
 - `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts` parses the ML response and rejects missing `fall_probability`, `operating_threshold`, or `is_fall`.
 
@@ -42,7 +42,7 @@ Services own use-case orchestration:
 
 Examples:
 
-- `backend/src/ingest/ingest-alert.service.ts` owns `/ingest/alerts` orchestration: tenant coherence, idempotency, dashboard alert writes, and alert-event/outbox creation.
+- Event services own `POST /api/v1/events` orchestration: camera resolution, tenant coherence, idempotency, Event persistence, and downstream alert/outbox creation.
 - `backend/src/alerts/alert-writer.service.ts` owns serialized alert writes, `ResidentStatus` updates, and post-commit SSE emission order.
 - `backend/src/alerts/services/alert-events.service.ts` owns retained alert-event orchestration for the repository/ports/adapters contract: duplicate detection, alert policy evaluation, outbox creation, Kakao recipient fan-out, and delivery result recording.
 - `backend/src/alerts/services/alert-policy.service.ts` owns alert dispatch/suppression policy.
@@ -82,4 +82,4 @@ Current examples are helper functions in `backend/src/dashboard/sse.controller.t
 
 ## Retained contracts are first-class
 
-Retained-but-currently-unused contracts must be documented and tested, never silently orphaned. The `ALERT_PREDICTION_PORT` and `MlServingPredictionAdapter` registered through `backend/src/alerts/alerts.module.ts` are the canonical example: the live MVP alert ingress is `/ingest/alerts`, while the prediction port is a future backend-prediction path. It must keep a focused adapter test (`backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts`) and documentation explaining why it exists. Removing, bypassing, or leaving such contracts untested creates a false contract and is not allowed.
+Retained-but-currently-unused contracts must be documented and tested, never silently orphaned. The `ALERT_PREDICTION_PORT` and `MlServingPredictionAdapter` registered through `backend/src/alerts/alerts.module.ts` are the canonical example: the live ML ingress is `POST /api/v1/events`, while the prediction port is a future backend-prediction path. It must keep a focused adapter test (`backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts`) and documentation explaining why it exists. Removing, bypassing, or leaving such contracts untested creates a false contract and is not allowed.

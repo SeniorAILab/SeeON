@@ -7,9 +7,9 @@ This document is the canonical relationship reference for backend domain docs. F
 ## Naming and API relation rules
 
 - Prisma and product `/api/*` DTO fields use camelCase: `facilityId`, `spaceId`, `residentId`, `cameraId`, `alertSeq`.
-- Database columns and edge `/ingest/*` payload fields use snake_case: `facility_id`, `space_id`, `resident_id`, `camera_id`, `alert_seq`.
+- Database columns and ML Event API payload fields use snake_case: `facility_id`, `space_id`, `resident_id`, `camera_id`, `alert_seq`.
 - Tenant-domain foreign keys must include `facilityId` and use composite references such as `(facilityId, spaceId) -> Space(facilityId, id)` so cross-facility references are impossible at the database layer.
-- Product `/api/*` responses may include nested relation labels, but must not expose raw Prisma models. `/ingest/*` remains source-oriented and snake_case.
+- Product `/api/*` responses may include nested relation labels, but must not expose raw Prisma models. The Event API remains source-oriented and snake_case.
 
 ## RLS enrollment and facility scope
 

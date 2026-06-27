@@ -8,6 +8,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.heartbeat_store import get_heartbeat_store
+from events.edge_ingest_client import EdgeIngestClient
 from events.schemas import AlertEventType
 
 RELAY_TOKEN_HEADER = "X-Edge-Relay-Token"
@@ -41,8 +42,6 @@ class BackendIngestClient(Protocol):
         event_type: AlertEventType,
         detected_at: str,
         probability: float,
-        facility_id: str | None = None,
-        resident_id: str | None = None,
     ) -> bool: ...
 
     def send_heartbeat(self) -> bool: ...
@@ -55,15 +54,12 @@ def relay_alert(
     relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
 ) -> dict[str, str]:
     _authorize(request, relay_token)
-    binding = _camera_binding(request, payload.camera_id, payload.facility_id)
-    resident_id = payload.resident_id or binding.get("resident_id")
-    client = _backend_ingest_client(request)
+    _camera_binding(request, payload.camera_id, payload.facility_id)
+    client = _backend_ingest_client(request, camera_id=payload.camera_id)
     accepted = client.send_alert(
         event_type=payload.event_type,
         detected_at=payload.detected_at,
         probability=payload.probability,
-        facility_id=payload.facility_id,
-        resident_id=resident_id,
     )
     if not accepted:
         raise HTTPException(
@@ -84,7 +80,7 @@ def relay_heartbeat(
     # Stamp local liveness AFTER auth + camera binding and BEFORE backend egress
     # so /status reflects edge-local truth even if backend egress fails.
     get_heartbeat_store(request.app).record(payload.camera_id, payload.facility_id)
-    client = _backend_ingest_client(request)
+    client = _backend_ingest_client(request, camera_id=payload.camera_id)
     if not client.send_heartbeat():
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -119,13 +115,15 @@ def _camera_binding(request: Request, camera_id: str, facility_id: str) -> dict[
     return dict(binding)
 
 
-def _backend_ingest_client(request: Request) -> BackendIngestClient:
+def _backend_ingest_client(request: Request, *, camera_id: str) -> BackendIngestClient:
     client = getattr(request.app.state, "backend_ingest_client", None)
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="backend ingest client is not configured",
         )
+    if isinstance(client, EdgeIngestClient):
+        return client.for_camera(camera_id)
     return client
 
 

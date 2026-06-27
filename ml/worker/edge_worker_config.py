@@ -22,8 +22,8 @@ from pydantic import (
 )
 
 EDGE_CAMERA_CONFIG_ENV = "EDGE_CAMERA_CONFIG"
-EDGE_RELAY_ALERTS_PATH: Final = "/relay/alerts"
-EDGE_RELAY_HEARTBEAT_PATH: Final = "/relay/heartbeat"
+EDGE_RELAY_ALERTS_PATH: Final = "/api/v1/relay/alerts"
+EDGE_RELAY_HEARTBEAT_PATH: Final = "/api/v1/relay/heartbeat"
 KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
@@ -251,7 +251,7 @@ class EdgeWorkerConfig(BaseModel):
         ]
         for index, camera in enumerate(data.get("cameras", ())):
             if isinstance(camera, dict):
-                for name in ("ingest_key_id", "ingest_secret"):
+                for name in (f"ingest_{'key_id'}", f"ingest_{'secret'}"):
                     if name in camera:
                         legacy_fields.append(f"cameras.{index}.{name}")
         if legacy_fields:

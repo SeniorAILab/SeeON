@@ -45,7 +45,7 @@ expose `/health`, `/status`, `/models`, and `/debug/predict/{window,source}`.
 camera loops. Keep boot-order changes in that module and its tests.
 
 Production RTSP is not an `ml-api` concern. The live path is
-`RTSP -> ml-worker -> ml-api -> backend /ingest/*`; `ml-api` remains a
+`RTSP -> ml-worker -> ml-api -> backend /api/v1/events`; `ml-api` remains a
 private/local FastAPI health, status, models, debug, and control surface, and is the only backend gateway. The
 current RTSP backend is OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only and must not be added as production dependencies without a new

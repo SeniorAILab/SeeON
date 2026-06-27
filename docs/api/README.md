@@ -6,8 +6,8 @@ These pages describe the contract **as implemented** (issue #216 / PR #217 plus 
 
 ## Contract index
 
-- [Route inventory](./route-inventory.md) — all backend dashboard/auth/ingest routes plus explicitly removed routes.
-- [Edge ingest API](./edge-ingest-api.md) — HMAC camera ingest for alerts and heartbeat.
+- [Route inventory](./route-inventory.md) — all backend dashboard/auth/Event API routes plus explicitly removed routes.
+- [Edge Event API](./edge-ingest-api.md) — no-HMAC `POST /api/v1/events` and `POST /api/v1/events/heartbeat`.
 - [Dashboard API](./dashboard-api.md) — authenticated Vite + React dashboard read-model and CRUD APIs.
 - [ML API](./ml-serving-api.md) — FastAPI `/debug/predict/window` canonical window contract, `/debug/predict/source` debug/source mode, `/health/live`, `/health/ready`, `/status`, and `/models`. Bare `POST /predict` is removed.
 - [Realtime events](./realtime-events.md) — dashboard SSE stream frame contract.
@@ -25,11 +25,11 @@ Do not create a root `contracts/` directory. Contract ownership stays under `doc
 
 ## Layer ownership
 
-- Edge devices submit camera-authenticated facts to backend `/ingest/*`.
+- Edge `ml-api` submits no-HMAC facts to backend `POST /api/v1/events` and `POST /api/v1/events/heartbeat` using `API_BACKEND_EVENTS_URL`; backend resolves facility/space from `camera_id`.
 - Backend owns alert policy, persistence, deduplication, dashboard read-models, SSE, outbox creation, and Kakao delivery state.
-- ML API owns classification only: it converts a pose window into a fall probability and boolean classification.
+- ML API owns debug classification and the worker relay gateway: product routes are under `/api/v1`, probes stay `/health/live` and `/health/ready`, and worker relay paths are `/api/v1/relay/*`.
 - Frontend consumes backend dashboard/auth routes; it does not call ML API directly.
 
 ## Removed routes
 
-Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events` (→ `/ingest/alerts`, ADR-047), `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API `POST /predict` (→ `POST /debug/predict/window` for canonical window inference or `POST /debug/predict/source` for bounded debug/source inference).
+Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API `POST /predict` (→ `POST /debug/predict/window` for canonical window inference or `POST /debug/predict/source` for bounded debug/source inference).

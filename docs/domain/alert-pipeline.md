@@ -9,10 +9,10 @@ Those concerns are stored separately, but they are not separate domains and they
 
 ## Canonical ingress
 
-`POST /ingest/alerts` is the only canonical alert ingress.
+`POST /api/v1/events` is the canonical ML event ingress.
 
-- Controller: `backend/src/ingest/ingest.controller.ts`.
-- Auth: `HmacIngestGuard` verifies camera HMAC headers.
+- Controller: `backend/src/events/events.controller.ts`.
+- Auth: no HMAC/session; backend resolves facility/space from `camera_id`.
 - Tenant coherence: camera facility must match payload `facility_id`; target relationships and FK directions are canonicalized in [data-model.md](./data-model.md).
 - Idempotency: backend derives a key from camera id, detected timestamp, and event type.
 - Edge `snapshot_url` is ignored for SSRF safety; snapshots are server-owned uploads/keys.
@@ -21,7 +21,7 @@ The legacy `/api.alerts/events` pilot path is not a second domain ingress. It ex
 
 ## One idempotent event, two write concerns
 
-A valid `/ingest/alerts` event performs both write concerns for the same domain event.
+A valid Event API request persists the Event SSOT, and backend alert policy performs the downstream alert write concerns for eligible events.
 
 ### Concern 1: dashboard read model
 
@@ -67,4 +67,4 @@ The ML prediction contract is a future backend-prediction path, not a second ale
 - Adapter: `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`.
 - DTO contract: request `{ "window": ... }`, response `{ "fall_probability": number, "operating_threshold": number, "is_fall": boolean }`.
 
-ML predicts fall probability/classification. Backend owns alert policy, persistence, deduplication, SSE, and delivery. When backend-driven prediction becomes live, its output must still enter the same one-domain pipeline and produce the same two write concerns. It must not add a second alert ingress beside `/ingest/alerts`.
+ML predicts fall probability/classification. Backend owns alert policy, persistence, deduplication, SSE, and delivery. When backend-driven prediction becomes live, its output must still enter the same one-domain pipeline and produce the same two write concerns. It must not add a second alert ingress beside `POST /api/v1/events`.

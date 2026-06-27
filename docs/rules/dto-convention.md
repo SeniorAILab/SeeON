@@ -63,7 +63,7 @@ backend/src/<domain>/dto/*.dto.ts
 
 Examples:
 
-- `backend/src/ingest/dto/ingest-alert.dto.ts` owns the `/ingest/alerts` request DTO/parser used by the thin ingest controller.
+- `backend/src/events/dto/*.dto.ts` owns the Event API request DTOs used by the thin events controller.
 - `backend/src/alerts/dto/alert-events.dto.ts` owns retained alert-event/outbox, ML prediction, and alert-event response DTOs.
 
 A service type is not automatically a DTO. Service inputs may express use-case needs after validation/coercion; DTOs express the external contract before and after the request crosses the controller boundary.

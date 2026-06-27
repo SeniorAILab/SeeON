@@ -72,12 +72,35 @@ jobs:
           target: runner
           build-args: |
             VITE_USE_MOCK=false
-            VITE_API_BASE_URL=/api
+            VITE_API_BASE_URL=/api/v1
           push: true
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/front:${{ env.DEPLOY_SHA }}
           cache-from: type=gha,scope=front
           cache-to: type=gha,scope=front,mode=max
+
+
+      - name: Build and push ml-api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ml/Dockerfile.api
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAMESPACE }}/ml-api:${{ env.DEPLOY_SHA }}
+          cache-from: type=gha,scope=ml-api
+          cache-to: type=gha,scope=ml-api,mode=max
+
+      - name: Build and push ml-worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ml/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAMESPACE }}/ml-worker:${{ env.DEPLOY_SHA }}
+          cache-from: type=gha,scope=ml-worker
+          cache-to: type=gha,scope=ml-worker,mode=max
 
       - name: Validate deployment inputs
         run: |
@@ -93,6 +116,8 @@ jobs:
           cp "$tmp_env" .env
           export BACKEND_IMAGE="$IMAGE_NAMESPACE/backend:$DEPLOY_SHA"
           export FRONT_IMAGE="$IMAGE_NAMESPACE/front:$DEPLOY_SHA"
+          export ML_API_IMAGE="$IMAGE_NAMESPACE/ml-api:$DEPLOY_SHA"
+          export ML_WORKER_IMAGE="$IMAGE_NAMESPACE/ml-worker:$DEPLOY_SHA"
           COMPOSE_PROFILES=full docker compose -f compose.yaml -f compose.prod.yaml config >/dev/null
           rm -f "$tmp_env" .env
 
@@ -128,3 +153,4 @@ jobs:
              rm -f /tmp/eldercare.env && \
              chmod +x /tmp/ncloud-deploy.sh && \
              IMAGE_NAMESPACE='$IMAGE_NAMESPACE' IMAGE_TAG='$DEPLOY_SHA' /tmp/ncloud-deploy.sh"
+          echo "Host deploy completed for backend/front. Edge ml-api/ml-worker use the same DEPLOY_SHA via compose.edge.yaml pins."

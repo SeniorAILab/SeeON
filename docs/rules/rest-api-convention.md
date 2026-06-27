@@ -6,11 +6,11 @@ This repo has three HTTP namespaces. Do not add a fourth without an ADR.
 
 - `/api/*` is the product API used by the dashboard and other authenticated product clients.
   - Current examples: `GET /api/status`, `GET /api/alerts`, `PATCH /api/alerts/:id/ack`, `GET /api/cameras`, `GET /api/residents`, `GET /api/guardians`, `GET /api/sse`, `GET`/`PATCH /api/facilities/current`, `POST /api/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/floors`, `/api/spaces`, `/api/zones`.
-  - Product `/api/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is for the edge namespaces (`/ingest/*`, ML prediction, alert outbox) only — see `docs/rules/dto-convention.md`.
+  - Product `/api/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
 - `/auth/*` is session and OAuth only.
   - Current examples: `/auth/kakao/login`, `/auth/kakao/callback`, `/auth/session`, and `/auth/logout` in `backend/src/auth/auth.controller.ts`.
-- `/ingest/*` is HMAC-authenticated edge ingress from cameras/devices.
-  - Current canonical routes: `POST /ingest/alerts` and `POST /ingest/heartbeat` in `backend/src/ingest/ingest.controller.ts`.
+- ML Event API ingress is under `/api/v1/events` and is no-HMAC.
+  - Current canonical routes: `POST /api/v1/events` and `POST /api/v1/events/heartbeat` in `backend/src/events/events.controller.ts`.
 
 ## Path shape
 
@@ -25,12 +25,12 @@ This repo has three HTTP namespaces. Do not add a fourth without an ADR.
 
 ## Status codes
 
-- `201 Created` for creation or first accepted creation-like ingest.
-  - `POST /ingest/alerts` returns `201` for a newly created alert.
+- `201 Created` for creation or first accepted creation-like event ingestion.
+  - `POST /api/v1/events` returns `201` for a newly created event.
   - Snapshot upload may return `201` when it stores a new snapshot object.
 - `200 OK` for mutations that return a body or idempotent duplicate responses.
   - `PATCH /api/alerts/:id/ack` returns the updated alert.
-  - Duplicate `/ingest/alerts` returns a body with duplicate status instead of pretending a second alert was created.
+  - Duplicate `POST /api/v1/events` returns a body with duplicate status instead of pretending a second event was created.
 - `204 No Content` for logout or delete-like operations that intentionally return no body.
   - `POST /auth/logout` is the reference.
 - DELETE semantics for product resources: `204` for a hard delete, `200` with a body for a soft delete (e.g. `isActive=false`), and `409` when the resource is still referenced (e.g. a floor with active child spaces).
@@ -53,4 +53,4 @@ Concrete refactor history:
 
 - `POST /api/orgs` is renamed to `POST /api/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
 - `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/alerts/:alertId/snapshot`.
-- `/api.alerts/events` is removed, not renamed, because `/ingest/alerts` is the only canonical alert ingress.
+- `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.

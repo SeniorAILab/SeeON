@@ -65,7 +65,7 @@ visually.
 ## Consequences
 
 - E2E evidence for this repo stays focused on `RTSP -> ml-worker -> ml-api ->
-  backend /ingest/* -> DB side effect`.
+  backend /api/v1/events -> DB side effect`.
 - Developers who need a synthetic RTSP source start `rtsp-generator` separately on
   the host and point a worker config at the printed `127.0.0.1` RTSP URL.
 - `scripts/ml-worker-nursing-home-backend-e2e.sh` accepts `NURSING_HOME_RTSP_URL`

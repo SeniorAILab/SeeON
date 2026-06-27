@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 
 SERVING_URL_ENV: Final = "FALL_SERVING_URL"
 DEFAULT_TIMEOUT_SEC: Final = 5.0
-PREDICT_WINDOW_PATH: Final = "/debug/predict/window"
+PREDICT_WINDOW_PATH: Final = "/api/v1/debug/predict/window"
 
 
 class ServingPredictError(RuntimeError):
