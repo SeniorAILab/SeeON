@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response, status
 from api.model import ModelLoadError, get_model
 from api.pipeline import DEFAULT_POSE_SIZE, pose_weight_available
 
+probe_router = APIRouter(tags=["health"])
 router = APIRouter(tags=["health"])
 
 
@@ -28,12 +29,12 @@ def _loaded_model(request: Request) -> object:
     return model if model is not None else get_model()
 
 
-@router.get("/health/live")
+@probe_router.get("/health/live")
 def live() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/health/ready")
+@probe_router.get("/health/ready")
 def ready(request: Request, response: Response) -> dict[str, Any]:
     readiness = getattr(request.app.state, "readiness", {"ready": False, "reason": "booting"})
     if not readiness.get("ready", False):

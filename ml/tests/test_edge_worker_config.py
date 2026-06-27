@@ -23,8 +23,8 @@ def test_edge_worker_config_loads_four_cameras_and_redacts_relay_token(tmp_path:
         "camera-4",
     ]
     assert config.relay.url == "http://127.0.0.1:8000"
-    assert config.relay_alert_url == "http://127.0.0.1:8000/relay/alerts"
-    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/relay/heartbeat"
+    assert config.relay_alert_url == "http://127.0.0.1:8000/api/v1/relay/alerts"
+    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/api/v1/relay/heartbeat"
     assert "relay-token-1" not in repr(config)
 
 

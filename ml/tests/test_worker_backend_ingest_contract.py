@@ -16,8 +16,8 @@ def test_edge_worker_config_uses_local_relay_and_has_no_backend_ingest_urls() ->
     config = EdgeWorkerConfig.model_validate(edge_config_payload(camera_count=1))
 
     assert config.relay.url == "http://127.0.0.1:8000"
-    assert config.relay_alert_url == "http://127.0.0.1:8000/relay/alerts"
-    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/relay/heartbeat"
+    assert config.relay_alert_url == "http://127.0.0.1:8000/api/v1/relay/alerts"
+    assert config.relay_heartbeat_url == "http://127.0.0.1:8000/api/v1/relay/heartbeat"
     assert not hasattr(config, "alert_api_url")
     assert not hasattr(config, "heartbeat_api_url")
 
@@ -78,7 +78,7 @@ def test_worker_relay_client_posts_to_local_relay_with_token(
 
     assert captured == [
         (
-            "http://127.0.0.1:8000/relay/alerts",
+            "http://127.0.0.1:8000/api/v1/relay/alerts",
             {"Content-type": "application/json", "X-edge-relay-token": "relay-token-1"},
             {
                 "event_type": "bed-exit",
@@ -95,7 +95,7 @@ def test_worker_relay_client_posts_to_local_relay_with_token(
             },
         ),
         (
-            "http://127.0.0.1:8000/relay/heartbeat",
+            "http://127.0.0.1:8000/api/v1/relay/heartbeat",
             {"Content-type": "application/json", "X-edge-relay-token": "relay-token-1"},
             {"camera_id": "camera-1", "facility_id": "facility-1"},
         ),

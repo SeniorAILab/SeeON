@@ -16,7 +16,7 @@ def test_status_reports_online_and_never_seen_from_heartbeats() -> None:
     store.record("cam-a", "fac-1")
     app.state.heartbeat_store = store
 
-    response = TestClient(app).get("/status")
+    response = TestClient(app).get("/api/v1/status")
 
     assert response.status_code == 200
     body = response.json()
@@ -29,15 +29,15 @@ def test_status_defaults_to_never_seen_without_heartbeats() -> None:
     app = create_app(lifespan=no_lifespan)
     app.state.camera_inventory = {"cam-x": {"camera_id": "cam-x", "facility_id": "fac"}}
 
-    body = TestClient(app).get("/status").json()
+    body = TestClient(app).get("/api/v1/status").json()
 
     assert body["cameras"]["cam-x"]["status"] == "never_seen"
 
 
 def test_status_does_not_read_worker_runtime_state() -> None:
-    # /status must derive purely from the api-owned heartbeat store, never from a
+    # /api/v1/status must derive purely from the api-owned heartbeat store, never from a
     # worker runtime object (zero cross-boundary shared state).
     app = create_app(lifespan=no_lifespan)
-    body = TestClient(app).get("/status").json()
+    body = TestClient(app).get("/api/v1/status").json()
     assert body == {"cameras": {}, "stale_after_sec": HeartbeatStore().stale_after_sec}
     assert not hasattr(app.state, "runtime")

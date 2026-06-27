@@ -14,19 +14,19 @@ from api.main import create_app, no_lifespan
 ML_ROOT: Final = Path(__file__).resolve().parents[1]
 SERVING_ROOT: Final = ML_ROOT / "api"
 ALLOWED_PATHS: Final = {
-    "/debug/predict/source",
-    "/debug/predict/window",
+    "/api/v1/debug/predict/source",
+    "/api/v1/debug/predict/window",
+    "/api/v1/health",
+    "/api/v1/models",
+    "/api/v1/relay/alerts",
+    "/api/v1/relay/heartbeat",
+    "/api/v1/status",
     "/docs",
     "/docs/oauth2-redirect",
-    "/health",
     "/health/live",
     "/health/ready",
-    "/models",
     "/openapi.json",
     "/redoc",
-    "/relay/alerts",
-    "/relay/heartbeat",
-    "/status",
 }
 PRODUCTION_ROUTE_TERMS: Final = (
     "rtsp",
@@ -88,7 +88,7 @@ def test_debug_predict_window_rejects_raw_frame_or_image_payloads() -> None:
         {"image": "data:image/jpeg;base64,AA=="},
         {"image_bytes": "AA=="},
     ):
-        response = client.post("/debug/predict/window", json=payload)
+        response = client.post("/api/v1/debug/predict/window", json=payload)
         assert response.status_code in {400, 422}
 
 

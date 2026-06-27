@@ -22,7 +22,7 @@ def test_models_lists_registry_and_loaded_model_info() -> None:
     app.state.model = StubModel()
     app.state.device = "cpu"
 
-    response = TestClient(app).get("/models")
+    response = TestClient(app).get("/api/v1/models")
 
     assert response.status_code == 200
     assert response.json() == {

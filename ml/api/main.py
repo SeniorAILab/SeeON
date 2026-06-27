@@ -6,8 +6,9 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 
+from api.config import get_settings
 from api.lifespan import lifespan as serving_lifespan
 from api.model import get_model
 from api.routes import debug, ingest_relay, models, status
@@ -19,16 +20,22 @@ LifespanFactory = Callable[[FastAPI], AsyncIterator[None]]
 
 def create_app(*, lifespan: LifespanFactory | None = serving_lifespan) -> FastAPI:
     """Create the api FastAPI app with route modules registered."""
+    settings = get_settings()
+    prefix = settings.api_v1_prefix
     app = FastAPI(
         title="fall-detector api",
         version="0.2.0",
         lifespan=lifespan,
     )
-    app.include_router(health_routes.router)
-    app.include_router(status.router)
-    app.include_router(models.router)
-    app.include_router(debug.router)
-    app.include_router(ingest_relay.router)
+    app.include_router(health_routes.probe_router)
+
+    api_router = APIRouter()
+    api_router.include_router(health_routes.router)
+    api_router.include_router(status.router)
+    api_router.include_router(models.router)
+    api_router.include_router(debug.router)
+    api_router.include_router(ingest_relay.router)
+    app.include_router(api_router, prefix=prefix)
     return app
 
 
