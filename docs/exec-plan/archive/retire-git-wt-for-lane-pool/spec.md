@@ -1,7 +1,7 @@
 ---
 slug: retire-git-wt-for-lane-pool
 artifact: spec
-status: active
+status: done
 issue: 407
 author: gobeumsu (+ Claude Opus 4.8)
 date: 2026-06-27
