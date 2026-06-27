@@ -1,11 +1,11 @@
 # Realtime Events
 
-Dashboard realtime events are served by `GET /api/sse` as Server-Sent Events.
+Dashboard realtime events are served by `GET /api/v1/sse` as Server-Sent Events.
 
 ## Connection
 
 ```http
-GET /api/sse
+GET /api/v1/sse
 Cookie: session=...
 Last-Event-ID: 42
 Accept: text/event-stream

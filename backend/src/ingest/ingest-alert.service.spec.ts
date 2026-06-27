@@ -25,6 +25,7 @@ function setup() {
       id: string;
       resident?: { name: string } | null;
       space?: { name: string } | null;
+      created: boolean;
     }>,
     [WriteAlertInput]
   >();
@@ -53,6 +54,7 @@ function camera(overrides: Partial<IngestCameraInfo> = {}): IngestCameraInfo {
     facilityId: 'facility-1',
     spaceId: 'space-1',
     ingestKeyId: 'key-1',
+    ingestMode: 'LEGACY_ALERTS',
     ...overrides,
   };
 }
@@ -161,6 +163,7 @@ describe('IngestAlertService', () => {
       id: 'a1',
       resident: null,
       space: { name: 'Room 101' },
+      created: true,
     });
 
     await expect(
@@ -175,6 +178,7 @@ describe('IngestAlertService', () => {
       id: 'a1',
       resident: { name: '홍길동' },
       space: { name: '402호' },
+      created: true,
     });
 
     const result = await service.ingestAlert(camera(), body());
@@ -213,6 +217,7 @@ describe('IngestAlertService', () => {
       id: 'room-alert-1',
       resident: null,
       space: { name: 'Room 101' },
+      created: true,
     });
 
     const result = await service.ingestAlert(
@@ -251,6 +256,7 @@ describe('IngestAlertService', () => {
       id: 'bed-exit-alert-1',
       resident: { name: '김영희' },
       space: { name: '재활실' },
+      created: true,
     });
 
     const result = await service.ingestAlert(
@@ -282,32 +288,22 @@ describe('IngestAlertService', () => {
     });
   });
 
-  it('returns duplicate status on P2002 and threads resident context from the existing alert', async () => {
+  it('returns duplicate status from AlertWriter existing result and threads existing resident context', async () => {
     const { service, writeAlert, withFacilityContext, ensureOutboxForIngest } =
       setup();
-    writeAlert.mockRejectedValue({ code: 'P2002' });
-    withFacilityContext.mockImplementation((_facilityId: string, cb) =>
-      cb({
-        alert: {
-          findFirst: () => ({
-            alertSeq: 3n,
-            id: 'a-dup',
-            resident: { name: '박철수' },
-            space: { name: '201호' },
-          }),
-        },
-      } as unknown as Parameters<typeof cb>[0]),
-    );
+    writeAlert.mockResolvedValue({
+      alertSeq: 3n,
+      id: 'a-dup',
+      resident: { name: '박철수' },
+      space: { name: '201호' },
+      created: false,
+    });
 
     const result = await service.ingestAlert(camera(), body());
 
     expect(result).toEqual({ alertSeq: '3', id: 'a-dup', status: 'duplicate' });
+    expect(withFacilityContext).not.toHaveBeenCalled();
     const idempotencyKey = writeAlert.mock.calls[0][0].idempotencyKey;
-    expect(withFacilityContext).toHaveBeenCalledWith(
-      'facility-1',
-      expect.any(Function),
-    );
-    // AC8 duplicate-repair: the existing alert's resident still threads through.
     expect(ensureOutboxForIngest).toHaveBeenCalledWith(
       expect.objectContaining({
         facilityId: 'facility-1',

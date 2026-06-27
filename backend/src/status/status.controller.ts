@@ -12,7 +12,7 @@ import { FacilityContextInterceptor } from '../auth/facility-context.interceptor
 import type { RequestWithAuth } from '../auth/session.guard.js';
 import { StatusService } from './status.service.js';
 
-@Controller('api/status')
+@Controller({ path: 'status', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class StatusController {
