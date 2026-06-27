@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from contracts.observation import BoundingBox
-from perception.scene_state import BedRegionDebugSnapshot
+from contracts.observation import BedRegionDebugSnapshot, BoundingBox
 
 BedOccupancy = Literal["empty", "occupied", "exit"]
 

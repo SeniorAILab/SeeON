@@ -3,10 +3,9 @@ from __future__ import annotations
 import numpy as np
 
 from contracts.frame import Frame
-from contracts.observation import BoundingBox, FrameObservation
+from contracts.observation import BedRegionDebugSnapshot, BoundingBox, FrameObservation
 from domains.bed_exit.detector import BedExitMonitor
 from domains.bed_exit.schema import BedExitDebugSnapshot, BedStatus, DomainDebugSnapshot
-from perception.scene_state import BedRegionDebugSnapshot
 from worker.overlay_renderer import OverlayRenderer
 
 
