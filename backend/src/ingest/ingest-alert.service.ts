@@ -1,6 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import * as crypto from 'crypto';
-import type { Prisma } from '@prisma/client';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { AlertWriterService } from '../alerts/alert-writer.service.js';
 import { AlertEventsService } from '../alerts/services/alert-events.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -10,6 +8,7 @@ import {
 } from '../common/domain-errors.js';
 import type { IngestCameraInfo } from './hmac.guard.js';
 import type { ParsedIngestAlertRequestDto } from './dto/ingest-alert.dto.js';
+import { buildEventDedupKey } from '../events/event-recorder.service.js';
 
 const FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
 
@@ -37,61 +36,36 @@ export class IngestAlertService {
       );
     }
 
-    const idempotencyKey = crypto
-      .createHash('sha256')
-      .update(`${camera.id}|${input.detectedAt.toISOString()}|${input.type}`)
-      .digest('hex');
-
-    try {
-      const alert = await this.writer.writeAlert({
-        facilityId: camera.facilityId,
-        residentId: input.resident_id,
-        cameraId: camera.id,
-        spaceId: camera.spaceId,
-        type: input.type,
-        probability: input.probability,
-        snapshotKey: null,
-        detectedAt: input.detectedAt,
-        idempotencyKey,
-      });
-      await this.ensureOutboxForIngest(camera, input, idempotencyKey, {
-        resident: alert.resident ?? null,
-        space: alert.space ?? null,
-      });
-      return {
-        alertSeq: alert.alertSeq.toString(),
-        id: alert.id,
-        status: 'created',
-      };
-    } catch (err: unknown) {
-      if (isPrismaUniqueError(err)) {
-        const existing = await this.prisma.withFacilityContext(
-          camera.facilityId,
-          (tx: Prisma.TransactionClient) =>
-            tx.alert.findFirst({
-              where: { facilityId: camera.facilityId, idempotencyKey },
-              include: {
-                resident: { select: { name: true } },
-                space: { select: { name: true } },
-              },
-            }),
-        );
-        await this.ensureOutboxForIngest(
-          camera,
-          input,
-          idempotencyKey,
-          existing
-            ? { resident: existing.resident, space: existing.space }
-            : null,
-        );
-        return {
-          alertSeq: existing?.alertSeq.toString() ?? '0',
-          id: existing?.id ?? '',
-          status: 'duplicate',
-        };
-      }
-      throw err;
+    if (camera.ingestMode === 'EVENT_API') {
+      throw new ConflictException('camera_ingest_mode_event_api');
     }
+
+    const idempotencyKey = buildEventDedupKey(
+      camera.id,
+      input.detectedAt,
+      input.type,
+    );
+
+    const alert = await this.writer.writeAlert({
+      facilityId: camera.facilityId,
+      residentId: input.resident_id,
+      cameraId: camera.id,
+      spaceId: camera.spaceId,
+      type: input.type,
+      probability: input.probability,
+      snapshotKey: null,
+      detectedAt: input.detectedAt,
+      idempotencyKey,
+    });
+    await this.ensureOutboxForIngest(camera, input, idempotencyKey, {
+      resident: alert.resident ?? null,
+      space: alert.space ?? null,
+    });
+    return {
+      alertSeq: alert.alertSeq.toString(),
+      id: alert.id,
+      status: alert.created ? 'created' : 'duplicate',
+    };
   }
 
   private async ensureOutboxForIngest(
@@ -116,11 +90,3 @@ export class IngestAlertService {
   }
 }
 
-function isPrismaUniqueError(err: unknown): boolean {
-  return Boolean(
-    err &&
-    typeof err === 'object' &&
-    'code' in err &&
-    (err as { code: string }).code === 'P2002',
-  );
-}

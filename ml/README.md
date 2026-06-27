@@ -22,10 +22,9 @@ ml/
   runners/                # task/model runner registry wiring
   perception/             # pose detection and perception adapters
   domains/                # domain-specific policy/value objects
-  runtime/                # edge runtime status and lifecycle state
   events/                 # edge event DTOs/emitters
   api/                    # FastAPI api (/health/*, /status, /models, /debug/predict/*)
-  worker/                 # ml-worker CLI entrypoint
+  worker/                 # ml-worker process + worker-owned live orchestration/state
   training/               # batch training, evaluation, and artifact production
   demo/                   # Streamlit local demo UI
   tests/                  # pytest coverage for package boundaries and behavior

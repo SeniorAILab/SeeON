@@ -27,6 +27,7 @@ export interface IngestCameraInfo {
   facilityId: string;
   spaceId: string;
   ingestKeyId: string;
+  ingestMode: 'LEGACY_ALERTS' | 'EVENT_API';
 }
 
 export interface RequestWithIngestCamera extends Request {
@@ -68,6 +69,7 @@ export class HmacIngestGuard implements CanActivate {
       spaceId: string;
       ingestKeyId: string;
       ingestSecretHash: string;
+      ingestMode: 'LEGACY_ALERTS' | 'EVENT_API';
     };
     const rows = await this.prisma.$queryRaw<CameraRow[]>`
       SELECT * FROM get_camera_for_ingest(${keyId}::text)
@@ -110,6 +112,7 @@ export class HmacIngestGuard implements CanActivate {
       facilityId: camera.facilityId,
       spaceId: camera.spaceId,
       ingestKeyId: camera.ingestKeyId,
+      ingestMode: camera.ingestMode,
     };
     return true;
   }

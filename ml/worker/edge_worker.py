@@ -14,19 +14,19 @@ from contracts.runner import RunnerProtocol
 from domains import DOMAIN_REGISTRY
 from runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
-from runtime.camera_worker import CameraWorker, DomainDetectorProtocol
-from runtime.edge_worker_config import (
+from sources.rtsp import RTSPSource
+from worker.camera_worker import CameraWorker, DomainDetectorProtocol
+from worker.edge_worker_config import (
     CameraRuntimeConfig,
     EdgeWorkerConfig,
     EdgeWorkerConfigError,
     load_edge_worker_config,
     resolve_config_path,
 )
-from runtime.edge_worker_supervisor import EdgeWorkerSupervisor
-from runtime.fall_window_classifier import FallModelProtocol, FallWindowClassifier
-from runtime.scheduler import Scheduler
-from runtime.status_store import StatusStore
-from sources.rtsp import RTSPSource
+from worker.edge_worker_supervisor import EdgeWorkerSupervisor
+from worker.fall_window_classifier import FallModelProtocol, FallWindowClassifier
+from worker.scheduler import Scheduler
+from worker.status_store import StatusStore
 
 
 @dataclass(frozen=True, slots=True)
