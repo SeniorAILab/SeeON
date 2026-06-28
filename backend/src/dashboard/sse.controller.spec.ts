@@ -72,6 +72,11 @@ describe('DashboardStreamController', () => {
             return unsubStatus;
           },
         ),
+        subscribeUpdates: jest.fn(
+          (_facilityId: string, _callback: (event: unknown) => void) => {
+            return jest.fn();
+          },
+        ),
       } as unknown as AlertWriterService,
       {
         replay: jest.fn().mockResolvedValue([replayedAlert]),
