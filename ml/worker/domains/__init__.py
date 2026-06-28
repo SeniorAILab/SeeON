@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from domains.bed_exit.detector import BedExitMonitor, NightWindow
-from domains.fall.detector import FallEventLatch
-from domains.long_lie.detector import LongLieDetector
-from domains.risk.detector import RiskDetector
-from domains.wheelchair_standup.detector import WheelchairStandupDetector
+from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
+from worker.domains.fall.detector import FallEventLatch
+from worker.domains.long_lie.detector import LongLieDetector
+from worker.domains.risk.detector import RiskDetector
+from worker.domains.wheelchair_standup.detector import WheelchairStandupDetector
 
 
 @dataclass(frozen=True, slots=True)

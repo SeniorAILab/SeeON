@@ -51,8 +51,8 @@ from demo.ui_labels import (  # noqa: E402
 )
 from demo.video_playback import read_video_playback_info  # noqa: E402
 from events import AlertClient  # noqa: E402
-from perception.bed_detector import BedDetector, bed_weight_path  # noqa: E402
-from sources import CameraSource, VideoFileSource  # noqa: E402
+from worker.perception.bed_detector import BedDetector, bed_weight_path  # noqa: E402
+from worker.sources import CameraSource, VideoFileSource  # noqa: E402
 
 APP_PAGE_TITLE: Final = "eldercare-fall-ai"
 
@@ -69,8 +69,8 @@ PLAYING_KEY: Final = "live_playing"
 
 
 def _default_bed_runner():
-    from runners.device import select_device
-    from runners.yolo_bed_seg import YoloBedSegRunner
+    from worker.runners.device import select_device
+    from worker.runners.yolo_bed_seg import YoloBedSegRunner
 
     weight_path = bed_weight_path()
     weight_path.parent.mkdir(parents=True, exist_ok=True)

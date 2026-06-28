@@ -1,5 +1,5 @@
 from contracts.frame import Frame, FrameSource
-from sources.registry import (
+from worker.sources.registry import (
     DEFAULT_MAX_DURATION_SEC,
     DEFAULT_SOURCE_BASE_DIR,
     LIVE_SCHEMES,
@@ -11,9 +11,9 @@ from sources.registry import (
     SourceRegistryError,
     get_source_registry,
 )
-from sources.rtsp import RTSPSource
-from sources.video_file import VideoFileSource
-from sources.webcam import CameraSource
+from worker.sources.rtsp import RTSPSource
+from worker.sources.video_file import VideoFileSource
+from worker.sources.webcam import CameraSource
 
 __all__ = [
     "Frame",

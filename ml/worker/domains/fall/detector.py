@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contracts.event import MutableEventPayload
 from contracts.observation import FrameObservation
-from domains.fall.schema import FallEvent
+from worker.domains.fall.schema import FallEvent
 
 
 class FallEventLatch:

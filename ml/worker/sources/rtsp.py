@@ -6,7 +6,7 @@ from collections.abc import Iterator
 import cv2
 
 from contracts.frame import Frame
-from sources.rtsp_backend import (
+from worker.sources.rtsp_backend import (
     OpenCVRTSPBackend,
     RTSPBackend,
 )

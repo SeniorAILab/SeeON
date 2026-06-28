@@ -108,7 +108,8 @@ def test_serving_import_allows_api_owned_backend_ingest_client_but_not_ml_runtim
             (
                 "import sys; import api.main; "
                 "forbidden = {'events.publisher', 'events.outbox', 'events.schemas', "
-                "'worker', 'worker.edge_worker', 'runners.registry', 'sources.registry'}; "
+                "'worker', 'worker.edge_worker', "
+                "'worker.runners.registry', 'worker.sources.registry'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "
                 "print(loaded); raise SystemExit(1 if loaded else 0)"
             ),

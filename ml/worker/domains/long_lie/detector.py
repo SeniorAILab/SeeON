@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from contracts.observation import FrameObservation
-from domains.base import DomainDetector
+from worker.domains.base import DomainDetector
 
 
-class RiskDetector(DomainDetector):
+class LongLieDetector(DomainDetector):
     enabled = False
 
     def update(
@@ -13,4 +13,4 @@ class RiskDetector(DomainDetector):
         *,
         time_sec: float | None = None,
     ) -> tuple[object, ...]:
-        raise RuntimeError("risk domain is disabled")
+        raise RuntimeError("long_lie domain is disabled")

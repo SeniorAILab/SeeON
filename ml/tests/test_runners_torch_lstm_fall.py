@@ -8,11 +8,11 @@ import pytest
 import torch
 import yaml
 
-from runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
+from worker.runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
 
 
 def _write_lstm_artifact(path: Path) -> Path:
-    from runners.torch_lstm_fall import build_lstm_module
+    from worker.runners.torch_lstm_fall import build_lstm_module
 
     path.mkdir()
     arch = {"hidden": 4, "layers": 1, "dropout": 0.0}

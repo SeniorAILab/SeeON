@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from contracts import BoundingBox
-from perception.tracker import GreedyIouTracker, iou
+from worker.perception.tracker import GreedyIouTracker, iou
 
 
 def _box(x1: int, y1: int, x2: int, y2: int, conf: float = 0.9) -> BoundingBox:
