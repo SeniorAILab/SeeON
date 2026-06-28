@@ -41,9 +41,14 @@ The artifact layout is path-addressed under `ml/models/` per ADR-015. Pose weigh
 
 ```bash
 pnpm dev:ml-api      # FastAPI api on :8000
-pnpm dev:ml-worker --config config/ml-worker.local.yaml
+pnpm dev:ml-worker   # python -m worker; reads gitignored config/ml-worker.local.yaml
 pnpm dev:demo    # Streamlit demo
 ```
+
+> `config/ml-worker.local.yaml` is gitignored (per-camera RTSP URL + relay token). Copy it once with
+> `cp config/ml-worker.example.yaml config/ml-worker.local.yaml`, then set `artifact_dir: ./models/fall/lstm`
+> (paths are relative to `ml/` for `uv run --directory ml`) and a real/external `rtsp_url`. `python -m worker`
+> and `python -m worker.edge_worker` are equivalent entry points; validate with `pnpm dev:ml-worker --check-config`.
 
 Or directly:
 
@@ -52,7 +57,7 @@ uv sync                                      # install slim api gateway deps
 uv sync --group demo                         # add Streamlit demo deps
 uv sync --group training                     # add offline training deps
 uv run uvicorn api.main:app --reload --port 8000
-uv run python -m worker.edge_worker --config config/ml-worker.local.yaml --heartbeat-on-start
+uv run python -m worker --config config/ml-worker.local.yaml --heartbeat-on-start   # or: python -m worker.edge_worker
 uv run --group demo streamlit run demo/app.py
 ```
 
