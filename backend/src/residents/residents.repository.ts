@@ -158,7 +158,7 @@ export class ResidentsRepository {
     });
   }
 
-  listHistory(facilityId: string, filters: AssignmentFilters = {}) {
+  listAssignments(facilityId: string, filters: AssignmentFilters = {}) {
     return this.prisma.withFacilityContext(facilityId, (tx) =>
       tx.residentAssignment.findMany({
         where: {
