@@ -7,15 +7,12 @@ from pathlib import Path
 from typing import Final
 
 from fastapi.routing import APIRoute
-from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
 
 ML_ROOT: Final = Path(__file__).resolve().parents[1]
 SERVING_ROOT: Final = ML_ROOT / "api"
 ALLOWED_PATHS: Final = {
-    "/api/v1/debug/predict/source",
-    "/api/v1/debug/predict/window",
     "/api/v1/health",
     "/api/v1/models",
     "/api/v1/relay/alerts",
@@ -37,7 +34,13 @@ PRODUCTION_ROUTE_TERMS: Final = (
 FORBIDDEN_IMPORTS: Final = (
     "worker",
     "events.publisher",
+    "events.outbox",
+    "events.schemas",
     "runtime.edge_worker",
+    "runners",
+    "sources",
+    "perception",
+    "domains",
 )
 
 
@@ -79,20 +82,7 @@ def test_serving_app_exposes_only_documented_boundary_routes() -> None:
     )
 
 
-def test_debug_predict_window_rejects_raw_frame_or_image_payloads() -> None:
-    client = TestClient(create_app(lifespan=no_lifespan))
-
-    for payload in (
-        {"frame": [0, 1, 2]},
-        {"frames": [[0, 1, 2]]},
-        {"image": "data:image/jpeg;base64,AA=="},
-        {"image_bytes": "AA=="},
-    ):
-        response = client.post("/api/v1/debug/predict/window", json=payload)
-        assert response.status_code in {400, 422}
-
-
-def test_serving_files_do_not_import_edge_worker_or_ingest_runtime() -> None:
+def test_serving_files_do_not_import_ml_runtime_or_event_schema_modules() -> None:
     violations: list[str] = []
 
     for path in _serving_python_files():
@@ -110,14 +100,16 @@ def test_serving_files_do_not_import_edge_worker_or_ingest_runtime() -> None:
     assert not violations, "\n".join(violations)
 
 
-def test_serving_import_allows_api_owned_backend_ingest_client_but_not_worker() -> None:
+def test_serving_import_allows_api_owned_backend_ingest_client_but_not_ml_runtime() -> None:
     probe = subprocess.run(
         [
             sys.executable,
             "-c",
             (
                 "import sys; import api.main; "
-                "forbidden = {'events.publisher', 'worker', 'worker.edge_worker'}; "
+                "forbidden = {'events.publisher', 'events.outbox', 'events.schemas', "
+                "'worker', 'worker.edge_worker', "
+                "'worker.runners.registry', 'worker.sources.registry'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "
                 "print(loaded); raise SystemExit(1 if loaded else 0)"
             ),

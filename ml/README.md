@@ -3,11 +3,11 @@
 Python (uv) project. Owns **two lifecycles**:
 
 - `training/` — **batch**: dataset → model artifact.
-- `api/` — **online API**: private/local FastAPI app exposing health, status, models, debug routes, and bounded control surfaces.
+- `api/` — **online gateway**: private/local FastAPI app exposing health, status, models, relay routes, and bounded control surfaces; no ML/model loading.
 - `worker.edge_worker` — **online worker**: production RTSP camera ownership, model/domain evaluation, heartbeat/alert fact creation, and local relay to `ml-api`.
 
-Production live path: `RTSP -> ml-worker -> ml-api -> backend /ingest/*` (ADR-067/029). `ml-api`
-does not own production RTSP or raw frame relay; it owns backend ingest gateway side effects.
+Production live path: `RTSP -> ml-worker -> ml-api /api/v1/relay/* -> backend /api/v1/events` (ADR-067/029). `ml-api`
+does not own production RTSP or raw frame relay; it owns backend Event API gateway side effects.
 
 Plus `demo/` (Streamlit ML-demo UI), `tests/`, and `models/` artifact storage.
 
@@ -18,13 +18,13 @@ ml/
   pyproject.toml          # uv project; api deps + demo/training groups
   contracts/              # shared frame/model/artifact/observation contracts
   features/               # feature extraction and window transforms
-  sources/                # camera/video/upload frame sources and registries
-  runners/                # task/model runner registry wiring
-  perception/             # pose detection and perception adapters
-  domains/                # domain-specific policy/value objects
   events/                 # edge event DTOs/emitters
-  api/                    # FastAPI api (/health/*, /status, /models, /debug/predict/*)
-  worker/                 # ml-worker process + worker-owned live orchestration/state
+  api/                    # FastAPI gateway (/health/*, /status, /models, /api/v1/relay/*); no ML/model loading
+  worker/                 # ml-worker process + worker-owned live ML packages and orchestration/state
+    sources/              # camera/video/upload frame sources and registries
+    runners/              # task/model runner registry wiring
+    perception/           # pose detection, observation construction, and perception adapters
+    domains/              # domain-specific policy/value objects
   training/               # batch training, evaluation, and artifact production
   demo/                   # Streamlit local demo UI
   tests/                  # pytest coverage for package boundaries and behavior
@@ -53,14 +53,15 @@ pnpm dev:demo    # Streamlit demo
 Or directly:
 
 ```bash
-uv sync                                      # install slim api deps
-uv sync --group demo --group training        # full api: cv2 + ultralytics + sklearn/joblib for pose→RF inference
-uv run --group demo --group training uvicorn api.main:app --reload --port 8000
+uv sync                                      # install slim api gateway deps
+uv sync --group demo                         # add Streamlit demo deps
+uv sync --group training                     # add offline training deps
+uv run uvicorn api.main:app --reload --port 8000
 uv run python -m worker --config config/ml-worker.local.yaml --heartbeat-on-start   # or: python -m worker.edge_worker
 uv run --group demo streamlit run demo/app.py
 ```
 
-`api.main:/debug/predict/window` is the canonical `[T][51]` pose-window classification route. `api.main:/debug/predict/source` runs the bounded stored-source pipeline (FrameSource → YOLO pose → keypoint-window normalizer → random-forest). Production RTSP streams run through `worker.edge_worker`, not FastAPI lifespan startup. Missing weights/artifacts fail explicitly rather than falling back.
+Pose-window classification is a live `ml-worker` responsibility; the Streamlit demo runs the same bounded pose-window flow in-process for local operator/developer use. FastAPI `api` is a gateway/status/relay surface only and does not host prediction routes or load model artifacts. Missing worker/demo weights/artifacts fail explicitly rather than falling back.
 
 Edge Compose uses the production service split:
 
@@ -71,7 +72,7 @@ EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
 
 `EDGE_CAMERA_CONFIG` is a gitignored YAML file. It holds the local `ml-api`
 relay URL/token plus per-camera RTSP URL and camera/facility/resident identity.
-Backend `/ingest/*` URLs and key/secret configuration live in `ml-api`.
+Backend `/api/v1/events` URL and key/secret configuration live in `ml-api`.
 
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future

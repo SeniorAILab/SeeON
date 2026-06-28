@@ -139,6 +139,18 @@ sh scripts/git-guard/setup-hooks.sh
 This sets `core.hooksPath .githooks` and chmods the guard scripts. Safe to re-run.
 The hook trust prompt in Codex on first run is expected — approve it.
 
+## Canonical remote
+
+The canonical repository is `SeniorAILab/eldercare-fall-ai`. An older
+`GoBeromsu/eldercare-fall-ai` origin still resolves through GitHub's move
+redirect — pushes succeed, but PRs must be opened against `SeniorAILab`
+(`gh pr create --repo SeniorAILab/eldercare-fall-ai`). Re-point a redirecting
+clone so tooling targets the canonical repo directly:
+
+```bash
+git remote set-url origin https://github.com/SeniorAILab/eldercare-fall-ai.git
+```
+
 ## Files
 
 | File | Role |

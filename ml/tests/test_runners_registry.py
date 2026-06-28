@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from runners.registry import ModelRegistry, default_registry
-from runners.sklearn_fall import FallDetector
-from runners.yolo_bed_seg import YoloBedSegRunner
-from runners.yolo_person import YoloPersonRunner
-from runners.yolo_pose import YoloPoseRunner
+from worker.runners.registry import ModelRegistry, default_registry
+from worker.runners.sklearn_fall import FallDetector
+from worker.runners.yolo_bed_seg import YoloBedSegRunner
+from worker.runners.yolo_person import YoloPersonRunner
+from worker.runners.yolo_pose import YoloPoseRunner
 
 
 class FakeRunner:

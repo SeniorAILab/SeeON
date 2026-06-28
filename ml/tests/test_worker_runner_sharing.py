@@ -40,9 +40,11 @@ class _CountingRegistry:
     created: dict[str, int] = field(
         default_factory=lambda: {"pose": 0, "person": 0, "bed": 0, "fall": 0}
     )
+    kwargs_by_task: dict[str, dict[str, object]] = field(default_factory=dict)
 
-    def create(self, task: str) -> RunnerOutput | _Runner | _FallModel:
+    def create(self, task: str, **kwargs: object) -> RunnerOutput | _Runner | _FallModel:
         self.created[task] += 1
+        self.kwargs_by_task[task] = dict(kwargs)
         if task == "pose":
             return self.pose_runner
         if task == "person":
@@ -59,10 +61,24 @@ def test_worker_builds_pose_and_bed_runners_once_for_four_cameras(monkeypatch) -
 
     registry = _CountingRegistry()
     monkeypatch.setattr(edge_worker, "DEFAULT_REGISTRY", registry)
+    selected_devices: list[str] = []
+    monkeypatch.setattr(
+        edge_worker,
+        "select_device",
+        lambda: selected_devices.append("mps") or "mps",
+    )
+
 
     supervisor = edge_worker._build_supervisor(_four_camera_config(), StatusStore())
 
     assert registry.created == {"pose": 1, "person": 1, "bed": 1, "fall": 1}
+    assert selected_devices == ["mps"]
+    assert registry.kwargs_by_task == {
+        "pose": {"device": "mps"},
+        "person": {"device": "mps"},
+        "bed": {"device": "mps"},
+        "fall": {},
+    }
     assert {id(loop.worker.runners["pose"]) for loop in supervisor.loops} == {
         id(registry.pose_runner)
     }
