@@ -113,14 +113,16 @@ class SourceRegistry:
     def _reject_descriptor(self, value: str) -> None:
         lowered = value.strip().lower()
         if lowered.isdigit():
-            raise SourceRegistryError("device indexes are not accepted by /debug/predict/source")
+            raise SourceRegistryError(
+                "device indexes are not accepted; reference an allowlisted source_id instead"
+            )
         if any(lowered.startswith(scheme) for scheme in LIVE_SCHEMES):
             raise SourceRegistryError(
-                "raw live descriptors are not accepted by /debug/predict/source"
+                "raw live descriptors are not accepted; reference an allowlisted source_id instead"
             )
         if ".." in Path(value).parts or value.startswith("/") or value.startswith("~"):
             raise SourceRegistryError(
-                "raw paths and traversal are not accepted by /debug/predict/source"
+                "raw paths and traversal are not accepted; reference a registered source_id instead"
             )
 
     def _safe_path(self, raw_path: Path) -> Path:
