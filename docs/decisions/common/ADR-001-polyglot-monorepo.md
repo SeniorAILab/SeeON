@@ -69,7 +69,7 @@ The root `package.json` carries **zero runtime or shared library dependencies**.
 | `dev:front` | `pnpm --filter front dev` |
 | `dev:backend` | `pnpm --filter backend start:dev` |
 | `dev:ml-api` | `uv run --directory ml uvicorn api.main:app --reload --host 127.0.0.1 --port 8000` |
-| `dev:ml-worker` | `uv run --directory ml python -m worker.edge_worker` |
+| `dev:ml-worker` | `uv run --directory ml python -m worker --config config/ml-worker.local.yaml` |
 | `dev:demo` | `uv run --directory ml --group demo streamlit run demo/app.py` |
 | `build:front` | `pnpm --filter front build` |
 | `build:backend` | `pnpm --filter backend build` |
@@ -157,3 +157,4 @@ Rejected. Per-ecosystem tools at their native versions are more correct and fast
 ## Changelog
 
 - 2026-06-25: Updated the root-script examples to current names — `dev:ml` (which ran `uvicorn serving.main:app`) is now `dev:ml-api` (`api.main:app`) plus `dev:ml-worker` (`worker.edge_worker`), reflecting the `ml/serving`→`ml/api` rename and the API/worker split (ADR-067). The polyglot-monorepo decision itself is unchanged.
+- 2026-06-27: `dev:ml-worker` now invokes `python -m worker` (added `ml/worker/__main__.py`; `python -m worker.edge_worker` stays valid for prod/scripts) and defaults `--config config/ml-worker.local.yaml` (gitignored, copied once from `ml-worker.example.yaml`). The polyglot-monorepo decision itself is unchanged. (#426)
