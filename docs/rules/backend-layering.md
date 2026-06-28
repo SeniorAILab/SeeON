@@ -29,7 +29,6 @@ Examples already present:
 
 - `backend/src/events/dto/*.dto.ts` defines the Event API boundary DTOs for snake_case fields such as `camera_id`, `type`, `detected_at`, and `confidence`.
 - `backend/src/alerts/dto/alert-events.dto.ts` defines retained alert-event/outbox DTOs such as `source_id`, `external_event_id`, `detected_at`, and `fall_probability`.
-- `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts` parses the ML response and rejects missing `fall_probability`, `operating_threshold`, or `is_fall`.
 
 ### Service
 
@@ -65,10 +64,9 @@ Repositories must not decide alert policy, delivery policy, authz, SSE frame sha
 Adapters own external systems and translate their failure modes into domain/service-level results:
 
 - Kakao Talk send-to-me delivery: `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts`.
-- ML serving prediction: `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`.
 - Filesystem snapshot storage/proxying currently sits in `backend/src/alerts/alerts.controller.ts`; new work must move filesystem effects behind an adapter/service contract instead of expanding controller file I/O.
 
-Adapters do not decide whether an alert should exist or whether a notification should be sent. They execute the external call and report success/failure precisely. Never fake Kakao or ML success.
+Adapters do not decide whether an alert should exist or whether a notification should be sent. They execute the external call and report success/failure precisely. Never fake Kakao or Event API ML-confidence success.
 
 ### Presenter-mapper
 
@@ -80,6 +78,6 @@ Presenter-mappers own entity-to-response and stream-frame formatting:
 
 Current examples are helper functions in `backend/src/dashboard/sse.controller.ts`: `formatAlertEvent`, `formatStatusEvent`, and `formatSseEvent`. They define the dashboard stream contract and should remain presentation-only. REST endpoints such as `backend/src/alerts/alerts.controller.ts` should use response DTO/presenter helpers instead of returning raw Prisma query results.
 
-## Retained contracts are first-class
+## Retired contracts are removed deliberately
 
-Retained-but-currently-unused contracts must be documented and tested, never silently orphaned. The `ALERT_PREDICTION_PORT` and `MlServingPredictionAdapter` registered through `backend/src/alerts/alerts.module.ts` are the canonical example: the live ML ingress is `POST /api/v1/events`, while the prediction port is a future backend-prediction path. It must keep a focused adapter test (`backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts`) and documentation explaining why it exists. Removing, bypassing, or leaving such contracts untested creates a false contract and is not allowed.
+Retired contracts must not remain documented as retained seams. The old `ALERT_PREDICTION_PORT` / `MlServingPredictionAdapter` backend-pull path is removed; live ML ingress is `POST /api/v1/events` with Event API `confidence`. Reintroducing backend-pull prediction requires a successor ADR and focused tests.

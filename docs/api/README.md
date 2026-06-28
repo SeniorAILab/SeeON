@@ -9,7 +9,7 @@ These pages describe the contract **as implemented** (issue #216 / PR #217 plus 
 - [Route inventory](./route-inventory.md) — all backend dashboard/auth/Event API routes plus explicitly removed routes.
 - [Edge Event API](./edge-ingest-api.md) — no-HMAC `POST /api/v1/events` and `POST /api/v1/events/heartbeat`.
 - [Dashboard API](./dashboard-api.md) — authenticated Vite + React dashboard read-model and CRUD APIs.
-- [ML API](./ml-serving-api.md) — FastAPI `/debug/predict/window` canonical window contract, `/debug/predict/source` debug/source mode, `/health/live`, `/health/ready`, `/status`, and `/models`. Bare `POST /predict` is removed.
+- [ML API](./ml-serving-api.md) — ML-free FastAPI gateway for `/health/live`, `/health/ready`, `/status`, `/models` metadata, and `/api/v1/relay/*`. Prediction routes including `POST /predict` and `/debug/predict/*` are removed.
 - [Realtime events](./realtime-events.md) — dashboard SSE stream frame contract.
 - [Kakao delivery API](./kakao-delivery-api.md) — outbox, delivery attempts, and Kakao send-to-me semantics.
 
@@ -32,4 +32,4 @@ Do not create a root `contracts/` directory. Contract ownership stays under `doc
 
 ## Removed routes
 
-Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API `POST /predict` (→ `POST /debug/predict/window` for canonical window inference or `POST /debug/predict/source` for bounded debug/source inference).
+Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API prediction routes `POST /predict` plus `POST /debug/predict/{window,source}` (removed; live classification is worker-produced and relayed as Event API `confidence`).

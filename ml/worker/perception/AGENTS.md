@@ -1,6 +1,6 @@
 # Perception Agent Rules
 
-Own L2 observation construction and scene state derived from frames and runner outputs.
+Own worker observation construction and scene state derived from frames and runner outputs.
 
 ## Local Ownership
 
@@ -12,9 +12,9 @@ Own L2 observation construction and scene state derived from frames and runner o
 
 ## Imports
 
-Allowed: `contracts`, `features`, and local `perception`.
+Allowed: `contracts`, `features`, and local `worker/perception`.
 
-Forbidden: `sources`, `runners`, `domains`, `runtime`, `events`, `api`, `demo`, `training`.
+Forbidden: `worker/sources`, `worker/runners`, `worker/domains`, `worker` orchestration, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 
@@ -26,4 +26,4 @@ Forbidden: `sources`, `runners`, `domains`, `runtime`, `events`, `api`, `demo`, 
 
 ## Gotchas
 
-Perception builds facts about a frame; it does not decide whether an alert should fire. Put domain-specific latches under `domains`.
+Perception builds facts about a frame; it does not decide whether an alert should fire. Put domain-specific latches under `worker/domains`.
