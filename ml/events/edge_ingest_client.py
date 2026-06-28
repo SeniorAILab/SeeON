@@ -9,12 +9,17 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Final
+from typing import Final, Protocol
 
 from contracts.event import EventPayload
-from events.schemas import AlertEventType, EmittedEvent, EventApiPayload
+from contracts.relay import AlertEventType, EventApiPayload
 
 DEFAULT_TIMEOUT_SEC: Final = 0.5
+
+
+class _PublishedEvent(Protocol):
+    event_type: str
+    evidence: EventPayload
 
 
 @dataclass(slots=True)
@@ -75,7 +80,7 @@ class EdgeIngestClient:
             probability=probability,
         )
 
-    def publish(self, event: EmittedEvent) -> None:
+    def publish(self, event: _PublishedEvent) -> None:
         if event.event_type not in {"fall", "bed-exit"}:
             return
         self.send_alert(

@@ -2,21 +2,18 @@ from __future__ import annotations
 
 import pytest
 
-from api.client import ServingFallClassifier
 from contracts import Frame, FrameObservation
 from demo.classifiers import CLASSIFIER_REGISTRY, ClassifierParams, available_classifier_keys
 from demo.demo_ui import build_model
-from demo.temporal_module import TemporalFallClassifierModule
+from demo.temporal_module import InProcessFallClassifier, TemporalFallClassifierModule
 
 
 class _FakePose:
     """Pose ModelModule stand-in.
 
     build_model constructs a real YoloPoseModule (which loads ultralytics) before
-    routing to the fall classifier. These tests only exercise the routing/api
-    seam, so we patch in this lightweight pose to keep ultralytics out of
-    sys.modules — the api import-boundary test (test_serving_model) asserts
-    ultralytics is never imported by the loader path, and that check is global.
+    routing/classifier seam, so we patch in this lightweight pose to keep
+    ultralytics out of sys.modules.
     """
 
     def __init__(self, size: str = "n", confidence: float = 0.05) -> None:
@@ -27,9 +24,16 @@ class _FakePose:
         return FrameObservation()
 
 
+class _FakeInProcessFallClassifier:
+    pass
+
+
 @pytest.fixture(autouse=True)
 def _stub_pose(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("demo.demo_ui.YoloPoseModule", _FakePose)
+    monkeypatch.setattr(
+        "demo.temporal_module.InProcessFallClassifier", _FakeInProcessFallClassifier
+    )
 
 
 def test_registry_excludes_rule_based() -> None:
@@ -47,7 +51,7 @@ def test_removed_rule_based_symbol_is_not_importable() -> None:
 
 
 def test_build_model_rejects_rule_based_key() -> None:
-    with pytest.raises(ValueError, match="api-only via temporal models"):
+    with pytest.raises(ValueError, match="in-process temporal models"):
         build_model("n", "rule_based", ClassifierParams())
 
 
@@ -58,19 +62,20 @@ def _first_available_temporal_key() -> str:
     return keys[0]
 
 
-def test_temporal_build_requires_serving_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_temporal_build_does_not_require_serving_url(monkeypatch: pytest.MonkeyPatch) -> None:
     key = _first_available_temporal_key()
     monkeypatch.delenv("FALL_SERVING_URL", raising=False)
-
-    with pytest.raises(RuntimeError, match="FALL_SERVING_URL is required"):
-        build_model("n", key, ClassifierParams())
-
-
-def test_temporal_build_uses_serving_classifier(monkeypatch: pytest.MonkeyPatch) -> None:
-    key = _first_available_temporal_key()
-    monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:8000")
 
     model = build_model("n", key, ClassifierParams())
 
     assert isinstance(model, TemporalFallClassifierModule)
-    assert isinstance(model._model, ServingFallClassifier)
+
+
+def test_temporal_build_uses_in_process_classifier() -> None:
+    key = _first_available_temporal_key()
+
+    model = build_model("n", key, ClassifierParams())
+
+    assert isinstance(model, TemporalFallClassifierModule)
+    assert isinstance(model._model, _FakeInProcessFallClassifier)
+    assert not isinstance(model._model, InProcessFallClassifier)

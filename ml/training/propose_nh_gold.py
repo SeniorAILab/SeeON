@@ -351,7 +351,7 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     from contracts.artifacts import pose_weight_path
-    from runners.yolo_pose import YoloPoseRunner
+    from training.pose_extraction import TrainingPoseExtractor
 
     videos = sorted(NH_PROCESSED_DIR.glob("*.mp4")) + sorted(NH_PROCESSED_DIR.glob("*.avi"))
     if args.stems:
@@ -361,7 +361,7 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Proposing on %d processed videos", len(videos))
 
     NH_POSES_DIR.mkdir(parents=True, exist_ok=True)
-    runner = YoloPoseRunner(model_path=str(pose_weight_path("n")))
+    runner = TrainingPoseExtractor(model_path=pose_weight_path("n"))
 
     results: list[dict] = []
     for video_path in videos:

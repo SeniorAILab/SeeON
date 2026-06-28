@@ -3,30 +3,19 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
-from runners.registry import ModelRegistry
 
 
-class StubModel:
-    name = "fall-detector"
-    version = "test"
-
-    def metadata_dict(self):
-        return {"name": self.name, "version": self.version, "model_type": "stub"}
-
-
-def test_models_lists_registry_and_loaded_model_info() -> None:
-    registry = ModelRegistry()
-    registry.register("fall", lambda: object())
+def test_models_reports_gateway_metadata_only() -> None:
     app = create_app(lifespan=no_lifespan)
-    app.state.model_registry = registry
-    app.state.model = StubModel()
-    app.state.device = "cpu"
+    app.state.camera_inventory = {"camera-1": {"camera_id": "camera-1"}}
+    app.state.backend_ingest_client = object()
 
     response = TestClient(app).get("/api/v1/models")
 
     assert response.status_code == 200
     assert response.json() == {
-        "registry": {"tasks": ["fall"]},
-        "loaded_model": {"name": "fall-detector", "version": "test", "model_type": "stub"},
-        "device": "cpu",
+        "service": "ml-api",
+        "role": "gateway",
+        "ml": "external-worker",
+        "relay": {"backend_configured": True, "camera_count": 1},
     }

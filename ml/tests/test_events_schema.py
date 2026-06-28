@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contracts import EventApiPayload
 from contracts.event import (
     DetectionEventType,
     Level,
@@ -7,7 +8,7 @@ from contracts.event import (
     front_event_type,
     register_event_type,
 )
-from events.schemas import EventApiPayload, build_emitted_event
+from events.schemas import build_emitted_event
 
 
 def test_emitted_event_schema_has_required_fields_and_contract_enums() -> None:
