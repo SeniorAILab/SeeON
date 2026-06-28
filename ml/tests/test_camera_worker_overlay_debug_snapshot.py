@@ -6,9 +6,9 @@ import numpy as np
 
 from contracts.frame import Frame
 from contracts.observation import FrameObservation
-from domains.bed_exit.detector import BedExitMonitor
-from domains.bed_exit.schema import DomainDebugSnapshot
 from worker.camera_worker import CameraWorker, RunnerOutput
+from worker.domains.bed_exit.detector import BedExitMonitor
+from worker.domains.bed_exit.schema import DomainDebugSnapshot
 from worker.scheduler import Scheduler
 
 BED = (0, 0, 100, 100, 0.9)

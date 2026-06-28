@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 from contracts.frame import Frame
 from contracts.observation import FrameObservation
-from domains.bed_exit.schema import DomainDebugSnapshot
+from worker.domains.bed_exit.schema import DomainDebugSnapshot
 from worker.overlay_renderer import OverlayRenderer
 
 BOUNDARY = b"frame"

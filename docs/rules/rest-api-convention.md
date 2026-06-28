@@ -5,7 +5,7 @@ This repo has three HTTP namespaces. Do not add a fourth without an ADR.
 ## Namespaces
 
 - `/api/*` is the product API used by the dashboard and other authenticated product clients.
-  - Current examples: `GET /api/status`, `GET /api/alerts`, `PATCH /api/alerts/:id/ack`, `GET /api/cameras`, `GET /api/residents`, `GET /api/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/facilities/current`, `POST /api/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/floors`, `/api/spaces`, `/api/zones`.
+  - Current examples: `GET /api/status`, `GET /api/alerts`, `PATCH /api/alerts/:id/ack`, `GET /api/cameras`, `GET /api/residents`, `GET /api/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/facilities/current`, `POST /api/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/floors`, `/api/spaces`, and `/api/spaces/:spaceId/zones`.
   - Product `/api/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
 - `/auth/*` is session and OAuth only.
   - Current examples: `/auth/kakao/login`, `/auth/kakao/callback`, `/auth/session`, and `/auth/logout` in `backend/src/auth/auth.controller.ts`.
@@ -15,10 +15,11 @@ This repo has three HTTP namespaces. Do not add a fourth without an ADR.
 ## Path shape
 
 - No dotted path segments. `/api.alerts/events` is banned; it came from the legacy pilot controller and must not be reintroduced.
-- Use plural nouns for collections: `/api/alerts`, `/api/residents`, `/api/cameras`, `/api/guardians`, `/api/facilities`, `/api/floors`, `/api/spaces`, `/api/zones`.
+- Use plural nouns for collections: `/api/alerts`, `/api/residents`, `/api/cameras`, `/api/guardians`, `/api/facilities`, `/api/floors`, `/api/spaces`.
 - Use nested singleton sub-resources when the resource exists only in the context of a parent.
   - Snapshot canonical path: `/api/alerts/:id/snapshot`.
-  - Current resident placement sub-resource: `GET`/`PUT /api/residents/:id/assignment` (the resident's current placement); read-only history is the top-level `GET /api/resident-assignments`.
+  - Resident placement sub-resource: `GET`/`PUT /api/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/residents/assignments` (resident-namespaced, ADR-077).
+  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR-077).
   - Facility singleton: `GET`/`PATCH /api/facilities/current` (the session's facility; never addressed by id from the client).
   - Do not add new top-level snapshot paths such as `/api/snapshots/:alertId`.
 - Use verbs only when the operation is not naturally represented as a resource state update. The existing `/api/alerts/:id/ack` mutation is accepted as the dashboard acknowledgement action; new status transitions should prefer resource-oriented naming unless there is a concrete reason.
@@ -54,3 +55,5 @@ Concrete refactor history:
 - `POST /api/orgs` is renamed to `POST /api/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
 - `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/alerts/:alertId/snapshot`.
 - `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.
+- `GET /api/resident-assignments` becomes `GET /api/residents/assignments` (assignments folded into the residents aggregate, ADR-077).
+- `/api/zones[/:zoneId]` becomes `/api/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR-077).

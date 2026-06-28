@@ -32,7 +32,7 @@ Collectively Exhaustive — with respect to the decisions it records.
   does **not** reopen, and scope itself to the genuinely new decision. (Example:
   ADR-006 placed the frame-source intake in `ml/util/` and explicitly excluded the
   model-contract placement and demo-UX — now updated by ADR-056, which moves intake
-  to `ml/sources/` in the edge-device relayout; the principle still holds.) MECE is
+  to `ml/sources/` in the edge-device relayout, now relocated under `ml/worker/sources/` by #431; the principle still holds.) MECE is
   tested **between** ADRs, not as a one-decision-per-file rule: one ADR may record
   several small, tightly-related decisions of the **same domain** when they are only
   meaningful together (e.g. ADR-008 owns the whole version-control domain).

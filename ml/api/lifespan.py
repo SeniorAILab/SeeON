@@ -6,20 +6,11 @@ import json
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Protocol, runtime_checkable
 
-import numpy as np
 from fastapi import FastAPI
 
 from api.heartbeat_store import DEFAULT_STALE_AFTER_SEC, HeartbeatStore
-from api.model import ModelLoadError, get_model
-from api.pipeline import FallPipeline
-from api.source_registry import SourceRegistryError, get_source_registry
 from events.edge_ingest_client import DEFAULT_TIMEOUT_SEC, EdgeIngestClient
-from runners.device import select_device
-from runners.registry import DEFAULT_REGISTRY
-from runners.warmup import warmup_runner
-from sources.registry import SourceRegistry
 
 API_BACKEND_EVENTS_URL_ENV = "API_BACKEND_EVENTS_URL"
 API_EDGE_RELAY_TOKEN_ENV = "API_EDGE_RELAY_TOKEN"
@@ -28,50 +19,16 @@ API_BACKEND_INGEST_TIMEOUT_SEC_ENV = "API_BACKEND_INGEST_TIMEOUT_SEC"
 API_HEARTBEAT_STALE_AFTER_SEC_ENV = "API_HEARTBEAT_STALE_AFTER_SEC"
 
 
-@runtime_checkable
-class _ServingModelProtocol(Protocol):
-    metadata: _ModelMetadataProtocol
-
-    def predict(self, features: np.ndarray) -> float: ...
-
-
-@runtime_checkable
-class _ModelMetadataProtocol(Protocol):
-    window: int
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Boot ml-api as a thin backend gateway + debug surface (ADR-067).
-
-    ml-api does NOT assemble live camera loops (a worker concern; the old
-    serving-starts-workers path is removed). It warms the bounded debug model,
-    prepares the single backend-ingest gateway, and exposes ``/status`` derived
-    from its own relay-heartbeat store. No worker runtime is imported or started,
-    and there is no cross-process shared state with the worker.
-    """
+    """Boot ml-api as a thin backend gateway (ADR-067)."""
     _load_config(app)
-    device_selector = getattr(app.state, "device_selector", select_device)
-    app.state.device = device_selector() if callable(device_selector) else device_selector
-    app.state.model_registry = getattr(app.state, "model_registry", DEFAULT_REGISTRY)
 
     if not isinstance(getattr(app.state, "heartbeat_store", None), HeartbeatStore):
         app.state.heartbeat_store = HeartbeatStore(stale_after_sec=_heartbeat_stale_after_sec())
 
-    model = _warm_model(app)
-    app.state.model = model
-    app.state.fall_pipeline = getattr(app.state, "fall_pipeline", None) or (
-        FallPipeline(model) if model is not None else None
-    )
-
     _configure_backend_ingest(app)
-
-    app.state.source_registry = _resolve_sources(app)
-    app.state.readiness = (
-        {"ready": True, "status": "ready"}
-        if model is not None
-        else {"ready": False, "status": "not_ready", "reason": "model.load_failed"}
-    )
+    app.state.readiness = {"ready": True, "status": "ready"}
     yield
 
 
@@ -151,28 +108,3 @@ def _load_config(app: FastAPI) -> None:
     validator = getattr(app.state, "config_validator", None)
     if callable(validator):
         validator(getattr(app.state, "config", None))
-
-
-def _warm_model(app: FastAPI) -> _ServingModelProtocol | None:
-    try:
-        loader = getattr(app.state, "model_loader", get_model)
-        model = loader()
-        warmer = getattr(app.state, "runner_warmup", warmup_runner)
-        return _serving_model_or_error(warmer(model))
-    except ModelLoadError as exc:
-        app.state.model_load_error = str(exc)
-        return None
-
-
-def _resolve_sources(app: FastAPI) -> SourceRegistry | None:
-    try:
-        resolver = getattr(app.state, "source_registry_loader", get_source_registry)
-        return resolver()
-    except SourceRegistryError:
-        return None
-
-
-def _serving_model_or_error(value) -> _ServingModelProtocol:
-    if isinstance(value, _ServingModelProtocol):
-        return value
-    raise ModelLoadError("model does not satisfy api pipeline contract")

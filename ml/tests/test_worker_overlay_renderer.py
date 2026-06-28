@@ -4,8 +4,8 @@ import numpy as np
 
 from contracts.frame import Frame
 from contracts.observation import BedRegionDebugSnapshot, BoundingBox, FrameObservation
-from domains.bed_exit.detector import BedExitMonitor
-from domains.bed_exit.schema import BedExitDebugSnapshot, BedStatus, DomainDebugSnapshot
+from worker.domains.bed_exit.detector import BedExitMonitor
+from worker.domains.bed_exit.schema import BedExitDebugSnapshot, BedStatus, DomainDebugSnapshot
 from worker.overlay_renderer import OverlayRenderer
 
 

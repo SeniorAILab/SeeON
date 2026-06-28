@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from contracts.observation import DetectionLabel, FrameObservation
-from domains.fall.detector import FallEventLatch
-from domains.fall.schema import FallEvent
+from worker.domains.fall.detector import FallEventLatch
+from worker.domains.fall.schema import FallEvent
 
 
 class TestFallEventLatch:

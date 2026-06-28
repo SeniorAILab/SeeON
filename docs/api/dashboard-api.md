@@ -12,7 +12,7 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
    - `/onboarding` when the user needs to create one.
 5. Frontend/server rendering reads `GET /auth/session` for the current user.
 6. Onboarding creates the facility through `POST /api/v1/facilities`.
-7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/zones`, `/api/v1/residents`, `/api/v1/resident-assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
+7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
 
 `POST /auth/logout` revokes the session and clears the session cookie.
 
@@ -110,10 +110,10 @@ These routes are current. Product resource routes are facility-scoped via `Sessi
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/api/v1/zones?spaceId=&type=` | none | zone list, optionally filtered |
-| POST | `/api/v1/zones` | `{ spaceId?: string, name?: string, type?: ZoneType, orderIndex?: number }` | created zone |
-| PATCH | `/api/v1/zones/:zoneId` | partial `{ spaceId?: string, name?: string, type?: ZoneType, orderIndex?: number }` | updated zone |
-| DELETE | `/api/v1/zones/:zoneId` | none | `204` empty |
+| GET | `/api/v1/spaces/:spaceId/zones?type=` | none | zone list for the space, optionally filtered by type |
+| POST | `/api/v1/spaces/:spaceId/zones` | `{ name?: string, type?: ZoneType, orderIndex?: number }` | created zone (spaceId from path) |
+| PATCH | `/api/v1/spaces/:spaceId/zones/:zoneId` | partial `{ name?: string, type?: ZoneType, orderIndex?: number }` | updated zone (stays in path space) |
+| DELETE | `/api/v1/spaces/:spaceId/zones/:zoneId` | none | `204` empty |
 
 ### Residents and assignments
 
@@ -128,7 +128,7 @@ Resident create is also the initial placement action: `spaceId` is required. Res
 | DELETE | `/api/v1/residents/:id` | none | soft-deleted resident body (`200`) |
 | GET | `/api/v1/residents/:id/assignment` | none | current assignment |
 | PUT | `/api/v1/residents/:id/assignment` | `{ spaceId: string, zoneId?: string or null }` | new active assignment for moved resident |
-| GET | `/api/v1/resident-assignments?residentId=&spaceId=&zoneId=&active=` | none | read-only assignment history |
+| GET | `/api/v1/residents/assignments?residentId=&spaceId=&zoneId=&active=` | none | read-only assignment list |
 
 Assignment responses use `{ id, facilityId, residentId, spaceId, zoneId, active, startedAt, endedAt }`.
 

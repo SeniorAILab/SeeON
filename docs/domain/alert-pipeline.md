@@ -59,12 +59,9 @@ Do not model these as two separate alert domains. A live ingest that updates onl
 
 Kakao self-notification is backend-owned delivery policy. The ingest path calls `ensureOutboxForIngest`, which finds Kakao recipients for the facility and dispatches one send-to-me attempt per recipient. The Kakao adapter may report sent, transient failure, or terminal operator-action failure; it must never fake success.
 
-## ML prediction contract
+## ML signal contract
 
-The ML prediction contract is a future backend-prediction path, not a second alert ingress.
+The old backend-pull prediction contract is retired, not a second alert ingress.
+`backend/src/alerts/adapters/ml-serving-prediction.adapter.ts` and the `PredictionAlertRequestDto` path were removed with the dormant seam. Live ML classification happens in `ml-worker`; its probability is relayed through `ml-api` and enters backend `POST /api/v1/events` as `confidence`.
 
-- Port: `backend/src/alerts/ports/prediction.port.ts`.
-- Adapter: `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`.
-- DTO contract: request `{ "window": ... }`, response `{ "fall_probability": number, "operating_threshold": number, "is_fall": boolean }`.
-
-ML predicts fall probability/classification. Backend owns alert policy, persistence, deduplication, SSE, and delivery. When backend-driven prediction becomes live, its output must still enter the same one-domain pipeline and produce the same two write concerns. It must not add a second alert ingress beside `POST /api/v1/events`.
+Backend owns alert policy, persistence, deduplication, SSE, and delivery. ML output must enter the same one-domain pipeline and produce the same two write concerns. It must not add a second alert ingress beside `POST /api/v1/events`.

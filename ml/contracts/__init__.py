@@ -11,6 +11,12 @@ from contracts.observation import (
     DetectionResult,
     FrameObservation,
 )
+from contracts.relay import (
+    AlertEventType,
+    EventApiPayload,
+    RelayAlertPayload,
+    RelayHeartbeatPayload,
+)
 
 __all__ = [
     "Frame",
@@ -25,6 +31,10 @@ __all__ = [
     "FALL_LABEL_TEXT",
     "NORMAL_LABEL_TEXT",
     "DEFAULT_FALL_CONFIDENCE_THRESHOLD",
+    "AlertEventType",
+    "EventApiPayload",
+    "RelayAlertPayload",
+    "RelayHeartbeatPayload",
     "pose_weight_path",
     "pose_weight_filename",
 ]

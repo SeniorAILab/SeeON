@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from contracts.observation import BoundingBox, FrameObservation
-from domains.bed_exit.detector import BedExitMonitor, NightWindow
-from domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
+from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
+from worker.domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
 
 
 def box(x1: int, y1: int, x2: int, y2: int, confidence: float = 0.9) -> BoundingBox:

@@ -7,9 +7,9 @@ import numpy as np
 from contracts.event import EventPayload
 from contracts.frame import Frame
 from contracts.observation import BoundingBox
-from domains.bed_exit.detector import BedExitMonitor
-from perception.tracker import GreedyIouTracker
 from worker.camera_worker import CameraWorker, RunnerOutput
+from worker.domains.bed_exit.detector import BedExitMonitor
+from worker.perception.tracker import GreedyIouTracker
 from worker.scheduler import Scheduler
 
 BED = (0, 0, 100, 100, 0.9)
