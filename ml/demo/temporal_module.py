@@ -36,9 +36,9 @@ from contracts import (
     FrameObservation,
     ModelModule,
 )
+from features.window_features import extract_window_features
 from perception.tracker import GreedyIouTracker
 from training import config
-from training.data.features import extract_window_features
 from training.metadata import artifact_dir, load_metadata
 from training.models.catalog import CATALOG
 
@@ -53,10 +53,6 @@ from training.models.catalog import CATALOG
 _KEY_TO_ARTIFACT: Final[dict[str, str]] = {key.replace("-", "_"): key for key in CATALOG}
 
 TEMPORAL_MODEL_KEYS: Final[tuple[str, ...]] = tuple(_KEY_TO_ARTIFACT)
-
-_KEY_TO_MODE: Final[dict[str, str]] = {
-    demo_key: CATALOG[artifact_key].mode for demo_key, artifact_key in _KEY_TO_ARTIFACT.items()
-}
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +69,33 @@ def temporal_artifact_available(key: str) -> bool:
     return (artifact_dir(_KEY_TO_ARTIFACT.get(key, key)) / "metadata.json").exists()
 
 
+class InProcessFallClassifier:
+    """Demo fall classifier that runs the trained fall detector in-process."""
+
+    def __init__(self) -> None:
+        from runners.sklearn_fall import FallDetector
+
+        self._detector = FallDetector()
+
+    def predict(self, window: NDArray[np.float32]) -> float:
+        arr = np.asarray(window, dtype=np.float32)
+        if arr.ndim != 2 or arr.shape[1] != config.KPT_VECTOR_DIM:
+            raise ValueError(f"expected window [T, {config.KPT_VECTOR_DIM}], got {arr.shape}")
+        features = extract_window_features(
+            arr.reshape(arr.shape[0], config.N_KEYPOINTS, config.KPT_DIMS)
+        )
+        return self._detector.predict(features)
+
+    def predict_proba(self, X: NDArray[np.float32]) -> NDArray[np.float32]:
+        arr = np.asarray(X, dtype=np.float32)
+        if arr.ndim != 3 or arr.shape[2] != config.KPT_VECTOR_DIM:
+            raise ValueError(
+                f"expected window batch [N, T, {config.KPT_VECTOR_DIM}], got {arr.shape}"
+            )
+        probs = np.array([self.predict(window) for window in arr], dtype=np.float32)
+        return np.stack([1.0 - probs, probs], axis=1)
+
+
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
@@ -83,13 +106,13 @@ def build_temporal_model(
     pose_module: ModelModule,
     threshold_override: float | None = None,
 ) -> TemporalFallClassifierModule:
-    """Build a temporal demo classifier backed by real api HTTP.
+    """Build a temporal demo classifier backed by the in-process fall detector.
 
-    Model artifacts still provide window/stride/threshold metadata, but the
-    classifier object is `ServingFallClassifier`; it posts `[W][51]` windows to
-    ml-api instead of loading an in-process model. ``threshold_override``,
-    when given, replaces the artifact's LE2I ``operating_threshold`` (demo
-    threshold slider).
+    Model artifacts still provide window/stride/threshold metadata. The demo
+    buffers `[W][51]` windows, converts each window to the shared 45-dimensional
+    fall feature vector, and calls the trained sklearn fall detector directly.
+    ``threshold_override``, when given, replaces the artifact's LE2I
+    ``operating_threshold`` (demo threshold slider).
 
     Raises
     ------
@@ -111,24 +134,11 @@ def build_temporal_model(
             "Run `uv run --group training python -m training.train` to produce one."
         )
     # === 단계 2: metadata.json 로드 (window / stride / operating_threshold) ===
-    # window/stride/threshold come from the shared artifact even in api mode:
-    # the demo and api point at the same ml/models dir, so these match
-    # api's configured model — the demo only needs them to buffer correctly.
+    # The selected artifact still owns the demo buffer geometry and threshold.
     meta = load_metadata(adir)
 
-    # === 단계 3: 모델 — api HTTP only ===
-    # ADR-029 / streamlit-demo §8: the fall decision runs through the real
-    # api service. The demo emits the raw [W][51] window (mode="sequence");
-    # api owns feature extraction + the decision.
-    from api.client import ServingFallClassifier, serving_url_from_env
-
-    serving_url = serving_url_from_env()
-    if serving_url is None:
-        raise RuntimeError(
-            "FALL_SERVING_URL is required for temporal demo classification; "
-            "the demo must use api.client.ServingFallClassifier, not an in-process fallback"
-        )
-    model: object = ServingFallClassifier(serving_url)
+    # === 단계 3: 모델 — in-process fall detector ===
+    model: object = InProcessFallClassifier()
     mode = "sequence"
 
     # === 단계 4: TemporalFallClassifierModule로 래핑 후 반환 ===
