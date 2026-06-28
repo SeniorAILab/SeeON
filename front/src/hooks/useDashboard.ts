@@ -46,6 +46,7 @@ export function useDashboard(pollMs = 20_000) {
     eventSource.addEventListener("alert", reload);
     eventSource.addEventListener("status", reload);
     eventSource.addEventListener("status-snapshot", reload);
+    eventSource.addEventListener("alert-updated", reload);
     eventSource.addEventListener("session-invalid", () => {
       eventSource.close();
       handleSessionInvalid();
