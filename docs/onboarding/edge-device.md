@@ -111,7 +111,7 @@ last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge�
 
 ## Route surface
 
-`ml/api/main.py`는 unversioned health probe router를 먼저 등록하고, product/debug route는 `api_v1_prefix` 기본값 `/api/v1` 아래에 등록한다.
+`ml/api/main.py`는 unversioned health probe router를 먼저 등록하고, product relay/status route는 `api_v1_prefix` 기본값 `/api/v1` 아래에 등록한다.
 
 | Route | Owner | 용도 |
 | --- | --- | --- |
@@ -119,9 +119,7 @@ last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge�
 | `GET /health/ready` | `ml/api/routes/health.py` | lifespan readiness probe |
 | `GET /health` | `ml/api/routes/health.py` | legacy health |
 | `GET /api/v1/status` | `ml/api/routes/status.py` | relay heartbeat 기반 camera liveness snapshot |
-| `GET /api/v1/models` | `ml/api/routes/models.py` | registry tasks, loaded model metadata, device |
-| `POST /api/v1/debug/predict/window` | `ml/api/routes/debug.py` | `[T][51]` pose window debug prediction |
-| `POST /api/v1/debug/predict/source` | `ml/api/routes/debug.py` | bounded stored-source debug prediction |
+| `GET /api/v1/models` | `ml/api/routes/models.py` | gateway metadata only; no model registry/device |
 | `POST /api/v1/relay/alerts` | `ml/api/routes/ingest_relay.py` | worker alert fact relay, `202` |
 | `POST /api/v1/relay/heartbeat` | `ml/api/routes/ingest_relay.py` | worker heartbeat relay, `202` |
 

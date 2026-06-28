@@ -3,8 +3,8 @@
 Own the deployable edge worker: the CLI/process plus the worker-owned live
 orchestration and per-camera flow state relocated from the former `runtime`
 package by the ADR-067 MECE boundary refactor. `ml-worker` reads camera config,
-builds shared runners, opens RTSP sources, runs supervisors, creates
-alert/heartbeat facts, and relays them to local `ml-api`.
+builds shared runners with one composition-root device selection, opens RTSP sources, runs supervisors, creates
+alert/heartbeat facts with probability, and relays them to local `ml-api`.
 
 ## Local Ownership
 
@@ -20,7 +20,7 @@ alert/heartbeat facts, and relays them to local `ml-api`.
 
 ## Imports
 
-Allowed: `contracts`, `features`, `sources`, `runners`, `perception`, `domains`, `events`, and local `worker`.
+Allowed: `contracts`, `features`, `events`, local `worker`, and worker-owned `sources`, `runners`, `perception`, `domains`.
 
 Forbidden: `api`, `demo`, `training`. There is no `runtime` package; import worker-owned modules locally (`from worker.<module> import ...`).
 
@@ -36,4 +36,4 @@ Forbidden: `api`, `demo`, `training`. There is no `runtime` package; import work
 
 ## Gotchas
 
-Runner objects are intentionally shared across camera workers. Preserve object identity when changing `_RunnerBundle` or supervisor construction. The worker owns ALL live flow state (status/latest-frame/incident/detector windows); there is no cross-process shared state with `ml-api`. The only worker↔api connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`).
+Runner objects are intentionally shared across camera workers. Preserve object identity when changing `_RunnerBundle` or supervisor construction. The worker owns ALL live flow state (status/latest-frame/incident/detector windows); there is no cross-process shared state with `ml-api`. The only worker↔api connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`); classification probability is produced here and relayed as backend Event API `confidence`.

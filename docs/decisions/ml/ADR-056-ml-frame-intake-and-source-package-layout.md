@@ -71,3 +71,7 @@ Rejected. The intake surface now has multiple source types and a registry: video
 - ADR-006's reason for leaving `demo/` still stands: production serving/runtime must not depend on demo code.
 - ADR-006's YAGNI rejection of a top-level package no longer stands because the second consumer and multi-source registry now exist.
 - The active successor placement is `ml/contracts/frame.py` for the stream contract and `ml/sources/` for source implementations.
+
+## Changelog
+
+- 2026-06-28: `sources/` (plus `runners/`, `perception/`, and `domains/`) now live under `ml/worker/`; worker owns live ML, and the top-level placement described in this ADR is superseded by #431.

@@ -16,15 +16,16 @@ This ADR owns only the **ML-internal lifecycle boundary**: how the `ml/` uv proj
 
 ## Decision
 
-`ml/` keeps two explicit lifecycles inside one uv project:
+`ml/` keeps explicit lifecycles inside one uv project:
 
-- `serving/` is the online FastAPI lifecycle. It boots quickly, exposes the prediction API, and should be deployable with serving-only dependencies.
-- `training/` is the batch lifecycle. It owns dataset processing, pose extraction, temporal model training, evaluation, and trained artifact production.
+- `api/` is the online FastAPI gateway lifecycle. It boots quickly, exposes health/status/relay surfaces, and does not load models or expose prediction routes.
+- `worker/` is the live ML runtime lifecycle. It owns RTSP intake, runner composition, model/domain evaluation, and event relay facts.
+- `training/` is the batch lifecycle. It owns dataset processing, its own pose extraction (`training.pose_extraction`), temporal model training, evaluation, and trained artifact production.
 
 Both lifecycles remain in one uv project rather than separate Python projects. They share project-level dependency resolution and code conventions, but runtime dependency weight is separated through uv dependency groups.
 
 `pyproject.toml` keeps serving dependencies in the base dependency set and heavier demo/training dependencies in dependency groups. Developer installs may include all default groups; slim serving hosts use the explicit serving-only install path when needed.
-The lifecycle boundary is enforced as an import boundary. `training/` may import only its training-local modules plus `contracts/`, `features/`, `sources/`, and `runners/`; it must not import `perception/`, `domains/`, `runtime/`, `events/`, `serving/`, `demo/`, `core/`, or `util/`. `serving/` must not import `training/`. These constraints are guarded by `ml/tests/test_import_dependency_ladder.py`.
+The lifecycle boundary is enforced as an import boundary. `training/` may import only its training-local modules plus `contracts/` and `features/`; it must not import `worker/`, `events/`, `api/`, `demo/`, `core/`, or `util/`. The runtime contract between training and live ML is the model artifact, not shared runner code. `api/` and `worker/` must not import `training/`. These constraints are guarded by `ml/tests/test_import_dependency_ladder.py`.
 
 ## MECE boundary
 
@@ -53,7 +54,7 @@ Rejected by retired source ADR-003 and preserved here only as historical context
 
 **Positive:**
 
-- Future serving work has a clear target: keep the online API path thin and avoid importing training-only machinery.
+- Future API/worker work has a clear target: keep online paths thin and avoid importing training-only machinery.
 - Training can evolve without forcing every serving host to carry its full dependency footprint.
 - One uv lock continues to cover the ML project, avoiding multi-project drift.
 
@@ -65,3 +66,7 @@ Rejected by retired source ADR-003 and preserved here only as historical context
 ## Source mapping
 
 This ADR is a distilled active successor. The original ADR-003 context, alternatives, and consequences are recoverable from git history; this ADR plus ADR-015, ADR-023, and ADR-024 carry the current active clauses so the visible corpus stays MECE.
+
+## Changelog
+
+- 2026-06-28: Training is severed from the runtime runner; it owns pose extraction in `training.pose_extraction`, imports only `contracts` and `features` from production packages, and contracts with runtime only through model artifacts.

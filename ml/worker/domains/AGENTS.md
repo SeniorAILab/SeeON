@@ -1,6 +1,6 @@
 # Domains Agent Rules
 
-Own L3 domain detectors and the `DOMAIN_REGISTRY`.
+Own worker domain detectors and the `DOMAIN_REGISTRY`.
 
 ## Local Ownership
 
@@ -11,9 +11,9 @@ Own L3 domain detectors and the `DOMAIN_REGISTRY`.
 
 ## Imports
 
-Allowed: `contracts`, `features`, `perception`, and local `domains`.
+Allowed: `contracts`, `features`, `worker/perception`, and local `worker/domains`.
 
-Forbidden: `sources`, `runners`, `runtime`, `events`, `api`, `demo`, `training`.
+Forbidden: `worker/sources`, `worker/runners`, `worker` orchestration, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 
@@ -24,4 +24,4 @@ Forbidden: `sources`, `runners`, `runtime`, `events`, `api`, `demo`, `training`.
 
 ## Gotchas
 
-`domains` and `runtime` are both L3 but must not import each other. Runtime owns scheduling and camera identity; domains own observation-to-event interpretation only.
+`worker/domains` must not import worker orchestration. Worker orchestration owns scheduling and camera identity; domains own observation-to-event interpretation only.
