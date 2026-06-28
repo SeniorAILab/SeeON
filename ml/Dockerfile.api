@@ -15,13 +15,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-default-groups --no-install-project
 
 COPY ml/contracts ./contracts
-COPY ml/domains ./domains
 COPY ml/events ./events
-COPY ml/features ./features
-COPY ml/perception ./perception
-COPY ml/runners ./runners
 COPY ml/api ./api
-COPY ml/sources ./sources
 RUN mkdir -p /app/models/fall /app/models/pose /app/models/bed
 
 ENV HOST=127.0.0.1 \

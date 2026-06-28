@@ -16,7 +16,7 @@ from contracts.observation import (
 )
 from features.pose_normalization import normalize_person_keypoints
 from features.window_features import extract_window_features
-from perception.tracker import GreedyIouTracker
+from worker.perception.tracker import GreedyIouTracker
 
 
 class FallModelMetadataProtocol(Protocol):

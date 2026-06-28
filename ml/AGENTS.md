@@ -36,13 +36,9 @@ Do not add a second FastAPI app to `worker`. If a feature needs HTTP control, ke
 ml/
 ├── contracts/        # L0 contract types and artifact path helpers
 ├── features/         # L0 pure transforms
-├── sources/          # L1 FrameSource implementations and source registry
-├── runners/          # L1 model runners and ModelRegistry
-├── perception/       # L2 observation builders and tracking state
-├── domains/          # L3 domain detectors and DomainRegistry
 ├── events/           # L4 alert/event schema, publisher, outbox, ingest client
-├── api/              # L5 FastAPI gateway: lifespan, routes, debug pipeline, heartbeat-status
-├── worker/           # edge worker process + live orchestration/state (camera_worker, supervisor, scheduler, status_store, latest_frame, incident_manager, config)
+├── api/              # FastAPI gateway-only surface: lifespan, routes, debug pipeline, heartbeat-status
+├── worker/           # edge worker process + live ML (`sources/`, `runners/`, `perception/`, `domains/`) and orchestration/state
 ├── training/         # batch training/evaluation lifecycle
 ├── demo/             # Streamlit demo harness
 └── tests/            # pytest suite and dependency-ladder guard

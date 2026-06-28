@@ -3,8 +3,8 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
-from runners.yolo_bed_seg import YoloBedSegRunner
-from runners.yolo_pose import YoloPoseRunner
+from worker.runners.yolo_bed_seg import YoloBedSegRunner
+from worker.runners.yolo_pose import YoloPoseRunner
 
 
 def test_default_yolo_runners_use_canonical_worker_artifact_paths() -> None:

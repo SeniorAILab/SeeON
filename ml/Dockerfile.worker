@@ -15,12 +15,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-default-groups --group worker --no-install-project
 
 COPY ml/contracts ./contracts
-COPY ml/domains ./domains
 COPY ml/events ./events
 COPY ml/features ./features
-COPY ml/perception ./perception
-COPY ml/runners ./runners
-COPY ml/sources ./sources
 COPY ml/worker ./worker
 RUN mkdir -p /app/models/fall/lstm-runtime /app/models/pose /app/models/bed
 

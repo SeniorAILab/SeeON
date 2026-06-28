@@ -1,314 +1,187 @@
 from __future__ import annotations
 
 import ast
+import subprocess
 from pathlib import Path
 
 ML_ROOT = Path(__file__).resolve().parents[1]
-RANKS = {
-    "contracts": 0,
-    "features": 0,
-    "sources": 1,
-    "runners": 1,
-    "perception": 2,
-    "domains": 3,
-    "events": 4,
-    "api": 5,
-    "demo": 5,
-}
-TRAINING_ALLOWED = {"training", "contracts", "features"}
-TRAINING_FORBIDDEN = {
-    "core",
-    "util",
-    "sources",
-    "runners",
-    "perception",
-    "domains",
-    "events",
+REPO_ROOT = ML_ROOT.parent
+OLD_ROOTS = {"runners", "sources", "perception", "domains"}
+MOVED_PACKAGES = ("runners", "sources", "perception", "domains")
+INTERNAL_TOPS = {
     "api",
+    "contracts",
     "demo",
+    "events",
+    "features",
+    "training",
+    "worker",
+    *OLD_ROOTS,
 }
-SERVING_FORBIDDEN = {"training"}
-CLEANUP_FORBIDDEN = {"core", "util"}
+
+API_ALLOWED = {"api", "contracts", "events.edge_ingest_client"}
+WORKER_ALLOWED = {"worker", "contracts", "features", "events"}
+TRAINING_ALLOWED = {"training", "contracts", "features"}
+DEMO_ALLOWED = {"demo", "contracts", "features", "worker", "events", "training"}
+LOWER_LAYER_ALLOWED = {
+    "contracts": {"contracts"},
+    "features": {"contracts", "features"},
+}
 
 
-def _python_files(package: str) -> list[Path]:
-    package_dir = ML_ROOT / package
-    if not package_dir.exists():
-        return []
-    return sorted(path for path in package_dir.rglob("*.py") if "__pycache__" not in path.parts)
+def _tracked_python_files() -> list[Path]:
+    output = subprocess.check_output(
+        ["git", "ls-files", "ml/**/*.py"],
+        cwd=REPO_ROOT,
+        text=True,
+    )
+    return [REPO_ROOT / line for line in output.splitlines()]
 
 
-def _package_parts(path: Path) -> list[str]:
+def _module_parts(path: Path) -> list[str]:
     relative = path.relative_to(ML_ROOT).with_suffix("")
-    parts = list(relative.parts)
-    if parts[-1] == "__init__":
-        parts.pop()
-    return parts
+    return [part for part in relative.parts if part != "__init__"]
+
+
+def _top_package(path: Path) -> str | None:
+    parts = _module_parts(path)
+    return parts[0] if parts else None
 
 
 def _parse(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
-def _resolve_imported_package(path: Path, node: ast.AST) -> str | None:
-    if isinstance(node, ast.Import):
-        if not node.names:
-            return None
-        name = node.names[0].name
-        parts = name.split(".")
-    elif isinstance(node, ast.ImportFrom):
-        module_parts = node.module.split(".") if node.module else []
-        if node.level:
-            package_parts = _package_parts(path)
-            keep = len(package_parts) - node.level + 1
-            if keep < 0:
-                return None
-            parts = package_parts[:keep] + module_parts
-        else:
-            parts = module_parts
-    else:
-        return None
+def _absolute_module(path: Path, node: ast.ImportFrom) -> str | None:
+    if node.level == 0:
+        return node.module
 
+    parts = _module_parts(path)
     if not parts:
-        return None
-    if parts[0] == "ml":
-        parts = parts[1:]
-    return parts[0] if parts else None
+        return node.module
+
+    if path.name == "__init__.py":
+        package_parts = parts
+    else:
+        package_parts = parts[:-1]
+
+    keep = len(package_parts) - node.level + 1
+    if keep < 0:
+        return node.module
+
+    base = package_parts[:keep]
+    if node.module:
+        base.extend(node.module.split("."))
+    return ".".join(base) if base else None
 
 
-def _imports(path: Path) -> list[tuple[int, str]]:
-    found: list[tuple[int, str]] = []
+def _import_modules(path: Path) -> list[tuple[int, str]]:
+    imports: list[tuple[int, str]] = []
     for node in ast.walk(_parse(path)):
         if isinstance(node, ast.Import):
-            for alias in node.names:
-                top = alias.name.split(".")[0]
-                if top == "ml":
-                    parts = alias.name.split(".")[1:]
-                    if not parts:
-                        continue
-                    top = parts[0]
-                found.append((node.lineno, top))
+            imports.extend((node.lineno, alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            top = _resolve_imported_package(path, node)
-            if top:
-                found.append((node.lineno, top))
-    return found
+            module = _absolute_module(path, node)
+            if module:
+                imports.append((node.lineno, module))
+    return imports
 
 
-def _format_failures(failures: list[tuple[Path, int, str]]) -> str:
+def _is_internal(module: str) -> bool:
+    return module.split(".", 1)[0] in INTERNAL_TOPS
+
+
+def _allowed_for(top: str, module: str) -> bool:
+    if top == "api":
+        return module in API_ALLOWED or any(
+            module.startswith(f"{allowed}.") for allowed in API_ALLOWED
+        )
+    if top == "worker":
+        return module.split(".", 1)[0] in WORKER_ALLOWED
+    if top == "training":
+        return module.split(".", 1)[0] in TRAINING_ALLOWED
+    if top == "demo":
+        return module.split(".", 1)[0] in DEMO_ALLOWED
+    if top in LOWER_LAYER_ALLOWED:
+        return module.split(".", 1)[0] in LOWER_LAYER_ALLOWED[top]
+    return True
+
+
+def _format(failures: list[tuple[Path, int, str]]) -> str:
     return "\n".join(
-        f"{path.relative_to(ML_ROOT)}:{line}: imports forbidden package {package!r}"
-        for path, line, package in failures
+        f"{path.relative_to(ML_ROOT)}:{line}: {module}" for path, line, module in failures
     )
 
 
-def test_training_imports_only_allowed_packages() -> None:
+def test_old_live_ml_roots_are_not_imported() -> None:
     failures: list[tuple[Path, int, str]] = []
-    for path in _python_files("training"):
-        for line, package in _imports(path):
-            forbidden = package in TRAINING_FORBIDDEN or (
-                package in RANKS and package not in TRAINING_ALLOWED
-            )
-            if forbidden:
-                failures.append((path, line, package))
-    assert not failures, _format_failures(failures)
+    for path in _tracked_python_files():
+        for line, module in _import_modules(path):
+            if module.split(".", 1)[0] in OLD_ROOTS:
+                failures.append((path, line, module))
+
+    assert not failures, _format(failures)
 
 
-def test_serving_never_imports_training() -> None:
+def test_live_ml_packages_were_moved_under_worker() -> None:
+    missing: list[str] = []
+    unexpected: list[str] = []
+    for package in MOVED_PACKAGES:
+        old_path = ML_ROOT / package
+        new_path = ML_ROOT / "worker" / package
+        if old_path.exists():
+            unexpected.append(str(old_path.relative_to(ML_ROOT)))
+        if not new_path.exists():
+            missing.append(str(new_path.relative_to(ML_ROOT)))
+
+    assert not unexpected, "old top-level package dirs still exist: " + ", ".join(unexpected)
+    assert not missing, "worker package dirs are missing: " + ", ".join(missing)
+
+
+def test_module_level_import_allowlist() -> None:
     failures: list[tuple[Path, int, str]] = []
-    for path in _python_files("api"):
-        for line, package in _imports(path):
-            if package in SERVING_FORBIDDEN:
-                failures.append((path, line, package))
-    assert not failures, _format_failures(failures)
-
-
-def test_dependency_ladder_direction() -> None:
-    failures: list[str] = []
-    for package, rank in RANKS.items():
-        if package in {"api", "demo"}:
+    for path in _tracked_python_files():
+        top = _top_package(path)
+        if top not in {"api", "worker", "training", "demo", "contracts", "features"}:
             continue
-        for path in _python_files(package):
-            for line, imported in _imports(path):
-                if imported not in RANKS or imported == package:
-                    continue
-                imported_rank = RANKS[imported]
-                if imported_rank > rank:
-                    failures.append(
-                        f"{path.relative_to(ML_ROOT)}:{line}: "
-                        f"{package} (L{rank}) imports {imported} (L{imported_rank})"
-                    )
-                if {package, imported} == {"domains", "runtime"}:
-                    failures.append(
-                        f"{path.relative_to(ML_ROOT)}:{line}: "
-                        "domains/runtime same-rank imports are banned"
-                    )
-                if package == "runtime" and imported == "events":
-                    failures.append(
-                        f"{path.relative_to(ML_ROOT)}:{line}: runtime must not import events"
-                    )
-    assert not failures, "\n".join(failures)
+        for line, module in _import_modules(path):
+            if _is_internal(module) and not _allowed_for(top, module):
+                failures.append((path, line, module))
+
+    assert not failures, _format(failures)
 
 
-def test_no_core_util_after_cleanup() -> None:
-    assert not (ML_ROOT / "core").exists()
-    assert not (ML_ROOT / "util").exists()
-
-    failures: list[tuple[Path, int, str]] = []
-    for path in sorted(ML_ROOT.rglob("*.py")):
-        if "__pycache__" in path.parts or any(part.startswith(".") for part in path.parts):
-            continue
-        for line, package in _imports(path):
-            if package in CLEANUP_FORBIDDEN:
-                failures.append((path, line, package))
-    assert not failures, _format_failures(failures)
+def _imported_roots(node: ast.AST) -> set[str]:
+    roots: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Import):
+            roots.update(alias.name.split(".", 1)[0] for alias in child.names)
+        elif isinstance(child, ast.ImportFrom):
+            if child.module:
+                roots.add(child.module.split(".", 1)[0])
+    return roots
 
 
-# --- Module-level worker/api boundary guards (ADR-067 hybrid MECE) ---
-# These resolve imports to FULL module identity (not just top-level package) so
-# that worker-owned modules can be forbidden in `api` by full module identity, and
-# block re-export smuggling if a `runtime` package is ever re-introduced.
-
-# `runtime` was removed by the ADR-067 MECE refactor; worker-owned modules now
-# live under `worker/`. These pre-move identities stay in the guard so api cannot
-# import them and a regression cannot re-introduce a `runtime` package exposing them.
-WORKER_OWNED_RUNTIME_MODULES = {
-    "runtime.edge_worker_supervisor",
-    "runtime.camera_worker",
-    "runtime.edge_worker_config",
-    "runtime.status_store",
-    "runtime.latest_frame",
-    "runtime.incident_manager",
-    "runtime.scheduler",
-    "runtime.fall_window_classifier",
-}
-DELETED_RUNTIME_MODULES = {"runtime.edge_runtime", "runtime.camera_manager"}
-API_FORBIDDEN_RUNTIME_MODULES = WORKER_OWNED_RUNTIME_MODULES | DELETED_RUNTIME_MODULES
-WORKER_FORBIDDEN_TOP = {"api", "demo", "training"}
+def _has_old_worker_dual_import(handler: ast.ExceptHandler) -> bool:
+    roots = _imported_roots(handler)
+    return "worker" in roots and bool(roots & OLD_ROOTS)
 
 
-def _normalize_module(name: str) -> str:
-    parts = name.split(".")
-    if parts and parts[0] == "ml":
-        parts = parts[1:]
-    return ".".join(parts)
-
-
-def _runtime_reexport_map() -> dict[str, str]:
-    """Symbol re-exported by a `runtime/__init__.py` -> its source module identity.
-
-    The `runtime` package was removed by ADR-067, so this map is normally empty.
-    It stays as regression protection: if a `runtime` package is re-introduced and
-    re-exports worker-owned modules (relative, absolute, or `from runtime import X`
-    submodule forms), api could smuggle worker internals through it — this catches it.
-    """
-    init_path = ML_ROOT / "runtime" / "__init__.py"
-    mapping: dict[str, str] = {}
-    if not init_path.exists():
-        return mapping
-    for node in ast.walk(_parse(init_path)):
-        if not isinstance(node, ast.ImportFrom):
-            continue
-        if node.level == 1:
-            base = f"runtime.{node.module}" if node.module else "runtime"
-        elif node.level == 0 and node.module:
-            base = _normalize_module(node.module)
-        else:
-            continue
-        if base == "runtime":
-            for alias in node.names:
-                mapping[alias.asname or alias.name] = f"runtime.{alias.name}"
-        elif base.startswith("runtime."):
-            for alias in node.names:
-                mapping[alias.asname or alias.name] = base
-    return mapping
-
-
-def _resolve_module_identities(path: Path, node: ast.AST, reexport: dict[str, str]) -> list[str]:
-    if isinstance(node, ast.Import):
-        return [_normalize_module(alias.name) for alias in node.names]
-    if not isinstance(node, ast.ImportFrom):
-        return []
-    if node.level:
-        package_parts = _package_parts(path)
-        keep = len(package_parts) - node.level + 1
-        if keep < 0:
-            return []
-        base = package_parts[:keep] + (node.module.split(".") if node.module else [])
-        base_mod = _normalize_module(".".join(base))
-    else:
-        base_mod = _normalize_module(node.module) if node.module else ""
-    if not base_mod:
-        return []
-    ids: list[str] = []
-    for alias in node.names:
-        if base_mod == "runtime":
-            # `from runtime import X`: X is either a submodule or a re-exported symbol.
-            if (ML_ROOT / "runtime" / f"{alias.name}.py").exists():
-                ids.append(f"runtime.{alias.name}")
-            elif alias.name in reexport:
-                ids.append(reexport[alias.name])
-            else:
-                ids.append(base_mod)
-        else:
-            ids.append(base_mod)
-    return ids
-
-
-def _module_imports(path: Path, reexport: dict[str, str]) -> list[tuple[int, str]]:
-    found: list[tuple[int, str]] = []
-    for node in ast.walk(_parse(path)):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            for ident in _resolve_module_identities(path, node, reexport):
-                found.append((node.lineno, ident))
-    return found
-
-
-def test_api_does_not_import_worker_or_worker_owned_runtime() -> None:
-    reexport = _runtime_reexport_map()
+def test_no_old_root_worker_dual_import_fallbacks() -> None:
     failures: list[str] = []
-    for path in _python_files("api"):
-        for line, ident in _module_imports(path, reexport):
-            top = ident.split(".")[0]
-            if top == "worker":
-                failures.append(
-                    f"{path.relative_to(ML_ROOT)}:{line}: api imports worker module {ident!r}"
-                )
-            elif ident in API_FORBIDDEN_RUNTIME_MODULES:
-                failures.append(
-                    f"{path.relative_to(ML_ROOT)}:{line}: "
-                    f"api imports worker-owned runtime module {ident!r}"
-                )
-    assert not failures, "\n".join(failures)
+    for path in _tracked_python_files():
+        for node in ast.walk(_parse(path)):
+            if not isinstance(node, ast.Try):
+                continue
+            body_roots = _imported_roots(ast.Module(body=node.body, type_ignores=[]))
+            for handler in node.handlers:
+                handler_roots = _imported_roots(ast.Module(body=handler.body, type_ignores=[]))
+                if ("worker" in body_roots and handler_roots & OLD_ROOTS) or (
+                    body_roots & OLD_ROOTS and "worker" in handler_roots
+                ) or _has_old_worker_dual_import(handler):
+                    failures.append(f"{path.relative_to(ML_ROOT)}:{node.lineno}")
 
-
-def test_worker_does_not_import_api_demo_training() -> None:
-    failures: list[str] = []
-    for path in _python_files("worker"):
-        for line, ident in _module_imports(path, {}):
-            if ident.split(".")[0] in WORKER_FORBIDDEN_TOP:
-                failures.append(
-                    f"{path.relative_to(ML_ROOT)}:{line}: worker imports forbidden {ident!r}"
-                )
-    assert not failures, "\n".join(failures)
-
-
-def test_runtime_init_does_not_reexport_worker_owned_modules() -> None:
-    reexport = _runtime_reexport_map()
-    failures = [
-        f"runtime/__init__.py re-exports {symbol!r} from worker-owned/deleted module {source!r}"
-        for symbol, source in sorted(reexport.items())
-        if source in API_FORBIDDEN_RUNTIME_MODULES
-    ]
-    assert not failures, "\n".join(failures)
-
-
-def test_worker_owned_runtime_modules_located_under_worker() -> None:
-    failures: list[str] = []
-    for module in sorted(WORKER_OWNED_RUNTIME_MODULES):
-        name = module.split(".", 1)[1]
-        if (ML_ROOT / "runtime" / f"{name}.py").exists():
-            failures.append(f"{module} still at runtime/{name}.py; must move to worker/{name}.py")
-        if not (ML_ROOT / "worker" / f"{name}.py").exists():
-            failures.append(f"worker/{name}.py missing; worker-owned module {module} not relocated")
-    assert not failures, "\n".join(failures)
+    assert not failures, (
+        "try/except ImportError dual old-root/worker imports found:\n"
+        + "\n".join(failures)
+    )

@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from contracts.frame import Frame
-from domains.fall.detector import FallEventLatch
 from worker.camera_worker import CameraWorker
+from worker.domains.fall.detector import FallEventLatch
 from worker.fall_window_classifier import FallWindowClassifier
 from worker.scheduler import Scheduler
 
