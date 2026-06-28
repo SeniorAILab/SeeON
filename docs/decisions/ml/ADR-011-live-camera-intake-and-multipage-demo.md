@@ -127,8 +127,7 @@ two modes serve different needs and now coexist as sibling pages.
 
 ## 2026-06-20 packaging note
 
-`CameraSource` now lives in `ml/sources/webcam.py`, alongside stored-video intake in
-`ml/sources/video_file.py`. `ml/sources/rtsp.py` is a deferred scaffold for the
-future RTSP serving intake named above; the live-camera-as-second-source decision
-is now realized by the L1 sources package while the old util import path remains
-a compatibility shim.
+`CameraSource` now lives in `ml/worker/sources/webcam.py`, alongside stored-video intake in
+`ml/worker/sources/video_file.py`. `ml/worker/sources/rtsp.py` is the RTSP intake path; the live-camera-as-second-source decision
+is now realized by the worker-owned sources package while the old util import path remains
+historical only.

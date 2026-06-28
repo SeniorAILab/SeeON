@@ -1,19 +1,19 @@
 # Sources Agent Rules
 
-Own L1 frame intake: video files, webcams, RTSP, source probing, and safe source-id resolution.
+Own worker frame intake: video files, webcams, RTSP, source probing, and worker source resolution.
 
 ## Local Ownership
 
 - `frame_source.py`: compatibility exports for `FrameSource` implementations.
 - `video_file.py`, `webcam.py`, `rtsp.py`, `rtsp_backend.py`: concrete frame sources.
 - `camera_probe.py`: local camera discovery.
-- `registry.py`: safe server-side source registry for api prediction by source id.
+- `registry.py`: worker source registry for configured sources.
 
 ## Imports
 
-Allowed: `contracts`, local `sources`, OpenCV, and standard library helpers.
+Allowed: `contracts`, local `worker/sources`, OpenCV, and standard library helpers.
 
-Forbidden: `runners`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`.
+Forbidden: `worker/runners`, `worker/perception`, `worker/domains`, `worker` orchestration, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 
@@ -26,4 +26,4 @@ Forbidden: `runners`, `perception`, `domains`, `runtime`, `events`, `api`, `demo
 
 ## Gotchas
 
-`SourceRegistry` rejects raw paths, traversal, numeric device indexes, and untrusted live descriptors. Keep raw live descriptors out of `/debug/predict/source`.
+`SourceRegistry` rejects raw paths, traversal, numeric device indexes, and untrusted live descriptors. Keep raw live descriptors out of public/API-facing surfaces.
