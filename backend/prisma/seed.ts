@@ -1,4 +1,5 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import {
   NOKYANG_ADMIN_EMAIL,
   NOKYANG_FACILITY_ID,
@@ -14,8 +15,6 @@ import {
   verifyNokyangFixture,
 } from './demo-nokyang.fixture';
 import { hashPassword } from '../src/auth/password';
-
-const NOKYANG_DIRECTOR_EMAIL = 'director@happy-nokyang.local';
 
 const directUrl = process.env.DIRECT_URL;
 if (!directUrl) {
@@ -43,8 +42,16 @@ async function upsertFacility(tx: Prisma.TransactionClient): Promise<void> {
 async function upsertAdmin(tx: Prisma.TransactionClient): Promise<void> {
   const demoLoginPassword = process.env.DEMO_LOGIN_PASSWORD ?? '1234';
   const passwordHash = await hashPassword(demoLoginPassword);
-  const users = [
-    {
+  await tx.user.upsert({
+    where: { email: NOKYANG_ADMIN_EMAIL },
+    update: {
+      facilityId: NOKYANG_FACILITY_ID,
+      nickname: '녹양역점 관리자',
+      passwordHash,
+      role: 'ADMIN',
+      sessionVersion: { increment: 1 },
+    },
+    create: {
       email: NOKYANG_ADMIN_EMAIL,
       facilityId: NOKYANG_FACILITY_ID,
       id: 'user_nokyang_admin',
@@ -52,29 +59,7 @@ async function upsertAdmin(tx: Prisma.TransactionClient): Promise<void> {
       passwordHash,
       role: 'ADMIN',
     },
-    {
-      email: NOKYANG_DIRECTOR_EMAIL,
-      facilityId: NOKYANG_FACILITY_ID,
-      id: 'user_nokyang_director',
-      nickname: '녹양역점 원장',
-      passwordHash,
-      role: 'ADMIN',
-    },
-  ] as const;
-
-  for (const user of users) {
-    await tx.user.upsert({
-      where: { email: user.email },
-      update: {
-        facilityId: user.facilityId,
-        nickname: user.nickname,
-        passwordHash: user.passwordHash,
-        role: user.role,
-        sessionVersion: { increment: 1 },
-      },
-      create: user,
-    });
-  }
+  });
 }
 
 async function upsertFacilityGraph(
