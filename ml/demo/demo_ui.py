@@ -98,7 +98,7 @@ def build_model(
         return build_temporal_model(classifier_key, pose, threshold_override=decision_threshold)
     raise ValueError(
         f"Unsupported classifier key {classifier_key!r}: demo fall classification is "
-        "api-only via temporal models. "
+        "in-process temporal models. "
         f"Available: {available_classifier_keys()}"
     )
 
