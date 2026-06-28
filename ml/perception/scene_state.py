@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 from contracts.observation import (
+    BedRegionCacheState,
     BedRegionDebugSnapshot,
-    BedRegionSourceState,
     BoundingBox,
     FrameObservation,
 )
@@ -41,7 +41,7 @@ class SceneState:
     last_bed_frame_index: int | None = None
     last_processed_frame_index: int | None = None
     scheduled_empty_bed_cycles: int = 0
-    bed_region_freshness: BedRegionSourceState = BedRegionSourceState.EMPTY
+    bed_region_freshness: BedRegionCacheState = BedRegionCacheState.EMPTY
     bed_region_counters: BedRegionCacheCounters = field(default_factory=BedRegionCacheCounters)
 
     def reset_bed_cache(self, reason: str) -> None:
@@ -49,7 +49,7 @@ class SceneState:
         self.bed_regions = ()
         self.last_bed_frame_index = None
         self.scheduled_empty_bed_cycles = 0
-        self.bed_region_freshness = BedRegionSourceState.EMPTY
+        self.bed_region_freshness = BedRegionCacheState.EMPTY
         self.bed_region_counters.reset += 1
 
     def reset_for_new_source(self, reason: str = "source_restart") -> None:
@@ -95,11 +95,11 @@ class SceneState:
             self.bed_regions = bed_boxes
             self.last_bed_frame_index = frame_index
             self.scheduled_empty_bed_cycles = 0
-            self.bed_region_freshness = BedRegionSourceState.FRESH
+            self.bed_region_freshness = BedRegionCacheState.FRESH
             self.bed_region_counters.fresh += 1
             self._mark_processed(frame_index, observation)
             return observation, BedRegionDebugSnapshot(
-                source=BedRegionSourceState.FRESH,
+                source=BedRegionCacheState.FRESH,
                 age_frames=0,
                 empty_cycles=0,
                 reset_reason=reset_reason,
@@ -111,10 +111,10 @@ class SceneState:
             if self.scheduled_empty_bed_cycles >= 2:
                 self.bed_regions = ()
                 self.last_bed_frame_index = None
-                self.bed_region_freshness = BedRegionSourceState.EXPIRED
+                self.bed_region_freshness = BedRegionCacheState.EXPIRED
                 self.bed_region_counters.expired += 1
                 snapshot = BedRegionDebugSnapshot(
-                    source=BedRegionSourceState.EXPIRED,
+                    source=BedRegionCacheState.EXPIRED,
                     age_frames=None,
                     empty_cycles=self.scheduled_empty_bed_cycles,
                     reset_reason=reset_reason,
@@ -122,9 +122,9 @@ class SceneState:
                 resolved = _replace_bed_boxes(observation, ())
                 self._mark_processed(frame_index, resolved)
                 return resolved, snapshot
-            self.bed_region_freshness = BedRegionSourceState.EMPTY
+            self.bed_region_freshness = BedRegionCacheState.EMPTY
             snapshot = BedRegionDebugSnapshot(
-                source=BedRegionSourceState.EMPTY,
+                source=BedRegionCacheState.EMPTY,
                 age_frames=self._age(frame_index),
                 empty_cycles=self.scheduled_empty_bed_cycles,
                 reset_reason=reset_reason,
@@ -135,10 +135,10 @@ class SceneState:
         cached = self._cached_boxes_if_fresh(frame_index, bed_interval)
         if cached:
             resolved = _replace_bed_boxes(observation, cached)
-            self.bed_region_freshness = BedRegionSourceState.CACHED
+            self.bed_region_freshness = BedRegionCacheState.CACHED
             self.bed_region_counters.cached += 1
             snapshot = BedRegionDebugSnapshot(
-                source=BedRegionSourceState.CACHED,
+                source=BedRegionCacheState.CACHED,
                 age_frames=self._age(frame_index),
                 empty_cycles=self.scheduled_empty_bed_cycles,
                 reset_reason=reset_reason,
@@ -146,18 +146,18 @@ class SceneState:
             self._mark_processed(frame_index, resolved)
             return resolved, snapshot
 
-        source: BedRegionSourceState = (
-            BedRegionSourceState.EXPIRED
+        source: BedRegionCacheState = (
+            BedRegionCacheState.EXPIRED
             if self.bed_regions or self.last_bed_frame_index is not None
-            else BedRegionSourceState.EMPTY
+            else BedRegionCacheState.EMPTY
         )
-        if source == BedRegionSourceState.EXPIRED:
+        if source == BedRegionCacheState.EXPIRED:
             self.bed_regions = ()
             self.last_bed_frame_index = None
-            self.bed_region_freshness = BedRegionSourceState.EXPIRED
+            self.bed_region_freshness = BedRegionCacheState.EXPIRED
             self.bed_region_counters.expired += 1
         else:
-            self.bed_region_freshness = BedRegionSourceState.EMPTY
+            self.bed_region_freshness = BedRegionCacheState.EMPTY
         resolved = _replace_bed_boxes(observation, ())
         snapshot = BedRegionDebugSnapshot(
             source=source,
@@ -176,7 +176,7 @@ class SceneState:
         self.bed_regions = ()
         self.last_bed_frame_index = None
         self.scheduled_empty_bed_cycles = 0
-        self.bed_region_freshness = BedRegionSourceState.EMPTY
+        self.bed_region_freshness = BedRegionCacheState.EMPTY
         self.bed_region_counters.reset += 1
         return "frame_index_discontinuity"
 

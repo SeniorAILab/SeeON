@@ -7,8 +7,8 @@ from typing import Protocol
 from contracts.event import EventPayload, MutableEventPayload
 from contracts.frame import Frame, FrameSource
 from contracts.observation import (
+    BedRegionCacheState,
     BedRegionDebugSnapshot,
-    BedRegionSourceState,
     BoundingBox,
     DetectionResult,
     FrameObservation,
@@ -206,7 +206,7 @@ class CameraWorker:
         )
         if frame_index is None or self.scene_state is None:
             debug = BedRegionDebugSnapshot(
-                source=BedRegionSourceState.FRESH if bed_boxes else BedRegionSourceState.EMPTY,
+                source=BedRegionCacheState.FRESH if bed_boxes else BedRegionCacheState.EMPTY,
                 age_frames=0 if bed_boxes else None,
             )
             return observation, debug

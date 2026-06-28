@@ -100,7 +100,7 @@ class FrameObservation:
         )
 
 
-class BedRegionSourceState(StrEnum):
+class BedRegionCacheState(StrEnum):
     """Provenance of the bed ROI applied to a frame (dev overlay + ops telemetry)."""
 
     FRESH = "fresh"
@@ -113,7 +113,7 @@ class BedRegionSourceState(StrEnum):
 class BedRegionDebugSnapshot:
     """Per-frame bed-ROI cache provenance for the dev overlay and ops telemetry."""
 
-    source: BedRegionSourceState
+    source: BedRegionCacheState
     age_frames: int | None = None
     empty_cycles: int = 0
     reset_reason: str | None = None

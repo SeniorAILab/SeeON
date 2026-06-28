@@ -162,6 +162,37 @@ def test_no_core_util_after_cleanup() -> None:
     assert not failures, _format_failures(failures)
 
 
+CONTRACTS_FRAMEWORK_FORBIDDEN = {
+    "pydantic",
+    "pydantic_settings",
+    "fastapi",
+    "starlette",
+    "uvicorn",
+    "cv2",
+    "torch",
+    "torchvision",
+    "ultralytics",
+    "sklearn",
+    "huggingface_hub",
+    "requests",
+    "httpx",
+}
+
+
+def test_contracts_is_framework_free() -> None:
+    """contracts (L0) stays framework-free: no web/ML/IO framework imports.
+
+    Lightweight typing deps (e.g. numpy for array TypeAliases) are allowed; the
+    rule bars heavy frameworks so every higher layer can depend on contracts.
+    """
+    failures: list[tuple[Path, int, str]] = []
+    for path in _python_files("contracts"):
+        for lineno, package in _imports(path):
+            if package in CONTRACTS_FRAMEWORK_FORBIDDEN:
+                failures.append((path, lineno, package))
+    assert not failures, _format_failures(failures)
+
+
 # --- Module-level worker/api boundary guards (ADR-067 hybrid MECE) ---
 # These resolve imports to FULL module identity (not just top-level package) so
 # that worker-owned modules can be forbidden in `api` by full module identity, and
