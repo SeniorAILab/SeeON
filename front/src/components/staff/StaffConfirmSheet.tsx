@@ -3,10 +3,9 @@ import { X, Check, Footprints, Hand, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StaffStatusBadge } from "./StaffStatusBadge";
 import { peoplePhrase, plainDescription } from "@/lib/staffCopy";
-import { dashboardService } from "@/services/dashboardService";
-import { eventService } from "@/services/eventService";
+import { alertService } from "@/services/alertService";
 import { useAuthStore, canAcknowledge } from "@/store/authStore";
-import type { ActionType, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
+import type { ActionType, AlertView, Floor, Space, SpaceStatus } from "@/types";
 
 // 직원용 조치는 큰 버튼 3개만. 추가 기록은 접어둔다.
 const PRIMARY: { type: ActionType; label: string; Icon: typeof Check; tone: string }[] = [
@@ -30,35 +29,74 @@ export function StaffConfirmSheet({
 }) {
   const user = useAuthStore((s) => s.user);
   const allowed = canAcknowledge(user);
-  const [openEvent, setOpenEvent] = useState<DetectionEvent | null>(null);
+  const [openAlert, setOpenAlert] = useState<AlertView | null>(null);
+  const [ackedAlert, setAckedAlert] = useState<AlertView | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadingAlert, setLoadingAlert] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showMemo, setShowMemo] = useState(false);
   const [memo, setMemo] = useState("");
 
   useEffect(() => {
-    dashboardService.getSpaceEvents(space.id).then((list) => {
-      setOpenEvent(
-        list.find((e) => e.riskLevel !== "LOW" && e.kakaoAlertStatus !== "ACKNOWLEDGED") ?? null
-      );
-    });
+    let alive = true;
+    setLoadingAlert(true);
+    setError(null);
+    alertService
+      .openAlertForSpace(space.id)
+      .then(async (open) => {
+        const acked = open ? null : await alertService.ackedAlertForSpace(space.id);
+        if (!alive) return;
+        setOpenAlert(open);
+        setAckedAlert(acked);
+      })
+      .catch((err) => {
+        if (alive) setError(errorMessage(err));
+      })
+      .finally(() => {
+        if (alive) setLoadingAlert(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, [space.id]);
 
-  async function act(type: ActionType, label: string) {
-    if (!allowed || busy) return;
+  async function acknowledge(label: string) {
+    if (!allowed || busy || !openAlert) return;
     setBusy(true);
+    setError(null);
     try {
-      if (openEvent) {
-        await eventService.addAction(openEvent.id, type, memo.trim() || undefined, user!.name);
-      }
+      // TODO(action-log): memo persistence deferred until the backend action-log field exists.
+      void memo;
+      await alertService.acknowledge(openAlert.id);
       setDone(label);
       onDone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resolve() {
+    if (!allowed || busy || !ackedAlert) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // TODO(action-log): memo persistence deferred until the backend action-log field exists.
+      void memo;
+      await alertService.resolve(ackedAlert.id);
+      setDone("해결 완료");
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
   }
 
   const level = status?.status ?? "CHECK_NEEDED";
+  const noOpenAlert = !loadingAlert && !openAlert;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -108,6 +146,12 @@ export function StaffConfirmSheet({
               </p>
             </div>
 
+            {error && (
+              <p className="mb-4 rounded-xl bg-status-dangerBg p-4 text-staff-body text-status-danger">
+                {error}
+              </p>
+            )}
+
             {!allowed ? (
               <p className="rounded-xl bg-surface2 p-4 text-staff-body text-ink-soft">
                 조치 기록은 케어 직원 권한에서 할 수 있습니다.
@@ -117,22 +161,47 @@ export function StaffConfirmSheet({
                 <p className="mb-3 text-staff-body font-bold text-ink-soft">
                   어떻게 하셨나요?
                 </p>
-                <div className="space-y-3">
-                  {PRIMARY.map(({ type, label, Icon, tone }) => (
-                    <button
-                      key={type}
-                      disabled={busy}
-                      onClick={() => act(type, label)}
-                      className={cn(
-                        "flex min-h-[64px] w-full items-center gap-3 rounded-2xl px-6 text-staff-btn text-white transition-transform active:scale-[0.98] disabled:opacity-60",
-                        tone
+                {loadingAlert ? (
+                  <p className="rounded-xl bg-surface2 p-4 text-staff-body text-ink-soft">
+                    알림 상태를 확인하는 중입니다...
+                  </p>
+                ) : (
+                  <>
+                    {noOpenAlert && (
+                      <p className="mb-3 rounded-xl bg-surface2 p-4 text-staff-body text-ink-soft">
+                        {ackedAlert
+                          ? "새 알림은 없습니다. 확인된 알림은 해결 완료로 처리할 수 있습니다."
+                          : "이 공간에 확인할 새 알림이 없습니다."}
+                      </p>
+                    )}
+                    <div className="space-y-3">
+                      {PRIMARY.map(({ type, label, Icon, tone }) => (
+                        <button
+                          key={type}
+                          disabled={busy || !openAlert}
+                          onClick={() => acknowledge(label)}
+                          className={cn(
+                            "flex min-h-[64px] w-full items-center gap-3 rounded-2xl px-6 text-staff-btn text-white transition-transform active:scale-[0.98] disabled:opacity-60",
+                            tone
+                          )}
+                        >
+                          <Icon className="h-7 w-7 shrink-0" />
+                          {label}
+                        </button>
+                      ))}
+                      {ackedAlert && (
+                        <button
+                          disabled={busy}
+                          onClick={resolve}
+                          className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-status-stable px-6 text-staff-btn text-white transition-transform active:scale-[0.98] disabled:opacity-60"
+                        >
+                          <Check className="h-7 w-7 shrink-0" />
+                          해결 완료
+                        </button>
                       )}
-                    >
-                      <Icon className="h-7 w-7 shrink-0" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                    </div>
+                  </>
+                )}
 
                 {/* 추가 기록은 접어둔다 */}
                 <button
@@ -165,4 +234,8 @@ export function StaffConfirmSheet({
       </div>
     </div>
   );
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "알림을 처리하지 못했습니다.";
 }

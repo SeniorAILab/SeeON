@@ -139,10 +139,16 @@ Composite unique: `@@unique([orgId, id])` (composite FK target); `@@unique([orgI
 | `snapshotKey` | `String?` | Internal org-scoped storage key (never an edge URL) |
 | `detectedAt` | `DateTime` | Timestamp from ingest payload |
 | `status` | `AlertStatus @default(NEW)` | Enum: `NEW`, `ACKED`, `RESOLVED` |
+| `ackedById` | `String?` | Lifecycle audit: session user who acknowledged. Nullable FK → `users(id)` (`onDelete: SetNull, onUpdate: Cascade`). |
+| `ackedAt` | `DateTime?` | When acknowledged (NEW→ACKED). |
+| `resolvedById` | `String?` | Lifecycle audit: session user who resolved. Nullable FK → `users(id)` (SetNull/Cascade). |
+| `resolvedAt` | `DateTime?` | When resolved (ACKED→RESOLVED). |
 | `idempotencyKey` | `String` | Server-derived: `hash(cameraId + detectedAt + type)`; unique within org |
 | `createdAt` | `DateTime @default(now())` | |
 
 Indexes: `@@index([orgId, alertSeq])` (SSE replay query); `@@unique([orgId, idempotencyKey])`.
+
+**Lifecycle audit (NEW→ACKED→RESOLVED).** `ackedById/ackedAt/resolvedById/resolvedAt` record who/when for each transition. The actor is the authenticated session user (`req.user.id`), never client-supplied. The actor columns are **simple nullable FKs to `users(id)`** (`onDelete: SetNull, onUpdate: Cascade`), not composite facility-scoped FKs: `User` is a non-RLS identity root with a nullable `facilityId`, so a composite tenant FK would require an auth-domain migration. Same-facility integrity is an **app-layer guarantee** — `SessionGuard` + `RequireFacilityGuard` bind the actor's facility and the writer mutates the alert inside the request facility context. Added indexes: `@@index([facilityId, status, alertSeq])` (status-filtered dashboard queries), `@@index([ackedById])`, `@@index([resolvedById])`. Because the columns are added to the already RLS-protected `alerts` table, they **inherit the existing tenant policy — no new RLS policy is required**. A per-action history table (`AlertResponse`) is intentionally **deferred** until multi-action-per-alert history is a confirmed product requirement; the denormalized columns cover the current acknowledge/resolve lifecycle. Transitions are owned by `AlertWriterService` (single serialized Alert mutation queue) and broadcast as a live-only `event: alert-updated` SSE frame (`docs/rules/realtime-sse-convention.md`).
 
 `alertSeq` is a `bigserial` at the DB level, implemented via Prisma as `@default(autoincrement())`
 on a `BigInt` field. The sequence is **global** (not per-org) so ordering is total across the
@@ -284,3 +290,7 @@ Persist Kakao `access_token` and `refresh_token` for future Kakao API calls.
   apply masking (last 4 digits only) — this is a presentation concern, not a storage concern.
 - `ResidentStatus` decay (state returning to `NORMAL` after a timeout if no new fall detected)
   is a business logic concern deferred to Phase 3 implementation.
+
+## Changelog
+
+- 2026-06-27: Add `Alert` lifecycle audit columns `ackedById`/`ackedAt`/`resolvedById`/`resolvedAt` (nullable FK → `users(id)`, `onDelete: SetNull`, `onUpdate: Cascade`) plus indexes `([facilityId, status, alertSeq])`, `([ackedById])`, `([resolvedById])` for the NEW→ACKED→RESOLVED acknowledge/resolve lifecycle (migration `alert_lifecycle_audit`). Actor is the session user; same-facility is an app-layer guarantee; no new RLS policy. A dedicated action-log table is deferred. Transitions are owned by `AlertWriterService` and broadcast as a live-only `event: alert-updated` SSE frame.

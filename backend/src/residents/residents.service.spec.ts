@@ -46,7 +46,7 @@ function setup() {
     softDelete: jest.fn(),
     currentAssignment: jest.fn(),
     move: jest.fn(),
-    listHistory: jest.fn(),
+    listAssignments: jest.fn(),
   } as unknown as jest.Mocked<ResidentsRepository>;
   return { service: new ResidentsService(repo), repo };
 }
@@ -63,6 +63,40 @@ describe('ResidentsService', () => {
     expect(repo.list.mock.calls).toContainEqual([
       'facility-1',
       { spaceId: 'space-1' },
+    ]);
+  });
+
+  it('lists assignments via repository and presents camelCase', async () => {
+    const { service, repo } = setup();
+    repo.listAssignments.mockResolvedValue([
+      {
+        id: 'a1',
+        facilityId: 'facility-1',
+        residentId: 'r1',
+        spaceId: 'space-1',
+        zoneId: null,
+        startedAt: now,
+        endedAt: null,
+        createdAt: now,
+      },
+    ] as never);
+    await expect(
+      service.listAssignments('facility-1', { residentId: 'r1', active: true }),
+    ).resolves.toEqual([
+      {
+        id: 'a1',
+        facilityId: 'facility-1',
+        residentId: 'r1',
+        spaceId: 'space-1',
+        zoneId: null,
+        active: true,
+        startedAt: now.toISOString(),
+        endedAt: null,
+      },
+    ]);
+    expect(repo.listAssignments.mock.calls[0]).toEqual([
+      'facility-1',
+      { residentId: 'r1', active: true },
     ]);
   });
 
