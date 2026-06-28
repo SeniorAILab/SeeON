@@ -37,10 +37,10 @@ from contracts import (
     ModelModule,
 )
 from features.window_features import extract_window_features
-from perception.tracker import GreedyIouTracker
 from training import config
 from training.metadata import artifact_dir, load_metadata
 from training.models.catalog import CATALOG
+from worker.perception.tracker import GreedyIouTracker
 
 # ---------------------------------------------------------------------------
 # Public constants — derived from the model catalog (import-light)
@@ -73,7 +73,7 @@ class InProcessFallClassifier:
     """Demo fall classifier that runs the trained fall detector in-process."""
 
     def __init__(self) -> None:
-        from runners.sklearn_fall import FallDetector
+        from worker.runners.sklearn_fall import FallDetector
 
         self._detector = FallDetector()
 

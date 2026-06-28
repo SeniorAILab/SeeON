@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from sources import VideoFileSource
+from worker.sources import VideoFileSource
 
 
 @dataclass(frozen=True, slots=True)

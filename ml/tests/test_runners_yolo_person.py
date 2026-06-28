@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from runners.yolo_person import COCO_PERSON_CLASS_ID, YoloPersonRunner, _extract_person_boxes
+from worker.runners.yolo_person import COCO_PERSON_CLASS_ID, YoloPersonRunner, _extract_person_boxes
 
 
 class _Tensor:

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def _sources_python_files() -> list[Path]:
-    sources_dir = Path(__file__).parent.parent / "sources"
+    sources_dir = Path(__file__).parent.parent / "worker" / "sources"
     return list(sources_dir.rglob("*.py"))
 
 

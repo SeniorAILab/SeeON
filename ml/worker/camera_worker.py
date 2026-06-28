@@ -8,9 +8,9 @@ from contracts.event import EventPayload, MutableEventPayload
 from contracts.frame import Frame, FrameSource
 from contracts.observation import BoundingBox, DetectionResult, FrameObservation
 from contracts.runner import BedBoxOutput, BoxOutput, PoseOutput, RunnerOutput, RunnerProtocol
-from perception.observation_builder import build_frame_observation
 from worker.fall_window_classifier import FallWindowClassifier
 from worker.incident_manager import IncidentManager
+from worker.perception.observation_builder import build_frame_observation
 from worker.scheduler import Scheduler
 from worker.status_store import CameraStatus, StatusStore
 

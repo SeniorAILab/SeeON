@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 
 from contracts.event import MutableEventPayload
 from contracts.observation import BoundingBox, FrameObservation
-from domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
-from perception.tracker import GreedyIouTracker
+from worker.domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
+from worker.perception.tracker import GreedyIouTracker
 
 
 @dataclass(slots=True)

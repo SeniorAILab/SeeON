@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
 from contracts.frame import Frame
-from domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker.camera_worker import CameraWorker
+from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker.edge_worker import _RelayClient
 from worker.scheduler import Scheduler
 

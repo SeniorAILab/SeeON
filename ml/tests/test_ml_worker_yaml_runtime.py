@@ -10,9 +10,9 @@ import torch
 import yaml
 
 from contracts.frame import Frame
-from sources.video_file import VideoFileSource
 from worker import edge_worker
 from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
+from worker.sources.video_file import VideoFileSource
 
 
 class _Sink:
@@ -190,7 +190,7 @@ def _write_config(path: Path, *, artifact_dir: Path) -> Path:
 
 
 def _write_lstm_artifact(path: Path) -> Path:
-    from runners.torch_lstm_fall import build_lstm_module
+    from worker.runners.torch_lstm_fall import build_lstm_module
 
     path.mkdir(parents=True)
     arch = {"hidden": 4, "layers": 1, "dropout": 0.0}
