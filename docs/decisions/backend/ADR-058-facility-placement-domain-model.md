@@ -22,7 +22,7 @@ Add three tenant tables:
 
 Each tenant table has a composite unique key on `(facility_id, id)` and a natural facility-scoped uniqueness rule. Child relations use composite foreign keys that include `facility_id`: `Space(facility_id, floor_id)` references `Floor(facility_id, id)`, and `Zone(facility_id, space_id)` references `Space(facility_id, id)`. This makes cross-facility child placement structurally impossible.
 
-Expose CRUD through `/api/floors`, `/api/spaces`, `/api/zones`, and `/api/facilities/current`. Controllers derive facility scope from the authenticated session. Request bodies never supply authoritative `facilityId`; presenters return camelCase product DTOs matching the front SSOT.
+Expose CRUD through `/api/floors`, `/api/spaces`, `/api/spaces/:spaceId/zones`, and `/api/facilities/current`. Controllers derive facility scope from the authenticated session. Request bodies never supply authoritative `facilityId`; presenters return camelCase product DTOs matching the front SSOT.
 
 ## Drivers
 
@@ -43,3 +43,7 @@ Expose CRUD through `/api/floors`, `/api/spaces`, `/api/zones`, and `/api/facili
 - Floor deletion is hard-delete only when no active spaces remain.
 - Space deletion is a soft delete (`isActive=false`) and returns the updated resource.
 - Zone deletion is hard delete in PR2; active-assignment conflict behavior belongs to the resident assignment slice.
+
+## Changelog
+
+- 2026-06-27: Zone CRUD routes nested under their space (`/api/spaces/:spaceId/zones[/:zoneId]`); the domain model (Floor/Space/Zone tables + composite keys) is unchanged. See ADR-077.
