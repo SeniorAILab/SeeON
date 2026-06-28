@@ -64,7 +64,7 @@ Rejected. The ADR-050 shape blocks model swaps because domains would remain coup
 
 ### Strict training L0-only via a training-local pose runtime
 
-Rejected. That would either wrap deleted `core` code or duplicate runner logic inside training. The narrow training-to-runners exception keeps one pose-execution path and remains compatible with the AC2 dependency guard because training still avoids perception, domains, runtime, events, serving, demo, core, and util.
+Accepted by #431. Training owns a deliberate `training.pose_extraction` wrapper for offline pose extraction, while `ml-worker` owns the live runner packages. This is intentional, bounded duplication: offline training does not import the live worker runner path, and the contract between training and runtime is the produced model artifact rather than shared runner code.
 
 ## Consequences
 
@@ -72,7 +72,7 @@ Rejected. That would either wrap deleted `core` code or duplicate runner logic i
 
 - Model swaps are localized to runner implementation, model artifact, and config.
 - Domains consume stable observations and stay independent of YOLO/RTMPose/ONNX/VLM-specific APIs.
-- Offline and runtime pose execution share one runner path instead of diverging.
+- Offline and runtime pose execution deliberately diverge: training owns its extractor, `worker` owns runtime runners, and the model artifact is their contract.
 - Dependency-ladder and lifecycle guard tests make the architecture enforceable.
 
 **Negative / trade-offs:**
@@ -80,6 +80,7 @@ Rejected. That would either wrap deleted `core` code or duplicate runner logic i
 - `ModelRegistry`, runner contracts, and `FrameObservation` add explicit architecture surface area.
 - ADR-026 remains visible only as historical record, and ADR-050 is superseded as the active architecture authority.
 - Training must stay severed from runtime runner packages and guard-tested to avoid recreating api/training or worker/training coupling.
+- The accepted cost is small bounded duplication in exchange for bounded-context separation and no offline-to-runtime package coupling.
 
 ## Source mapping
 
