@@ -129,6 +129,10 @@ export interface DetectionEvent {
   id: string;
   facilityId: string;
   spaceId: string;
+  alertSeq?: string; // backend causal sequence for dashboard-stream merge
+  residentId?: string | null; // null = room/space-level alert
+  cameraId?: string | null;
+  room?: string;
   eventType: DetectionEventType;
   riskLevel: Level;
   message: string;

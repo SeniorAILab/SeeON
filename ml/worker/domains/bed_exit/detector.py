@@ -7,7 +7,12 @@ from zoneinfo import ZoneInfo
 
 from contracts.event import MutableEventPayload
 from contracts.observation import BoundingBox, FrameObservation
-from worker.domains.bed_exit.schema import BedExitEvent, BedExitFrame, BedStatus
+from worker.domains.bed_exit.schema import (
+    BedExitDebugSnapshot,
+    BedExitEvent,
+    BedExitFrame,
+    BedStatus,
+)
 from worker.perception.tracker import GreedyIouTracker
 
 
@@ -72,15 +77,34 @@ class BedExitMonitor:
                 )
             )
         )
+        self.last_debug_snapshot: BedExitDebugSnapshot | None = None
 
     def update(
         self,
         observation: FrameObservation,
         time_sec: float | None = None,
     ) -> tuple[MutableEventPayload, ...]:
+        if not observation.bed_boxes:
+            self.last_debug_snapshot = BedExitDebugSnapshot(
+                frame_index=None,
+                person_boxes=observation.boxes,
+                bed_boxes=(),
+                statuses=(),
+                events=(),
+                bed_region=None,
+            )
+            return ()
         frame = self.update_boxes(
             bed_boxes=observation.bed_boxes,
             person_boxes=observation.boxes,
+        )
+        self.last_debug_snapshot = BedExitDebugSnapshot(
+            frame_index=None,
+            person_boxes=observation.boxes,
+            bed_boxes=observation.bed_boxes,
+            statuses=frame.statuses,
+            events=frame.events,
+            bed_region=None,
         )
         if self._night_window is not None:
             assert self._clock is not None

@@ -18,6 +18,15 @@ Allowed: `contracts`, `events.edge_ingest_client`, local `api`, and FastAPI/Pyda
 
 Forbidden: `training`, `demo`, `worker`, and worker-owned runtime modules. There is no `runtime` package to import; `/status` derives from the api-owned heartbeat store, not worker state.
 
+## FastAPI / wire-schema convention
+
+- HTTP wire schemas are Pydantic `BaseModel` (never `dataclass`) and live in the `api` layer — the route module, or a shared `api/schemas.py` once reused. Never put wire schemas in `contracts`; L0 stays framework-free.
+- Naming: request = `<Action>Request`, response = `<Action>Response` (`RelayAlertRequest`, `PredictRequest`/`PredictResponse`); a trivial ack may return a typed `dict[str, str]`.
+- Strictness: request models set `model_config = ConfigDict(extra="forbid")` and validate every field with `Field(...)` (`ge`/`le`/`min_length`); routes declare `response_model=<Action>Response`.
+- Settings: `pydantic_settings.BaseSettings` + `SettingsConfigDict(env_prefix="ML_API_", extra="ignore")`.
+- Routers: one `APIRouter(prefix=..., tags=[...])` per module with thin handlers; product routes under `/api/v1`, health probes unversioned; end the module with `__all__ = ["router"]`.
+- Injected collaborators (backend clients, stores) are `typing.Protocol` bound in `lifespan.py`, not concrete imports in route handlers.
+
 ## Focused Tests
 
 - `tests/test_serving_api.py`

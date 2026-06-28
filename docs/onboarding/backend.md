@@ -100,7 +100,7 @@ RTSP camera
                 ├─ Alert create + optional ResidentStatus upsert
                 ├─ commit-ordered SSE emit
                 └─ AlertEventsService.ensureOutboxForIngest → DeliveryAttempt outbox → Kakao channel adapter
-  → dashboard GET /api/v1/sse receives alert/status frames
+  → dashboard GET /api/v1/dashboard/stream receives alert/status frames
 ```
 
 `EventRecorderService.buildEventDedupKey()`는 `cameraId.trim()|detectedAt.toISOString()|type.trim().toLowerCase()`를 SHA-256으로 해시한다. 새 Event insert가 `(facility_id, dedup_key)` unique conflict를 만나면 기존 Event를 같은 facility context에서 찾아 `{ duplicate: true }`로 반환하고, 새 Event일 때만 immutable Event SSOT row가 만들어진다.
@@ -109,7 +109,7 @@ RTSP camera
 
 ## SSE와 read-side 연결
 
-Dashboard는 `GET /api/v1/sse`로 alert/status stream을 받는다. `SseController`는 `SessionGuard`와 `RequireFacilityGuard`를 사용하고, `Last-Event-ID`를 `bigint alertSeq` cursor로 해석해 `AlertsService.replay(facilityId, lastSeq)`로 backlog를 먼저 흘린다. 이후 `StatusService.listByFacility()`로 `event: status-snapshot`을 보내고, live 준비가 끝나면 `AlertWriterService.subscribe()`와 `subscribeStatus()`에서 오는 alert/status event를 emit한다. stream 중에도 `SessionService.checkActive()`로 session re-auth tick을 돌려 invalid session이면 `event: session-invalid` 후 종료한다.
+Dashboard는 `GET /api/v1/dashboard/stream`로 alert/status stream을 받는다. `DashboardStreamController`는 `SessionGuard`와 `RequireFacilityGuard`를 사용하고, `Last-Event-ID`를 `bigint alertSeq` cursor로 해석해 `AlertsService.replay(facilityId, lastSeq)`로 backlog를 먼저 흘린다. 이후 `StatusService.listByFacility()`로 `event: status-snapshot`을 보내고, live 준비가 끝나면 `AlertWriterService.subscribe()`와 `subscribeStatus()`에서 오는 alert/status event를 emit한다. stream 중에도 `SessionService.checkActive()`로 session re-auth tick을 돌려 invalid session이면 `event: session-invalid` 후 종료한다.
 
 SSE frame shape, replay/status snapshot/session invalid semantics는 wire contract 문서인 `../api/realtime-events.md`가 정본이고, 여기서는 backend 내부 연결만 설명한다.
 

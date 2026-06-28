@@ -49,7 +49,7 @@ A valid Event API request persists the Event SSOT, and backend alert policy perf
 
 | Table | Concern | External surface | Idempotency/order key |
 |---|---|---|---|
-| `Alert` | Dashboard read model + SSE | `/api/alerts`, `/api/sse` | `idempotencyKey`, `alertSeq` |
+| `Alert` | Dashboard read model + SSE | `/api/alerts`, `/api/v1/dashboard/stream` | `idempotencyKey`, `alertSeq` |
 | `AlertEvent` | Backend delivery/outbox audit | internal service/repository | `(sourceId, externalEventId)` |
 | `DeliveryAttempt` | Per-channel/per-recipient delivery record | internal service/repository | `(alertEventId, recipientUserId)` |
 

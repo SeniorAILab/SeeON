@@ -22,6 +22,14 @@ from worker.edge_worker_config import (
 )
 from worker.edge_worker_supervisor import EdgeWorkerSupervisor
 from worker.fall_window_classifier import FallModelProtocol, FallWindowClassifier
+from worker.mjpeg_server import (
+    MjpegServer,
+    OverlayFrameBuffer,
+    OverlayPublisher,
+    dev_mjpeg_enabled,
+    dev_mjpeg_host,
+    dev_mjpeg_port,
+)
 from worker.runners.device import select_device
 from worker.runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from worker.runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
@@ -55,6 +63,7 @@ class _WorkerResources:
     fall_model: FallModelProtocol
     status_store: StatusStore
     config: EdgeWorkerConfig
+    overlay_publisher: OverlayPublisher | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -69,15 +78,39 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"ok": True, "cameras": len(config.cameras)}, separators=(",", ":")))
         return 0
     status_store = StatusStore()
+    mjpeg_server: MjpegServer | None = None
+    if config.dev_mjpeg.enabled or dev_mjpeg_enabled():
+        overlay_buffer = OverlayFrameBuffer()
+        for camera in config.cameras:
+            overlay_buffer.register_camera(camera.camera_id)
+        mjpeg_server = MjpegServer(
+            overlay_buffer,
+            host=config.dev_mjpeg.host if config.dev_mjpeg.enabled else dev_mjpeg_host(),
+            port=config.dev_mjpeg.port if config.dev_mjpeg.enabled else dev_mjpeg_port(),
+        )
+        mjpeg_server.start()
+        overlay_publisher = OverlayPublisher(overlay_buffer)
+    else:
+        overlay_publisher = None
     try:
-        supervisor = _build_supervisor(config, status_store)
+        supervisor = _build_supervisor(
+            config,
+            status_store,
+            overlay_publisher=overlay_publisher,
+        )
     except (ModelLoadError, TypeError) as exc:
+        if mjpeg_server is not None:
+            mjpeg_server.stop()
         print(str(exc), file=sys.stderr)
         return 2
-    result = supervisor.run(
-        max_frames_per_camera=options.max_frames_per_camera,
-        heartbeat_on_start=options.heartbeat_on_start,
-    )
+    try:
+        result = supervisor.run(
+            max_frames_per_camera=options.max_frames_per_camera,
+            heartbeat_on_start=options.heartbeat_on_start,
+        )
+    finally:
+        if mjpeg_server is not None:
+            mjpeg_server.stop()
     print(
         json.dumps({"processed": result, "status": status_store.snapshot()}, separators=(",", ":"))
     )
@@ -136,6 +169,7 @@ def _build_supervisor(
     status_store: StatusStore,
     *,
     registry: ModelRegistry | None = None,
+    overlay_publisher: OverlayPublisher | None = None,
 ) -> EdgeWorkerSupervisor:
     model_registry = DEFAULT_REGISTRY if registry is None else registry
     device = select_device()
@@ -146,6 +180,7 @@ def _build_supervisor(
         fall_model=_build_fall_model(config, model_registry),
         status_store=status_store,
         config=config,
+        overlay_publisher=overlay_publisher,
     )
     workers = tuple(_worker(camera, resources) for camera in config.cameras)
     interval = min(camera.heartbeat_interval_sec for camera in config.cameras)
@@ -202,6 +237,7 @@ def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraW
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,
         fall_classifier=FallWindowClassifier(resources.fall_model),
+        overlay_sink=resources.overlay_publisher,
     )
 
 
