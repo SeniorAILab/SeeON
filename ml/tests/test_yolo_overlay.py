@@ -190,7 +190,7 @@ def _empty_pose() -> list[tuple[int, int, float]]:
 def test_render_bed_status_draws_mask_polygon_not_just_bbox() -> None:
     """A bed with a mask polygon renders the silhouette (issue #243): a point on
     a non-rectangular polygon edge is painted, which a bbox rectangle never would."""
-    from domains.bed_exit import BedStatus
+    from worker.domains.bed_exit import BedStatus
 
     frame = np.zeros((96, 128, 3), dtype=np.uint8)
     # Triangle: the (10,60)->(60,10) edge passes through interior point (35,35),

@@ -6,33 +6,15 @@ ML runtime incident management owns only idempotency and cooldown.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any, Literal, TypeAlias
 
 from contracts.event import DetectionEventType, Level, Severity, front_event_type
+from contracts.relay import AlertEventType, EventApiPayload
 
-AlertEventType: TypeAlias = Literal["fall", "detection-lost", "bed-exit"]
 EventLifecycle: TypeAlias = Literal["detected", "updated", "resolved"]
 
 
-@dataclass(frozen=True, slots=True)
-class EventApiPayload:
-    camera_id: str
-    type: AlertEventType
-    detected_at: str
-    confidence: float
-
-    def as_dict(self) -> dict[str, str | float]:
-        return {
-            "camera_id": self.camera_id,
-            "type": self.type,
-            "detected_at": self.detected_at,
-            "confidence": self.confidence,
-        }
-
-    def as_json_bytes(self) -> bytes:
-        return json.dumps(self.as_dict(), separators=(",", ":")).encode("utf-8")
 
 
 @dataclass(frozen=True, slots=True)

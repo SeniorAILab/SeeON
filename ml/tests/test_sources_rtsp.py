@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from sources.rtsp import RTSPSource
-from sources.rtsp_backend import OpenCVRTSPBackend
+from worker.sources.rtsp import RTSPSource
+from worker.sources.rtsp_backend import OpenCVRTSPBackend
 
 
 class _FakeCapture:
@@ -54,7 +54,7 @@ class _RecordingBackend:
 
 
 def test_rtsp_source_forwards_url_timeouts_and_releases_backend(monkeypatch) -> None:
-    import sources.rtsp as rtsp
+    import worker.sources.rtsp as rtsp
 
     backend = _RecordingBackend()
     monkeypatch.setattr(rtsp, "_create_backend", lambda: backend)

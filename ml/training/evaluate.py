@@ -29,7 +29,7 @@ Gold-8 secondary evaluation (optional)
 ---------------------------------------
 Only runs when the gold-clips directory exists (default:
 ``config.GOLD_CLIPS_DIR`` — the nursing-home processed folder).
-Drives ``YoloPoseRunner.predict_full`` with the same
+Uses the training-owned pose extractor with the same
 ``normalize_person_keypoints`` + confidence gating as ``extract_poses`` to
 avoid preprocessing skew.  If the directory is absent or YOLO weights are
 missing the run continues cleanly with a log warning.
@@ -322,12 +322,12 @@ def _run_gold8_eval(
 
     try:
         from contracts.artifacts import pose_weight_path
-        from runners.yolo_pose import YoloPoseRunner
+        from training.pose_extraction import TrainingPoseExtractor
 
         weight_path = pose_weight_path("n")
-        runner = YoloPoseRunner(model_path=str(weight_path))
+        runner = TrainingPoseExtractor(model_path=weight_path)
     except Exception as exc:  # noqa: BLE001
-        log.warning("gold-8 eval: could not initialise YOLO runner (%s) — skipping", exc)
+        log.warning("gold-8 eval: could not initialise YOLO pose extractor (%s) — skipping", exc)
         return
 
     video_files = sorted(gold_clips_dir.glob("*.avi")) + sorted(gold_clips_dir.glob("*.mp4"))

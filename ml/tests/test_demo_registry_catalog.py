@@ -15,7 +15,6 @@ import pytest
 from demo.classifiers import CLASSIFIER_REGISTRY
 from demo.temporal_module import (
     _KEY_TO_ARTIFACT,
-    _KEY_TO_MODE,
     TEMPORAL_MODEL_KEYS,
     build_temporal_model,
 )
@@ -43,7 +42,6 @@ class TestCatalogLockstep:
         assert set(TEMPORAL_MODEL_KEYS) == {k.replace("-", "_") for k in CATALOG}
         for demo_key, artifact_key in _KEY_TO_ARTIFACT.items():
             assert demo_key == artifact_key.replace("-", "_")
-            assert _KEY_TO_MODE[demo_key] == CATALOG[artifact_key].mode
 
     def test_classifier_registry_covers_all_temporal_keys(self) -> None:
         registry_keys = {spec.key for spec in CLASSIFIER_REGISTRY}
@@ -86,7 +84,9 @@ class TestThresholdOverridePlumbing:
     ) -> None:
         _build_rf_artifact(tmp_path)
         monkeypatch.setattr("demo.temporal_module.artifact_dir", lambda key: tmp_path)
-        monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:9")
+        monkeypatch.setattr(
+            "demo.temporal_module.InProcessFallClassifier", _FakeInProcessClassifier
+        )
         module = build_temporal_model("random_forest", _NullPose(), threshold_override=0.42)
         assert module._operating_threshold == pytest.approx(0.42)
 
@@ -95,7 +95,9 @@ class TestThresholdOverridePlumbing:
     ) -> None:
         _build_rf_artifact(tmp_path)
         monkeypatch.setattr("demo.temporal_module.artifact_dir", lambda key: tmp_path)
-        monkeypatch.setenv("FALL_SERVING_URL", "http://127.0.0.1:9")
+        monkeypatch.setattr(
+            "demo.temporal_module.InProcessFallClassifier", _FakeInProcessClassifier
+        )
         module = build_temporal_model("random_forest", _NullPose())
         assert module._operating_threshold == pytest.approx(0.5)
 
@@ -114,6 +116,9 @@ class _NullPose:
         from contracts import FrameObservation
 
         return FrameObservation(detections=((), ()), poses=(), regions=((), ()))
+
+class _FakeInProcessClassifier:
+    pass
 
 
 def _write_metadata(adir: Path, operating_threshold: float) -> None:

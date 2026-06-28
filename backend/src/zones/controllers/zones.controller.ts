@@ -26,34 +26,43 @@ import type {
 } from '../dto/zone.dto.js';
 import { ZonesService } from '../services/zones.service.js';
 
-@Controller({ path: 'zones', version: '1' })
+@Controller({ path: 'spaces/:spaceId/zones', version: '1' })
 @UseGuards(SessionGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ZonesController {
   constructor(private readonly service: ZonesService) {}
   @Get() list(
     @Req() req: RequestWithAuth,
-    @Query('spaceId') spaceId?: string,
+    @Param('spaceId') spaceId: string,
     @Query('type') type?: ZoneType,
   ) {
     return this.service.list(requireFacilityId(req), { spaceId, type });
   }
   @Post() create(
     @Req() req: RequestWithAuth,
+    @Param('spaceId') spaceId: string,
     @Body() body: CreateZoneRequestDto,
   ) {
-    return this.service.create(requireFacilityId(req), body);
+    return this.service.create(requireFacilityId(req), { ...body, spaceId });
   }
   @Patch(':zoneId') update(
     @Req() req: RequestWithAuth,
+    @Param('spaceId') spaceId: string,
     @Param('zoneId') zoneId: string,
     @Body() body: UpdateZoneRequestDto,
   ) {
-    return this.service.update(requireFacilityId(req), zoneId, body);
+    return this.service.update(requireFacilityId(req), zoneId, {
+      ...body,
+      spaceId,
+    });
   }
   @Delete(':zoneId')
   @HttpCode(204)
-  async remove(@Req() req: RequestWithAuth, @Param('zoneId') zoneId: string) {
+  async remove(
+    @Req() req: RequestWithAuth,
+    @Param('spaceId') _spaceId: string,
+    @Param('zoneId') zoneId: string,
+  ) {
     await this.service.remove(requireFacilityId(req), zoneId);
   }
 }

@@ -104,8 +104,8 @@ import os
 import sys
 from datetime import datetime
 
-from domains import DOMAIN_REGISTRY, DomainRegistration
-from domains.bed_exit.detector import BedExitMonitor, NightWindow
+from worker.domains import DOMAIN_REGISTRY, DomainRegistration
+from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker import edge_worker
 
 
@@ -141,7 +141,7 @@ class ScriptedFallRunner:
 
 
 class ScriptedRegistry:
-    def create(self, name: str):
+    def create(self, name: str, **kwargs):
         if name == "pose":
             return ScriptedPoseRunner()
         if name == "person":
