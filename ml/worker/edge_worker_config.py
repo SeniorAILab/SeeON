@@ -28,6 +28,9 @@ KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
 HHMM_PATTERN: Final = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+ML_WORKER_DEV_MJPEG_ENV: Final = "ML_WORKER_DEV_MJPEG"
+ML_WORKER_DEV_MJPEG_HOST_ENV: Final = "ML_WORKER_DEV_MJPEG_HOST"
+ML_WORKER_DEV_MJPEG_PORT_ENV: Final = "ML_WORKER_DEV_MJPEG_PORT"
 ConfigValue: TypeAlias = (
     str | int | float | bool | None | list["ConfigValue"] | dict[str, "ConfigValue"]
 )
@@ -135,6 +138,14 @@ class FallModelConfig(BaseModel):
         return self
 
 
+class DevMjpegConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = Field(default=8090, gt=0, le=65535)
+
+
 class WorkerModelsConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -239,6 +250,7 @@ class EdgeWorkerConfig(BaseModel):
     runtime: WorkerRuntimeConfig = Field(default_factory=WorkerRuntimeConfig)
     models: WorkerModelsConfig = Field(default_factory=WorkerModelsConfig)
     domains: DomainsConfig = Field(default_factory=DomainsConfig)
+    dev_mjpeg: DevMjpegConfig = Field(default_factory=DevMjpegConfig)
     cameras: tuple[CameraRuntimeConfig, ...] = Field(min_length=1)
 
     @model_validator(mode="before")
@@ -348,6 +360,10 @@ if __name__ == "__main__":
 
 __all__ = [
     "EDGE_CAMERA_CONFIG_ENV",
+    "DevMjpegConfig",
+    "ML_WORKER_DEV_MJPEG_ENV",
+    "ML_WORKER_DEV_MJPEG_HOST_ENV",
+    "ML_WORKER_DEV_MJPEG_PORT_ENV",
     "CameraRuntimeConfig",
     "BedExitDomainConfig",
     "DisabledDomainConfig",

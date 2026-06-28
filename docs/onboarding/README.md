@@ -28,7 +28,7 @@
  facility/space resolve → policy → dedup → persistence
      │
      ├──► [Postgres]
-     ├──► [SSE GET /api/v1/sse] ───► [front]
+     ├──► [SSE GET /api/v1/dashboard/stream] ───► [front]
      └──► [Kakao outbox/delivery]
 ```
 

@@ -3,17 +3,17 @@
 SSE is a dashboard realtime surface only. The canonical route is:
 
 ```http
-GET /api/sse
+GET /api/v1/dashboard/stream
 ```
 
-`backend/src/dashboard/sse.controller.ts` is the current server implementation. Frontend consumers must use `/api/sse` through the dashboard SSE client/proxy path; do not add parallel product streams without an ADR.
+`backend/src/dashboard/sse.controller.ts` is the current server implementation. Frontend consumers must use `/api/v1/dashboard/stream` through the dashboard SSE client/proxy path; do not add parallel product streams without an ADR.
 
 ## Authentication
 
 - Auth is cookie-based with the `app_session` cookie.
 - The route uses `SessionGuard` and `RequireFacilityGuard`, so every stream is bound to one authenticated facility.
 - The stream periodically re-validates the server session. If the session is revoked, expired, or version-invalid, the server emits `event: session-invalid` and closes the stream.
-- The legacy `/sse` auth probe is removed. Session checks use `/auth/session`; realtime clients use `/api/sse`.
+- The legacy `/sse` auth probe is removed. Session checks use `/auth/session`; realtime clients use `/api/v1/dashboard/stream`.
 
 ## Event contract
 

@@ -145,7 +145,7 @@ describe("useDashboard SSE refresh", () => {
 
     await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(1));
     expect(eventSources).toHaveLength(1);
-    expect(eventSources[0].url).toBe("/api/v1/sse");
+    expect(eventSources[0].url).toBe("/api/v1/dashboard/stream");
   });
 
   it("reloads on default alert, named status, and named status-snapshot events", async () => {
@@ -182,7 +182,7 @@ describe("useDashboard SSE refresh", () => {
 
     await waitFor(() => expect(eventSources).toHaveLength(2));
     expect(eventSources[0].close).toHaveBeenCalledTimes(1);
-    expect(eventSources[1].url).toBe("/api/v1/sse");
+    expect(eventSources[1].url).toBe("/api/v1/dashboard/stream");
   });
 
   it("keeps polling as a fallback when EventSource is unavailable", async () => {
@@ -205,7 +205,7 @@ describe("useDashboard SSE refresh", () => {
     expect(eventSources).toHaveLength(0);
   });
 
-  it("does not open EventSource in mock mode while polling still reloads", async () => {
+  it("test_vite_use_mock_true_preserves_mock_realtime_engine", async () => {
     vi.useFakeTimers();
     const { useDashboard } = await importHook({ mockMode: true });
 
