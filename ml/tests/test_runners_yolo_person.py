@@ -34,11 +34,14 @@ class _Model:
     def __init__(self) -> None:
         self.calls = 0
 
-    def predict(self, *, source: np.ndarray, conf: float, verbose: bool) -> tuple[_Result, ...]:
+    def predict(
+        self, *, source: np.ndarray, conf: float, verbose: bool, device: str
+    ) -> tuple[_Result, ...]:
         self.calls += 1
         assert source.shape == (2, 2, 3)
         assert conf == 0.25
         assert verbose is False
+        assert device == "mps"
         return (_Result(),)
 
 
@@ -47,7 +50,7 @@ def test_extract_person_boxes_filters_coco_person_class_and_confidence() -> None
 
 
 def test_yolo_person_runner_is_lazy_and_predicts_runner_protocol_shape() -> None:
-    runner = YoloPersonRunner(model_path="/missing/yolo26n.pt", confidence=0.25)
+    runner = YoloPersonRunner(model_path="/missing/yolo26n.pt", confidence=0.25, device="mps")
     model = _Model()
     runner._model = model
 

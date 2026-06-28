@@ -22,14 +22,18 @@ class YoloPersonRunner:
         self,
         model_path: str = str(PERSON_WEIGHTS_DIR / PERSON_MODEL_FILENAME),
         confidence: float = PERSON_MODEL_CONFIDENCE,
+        device: str = "cpu",
     ) -> None:
         self._model_path = Path(model_path)
         self._confidence = confidence
+        self._device = device
         self._model = None
 
     def predict(self, frame: NDArray) -> PersonBoxes:
         """Return person boxes as ``(x1,y1,x2,y2,conf)`` tuples."""
-        results = self._get_model().predict(source=frame, conf=self._confidence, verbose=False)
+        results = self._get_model().predict(
+            source=frame, conf=self._confidence, verbose=False, device=self._device
+        )
         return _extract_person_boxes(results[0], self._confidence)
 
     def _get_model(self):

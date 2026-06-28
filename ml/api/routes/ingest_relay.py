@@ -8,8 +8,8 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.heartbeat_store import get_heartbeat_store
+from contracts import AlertEventType
 from events.edge_ingest_client import EdgeIngestClient
-from events.schemas import AlertEventType
 
 RELAY_TOKEN_HEADER = "X-Edge-Relay-Token"
 

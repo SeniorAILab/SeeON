@@ -51,7 +51,7 @@ from demo.ui_labels import (  # noqa: E402
 )
 from demo.video_playback import read_video_playback_info  # noqa: E402
 from events import AlertClient  # noqa: E402
-from perception.bed_detector import BedDetector  # noqa: E402
+from perception.bed_detector import BedDetector, bed_weight_path  # noqa: E402
 from sources import CameraSource, VideoFileSource  # noqa: E402
 
 APP_PAGE_TITLE: Final = "eldercare-fall-ai"
@@ -66,6 +66,15 @@ ensure_fall_models()
 # frame (train/serve parity, ADR-013; see demo-live-inference-frame-parity).
 RENDER_FRAME_STRIDE: Final = 4
 PLAYING_KEY: Final = "live_playing"
+
+
+def _default_bed_runner():
+    from runners.device import select_device
+    from runners.yolo_bed_seg import YoloBedSegRunner
+
+    weight_path = bed_weight_path()
+    weight_path.parent.mkdir(parents=True, exist_ok=True)
+    return YoloBedSegRunner(model_path=str(weight_path), device=select_device())
 
 
 def main() -> None:
@@ -216,7 +225,7 @@ def _render_live_viewer(
     latch = FallEventLatch()
     source_id = _source_id_for_selection(selected_source, camera_index)
     alert_client = AlertClient.from_env(source_id=source_id)
-    bed_detector = BedDetector()
+    bed_detector = BedDetector(_default_bed_runner())
     try:
         for overlay, status, confidence in iter_live_frames(
             source,
