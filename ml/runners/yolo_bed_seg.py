@@ -40,10 +40,12 @@ class YoloBedSegRunner:
         model_path: str = str(bed_seg_weight_path()),
         confidence: float = BED_MODEL_CONFIDENCE,
         max_points: int = BED_MASK_MAX_POINTS,
+        device: str = "cpu",
     ) -> None:
         self._model = _load_yolo_model(Path(model_path))
         self._confidence = confidence
         self._max_points = max_points
+        self._device = device
         self._bed_class_id = _resolve_bed_class_id(getattr(self._model, "names", None))
 
     def detect_beds(
@@ -57,7 +59,9 @@ class YoloBedSegRunner:
         """
         if self._bed_class_id is None:
             return ()
-        results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
+        results = self._model.predict(
+            source=frame, conf=self._confidence, verbose=False, device=self._device
+        )
         r = results[0]
         if r.boxes is None or len(r.boxes) == 0 or r.masks is None:
             return ()

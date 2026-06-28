@@ -43,8 +43,8 @@ from numpy.typing import NDArray
 
 from contracts.artifacts import pose_weight_path
 from features.pose_normalization import normalize_person_keypoints
-from runners.yolo_pose import YoloPoseRunner
 from training import config
+from training.pose_extraction import TrainingPoseExtractor
 
 log = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ def _npz_stem(clip: ClipRef) -> str:
     return clip.clip_id.replace("/", "__")
 
 
-def _extract_clip(clip: ClipRef, output_dir: Path, runner: YoloPoseRunner) -> None:
+def _extract_clip(clip: ClipRef, output_dir: Path, runner: TrainingPoseExtractor) -> None:
     """Run YOLO pose inference on every frame of *clip* and save a .npz file.
 
     Saved arrays:
@@ -221,9 +221,9 @@ def main(argv: list[str] | None = None) -> None:
         clips = clips[: args.smoke_n]
         log.info("Smoke mode: processing first %d clips", len(clips))
 
-    # Instantiate the runner here — not at module level — so the module is
+    # Instantiate the extractor here — not at module level — so the module is
     # importable (and unit-testable) without loading YOLO weights.
-    runner = YoloPoseRunner(model_path=str(pose_weight_path("n")))
+    runner = TrainingPoseExtractor(model_path=pose_weight_path("n"))
 
     skipped = 0
     extracted = 0

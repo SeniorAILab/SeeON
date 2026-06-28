@@ -24,9 +24,11 @@ class YoloPoseRunner:
         self,
         model_path: str = str(pose_weight_path("n")),
         confidence: float = POSE_MODEL_CONFIDENCE,
+        device: str = "cpu",
     ) -> None:
         self._model = _load_yolo_model(Path(model_path))
         self._confidence = confidence
+        self._device = device
 
     def predict_full(
         self, frame: NDArray
@@ -36,7 +38,9 @@ class YoloPoseRunner:
         Runs the model once and extracts both keypoints and bounding boxes so
         callers can populate a full FrameObservation without a second inference.
         """
-        results = self._model.predict(source=frame, conf=self._confidence, verbose=False)
+        results = self._model.predict(
+            source=frame, conf=self._confidence, verbose=False, device=self._device
+        )
         r = results[0]
 
         # --- keypoints ---

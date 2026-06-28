@@ -14,8 +14,8 @@ import urllib.parse
 import urllib.request
 from typing import Final
 
+from contracts.relay import AlertEventType, EventApiPayload
 from events.edge_ingest_client import _utc_iso_timestamp
-from events.schemas import AlertEventType, EventApiPayload
 
 DEFAULT_QUEUE_SIZE: Final = 8
 DEFAULT_TIMEOUT_SEC: Final = 0.5

@@ -51,8 +51,8 @@ class BedDetector:
     "bed" class) — the graceful "침대 없음" state, never an exception.
     """
 
-    def __init__(self, runner: BedRunner | None = None) -> None:
-        self._runner = runner if runner is not None else _default_runner()
+    def __init__(self, runner: BedRunner) -> None:
+        self._runner = runner
 
     def detect(self, frame: Frame) -> tuple[BoundingBox, ...]:
         return _build_beds(self._runner.detect_beds(frame.image))
@@ -115,15 +115,3 @@ def _iou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
     intersection = (right - left) * (bottom - top)
     union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - intersection
     return intersection / union if union > 0 else 0.0
-
-
-def _default_runner() -> BedRunner:
-    """Construct the real YOLO bed-seg runner, ensuring the weight cache dir exists.
-
-    Imported lazily so importing this module (e.g. for the stubbed unit tests)
-    does not pull in ultralytics.
-    """
-    from runners.yolo_bed_seg import YoloBedSegRunner
-
-    BED_WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-    return YoloBedSegRunner(model_path=str(bed_weight_path()))

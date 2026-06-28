@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
 from domains import DOMAIN_REGISTRY
+from runners.device import select_device
 from runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
 from sources.rtsp import RTSPSource
@@ -137,10 +138,11 @@ def _build_supervisor(
     registry: ModelRegistry | None = None,
 ) -> EdgeWorkerSupervisor:
     model_registry = DEFAULT_REGISTRY if registry is None else registry
+    device = select_device()
     clients = {camera.camera_id: _relay_client(config, camera) for camera in config.cameras}
     resources = _WorkerResources(
         clients=clients,
-        runners=_build_runner_bundle(model_registry),
+        runners=_build_runner_bundle(model_registry, device=device),
         fall_model=_build_fall_model(config, model_registry),
         status_store=status_store,
         config=config,
@@ -155,11 +157,11 @@ def _build_supervisor(
     )
 
 
-def _build_runner_bundle(registry: ModelRegistry) -> _RunnerBundle:
+def _build_runner_bundle(registry: ModelRegistry, *, device: str) -> _RunnerBundle:
     return _RunnerBundle(
-        pose=registry.create("pose"),
-        person=registry.create("person"),
-        bed=registry.create("bed"),
+        pose=registry.create("pose", device=device),
+        person=registry.create("person", device=device),
+        bed=registry.create("bed", device=device),
     )
 
 
