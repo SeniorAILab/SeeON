@@ -4,8 +4,8 @@ from contracts.model import DEFAULT_FALL_CONFIDENCE_THRESHOLD, ModelModule
 from contracts.observation import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
+    BedRegionCacheState,
     BedRegionDebugSnapshot,
-    BedRegionSourceState,
     BoundingBox,
     DetectionLabel,
     DetectionResult,
@@ -20,7 +20,7 @@ __all__ = [
     "DetectionResult",
     "FrameObservation",
     "BedRegionDebugSnapshot",
-    "BedRegionSourceState",
+    "BedRegionCacheState",
     "ModelModule",
     "FALL_LABEL_TEXT",
     "NORMAL_LABEL_TEXT",
