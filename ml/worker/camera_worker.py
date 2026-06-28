@@ -6,11 +6,17 @@ from typing import Protocol
 
 from contracts.event import EventPayload, MutableEventPayload
 from contracts.frame import Frame, FrameSource
-from contracts.observation import BoundingBox, DetectionResult, FrameObservation
+from contracts.observation import (
+    BedRegionCacheState,
+    BedRegionDebugSnapshot,
+    BoundingBox,
+    DetectionResult,
+    FrameObservation,
+)
 from contracts.runner import BedBoxOutput, BoxOutput, PoseOutput, RunnerOutput, RunnerProtocol
 from domains.bed_exit.schema import BedExitDebugSnapshot, DomainDebugSnapshot
 from perception.observation_builder import build_frame_observation
-from perception.scene_state import BedRegionDebugSnapshot, SceneState
+from perception.scene_state import SceneState
 from worker.fall_window_classifier import FallWindowClassifier
 from worker.incident_manager import IncidentManager
 from worker.scheduler import Scheduler
@@ -200,7 +206,7 @@ class CameraWorker:
         )
         if frame_index is None or self.scene_state is None:
             debug = BedRegionDebugSnapshot(
-                source="fresh" if bed_boxes else "empty",
+                source=BedRegionCacheState.FRESH if bed_boxes else BedRegionCacheState.EMPTY,
                 age_frames=0 if bed_boxes else None,
             )
             return observation, debug

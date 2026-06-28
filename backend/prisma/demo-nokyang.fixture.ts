@@ -387,12 +387,6 @@ export const nokyangGuardians: readonly GuardianSeed[] = [
 
 export const nokyangCameras: readonly CameraSeed[] = [
   {
-    id: 'cam_sp_201',
-    facilityId: NOKYANG_FACILITY_ID,
-    spaceId: 'sp_201',
-    label: 'CAM-2F-201',
-  },
-  {
     id: 'cam_sp_202',
     facilityId: NOKYANG_FACILITY_ID,
     spaceId: 'sp_202',

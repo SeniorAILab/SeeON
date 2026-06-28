@@ -1,6 +1,6 @@
 # Contracts Agent Rules
 
-Own L0 ML contract types: frames, observations, model protocols, artifact path helpers, and event enums.
+Define every cross-layer **protocol, constant, enum, and shared data shape** here — and nowhere else. `contracts` is the single framework-free L0 home for the ML package's interface vocabulary; keep it dependency-light (no pydantic/cv2/torch, no model loading, no I/O) and additive, because every higher layer imports it.
 
 ## Local Ownership
 
@@ -15,6 +15,17 @@ Own L0 ML contract types: frames, observations, model protocols, artifact path h
 Allowed: standard library and local `contracts` modules.
 
 Forbidden: `features`, `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`, model loading, camera I/O, network I/O.
+
+## Naming convention
+
+- **Module**: lowercase singular concept noun, one bounded concept per file (`frame`, `observation`, `runner`, `event`, `model`, `artifacts`). A new concept gets a new module — never a `common`/`types`/`misc` dump.
+- **Data shapes**: `@dataclass(frozen=True, slots=True)`, PascalCase noun (`Frame`, `BoundingBox`, `FrameObservation`); domain-prefix when ambiguous (`BedRegionDebugSnapshot`). A mutable variant is `Mutable<Name>` (`MutableEventPayload`).
+- **Protocols**: PascalCase with a `Protocol` suffix (`RunnerProtocol`, `PredictFullRunnerProtocol`).
+- **Type aliases**: PascalCase; runner/boundary I/O uses an `<X>Output` suffix (`PoseOutput`, `BoxOutput`, `RunnerOutput`); composites get a domain noun (`Detections`, `Regions`, `Image`).
+- **Enums**: `StrEnum`, PascalCase with an axis suffix that reads at the call site (`DetectionEventType`, `Level`, `<Concept>State`); members are `UPPER_SNAKE` with lowercase string values.
+- **Debug/telemetry**: `<Concept>DebugSnapshot`.
+- **Constants**: `UPPER_SNAKE_CASE` (`FALL_LABEL_TEXT`, `DEFAULT_FALL_CONFIDENCE_THRESHOLD`).
+- Every module ends with an explicit `__all__`.
 
 ## Focused Tests
 
