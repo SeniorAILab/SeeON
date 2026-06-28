@@ -215,7 +215,7 @@ def _extract_track_poses(
     Parameters
     ----------
     runner:
-        Initialised ``YoloPoseRunner`` (passed in to keep the import lazy).
+        Initialised training pose extractor (passed in to keep the import lazy).
 
     Returns
     -------
@@ -332,7 +332,7 @@ def _ensure_track_poses(
 
     Cache hit: any ``{video_stem}__track*.npz`` glob match in the
     pose-size-specific cache directory.
-    The YOLO runner is initialised lazily here (import stays out of module scope).
+    The YOLO pose extractor is initialised lazily here (import stays out of module scope).
 
     Raises
     ------
@@ -361,13 +361,14 @@ def _ensure_track_poses(
         )
 
     try:
-        from runners.yolo_pose import YoloPoseRunner
+        from training.pose_extraction import TrainingPoseExtractor
 
         weight_path, _weight_filename, _weight_sha256 = _resolve_pose_weight(pose_size)
-        runner = YoloPoseRunner(model_path=str(weight_path))
+        runner = TrainingPoseExtractor(model_path=weight_path)
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(
-            f"Cannot initialise YOLO runner for NH evaluation with pose_size={pose_size!r}: {exc}"
+            "Cannot initialise YOLO pose extractor for NH evaluation "
+            f"with pose_size={pose_size!r}: {exc}"
         ) from exc
 
     size_cache_dir.mkdir(parents=True, exist_ok=True)

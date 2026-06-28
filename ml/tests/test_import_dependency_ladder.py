@@ -15,10 +15,12 @@ RANKS = {
     "api": 5,
     "demo": 5,
 }
-TRAINING_ALLOWED = {"training", "contracts", "features", "sources", "runners"}
+TRAINING_ALLOWED = {"training", "contracts", "features"}
 TRAINING_FORBIDDEN = {
     "core",
     "util",
+    "sources",
+    "runners",
     "perception",
     "domains",
     "events",
