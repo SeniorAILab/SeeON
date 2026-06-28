@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from runners.torch_lstm_fall import LstmFallManifest, ModelLoadError
+from worker.runners.torch_lstm_fall import LstmFallManifest, ModelLoadError
 
 
 def _write_manifest(path: Path) -> Path:

@@ -13,40 +13,28 @@
 
 ## Edge-device package tree
 
-`ml/` has eight shared production packages plus the `worker/` process, `training/`, and `demo/`:
+`ml/` has pure shared foundations, the `worker/` live-ML package tree, gateway-only `api/`, `training/`, and `demo/`:
 
 ```text
 ml/
 ├── contracts/   # L0 dataclasses/protocols/constants only
 ├── features/    # L0 pure geometry/window feature transforms
-├── sources/     # L1 frame intake: video files, webcams, RTSP/OpenCV backend seam, registry, probing
-├── runners/     # L1 model/runtime adapters: YOLO pose/bed, sklearn fall, device/warmup
-├── perception/  # L2 observation construction, tracking, scene state, bed detection, frame features
-├── domains/     # L3 domain detectors/latches: fall, bed-exit, long-lie, risk, wheelchair standup
-├── events/      # L4 outbound alert/event schemas, signing, publishing, outbox
-├── api/         # L5 ml-api gateway: lifespan, routes, debug pipeline, relay-heartbeat /status
-└── worker/      # ml-worker process + worker-owned live orchestration/state (camera_worker, supervisor, scheduler, status_store, latest_frame, incident_manager, config)
+├── events/      # outbound alert/event schemas, signing, publishing, outbox, backend ingest client
+├── api/         # gateway-only ml-api: health, status, models metadata, relay-heartbeat, backend Event API egress
+└── worker/      # live ML runtime + orchestration/state
+    ├── sources/     # frame intake: video files, webcams, RTSP/OpenCV backend seam, registry, probing
+    ├── runners/     # model/runtime adapters: YOLO pose/bed, sklearn fall, device/warmup
+    ├── perception/  # observation construction, tracking, scene state, bed detection, frame features
+    └── domains/     # domain detectors/latches: fall, bed-exit, long-lie, risk, wheelchair standup
 ```
 
-Dependency ladder: lower layers never import higher layers. There is no `runtime`
-package — worker-owned live orchestration/state lives in `worker/` (ADR-067).
-`api` and `worker` are separate deployable processes with **zero cross-boundary
-shared state**; their only connection is one-directional relay HTTP facts
-(`worker -> ml-api /relay/*`). `demo/` is a developer harness at L5 and may import
-production packages plus training catalog metadata. `training/` may import only
-`contracts`, `features`, `sources`, and `runners` from the production tree.
-`ml/core/` and `ml/util/` do not exist.
+Dependency boundaries are package-name based and enforced by `ml/tests/test_import_dependency_ladder.py`. There is no `runtime` package — worker-owned live orchestration/state lives in `worker/` (ADR-067). `api` and `worker` are separate deployable processes with **zero cross-boundary shared state**; their only connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`). `demo/` is a developer harness. `training/` may import only `contracts` and `features` from the production tree and contracts with runtime through model artifacts. `ml/core/` and `ml/util/` do not exist.
 
-`ml-api` boot is owned by `api.lifespan` as a thin gateway: load config, warm the
-debug model/pose runner, build the debug pipeline, configure the backend-ingest
-gateway + relay-heartbeat store, resolve the bounded debug source registry, then
-expose `/health`, `/status`, `/models`, and `/debug/predict/{window,source}`.
-`/status` is derived from the relay-heartbeat store; `ml-api` does not assemble
-camera loops. Keep boot-order changes in that module and its tests.
+`ml-api` boot is owned by `api.lifespan` as a thin gateway: load config, configure the backend-ingest gateway + relay-heartbeat store, then expose `/health`, `/status`, `/models`, and `/api/v1/relay/*`. `/status` is derived from the relay-heartbeat store; `ml-api` does not load models, expose prediction routes, resolve live sources, or assemble camera loops. Keep boot-order changes in that module and its tests.
 
 Production RTSP is not an `ml-api` concern. The live path is
 `RTSP -> ml-worker -> ml-api -> backend /api/v1/events`; `ml-api` remains a
-private/local FastAPI health, status, models, debug, and control surface, and is the only backend gateway. The
+private/local FastAPI health, status, models metadata, relay, and control surface, and is the only backend gateway. The
 current RTSP backend is OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only and must not be added as production dependencies without a new
 decision and release-matrix pinning.
@@ -80,7 +68,7 @@ Nothing else — no new conventions, no registry.
 ## Where each file category lives
 
 > Package authority: the edge package layout below is established by
-> **ADR-056** (frame intake → `sources/`, `Frame`/`FrameSource` contract → `contracts/`)
+> **ADR-056** (frame intake → historical `sources/`, now `worker/sources/`; `Frame`/`FrameSource` contract → `contracts/`)
 > and **ADR-057** (FrameObservation runner contracts, `ModelRegistry`, and the edge
 > package tree + dependency ladder + boot order), both under issue #268; they supersede
 > the retired `ml/core/` + `ml/util/` layout (ADR-006 frame-intake-in-`ml/util/`).
@@ -91,13 +79,13 @@ Nothing else — no new conventions, no registry.
 |---------------|------|-----------|-----|
 | Production contracts/protocols | `ml/contracts/` | yes | ADR-057 |
 | Pure feature transforms | `ml/features/` | yes | ADR-057 |
-| Frame intake and camera probing code | `ml/sources/` | yes | ADR-006/057/068 |
-| Runner adapters and hardware/model warmup | `ml/runners/` | yes | ADR-025/057 |
-| Perception state/tracking/observation code | `ml/perception/` | yes | ADR-057 |
-| Domain detectors and latches | `ml/domains/` | yes | ADR-057 |
+| Frame intake and camera probing code | `ml/worker/sources/` | yes | ADR-006/057/068 |
+| Runner adapters and hardware/model warmup | `ml/worker/runners/` | yes | ADR-025/057 |
+| Perception state/tracking/observation code | `ml/worker/perception/` | yes | ADR-057 |
+| Domain detectors and latches | `ml/worker/domains/` | yes | ADR-057 |
 | Edge worker orchestration/state (camera workers, supervisor, scheduler, status, latest-frame, incident, config) | `ml/worker/` | yes | ADR-067/068 |
 | Event/alert seam | `ml/events/` | yes | ADR-029/057 |
-| ml-api gateway + lifespan + debug pipeline + heartbeat status | `ml/api/` | yes | ADR-022/057/067 |
+| ml-api gateway + lifespan + relay + heartbeat status | `ml/api/` | yes | ADR-022/057/067 |
 | Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` | no (gitignored) | ADR-015 |
 | Third-party comparison checkpoints | `ml/models/fall/pretrained/*/` | no (gitignored) | ADR-015 |
 | Upstream pose/bed weight cache | `ml/models/{pose,bed}/` | no (gitignored) | ADR-015 |

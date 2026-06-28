@@ -10,6 +10,7 @@ import { configureVersionedTestApp } from '../../test/helpers/versioned-app';
 import {
   DashboardStreamController,
   formatAlertEvent,
+  formatAlertUpdateEvent,
   SSE_REAUTH_INTERVAL_MS,
 } from './sse.controller';
 
@@ -176,3 +177,32 @@ function statusEvent(alertSeq: bigint) {
     lastSeenAt: new Date('2026-06-22T00:00:04.000Z'),
   };
 }
+describe('formatAlertUpdateEvent', () => {
+  it('emits a named alert-updated frame with lifecycle fields and NO id: line', () => {
+    const frame = formatAlertUpdateEvent({
+      alertSeq: 42n,
+      id: 'alert-1',
+      facilityId: 'facility-1',
+      status: 'ACKED',
+      ackedById: 'user-1',
+      ackedAt: new Date('2026-06-22T00:05:00Z'),
+      resolvedById: null,
+      resolvedAt: null,
+    });
+
+    expect(frame).toContain('event: alert-updated\n');
+    // Replay-cursor safety: lifecycle updates are live-only, never carry an SSE id.
+    expect(frame).not.toMatch(/^id:/m);
+
+    const payload = JSON.parse(frame.split('data: ')[1]) as {
+      alertSeq: string;
+      id: string;
+      status: string;
+      ackedById: string | null;
+    };
+    expect(payload.alertSeq).toBe('42');
+    expect(payload.id).toBe('alert-1');
+    expect(payload.status).toBe('ACKED');
+    expect(payload.ackedById).toBe('user-1');
+  });
+});

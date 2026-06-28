@@ -10,8 +10,8 @@ from __future__ import annotations
 import numpy as np
 
 from contracts import BoundingBox, Frame
-from perception.bed_detector import BedDetector
-from runners import YoloBedSegRunner, dedupe_bed_boxes
+from worker.perception.bed_detector import BedDetector
+from worker.runners import YoloBedSegRunner, dedupe_bed_boxes
 
 
 def _frame() -> Frame:
@@ -84,10 +84,10 @@ class _Model:
     def __init__(self, boxes: _Boxes | None, masks: _Masks | None = None) -> None:
         self._boxes = boxes
         self._masks = masks
-        self.calls: list[tuple[object, float, bool]] = []
+        self.calls: list[tuple[object, float, bool, str]] = []
 
-    def predict(self, *, source, conf: float, verbose: bool):  # noqa: ANN001,ANN201
-        self.calls.append((source, conf, verbose))
+    def predict(self, *, source, conf: float, verbose: bool, device: str):  # noqa: ANN001,ANN201
+        self.calls.append((source, conf, verbose, device))
         return [_Result(self._boxes, self._masks)]
 
 
@@ -110,6 +110,7 @@ def _seg_runner_with(
     runner._confidence = 0.25
     runner._max_points = 48
     runner._bed_class_id = 59
+    runner._device = "cpu"
     return runner, model
 
 
@@ -218,7 +219,7 @@ def test_seg_runner_returns_bed_instances_with_polygons() -> None:
         (0, 0, 100, 100, 0.8, ((0, 0), (100, 0), (100, 100), (0, 100))),
         (200, 0, 300, 100, 0.7, ((200, 0), (300, 0), (300, 100), (200, 100))),
     )
-    assert model.calls == [(frame, 0.25, False)]
+    assert model.calls == [(frame, 0.25, False, "cpu")]
 
 
 def test_seg_runner_filters_non_bed_class_and_low_confidence() -> None:

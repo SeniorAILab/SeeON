@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from contracts.observation import BoundingBox, DetectionLabel, DetectionResult, FrameObservation
-from perception import SceneState, WindowBuffer, build_frame_observation
-from perception.observation_builder import observation_from_detection_result
+from worker.perception import SceneState, WindowBuffer, build_frame_observation
+from worker.perception.observation_builder import observation_from_detection_result
 
 
 def test_observation_builder_maps_detection_result_and_overrides_runner_outputs() -> None:

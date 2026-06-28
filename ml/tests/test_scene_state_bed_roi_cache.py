@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contracts.observation import BoundingBox, FrameObservation
-from perception.scene_state import SceneState
+from worker.perception.scene_state import SceneState
 
 BED = BoundingBox(0, 0, 10, 10, 0.9)
 

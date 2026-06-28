@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from contracts.observation import FrameObservation
-from domains import DOMAIN_REGISTRY, enabled_domains, list_domains
+from worker.domains import DOMAIN_REGISTRY, enabled_domains, list_domains
 
 
 def test_registry_contains_enabled_fall_and_bed_exit_only() -> None:

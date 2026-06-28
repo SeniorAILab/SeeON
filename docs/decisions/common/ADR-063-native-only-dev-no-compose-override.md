@@ -23,7 +23,7 @@ Selective startup (`docker compose up -d db` for db-only, `--profile full` for t
 1. **Delete `compose.override.yaml`.**
 2. **Move `profiles: [full]` onto `backend` and `front` in `compose.yaml`** (runner targets). Default `docker compose up` / `pnpm db:up` stays db-only; `docker compose --profile full up -d --build` brings up the whole host stack.
 3. **Replace the ambiguous full-stack script with `compose:local:up`.** It builds the local runner full stack with `.env.local`. Do not keep `compose:dev:full`, `compose:full`, or other fallback aliases.
-4. **Dev remains native-only.** There is no containerized hot-reload path; use `pnpm dev:front` / `dev:backend` / `dev:ml` with `pnpm db:up`.
+4. **Dev remains native-only.** There is no containerized hot-reload path; use `pnpm dev:front` / `dev:backend` / `dev:ml-api` / `dev:ml-worker` with `pnpm db:up`.
 
 Resulting compose files: `compose.yaml` (host stack, full profile) + `compose.prod.yaml` (prod overlay) + `compose.edge.yaml` (edge). No `compose.override.yaml`.
 

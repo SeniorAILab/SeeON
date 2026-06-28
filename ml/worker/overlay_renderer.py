@@ -7,8 +7,8 @@ import numpy as np
 
 from contracts.frame import Frame
 from contracts.observation import FrameObservation
-from domains.bed_exit.schema import DomainDebugSnapshot
-from perception.overlay_renderer import (
+from worker.domains.bed_exit.schema import DomainDebugSnapshot
+from worker.perception.overlay_renderer import (
     Color,
     draw_box,
     draw_label,

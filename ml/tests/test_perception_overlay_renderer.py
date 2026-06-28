@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from contracts.observation import BoundingBox
-from perception.overlay_renderer import (
+from worker.perception.overlay_renderer import (
     draw_box,
     draw_caption,
     draw_label,

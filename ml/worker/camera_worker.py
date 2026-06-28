@@ -14,11 +14,11 @@ from contracts.observation import (
     FrameObservation,
 )
 from contracts.runner import BedBoxOutput, BoxOutput, PoseOutput, RunnerOutput, RunnerProtocol
-from domains.bed_exit.schema import BedExitDebugSnapshot, DomainDebugSnapshot
-from perception.observation_builder import build_frame_observation
-from perception.scene_state import SceneState
+from worker.domains.bed_exit.schema import BedExitDebugSnapshot, DomainDebugSnapshot
 from worker.fall_window_classifier import FallWindowClassifier
 from worker.incident_manager import IncidentManager
+from worker.perception.observation_builder import build_frame_observation
+from worker.perception.scene_state import SceneState
 from worker.scheduler import Scheduler
 from worker.status_store import CameraStatus, StatusStore
 

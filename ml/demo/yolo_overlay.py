@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from contracts.observation import BoundingBox, DetectionLabel, FrameObservation
-from perception.overlay_renderer import (
+from worker.perception.overlay_renderer import (
     BED_EMPTY_COLOR,
     BED_EXIT_COLOR,
     BED_OCCUPIED_COLOR,

@@ -25,7 +25,7 @@ Use a backend-orchestrated production alert flow:
 
 Supersession note: ADR-047 superseded this separate `/api.alerts/events` ingress clause, and the issue #388 Event API cutover later superseded the HMAC ingest path. Live ML ingress is `POST /api/v1/events`; this ADR remains active for backend-owned alert policy, idempotency, persistence, and dispatch ownership.
 
-Route note: the ML serving prediction route is now `POST /debug/predict/window` (ADR-048, ml/ edge-device relayout issue #268); the bare `/predict` references throughout this ADR are historical naming for that same model-signal contract. The backend prediction seam stays dormant on the edge-push topology (ADR-029).
+Route note: the ML serving prediction routes (`POST /predict` and later `POST /debug/predict/window`) are historical only. ADR-048 is retired after ref #431 removed the dormant backend pull adapter and `ml-api` debug prediction routes; live ML ingress is pushed Event API `POST /api/v1/events` with `confidence`.
 4. Duplicate `(source_id, external_event_id)` requests return existing backend state and must not create a second delivery attempt or send a second Kakao message.
 
 ## Alternatives Considered
@@ -50,4 +50,4 @@ Route note: the ML serving prediction route is now `POST /debug/predict/window` 
 - Backend has two explicit contracts to test in this original decision: `/predict` consumption and `/api.alerts/events` ingress. ADR-047 superseded the separate `/api.alerts/events` ingress; the issue #388 Event API cutover supersedes the HMAC ingest path, so live ML ingress is `POST /api/v1/events`.
 - ML serving remains thin and does not own alert semantics.
 - Edge/demo clients must supply stable `external_event_id` values.
-- This ADR complements ADR-022 (ML serving/training lifecycle) and ADR-023 (ML↔backend `/predict` prediction boundary); it does not expand `/predict` into event-level alert semantics.
+- This ADR complements ADR-022 (ML api/worker/training lifecycle) and ADR-023 (ML signal vs backend policy boundary); it does not reintroduce backend-pull prediction as event-level alert semantics.
