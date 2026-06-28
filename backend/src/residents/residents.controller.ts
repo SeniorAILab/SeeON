@@ -19,6 +19,7 @@ import type { RequestWithAuth } from '../auth/session.guard.js';
 import type {
   CreateResidentRequestDto,
   MoveResidentAssignmentRequestDto,
+  ResidentAssignmentQueryDto,
   ResidentListQueryDto,
   UpdateResidentRequestDto,
 } from './dto/resident.dto.js';
@@ -35,6 +36,19 @@ export class ResidentsController {
     return this.service.list(requireFacilityId(req), {
       isFocusResident: parseBoolean(query.isFocusResident),
       spaceId: query.spaceId,
+      active: parseBoolean(query.active),
+    });
+  }
+
+  @Get('assignments')
+  listAssignments(
+    @Req() req: RequestWithAuth,
+    @Query() query: ResidentAssignmentQueryDto,
+  ) {
+    return this.service.listAssignments(requireFacilityId(req), {
+      residentId: query.residentId,
+      spaceId: query.spaceId,
+      zoneId: query.zoneId,
       active: parseBoolean(query.active),
     });
   }

@@ -14,6 +14,7 @@ import type {
 import {
   ResidentsRepository,
   ResidentFilters,
+  AssignmentFilters,
 } from './residents.repository.js';
 
 type ResidentWithAssignments = {
@@ -104,6 +105,11 @@ export class ResidentsService {
       if (isNotFound(err)) throw new NotFoundException('Resident not found');
       throw err;
     }
+  }
+
+  async listAssignments(facilityId: string, filters: AssignmentFilters = {}) {
+    const rows = await this.residents.listAssignments(facilityId, filters);
+    return rows.map(presentAssignment);
   }
 
   async currentAssignment(facilityId: string, residentId: string) {
