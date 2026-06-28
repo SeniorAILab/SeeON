@@ -50,7 +50,6 @@ Reference layout already present across `backend/src/events/` and `backend/src/a
 - `backend/src/alerts/ports/channel.port.ts`
 - `backend/src/alerts/ports/prediction.port.ts`
 - `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts`
-- `backend/src/alerts/adapters/ml-serving-prediction.adapter.ts`
 - `backend/src/alerts/dto/alert-events.dto.ts`
 
 ## No root contracts folder
@@ -70,7 +69,6 @@ Focused tests live beside the unit they exercise, not in a separate root test hi
 
 Examples:
 
-- `backend/src/alerts/adapters/ml-serving-prediction.adapter.spec.ts` beside `ml-serving-prediction.adapter.ts`.
 - `backend/src/alerts/repositories/alert-events.repository.spec.ts` beside the repository.
 - `backend/src/events/events.service.spec.ts` beside `events.service.ts`; controller specs stay beside thin controllers when they exercise HTTP wiring.
 - `backend/test/auth.spec.ts` and `backend/test/app-boot.spec.ts` are acceptable because they exercise whole-app route/session boot behavior rather than one source unit.

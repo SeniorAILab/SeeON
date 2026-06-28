@@ -1,6 +1,6 @@
 # Runners Agent Rules
 
-Own L1 model runner adapters, model registry wiring, device selection, and warmup.
+Own worker model runner adapters, model registry wiring, device selection, and warmup.
 
 ## Local Ownership
 
@@ -11,9 +11,9 @@ Own L1 model runner adapters, model registry wiring, device selection, and warmu
 
 ## Imports
 
-Allowed: `contracts`, local `runners`, numerical/model libraries, and standard library.
+Allowed: `contracts`, local `worker/runners`, numerical/model libraries, and standard library.
 
-Forbidden: `sources`, `perception`, `domains`, `runtime`, `events`, `api`, `demo`, `training`.
+Forbidden: `worker/sources`, `worker/perception`, `worker/domains`, `worker` orchestration, `events`, `api`, `demo`, `training`.
 
 ## Focused Tests
 

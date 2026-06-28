@@ -18,8 +18,7 @@ add knobs that duplicate model-contract internals.
   renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`. The registry is
   derived from `training.models.catalog.CATALOG`: every temporal model family whose
   trained artifact exists on disk is exposed automatically — never hand-list
-  families in the demo. Fall classification is serving-only: temporal modules use
-  `api.client.ServingFallClassifier` → `POST /debug/predict/window`;
+  families in the demo. Fall classification runs in the demo harness for local operator evaluation; `ml-api` no longer exposes `/debug/predict/*` prediction routes.
   `rule_based` is not a selectable classifier.
 - **판정 임계값 slider** — `select_decision_threshold(spec)` from
   `demo.demo_ui`; shown for available temporal models only. Default comes from
@@ -143,28 +142,21 @@ framework internals.
 
 The demo is the **edge-node prototype** of the production system
 ([ADR-029](../decisions/ml/ADR-029-edge-inference-deployment-topology.md)), not a
-separate toy wired to mocks. It must exercise the **same path production runs**;
-a demo that takes a different path proves nothing about production and rots.
+separate toy wired to mocks. It must exercise the same model/domain code paths where practical, while production live classification belongs to `ml-worker`; a demo that invents mocks proves nothing about production and rots.
 This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
 (fail-fast, no fake substitution) applied to the demo.
 
 **Do NOT:**
 
-- Classify falls **in-process** inside the demo as a shortcut. The fall-decision
-  signal (`fall_probability`) must come from the real **ml-api `/debug/predict/window`** service through `api.client.ServingFallClassifier` — the same inference path production uses — not a bypass that skips it.
+- Call retired **ml-api `/debug/predict/*`** prediction routes or describe `ml-api` as the fall classifier. Production fall-decision probability is produced by `ml-worker` and relayed as backend Event API `confidence`; the demo harness may classify locally only as a developer tool.
 - Emit alerts through anything but the real Event API client → `POST /api/v1/events`
   path. No hardcoded recipients, no REST-key direct send, no
   fabricated probability (the live fan-out path is owned by backend `src/alerts` + the exec-plan `docs/exec-plan/active/thursday-mvp-live-fall-kakao-fanout/`).
 - Add an `if demo:` branch, a mock, or a silent fallback that diverges the demo
   from production. If a dependency (serving, DB, backend) is down, the demo
-  **fails loudly** — it does not quietly degrade to a fake path. When
-  `FALL_SERVING_URL` is unset, temporal fall classification raises `RuntimeError`;
-  there is no in-process fallback.
+  **fails loudly** — it does not quietly degrade to a fake path. When required model artifacts are missing, temporal fall classification raises instead of fabricating probability.
 
-**Allowed (not a bypass):** pose extraction stays **edge-local** in the demo —
-it feeds the overlay and forms the `[T][51]` window sent to
-`/debug/predict/window`. That is the edge half of ADR-029 (pose+classify both on
-the edge device), not a shortcut.
+**Allowed (not a bypass):** pose extraction and temporal classification stay **edge-local** in the demo harness. That mirrors the edge-local half of ADR-029, while the production service that performs live classification is `ml-worker`, not `ml-api`.
 What must never be bypassed is the **classification decision** and the **emit
 path**. The demo surface may differ from `front/`
 ([ADR-024](../decisions/common/ADR-024-ml-demo-product-surface-boundary.md)); the

@@ -30,13 +30,13 @@ RTSP camera
 
 | 단계 | 입력 → 출력 | 책임 코드 |
 | --- | --- | --- |
-| source intake | RTSP URL → `Frame` iterator | `ml/sources/rtsp.py`, `ml/contracts/frame.py` |
+| source intake | RTSP URL → `Frame` iterator | `ml/worker/sources/rtsp.py`, `ml/contracts/frame.py` |
 | capture buffering | `Frame` → latest frame buffer | `ml/worker/edge_worker_supervisor.py`, `ml/worker/latest_frame.py` |
 | frame cadence | frame index → 실행할 runner task 목록 | `ml/worker/scheduler.py` |
-| runner execution | image → pose/person/bed runner outputs | `ml/worker/camera_worker.py`, `ml/runners/registry.py`, `ml/runners/yolo_pose.py`, `ml/runners/yolo_person.py`, `ml/runners/yolo_bed_seg.py` |
-| observation assembly | runner outputs → `FrameObservation` | `ml/worker/camera_worker.py`, `ml/perception/observation_builder.py`, `ml/contracts/observation.py` |
+| runner execution | image → pose/person/bed runner outputs | `ml/worker/camera_worker.py`, `ml/worker/runners/registry.py`, `ml/worker/runners/yolo_pose.py`, `ml/worker/runners/yolo_person.py`, `ml/worker/runners/yolo_bed_seg.py` |
+| observation assembly | runner outputs → `FrameObservation` | `ml/worker/camera_worker.py`, `ml/worker/perception/observation_builder.py`, `ml/contracts/observation.py` |
 | fall window classification | pose windows → fall probability/label | `ml/worker/fall_window_classifier.py`, `ml/features/pose_normalization.py`, `ml/features/window_features.py` |
-| domain interpretation | `FrameObservation` → fall/bed-exit event payload | `ml/domains/fall/detector.py`, `ml/domains/bed_exit/detector.py` |
+| domain interpretation | `FrameObservation` → fall/bed-exit event payload | `ml/worker/domains/fall/detector.py`, `ml/worker/domains/bed_exit/detector.py` |
 | incident gate | event payload → admitted fact or suppressed duplicate | `ml/worker/incident_manager.py` |
 | relay boundary | admitted fact → `_RelayClient.emit()` 호출 | `ml/worker/edge_worker.py` |
 

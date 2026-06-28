@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-ADR-022 split ML serving from training, ADR-023 fixed the ML-output vs backend-policy ownership boundary, and ADR-048 fixed the concrete `/debug/predict/window` window contract. None of them decided the physical deployment topology: when this scales to multiple nursing homes, does inference run centrally in the cloud over streamed video, or locally at each site?
+ADR-022 split ML serving from training, ADR-023 fixed the ML-output vs backend-policy ownership boundary, and ADR-048 historically fixed the concrete backend-pull window contract, now retired by #431. None of them decided the physical deployment topology: when this scales to multiple nursing homes, does inference run centrally in the cloud over streamed video, or locally at each site?
 
 The requirement that forces the decision is multi-tenant scale-out. A production site runs several HD CCTV feeds continuously, the alert is safety-critical, and the input is resident video. Centralizing inference would stream every site's raw video to a remote GPU fleet 24/7.
 
@@ -45,7 +45,7 @@ Backend remains the product-policy owner. Deduplication, rate limiting, recipien
 | Per-site edge topology and `ml-api -> backend /api/v1/events` site-boundary contract | ADR-029 |
 | Worker ↔ ml-api relay contract and process responsibilities | ADR-067 |
 | ML output vs backend product policy/side effects | ADR-023 |
-| Concrete `/debug/predict/window` window request/response geometry + retained backend prediction seam | ADR-048 |
+| Retired backend-pull window request/response geometry and removed prediction seam | ADR-048 |
 | ML-internal serving/training lifecycle and uv dependency-group boundary | ADR-022 |
 
 ## References
