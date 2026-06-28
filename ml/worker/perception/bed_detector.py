@@ -70,7 +70,7 @@ class BedDetector:
 def _build_beds(instances: tuple[tuple[object, ...], ...]) -> tuple[BoundingBox, ...]:
     """Dedup bed bboxes (no hard cap, issue #244) and attach each surviving box's
     mask polygon by best bbox overlap (issue #243)."""
-    from runners.yolo_bed_seg import dedupe_bed_boxes
+    from worker.runners.yolo_bed_seg import dedupe_bed_boxes
 
     bbox5 = tuple(tuple(inst[:5]) for inst in instances)
     deduped = dedupe_bed_boxes(bbox5)

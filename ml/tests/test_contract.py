@@ -12,7 +12,7 @@ from contracts import (
     FrameObservation,
     ModelModule,
 )
-from sources import Frame, VideoFileSource
+from worker.sources import Frame, VideoFileSource
 
 # ---------------------------------------------------------------------------
 # Helpers

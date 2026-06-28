@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from domains.bed_exit.schema import BedExitEvent
+from worker.domains.bed_exit.schema import BedExitEvent
 
 
 class BedExitLatch:

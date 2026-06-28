@@ -41,7 +41,7 @@ def _assert_no_demo_imports(package: str) -> None:
 
 
 def test_perception_has_no_demo_imports() -> None:
-    _assert_no_demo_imports("perception")
+    _assert_no_demo_imports("worker/perception")
 
 
 def test_serving_has_no_demo_imports() -> None:

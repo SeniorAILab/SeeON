@@ -11,12 +11,8 @@ from datetime import UTC, datetime
 
 from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
-from domains import DOMAIN_REGISTRY
-from runners.device import select_device
-from runners.registry import DEFAULT_REGISTRY, ModelRegistry
-from runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
-from sources.rtsp import RTSPSource
 from worker.camera_worker import CameraWorker, DomainDetectorProtocol
+from worker.domains import DOMAIN_REGISTRY
 from worker.edge_worker_config import (
     CameraRuntimeConfig,
     EdgeWorkerConfig,
@@ -26,7 +22,11 @@ from worker.edge_worker_config import (
 )
 from worker.edge_worker_supervisor import EdgeWorkerSupervisor
 from worker.fall_window_classifier import FallModelProtocol, FallWindowClassifier
+from worker.runners.device import select_device
+from worker.runners.registry import DEFAULT_REGISTRY, ModelRegistry
+from worker.runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
 from worker.scheduler import Scheduler
+from worker.sources.rtsp import RTSPSource
 from worker.status_store import StatusStore
 
 

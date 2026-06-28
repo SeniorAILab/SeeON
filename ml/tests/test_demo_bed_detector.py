@@ -10,8 +10,8 @@ from __future__ import annotations
 import numpy as np
 
 from contracts import BoundingBox, Frame
-from perception.bed_detector import BedDetector
-from runners import YoloBedSegRunner, dedupe_bed_boxes
+from worker.perception.bed_detector import BedDetector
+from worker.runners import YoloBedSegRunner, dedupe_bed_boxes
 
 
 def _frame() -> Frame:
