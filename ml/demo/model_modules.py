@@ -19,7 +19,7 @@ POSE_MODEL_SIZE_LABELS: Final[dict[str, str]] = {
 }
 
 
-# Pose weight path helpers are delegated to contracts.artifacts (ADR-015).
+# Pose weight path helpers are delegated to contracts.artifacts (ADR).
 class YoloPoseModule:
     """Pose ModelModule wrapping YoloPoseRunner. Emits {boxes, keypoints}.
 

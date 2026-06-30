@@ -2,7 +2,7 @@
 
 Own the deployable edge worker: the CLI/process plus the worker-owned live
 orchestration and per-camera flow state relocated from the former `runtime`
-package by the ADR-067 MECE boundary refactor. `ml-worker` reads camera config,
+package by the current worker/API boundary. `ml-worker` reads camera config,
 builds shared runners with one composition-root device selection, opens RTSP sources, runs supervisors, creates
 alert/heartbeat facts with probability, and relays them to local `ml-api`.
 

@@ -41,7 +41,7 @@ def iter_live_frames(
 ) -> Iterator[tuple[NDArray[np.uint8], CurrentPlaybackStatus, float]]:
     """Yield ``(overlay, status, confidence)`` per source frame for live rendering.
 
-    The pure inference+render loop of the real-time viewer (ADR-010): one frame
+    The pure inference+render loop of the real-time viewer (ADR): one frame
     in → one annotated frame + fall state out, emitted incrementally so a caller
     can paint each frame the moment it is processed instead of waiting for a
     pre-rendered file.

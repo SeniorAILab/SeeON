@@ -3,10 +3,10 @@
 The bed scene is mostly static, but real nursing-home footage can reveal beds
 only after several frames or after camera/person motion. The caller seeds ROIs
 from a small frame union and re-detects periodically at low frequency. Every
-rendered frame still keeps the single YOLO26-pose pass (ADR-005 §3) — this
+rendered frame still keeps the single YOLO26-pose pass — this
 detector is not part of the per-frame pose path.
 
-Bed localization uses COCO instance segmentation (ADR-054): each bed carries a
+Bed localization uses COCO instance segmentation (ADR): each bed carries a
 mask polygon for shape-accurate rendering, with the axis-aligned bbox derived
 for the bed-exit containment logic. ``BedDetector`` owns no frame source and the
 runner is injectable so unit tests can stub inference without a real model.

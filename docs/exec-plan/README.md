@@ -57,16 +57,16 @@ date: YYYY-MM-DD
 Every meaningful change must have a `docs/exec-plan/active/{slug}/` entry **before** any code is
 modified. Enforcement is convention-level — no hook-based hard gate this cycle.
 
-## exec-plan vs. docs/decisions
+## exec-plan vs. ADR
 
-| | exec-plan | docs/decisions |
+| | exec-plan | ADR / owning docs |
 |---|---|---|
-| Scope | Work-scoped (one feature/task) | Cross-cutting (constrains all future work) |
-| Lifespan | Archivable when work ends | Permanent (superseded, never deleted) |
-| Body | Immutable after finalize | Superseded by new ADR |
-| Author | omc-plan / omo / omx | craft-skills documents skill |
+| Scope | Work-scoped (one feature/task) | Expensive-to-reverse choices that constrain future unrelated work |
+| Lifespan | Archivable when work ends | ADR set is reset; add only rare current-state notes |
+| Body | Immutable after finalize | Short ADR-level note in `docs/decisions/README.md`; operational detail in owning docs |
+| Author | omc-plan / omo / omx | humans / agents maintaining docs |
 
-When a plan contains a cross-cutting, expensive-to-reverse choice, that choice is **distilled** into a new `docs/decisions/ADR-NNN-*.md` — the plan entry itself is not replaced.
+When a plan contains a cross-cutting, expensive-to-reverse choice, promote that choice into `docs/decisions/README.md` or the owning rule/API/domain/onboarding or script document. The plan entry itself is not replaced.
 
 ## Trivial exemptions (no plan needed)
 

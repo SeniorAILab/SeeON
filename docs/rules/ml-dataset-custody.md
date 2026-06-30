@@ -2,9 +2,9 @@
 
 > Scope: every dataset and model artifact that exists on more than one machine.
 > Records the *operational* "who holds what, and how it moves" rule; the *why*
-> lives in [ADR-018](../decisions/ml/ADR-018-cross-machine-dataset-custody.md).
+> lives in ADR.
 > Single-machine layout is [ml-filesystem-layout.md](./ml-filesystem-layout.md)
-> (ADR-012); model layout is [ml-models.md](./ml-models.md) (ADR-015).
+> (ADR); model layout is [ml-models.md](./ml-models.md) (ADR).
 
 ## Custody map — who is the authority
 
@@ -19,7 +19,7 @@
 Rules of thumb:
 
 - **Footage is irreplaceable** → only m3 is authoritative, sync is one-way,
-  `--delete` is forbidden, raw is never modified in place (ADR-012).
+  `--delete` is forbidden, raw is never modified in place (ADR).
 - **Labels are law** → corrections travel as commits so both machines agree on
   ordering. The remote agent never sets `status: confirmed` (human gate).
 - **Weights are regenerable** → never committed, freely re-synced or rebuilt.
@@ -39,7 +39,7 @@ Discovery commands (run, don't hand-maintain):
 ```bash
 find ml/data -maxdepth 2 -type d                  # what domains/roles exist here
 ls ml/data/{nursing-home,le2i}/processed | wc -l  # clip counts
-find ml/models -name metadata.json | wc -l        # model artifacts (ADR-015 contract)
+find ml/models -name metadata.json | wc -l        # model artifacts (ADR contract)
 ```
 
 ## Transfer procedure — m3 → m1 (source data)
@@ -73,8 +73,8 @@ find ml/models -name metadata.json | wc -l        # model artifacts (ADR-015 con
 ## Invariants
 
 - **Footage never transits a third party.** No cloud bucket, no git remote, no
-  LFS — the privacy perimeter is exactly the two operator machines (ADR-018,
-  ADR-028 Demo Access Boundary).
+  LFS — the privacy perimeter is exactly the two operator machines (ADR,
+  ADR Demo Access Boundary).
 - **The only git-trackable files under `ml/data/` are
   `eval/nursing-home-gold.csv` and `eval/raw-processed-mapping.csv`**
   (`.gitignore` negation chain). Everything else under `ml/data/` and all of
@@ -84,6 +84,6 @@ find ml/models -name metadata.json | wc -l        # model artifacts (ADR-015 con
 - **`ml/data/.RSYNC_DONE` is operator-managed** — agents never create or
   delete it.
 - **Known deviation:** the feat/74 worktree holds a real `ml/data/` (strips,
-  returned poses) instead of the ADR-012 symlink while the loop runs.
+  returned poses) instead of the ADR symlink while the loop runs.
   Consolidate into `<main>/ml/data/` and restore the symlink at branch merge
-  (ADR-018 Consequences).
+  (ADR Consequences).

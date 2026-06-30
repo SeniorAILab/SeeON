@@ -3,7 +3,7 @@
 > Standing convention for keeping PRs reviewable and merging them safely — the
 > PR/review/merge facet of version control (hub: `docs/rules/version-control.md`).
 > Records the PR-size and merge governance of
-> [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md). Complements
+> ADR. Complements
 > `docs/rules/worktree-workflow.md`, `.github/workflows/pr-check.yml`, and
 > `docs/research/bulk-pr-splitting-strategy.md`.
 
@@ -84,7 +84,7 @@ Review must check:
 - size/scope discipline;
 - test or verification adequacy;
 - no unrelated `ml/data`, model artifact, or generated asset changes;
-- docs/ADR/plan lifecycle alignment when the PR records decisions or work plans.
+- docs/decision/plan lifecycle alignment when the PR records decisions or work plans.
 
 For agent-authored PRs, record the review result in the PR body or a PR comment
 before merge. If findings require changes, push a follow-up commit and re-run the
@@ -116,7 +116,7 @@ cannot block a merge. Two consequences every actor (agent or human) must honor:
 
 - **Local gate is the real gate.** `pre-push` runs `scripts/git-guard/check-lint.sh` (lint +
   typecheck on changed packages, mirroring `ci.yml`: frontend lint/type block, backend type
-  blocks + `lint` warn-first per ADR-064, ml `ruff` blocks). Do not push lint/type failures.
+  blocks + `lint` warn-first per ADR, ml `ruff` blocks). Do not push lint/type failures.
   Bypass only intentionally with `GIT_GUARD_SKIP_LINT=1` (or `--no-verify`), never to dodge a
   real failure.
 - **Never merge on a pending/red CI.** Because nothing is required, `gh pr merge --auto` merges

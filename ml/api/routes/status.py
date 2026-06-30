@@ -1,6 +1,6 @@
 """Runtime status route.
 
-``/status`` is reconstructed from ml-api's own relay-heartbeat store (ADR-067):
+``/status`` is reconstructed from ml-api's own relay-heartbeat store (ADR):
 edge-local liveness per camera, independent of backend egress. It does not read
 any worker runtime state (no cross-process shared state).
 """

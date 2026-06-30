@@ -2,7 +2,7 @@
 
 Own the FastAPI api: app factory, lifespan boot, the worker→api
 `/api/v1/relay/*` gateway, backend Event API egress, gateway metadata, and a relay-heartbeat-derived `/status`. `ml-api` is the edge
-node's single no-HMAC Event API backend gateway (ADR-067/029); it does not assemble live camera
+node's single no-HMAC Event API backend gateway (ADR); it does not assemble live camera
 loops and shares no in-memory state with `ml-worker`.
 
 ## Local Ownership

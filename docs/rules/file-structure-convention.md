@@ -58,7 +58,7 @@ Do not create a root `contracts/` folder. Standing contracts and conventions liv
 
 - `docs/rules/` for coding and API conventions.
 - `docs/domain/` for domain contracts and glossary.
-- `docs/decisions/` for ADRs.
+- `docs/decisions/` for decisions.
 - `docs/exec-plan/` for work-scoped plans/specs.
 
 Code DTOs stay next to their controller/domain under `backend/src/<domain>/dto/`; frontend mappers stay in the relevant frontend domain/lib folder.

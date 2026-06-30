@@ -44,7 +44,7 @@ RTSP camera
 
 ## 레이어 사다리와 worker orchestration
 
-ADR-057과 `ml/AGENTS.md`의 dependency ladder는 worker가 어느 package를 어떤 방향으로 조립하는지 정한다.
+ADR과 `ml/AGENTS.md`의 dependency ladder는 worker가 어느 package를 어떤 방향으로 조립하는지 정한다.
 
 | Layer | Package | worker에서의 역할 |
 | --- | --- | --- |
@@ -169,9 +169,9 @@ worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`�
 - [./edge-device.md](./edge-device.md)
 - [../api/ml-serving-api.md](../api/ml-serving-api.md)
 - [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
-- [ADR-029 — Per-site edge inference with signal-only egress](../decisions/ml/ADR-029-edge-inference-deployment-topology.md)
-- [ADR-056 — ML frame intake and source package layout](../decisions/ml/ADR-056-ml-frame-intake-and-source-package-layout.md)
-- [ADR-057 — FrameObservation runner contracts and edge-runtime package architecture](../decisions/ml/ADR-057-frame-observation-runner-contracts-and-edge-runtime-architecture.md)
-- [ADR-067 — ML Edge Worker And API Relay Contract](../decisions/ml/ADR-067-ml-edge-api-worker-service-split.md)
-- [ADR-068 — ML Edge Worker Portable Video Runtime](../decisions/ml/ADR-068-ml-edge-worker-portable-video-runtime.md)
-- [ADR-074 — ML edge/central state and config-distribution responsibility split](../decisions/ml/ADR-074-ml-edge-central-state-and-config-distribution.md)
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR

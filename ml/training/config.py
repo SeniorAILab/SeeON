@@ -17,7 +17,7 @@ from pathlib import Path
 
 # --- Paths (anchored at the ml/ project root) ---
 # ml/data/ is partitioned domain-first: {domain}/{raw,processed,poses,annotated}
-# with cross-domain eval/ and transient uploads/ at the top level (ADR-012).
+# with cross-domain eval/ and transient uploads/ at the top level (ADR).
 _ML_ROOT = Path(__file__).resolve().parent.parent  # -> ml/
 DATA_ROOT = _ML_ROOT / "data"
 POSE_CACHE_DIR = DATA_ROOT / "le2i" / "poses"

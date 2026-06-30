@@ -28,7 +28,7 @@ free 16GB / 2-vCPU CPU tier) and verify real inference on the live URL.
 
 ## Hard safety rules
 
-- **Never upload nursing-home (NH) footage anywhere external** (ADR-012/ADR-018).
+- **Never upload nursing-home (NH) footage anywhere external** (ADR).
   For upload tests on the deployed app, use the public LE2I dataset only, e.g.
   `ml/data/le2i/raw/Home/video (37).avi` (annotation: fall at frames 129–144).
 - **Never set `FALL_DEMO_MODE=operator`** on a deployment; public mode is fail-safe.
@@ -144,7 +144,7 @@ Known quirks: websocket sessions drop after clip completion and reset the page
 ## Known findings (context, not defects)
 
 - Models are trained on LE2I (`metadata.json: dataset=le2i`); NH gold clips are
-  evaluation-only (ADR-013). On `video (37)` no classifier flagged the
+  evaluation-only (ADR). On `video (37)` no classifier flagged the
   annotated fall at demo thresholds — note the gap between trained
   `operating_threshold` (GCN 0.026 / RF 0.09) and demo gate-2 presets
   (0.30 / 0.20) before concluding the model is blind.

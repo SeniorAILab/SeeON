@@ -2,14 +2,14 @@
 
 > Scope: the `ml/` uv project. A standing convention every change must follow.
 > Records the operational "where does this file go" rule; the why lives in
-> [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) (data layout)
-> and [ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) (model layout,
-> supersedes retired source ADR-003 §3 and ADR-007 rows 1/2/5). Runtime process
-> ownership lives in [ADR-067](../decisions/ml/ADR-067-ml-edge-api-worker-service-split.md);
+> ADR (data layout)
+> and ADR (model layout,
+> supersedes retired source decisions). Runtime process
+> ownership lives in ADR;
 > portable worker video backend policy lives in
-> [ADR-068](../decisions/ml/ADR-068-ml-edge-worker-portable-video-runtime.md); edge/central
+> ADR; edge/central
 > state and config-distribution split lives in
-> [ADR-074](../decisions/ml/ADR-074-ml-edge-central-state-and-config-distribution.md).
+> ADR.
 
 ## Edge-device package tree
 
@@ -28,7 +28,7 @@ ml/
     └── domains/     # domain detectors/latches: fall, bed-exit, long-lie, risk, wheelchair standup
 ```
 
-Dependency boundaries are package-name based and enforced by `ml/tests/test_import_dependency_ladder.py`. There is no `runtime` package — worker-owned live orchestration/state lives in `worker/` (ADR-067). `api` and `worker` are separate deployable processes with **zero cross-boundary shared state**; their only connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`). `demo/` is a developer harness. `training/` may import only `contracts` and `features` from the production tree and contracts with runtime through model artifacts. `ml/core/` and `ml/util/` do not exist.
+Dependency boundaries are package-name based and enforced by `ml/tests/test_import_dependency_ladder.py`. There is no `runtime` package — worker-owned live orchestration/state lives in `worker/` (ADR). `api` and `worker` are separate deployable processes with **zero cross-boundary shared state**; their only connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`). `demo/` is a developer harness. `training/` may import only `contracts` and `features` from the production tree and contracts with runtime through model artifacts. `ml/core/` and `ml/util/` do not exist.
 
 `ml-api` boot is owned by `api.lifespan` as a thin gateway: load config, configure the backend-ingest gateway + relay-heartbeat store, then expose `/health`, `/status`, `/models`, and `/api/v1/relay/*`. `/status` is derived from the relay-heartbeat store; `ml-api` does not load models, expose prediction routes, resolve live sources, or assemble camera loops. Keep boot-order changes in that module and its tests.
 
@@ -68,30 +68,30 @@ Nothing else — no new conventions, no registry.
 ## Where each file category lives
 
 > Package authority: the edge package layout below is established by
-> **ADR-056** (frame intake → historical `sources/`, now `worker/sources/`; `Frame`/`FrameSource` contract → `contracts/`)
-> and **ADR-057** (FrameObservation runner contracts, `ModelRegistry`, and the edge
+> **ADR** (frame intake → historical `sources/`, now `worker/sources/`; `Frame`/`FrameSource` contract → `contracts/`)
+> and **ADR** (FrameObservation runner contracts, `ModelRegistry`, and the edge
 > package tree + dependency ladder + boot order), both under issue #268; they supersede
-> the retired `ml/core/` + `ml/util/` layout (ADR-006 frame-intake-in-`ml/util/`).
-> **ADR-067** refines this: the `runtime` package is removed and its worker-owned
+> the retired `ml/core/` + `ml/util/` layout (ADR frame-intake-in-`ml/util/`).
+> **ADR** refines this: the `runtime` package is removed and its worker-owned
 > orchestration/state moves to `worker/`, with `api` as the thin backend gateway.
 
-| File category | Home | Committed? | ADR |
+| File category | Home | Committed? | decision |
 |---------------|------|-----------|-----|
-| Production contracts/protocols | `ml/contracts/` | yes | ADR-057 |
-| Pure feature transforms | `ml/features/` | yes | ADR-057 |
-| Frame intake and camera probing code | `ml/worker/sources/` | yes | ADR-006/057/068 |
-| Runner adapters and hardware/model warmup | `ml/worker/runners/` | yes | ADR-025/057 |
-| Perception state/tracking/observation code | `ml/worker/perception/` | yes | ADR-057 |
-| Domain detectors and latches | `ml/worker/domains/` | yes | ADR-057 |
-| Edge worker orchestration/state (camera workers, supervisor, scheduler, status, latest-frame, incident, config) | `ml/worker/` | yes | ADR-067/068 |
-| Event/alert seam | `ml/events/` | yes | ADR-029/057 |
-| ml-api gateway + lifespan + relay + heartbeat status | `ml/api/` | yes | ADR-022/057/067 |
-| Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` | no (gitignored) | ADR-015 |
-| Third-party comparison checkpoints | `ml/models/fall/pretrained/*/` | no (gitignored) | ADR-015 |
-| Upstream pose/bed weight cache | `ml/models/{pose,bed}/` | no (gitignored) | ADR-015 |
-| Domain-bound data, any role | `ml/data/{domain}/{raw,processed,poses,annotated}` | no (gitignored) | ADR-012 |
-| Cross-domain derived outputs | `ml/data/eval/` | no (gitignored) | ADR-012 |
-| Transient demo uploads | `ml/data/uploads/` | no (gitignored) | ADR-012 |
+| Production contracts/protocols | `ml/contracts/` | yes | ADR |
+| Pure feature transforms | `ml/features/` | yes | ADR |
+| Frame intake and camera probing code | `ml/worker/sources/` | yes | ADR |
+| Runner adapters and hardware/model warmup | `ml/worker/runners/` | yes | ADR |
+| Perception state/tracking/observation code | `ml/worker/perception/` | yes | ADR |
+| Domain detectors and latches | `ml/worker/domains/` | yes | ADR |
+| Edge worker orchestration/state (camera workers, supervisor, scheduler, status, latest-frame, incident, config) | `ml/worker/` | yes | ADR |
+| Event/alert seam | `ml/events/` | yes | ADR |
+| ml-api gateway + lifespan + relay + heartbeat status | `ml/api/` | yes | ADR |
+| Trained first-party models (+ `metadata.json`) | `ml/models/fall/<model_type>/` | no (gitignored) | ADR |
+| Third-party comparison checkpoints | `ml/models/fall/pretrained/*/` | no (gitignored) | ADR |
+| Upstream pose/bed weight cache | `ml/models/{pose,bed}/` | no (gitignored) | ADR |
+| Domain-bound data, any role | `ml/data/{domain}/{raw,processed,poses,annotated}` | no (gitignored) | ADR |
+| Cross-domain derived outputs | `ml/data/eval/` | no (gitignored) | ADR |
+| Transient demo uploads | `ml/data/uploads/` | no (gitignored) | ADR |
 
 ## Invariants
 
@@ -112,6 +112,6 @@ Nothing else — no new conventions, no registry.
   `pose_weight_path(size)` / `bed_weight_path()`. The cache is disposable and
   re-downloadable; never curate a weight outside `ml/models/`.
 
-See [ADR-012](../decisions/ml/ADR-012-ml-data-domain-first-layout.md) for the data
+See ADR for the data
 layout and supersede relationships. See
-[ADR-015](../decisions/ml/ADR-015-ml-models-single-root.md) for the model layout.
+ADR for the model layout.

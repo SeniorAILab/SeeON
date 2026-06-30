@@ -64,7 +64,7 @@ One-line goal: warn-first backend(NestJS) layering/DTO/typed-lint via built-in E
 - GJC coverage: no duplicated hook; document that the vendor-agnostic guarantee is git-native pre-commit + CI; **exact GJC pre-edit hook execution path is unverified, confirm at execution.**
 
 ### Component 4 — DTO & deliverables
-- New backend ADR (re-run discovery; ADR-060/061 exist → use **ADR-064** if free): `docs/decisions/backend/ADR-064-backend-layering-lint-and-guard-enforcement.md` — enforcement layer for ADR-046, reaffirms ADR-008, defines ADR-016 boundary, **and records that tenant isolation is deliberately left to RLS + runtime guard (no static tenant lint)**. Update the stale `docs/decisions/README.md` backend index (ADR-060/061 + new ADR).
+- New backend ADR (re-run discovery; ADR-060/061 exist → use **ADR-064** if free): `docs/decisions/README.md` — enforcement layer for ADR-046, reaffirms ADR-008, defines ADR-016 boundary, **and records that tenant isolation is deliberately left to RLS + runtime guard (no static tenant lint)**. Update the stale `docs/decisions/README.md` backend index (ADR-060/061 + new ADR).
 - `docs/rules/backend-architecture-lint-and-guard.md`: command surfaces + cross-refs to existing `backend-layering.md`, `dto-convention.md`, `rest-api-convention.md`, `code-stability.md`, ADR-046/008/016; existing inline DTOs stay warnings.
 - `AGENTS.md`: one Conventions routing line → new rule + `scripts/backend-guard/`.
 - Do NOT normalize flat↔nested layouts.
