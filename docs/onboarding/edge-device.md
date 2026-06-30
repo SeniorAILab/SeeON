@@ -34,7 +34,7 @@
 
 ## 왜 두 프로세스인가
 
-decision map은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리한다. RTSP 스트림이 끊기거나 특정 카메라 추론이 느려져도 `ml-api`의 health/readiness/debug/status 표면은 독립적으로 살아 있어야 하고, backend Event API URL·공개 egress·relay token 검증은 한 프로세스에 모여야 한다.
+ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리한다. RTSP 스트림이 끊기거나 특정 카메라 추론이 느려져도 `ml-api`의 health/readiness/debug/status 표면은 독립적으로 살아 있어야 하고, backend Event API URL·공개 egress·relay token 검증은 한 프로세스에 모여야 한다.
 
 | 프로세스 | 책임 | 실제 코드 |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ decision map은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명�
 
 ## 3-state 모델
 
-decision map 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `ml-api`와 `ml-worker` 사이에 공유 mutable runtime state가 없다는 점이다.
+ADR 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `ml-api`와 `ml-worker` 사이에 공유 mutable runtime state가 없다는 점이다.
 
 | 상태 종류 | Owner | 흐름 | 현재 구현/방향 |
 | --- | --- | --- | --- |
@@ -92,7 +92,7 @@ decision map 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `m
 | Events / facts | `ml-worker` 생성, `ml-api` egress | `worker → ml-api /api/v1/relay/* → backend /api/v1/events` | fall, bed-exit, heartbeat fact. `ml-worker`는 backend를 직접 호출하지 않는다. |
 | Runtime / flow state | process-local | 공유 없음 | worker의 detection window, `IncidentManager`, `LatestFrameBuffer`, `StatusStore`; api의 `HeartbeatStore`는 relay heartbeat에서 재구성한 별도 view다. |
 
-last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge가 기존 snapshot으로 계속 판단하는 운영 모델을 뜻한다. 이 문서의 현재 live path에서는 event/fact 업로드만 구현되어 있으며, policy config pull은 decision map의 후속 방향이다.
+last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge가 기존 snapshot으로 계속 판단하는 운영 모델을 뜻한다. 이 문서의 현재 live path에서는 event/fact 업로드만 구현되어 있으며, policy config pull은 ADR의 후속 방향이다.
 
 ## `ml-api` lifespan 부트 순서
 
@@ -131,9 +131,9 @@ last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge�
 - [./edge-worker-streaming.md](./edge-worker-streaming.md)
 - [../api/ml-serving-api.md](../api/ml-serving-api.md)
 - [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
-- decision map
-- decision map
-- decision map
-- decision map
-- decision map
-- decision map
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR

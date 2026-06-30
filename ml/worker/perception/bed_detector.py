@@ -6,7 +6,7 @@ from a small frame union and re-detects periodically at low frequency. Every
 rendered frame still keeps the single YOLO26-pose pass — this
 detector is not part of the per-frame pose path.
 
-Bed localization uses COCO instance segmentation (decision map): each bed carries a
+Bed localization uses COCO instance segmentation (ADR): each bed carries a
 mask polygon for shape-accurate rendering, with the axis-aligned bbox derived
 for the bed-exit containment logic. ``BedDetector`` owns no frame source and the
 runner is injectable so unit tests can stub inference without a real model.

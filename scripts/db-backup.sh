@@ -34,9 +34,9 @@
 #
 # Production deploys also take a pre-migration `pg_dump -Fc` backup under
 # /opt/eldercare-fall-ai/shared/backups and validate it with `pg_restore --list`
-# before prisma migrate deploy / baseline-existing / reset-demo. See decision map,
+# before prisma migrate deploy / baseline-existing / reset-demo. See ADR,
 # scripts/release/manual-production-deploy.mjs, and scripts/deploy/ncloud-deploy.sh.
-# Managed-Postgres migration is intentionally out of scope (decision map).
+# Managed-Postgres migration is intentionally out of scope (ADR).
 set -euo pipefail
 
 DB_CONTAINER="${DB_CONTAINER:-eldercare-fall-db}"

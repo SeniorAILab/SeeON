@@ -39,7 +39,7 @@ Gate columns show outcome of the final artifact.
 | ✗ | Gate failed (score forced to 0.0 for hard gates) |
 | — | Gate not evaluated / un-armed |
 
-## Adoption criteria (decision map)
+## Adoption criteria (ADR)
 
 A model may be promoted to production when:
 1. `recall_90_achieved = True` (P@R90 > 0 on this leaderboard)

@@ -48,7 +48,7 @@ from worker.perception.tracker import GreedyIouTracker
 
 # The demo exposes underscore keys (UI-friendly, e.g. ``random_forest``) while
 # the training pipeline (train.py / evaluate.py / artifact_dir) saves artifacts
-# under the kebab catalog key (e.g. ``random-forest``, decision map). The mapping is
+# under the kebab catalog key (e.g. ``random-forest``, ADR). The mapping is
 # mechanical so every CATALOG family is exposed without a demo-side edit.
 _KEY_TO_ARTIFACT: Final[dict[str, str]] = {key.replace("-", "_"): key for key in CATALOG}
 

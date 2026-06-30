@@ -12,7 +12,7 @@ Gold-label CSV schema (``ml/data/eval/nursing-home-gold.csv``)::
 Frame indices are 0-based inclusive to match OpenCV's ``CAP_PROP_POS_FRAMES``
 counter.
 
-Label-consistency validation is applied to every row (plan Step 8, decision map
+Label-consistency validation is applied to every row (plan Step 8, ADR
 fail-fast policy).  Raises ``ValueError`` on invalid data; no silent skips.
 
 Only ``status=confirmed`` rows count for gate evaluation; ``status=proposed``
@@ -138,7 +138,7 @@ def parse_gold_csv(
 
     Follows the annotation-parsing style of
     :func:`training.data.le2i.parse_fall_interval`: fail-fast (``ValueError``)
-    on malformed or inconsistent data; no silent skips (decision map).
+    on malformed or inconsistent data; no silent skips (ADR).
 
     Parameters
     ----------

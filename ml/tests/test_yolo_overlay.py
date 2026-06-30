@@ -90,7 +90,7 @@ def test_fall_box_uses_distinct_color_from_normal_box() -> None:
 def test_live_path_is_wired_through_the_contract() -> None:
     """app.py routes playback through the live viewer, which drives the model contract.
 
-    The real-time live-inference rework (decision map) replaced the pre-rendered
+    The real-time live-inference rework (ADR) replaced the pre-rendered
     player with ``live_view.iter_live_frames``: app.py imports ``live_view`` and
     composes the model via ``demo_ui.build_model`` (which imports the pose
     model-module), while ``live_view`` imports the contract types + overlay.

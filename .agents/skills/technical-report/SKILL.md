@@ -69,7 +69,7 @@ description: "Eldercare Fall AI 정본 기술 문서(secondbrain/book/, 00 Backg
 
 문서가 인용하는 시스템 사실은 yaml 의 `background` 에 depth 로 박아 둔다. 작성 시 여기서 가져오고, 없거나 불확실하면 실제 코드/repo 를 직접 읽어 확인한다(그리고 필요하면 승인받아 background 를 갱신한다).
 
-- **`background.eldercare_architecture`** — eldercare-fall-ai 시스템(backend/ml/front 구성, 낙상 탐지·알림 파이프라인, 데이터 계약, decision, 배포 토대 등)을 depth 로 담는다. `front/` 는 #257 머지로 **Vite + React 18 + react-router 앱**이 되었다(decision map) — 옛 Next.js 가정으로 쓰지 않는다.
+- **`background.eldercare_architecture`** — eldercare-fall-ai 시스템(backend/ml/front 구성, 낙상 탐지·알림 파이프라인, 데이터 계약, decision, 배포 토대 등)을 depth 로 담는다. `front/` 는 #257 머지로 **Vite + React 18 + react-router 앱**이 되었다(ADR) — 옛 Next.js 가정으로 쓰지 않는다.
 
 추측 금지가 핵심이다. 모르면 background 또는 코드에서 확인하고, 그래도 없으면 빈 채로 두지 말고 출처 확인을 먼저 한다.
 

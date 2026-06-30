@@ -13,10 +13,10 @@ the loop records them here and continues with other work instead of blocking.
 
 ## Decision log (autonomous decisions taken within plan/spec constraints)
 
-- 2026-06-10: decision number 015→016→**017** — `decision map-ml-models-single-root.md` then
-  `decision map-enforcement-timing-principle.md` landed on main via successive rebases;
+- 2026-06-10: decision number 015→016→**017** — `ADR-ml-models-single-root.md` then
+  `ADR-enforcement-timing-principle.md` landed on main via successive rebases;
   plan Step 17 mandated re-checking the number (`ls docs/decisions/`). Final:
-  `decision map-fall-model-adoption-criteria.md`.
+  `ADR-fall-model-adoption-criteria.md`.
 - 2026-06-10: LE2I-dependent steps unblocked early — user confirmed `le2i/poses` npz
   + Annotation_files txt fully arrived; only NH-dependent steps (evaluate_nh run,
   gold strips) wait on `ml/data/.RSYNC_DONE`. `le2i/raw` videos are NOT awaited
@@ -77,7 +77,7 @@ the loop records them here and continues with other work instead of blocking.
   ④ provenance = official UBFC source. Installed to
   `ml/data/le2i/raw/{scenario}/Annotation_files/`; smoke `--smoke-n 4` exit 0
   (all 5 families). Full 5-family baseline training launched.
-- 2026-06-11: `ModelMetadata` lacked decision map contract fields — train.py-written
+- 2026-06-11: `ModelMetadata` lacked ADR contract fields — train.py-written
   metadata.json failed `test_models_layout` (`source`/`reacquire` missing).
   Added `source="trained"` default + per-model `reacquire` command. Also note:
   smoke overwrote the canonical PoC artifacts under `ml/models/fall/` with toy

@@ -2,7 +2,7 @@
 
 > The issue-labeling facet of version control (hub: `docs/rules/version-control.md`).
 > Records the label/auto-label governance of
-> decision map.
+> ADR.
 
 Label taxonomy for issues and PRs. The `type:` label is the source of truth for the
 `<type>` component of branch names (see `docs/rules/worktree-workflow.md`) and commit

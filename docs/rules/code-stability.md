@@ -1,7 +1,7 @@
 # Rule: Code Stability — Deny-List
 
 **Scope:** repo-wide (`ml/`, `backend/`, `front/`).
-**Records:** decision map (fail-fast error policy).
+**Records:** ADR (fail-fast error policy).
 **Grounding:** `docs/research/code-stability-enforcement-practices.md` — verified enforcement
 standards (NASA/JPL Power of Ten Rules 5/7, TigerBeetle Tiger Style) are deny-lists of
 mechanically checkable violations, not advisory prose. Every rule below maps to a lint rule ID

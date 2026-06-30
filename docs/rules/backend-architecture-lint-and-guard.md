@@ -1,11 +1,11 @@
 # Backend architecture lint & guard
 
 > Scope: `backend/**`. Records the mechanical enforcement for
-> decision map
-> (the enforcement layer for decision map
-> layering) and decision map
-> (blocking DTO suffix/body-boundary gate). Single-source pattern per decision map;
-> warn-tier boundary per decision map.
+> ADR
+> (the enforcement layer for ADR
+> layering) and ADR
+> (blocking DTO suffix/body-boundary gate). Single-source pattern per ADR;
+> warn-tier boundary per ADR.
 > See also [backend-layering.md](./backend-layering.md), [dto-convention.md](./dto-convention.md),
 > [rest-api-convention.md](./rest-api-convention.md), [code-stability.md](./code-stability.md).
 
@@ -29,7 +29,7 @@
 - **DTOs live in `<domain>/dto/*.dto.ts`.** Do not declare exported `*Dto` interfaces/types inside controllers or services. Module folder layout (flat vs nested) is not normalized; only DTO location + inline-DTO warnings are enforced.
 - **DTO boundary names are role-suffixed.** The allowed suffixes and frontend mapper ownership live in [dto-convention.md](./dto-convention.md). This rule file records the enforcement hook only: `dto:check` rejects invalid exported DTO suffixes, inline `@Body()` object types, `Record<string, unknown>`, and body types that do not end in `RequestDto`.
 - **single source.** All backend guard logic lives in `scripts/backend-guard/`. `.githooks/pre-commit` and CI only invoke it — never reimplement. (The schema guard is intentionally not wired into agent `PreToolUse` hooks; git-native `pre-commit` already covers every vendor at commit.)
-- **decision map boundary.** Reversible layering/DTO/typed warnings appear only via editor ESLint + CI `lint`. They are never added as `pre-commit` or agent `PreToolUse` warn-tier hooks. Only the schema↔migration contract and decision map DTO contract are hook/CI-blocked.
+- **ADR boundary.** Reversible layering/DTO/typed warnings appear only via editor ESLint + CI `lint`. They are never added as `pre-commit` or agent `PreToolUse` warn-tier hooks. Only the schema↔migration contract and ADR DTO contract are hook/CI-blocked.
 - **tenant isolation is structural, not lint-checked.** Postgres RLS + the `PrismaService` runtime guard (`withFacilityContext`/`$allOperations`) are the source of truth. No static tenant checker exists by design.
 
 ## Commands
@@ -37,7 +37,7 @@
 ```sh
 # Non-mutating lint (no --fix). Warn-first: new rules are warnings; the CI step is
 # non-blocking (continue-on-error) during rollout because ~20 pre-existing type-safety
-# errors predate CI linting (decision map follow-up burns them down before blocking).
+# errors predate CI linting (ADR follow-up burns them down before blocking).
 pnpm --filter backend run lint
 
 # DTO naming + controller body boundary

@@ -30,7 +30,7 @@ def test_pose_weight_path_resolves_into_the_weights_cache(size: str) -> None:
 
 
 def test_weights_dir_is_ml_models_pose_not_project_root() -> None:
-    # The pose cache must sit at ml/models/pose/ (decision map), never ml/weights/ or the ml/ root.
+    # The pose cache must sit at ml/models/pose/ (ADR), never ml/weights/ or the ml/ root.
     assert WEIGHTS_DIR.name == "pose"
     assert WEIGHTS_DIR.parent.name == "models"
     assert WEIGHTS_DIR.parent.parent.name == "ml"

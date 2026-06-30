@@ -26,7 +26,7 @@ Lazy imports
 ------------
 ``cv2``, ``demo.*``, and ``training.extract_poses`` are imported inside
 functions so that ``from training.evaluate_nh import check_gate`` works in
-unit tests without loading YOLO weights (decision map fail-fast; no silent skips
+unit tests without loading YOLO weights (ADR fail-fast; no silent skips
 in production path).
 """
 
