@@ -24,7 +24,7 @@ Package boundaries are name-based and enforced by `ml/tests/test_import_dependen
 Use explicit ML runtime names:
 
 - `ml-api` is the FastAPI control/status/relay gateway. Its product routes live under `/api/v1`; health probes remain unversioned at `/health/live` and `/health/ready`. It may expose health, status, gateway model metadata, relay routes, and operator controls, but no prediction routes and no model loading.
-- `ml-worker` is the long-running stream consumer. It receives camera or gateway-provided RTSP streams, runs model/domain evaluation, and relays facts to local `ml-api` at `/api/v1/relay/*` per ADR-067/029.
+- `ml-worker` is the long-running stream consumer. It receives camera or gateway-provided RTSP streams, runs model/domain evaluation, and relays facts to local `ml-api` at `/api/v1/relay/*` per decision map.
 - `training` is not a runtime service. It creates and evaluates artifacts that worker runner code loads; it does not import worker runner packages.
 
 RTSP direction matters. The worker is not an RTSP server and must not embed a publisher. In development, camera-like RTSP input must come from a real camera/gateway or the external `SeniorAILab/rtsp-generator` CLI; this repo may only accept a configured worker-reachable RTSP URL. Do not add MediaMTX, FFmpeg, file-to-RTSP, or synthetic publisher scripts/commands here. Mock/stub/fake logic belongs in unit/contract test code and must not be presented as E2E evidence. Production worker code consumes configured streams and emits local relay events to `ml-api` under `/api/v1/relay/*`; it does not relay raw frames through FastAPI and does not call backend directly.

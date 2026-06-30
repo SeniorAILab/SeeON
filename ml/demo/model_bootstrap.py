@@ -3,7 +3,7 @@
 Streamlit Community Cloud builds straight from the GitHub repo, which carries
 no model weights (``ml/models/`` is gitignored; deny-assets blocks committing
 them). When ``models/fall/`` is absent, restore it from the public HF model
-repo that mirrors the ADR-015 custody layout (weights + metadata.json — no
+repo that mirrors the decision map custody layout (weights + metadata.json — no
 footage). Pose weights need no custody here: ``demo/model_modules.py`` already
 lets ultralytics auto-download into ``ml/models/pose/``.
 """

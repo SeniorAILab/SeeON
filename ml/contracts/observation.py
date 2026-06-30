@@ -49,11 +49,11 @@ class DetectionResult:
 
 @dataclass(frozen=True, slots=True)
 class FrameObservation:
-    """Per-frame perception observation in ADR-057 shape.
+    """Per-frame perception observation payload.
 
-    detections: (boxes, labels)
-    poses: per-person COCO-17 keypoints
-    regions: (bed_boxes, bed_exit_statuses)
+    detections: boxes and labels.
+    poses: per-person COCO-17 keypoints.
+    regions: bed boxes and bed-exit statuses.
     """
 
     detections: Detections = field(default_factory=lambda: ((), ()))

@@ -48,7 +48,7 @@ class ModelMetadata:
     version: str = "poc"
     dataset: str = "le2i"
     outputs: tuple[str, ...] = ("fall_prob",)
-    # ADR-015 layout contract: every artifact must declare provenance and a
+    # decision map layout contract: every artifact must declare provenance and a
     # non-empty reacquisition command (enforced by test_models_layout).
     source: str = "trained"
     reacquire: str = "cd ml && uv run python -m training.train"

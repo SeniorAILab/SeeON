@@ -80,7 +80,7 @@ across waves: linear-kernel trials with C≥5 plateau at 0.39–0.43.)
 | ✗ | Gate failed (score forced to 0.0 for hard gates) |
 | — | Gate not evaluated / un-armed |
 
-## Adoption criteria (ADR-017)
+## Adoption criteria (decision map)
 
 A model may be promoted to production when:
 1. `recall_90_achieved = True` (P@R90 > 0 on this leaderboard)

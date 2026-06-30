@@ -21,7 +21,7 @@ API_HEARTBEAT_STALE_AFTER_SEC_ENV = "API_HEARTBEAT_STALE_AFTER_SEC"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Boot ml-api as a thin backend gateway (ADR-067)."""
+    """Boot ml-api as a thin backend gateway (decision map)."""
     _load_config(app)
 
     if not isinstance(getattr(app.state, "heartbeat_store", None), HeartbeatStore):

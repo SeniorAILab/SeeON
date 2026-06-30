@@ -95,7 +95,7 @@ Focused verification owned by integration:
 
 Files:
 
-- `docs/decisions/common/ADR-041-port-standardization-compose-strategy.md`
+- `docs/decisions/README.md`
 - `docs/decisions/README.md`
 - `README.md`
 - `docs/exec-plan/active/monorepo-ports-compose-dev-prod/spec.md`

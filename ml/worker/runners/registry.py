@@ -1,8 +1,8 @@
 """Task-to-runner registry for model execution.
 
-ADR-057 keeps model swaps constrained to the runner implementation, model
-artifact, and config wiring; callers select a task and receive the configured
-runner without importing lower-level api modules directly.
+Model swaps stay constrained to the runner implementation, artifact, and config
+wiring. Callers select a task and receive the configured runner without
+importing lower-level API modules directly.
 """
 
 from __future__ import annotations

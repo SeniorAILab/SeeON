@@ -2,7 +2,7 @@
 
 > **Status: SUPERSEDED (Next.js-era rule).** This rule described the legacy Next.js
 > dashboard: admin pages under `front/src/app/admin/**` built on a shared
-> `front/src/lib/useCrud.ts` hook. The frontend is now **Vite + React** (ADR-055).
+> `front/src/lib/useCrud.ts` hook. The frontend is now **Vite + React** (decision map).
 > Admin pages live under `front/src/pages/admin/`, and there is **no `useCrud.ts`** —
 > the Vite front talks to the backend through the typed service layer in
 > `front/src/services/*` (e.g. `adminService.ts`, `residentService.ts`,

@@ -1,7 +1,7 @@
 # Edge device stack — runs on the external edge node, NOT on the host stack.
 # The edge performs ML inference locally. ml-worker relays alert/heartbeat facts
 # to local ml-api over the compose network, and ml-api is the only process that
-# pushes backend Event API requests over the public network (ADR-067/029).
+# pushes backend Event API requests over the public network.
 #
 # Usage (on the edge device):
 #   docker compose --env-file .env.edge.prod -f compose.edge.yaml up -d
