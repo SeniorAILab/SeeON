@@ -6,7 +6,7 @@ SSE is a dashboard realtime surface only. The canonical route is:
 GET /api/v1/dashboard/stream
 ```
 
-`backend/src/dashboard/sse.controller.ts` is the current server implementation. Frontend consumers must use `/api/v1/dashboard/stream` through the dashboard SSE client/proxy path; do not add parallel product streams without an ADR.
+`backend/src/dashboard/sse.controller.ts` is the current server implementation. Frontend consumers must use `/api/v1/dashboard/stream` through the dashboard SSE client/proxy path; do not add parallel product streams without an decision.
 
 ## Authentication
 

@@ -21,11 +21,11 @@ Edge device
 
 | 축 | 규칙 | 근거 |
 | --- | --- | --- |
-| REST namespace | product API는 `/api/*`, session/OAuth는 `/auth/*`, ML Event API ingress는 `/api/v1/events`와 `/api/v1/events/heartbeat`만 사용한다. dotted path나 legacy machine-ingest/HMAC route를 되살리지 않는다. | `backend/src/main.ts`, `backend/src/events/events.controller.ts`, `docs/rules/rest-api-convention.md`, ADR-046, ADR-047 |
-| DTO boundary | `@Body()` 요청 타입은 `*RequestDto` 등 역할 suffix가 있는 DTO여야 하며, DTO는 owning domain의 `dto/*.dto.ts`에 둔다. 외부 edge 입력은 `snake_case`, backend service/repository 내부는 mapper/parser 이후 `camelCase`를 쓴다. | `backend/src/events/dto/event.dto.ts`, `docs/rules/dto-convention.md`, ADR-066 |
-| Layering guard | controller→service→repository→ports/adapters/presenter 경계를 따른다. ESLint는 controller↛repository/Prisma/adapter, repository↛HTTP/service/controller 등을 warn-first로 드러내고, hard gate는 `scripts/backend-guard/`가 소유한다. | `docs/rules/backend-layering.md`, `docs/rules/backend-architecture-lint-and-guard.md`, ADR-064 |
-| Prisma naming | TypeScript/Prisma Client 필드는 `camelCase`, DB column/table은 `snake_case`를 `@map`/`@@map`으로 연결한다. 응답 DTO도 dashboard/frontend 계약에 맞춰 `camelCase`로 낸다. | `backend/prisma/schema.prisma`, `docs/rules/rest-api-convention.md`, ADR-049 |
-| RLS default-deny | tenant table 접근은 `PrismaService.withFacilityContext(facilityId, fn)` 안에서만 한다. 이 메서드가 transaction-local `app.facility_id` GUC를 설정하고, `$allOperations` guard가 bound context 없는 tenant model 접근을 차단한다. | `backend/src/prisma/prisma.service.ts`, `backend/src/common/tenant-context.ts`, ADR-032, ADR-059 |
+| REST namespace | product API는 `/api/*`, session/OAuth는 `/auth/*`, ML Event API ingress는 `/api/v1/events`와 `/api/v1/events/heartbeat`만 사용한다. dotted path나 legacy machine-ingest/HMAC route를 되살리지 않는다. | `backend/src/main.ts`, `backend/src/events/events.controller.ts`, `docs/rules/rest-api-convention.md`, ADR |
+| DTO boundary | `@Body()` 요청 타입은 `*RequestDto` 등 역할 suffix가 있는 DTO여야 하며, DTO는 owning domain의 `dto/*.dto.ts`에 둔다. 외부 edge 입력은 `snake_case`, backend service/repository 내부는 mapper/parser 이후 `camelCase`를 쓴다. | `backend/src/events/dto/event.dto.ts`, `docs/rules/dto-convention.md`, ADR |
+| Layering guard | controller→service→repository→ports/adapters/presenter 경계를 따른다. ESLint는 controller↛repository/Prisma/adapter, repository↛HTTP/service/controller 등을 warn-first로 드러내고, hard gate는 `scripts/backend-guard/`가 소유한다. | `docs/rules/backend-layering.md`, `docs/rules/backend-architecture-lint-and-guard.md`, ADR |
+| Prisma naming | TypeScript/Prisma Client 필드는 `camelCase`, DB column/table은 `snake_case`를 `@map`/`@@map`으로 연결한다. 응답 DTO도 dashboard/frontend 계약에 맞춰 `camelCase`로 낸다. | `backend/prisma/schema.prisma`, `docs/rules/rest-api-convention.md`, ADR |
+| RLS default-deny | tenant table 접근은 `PrismaService.withFacilityContext(facilityId, fn)` 안에서만 한다. 이 메서드가 transaction-local `app.facility_id` GUC를 설정하고, `$allOperations` guard가 bound context 없는 tenant model 접근을 차단한다. | `backend/src/prisma/prisma.service.ts`, `backend/src/common/tenant-context.ts`, ADR |
 
 ## Layered 아키텍처
 
@@ -128,16 +128,16 @@ SSE frame shape, replay/status snapshot/session invalid semantics는 wire contra
 - [REST API convention](../rules/rest-api-convention.md)
 - [DTO convention](../rules/dto-convention.md)
 - [Backend architecture lint & guard](../rules/backend-architecture-lint-and-guard.md)
-- [ADR-046 — REST API and layering convention](../decisions/backend/ADR-046-rest-api-and-layering-convention.md)
-- [ADR-064 — Backend layering lint and guard enforcement](../decisions/backend/ADR-064-backend-layering-lint-and-guard-enforcement.md)
-- [ADR-066 — Backend DTO contract hard gate](../decisions/backend/ADR-066-backend-dto-contract-hard-gate.md)
-- [ADR-036 — Nest domain-bounded layering for alerts](../decisions/backend/ADR-036-nest-domain-bounded-alerts-layering.md)
-- [ADR-035 — Backend-orchestrated alert API architecture](../decisions/backend/ADR-035-backend-orchestrated-alert-api-architecture.md)
-- [ADR-037 — Postgres alert event and delivery outbox model](../decisions/backend/ADR-037-alert-event-delivery-outbox-model.md)
-- [ADR-031 — Prisma Domain Model — Organization, Auth, Resident, Camera, Alert, ResidentStatus](../decisions/backend/ADR-031-prisma-domain-model.md)
-- [ADR-032 — B2B Facility Multitenancy — Postgres RLS Default-Deny + orgId Scoping](../decisions/backend/ADR-032-b2b-facility-multitenancy-rls.md)
-- [ADR-059 — Facility RLS GUC Rename](../decisions/backend/ADR-059-facility-rls-guc-rename.md)
-- [ADR-034 — SSE Realtime Transport — Read-Only Cookie-Auth Push with alertSeq Replay](../decisions/backend/ADR-034-sse-realtime-transport.md)
-- [ADR-043 — Canonical ingest single ingress for alert read-model and outbox](../decisions/backend/ADR-043-canonical-ingest-single-ingress.md)
-- [ADR-047 — Canonical ingest single ingress cleanup](../decisions/backend/ADR-047-canonical-ingest-single-ingress-cleanup.md)
-- [ADR-049 — Prisma column naming convention](../decisions/backend/ADR-049-prisma-column-naming-convention.md)
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR

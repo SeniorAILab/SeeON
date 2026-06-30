@@ -1,6 +1,6 @@
 # 아키텍처 문서 (개발자 온보딩)
 
-이 문서는 신규 합류 개발자가 코드를 열기 전에 전체 런타임이 어떻게 나뉘고 연결되는지 읽는 순서를 안내한다. `docs/onboarding/` 컬렉션은 wire 계약이나 ADR의 이유를 반복하지 않고, 요청·프레임·이벤트가 실제로 어떻게 흐르는지 설명한다.
+이 문서는 신규 합류 개발자가 코드를 열기 전에 전체 런타임이 어떻게 나뉘고 연결되는지 읽는 순서를 안내한다. `docs/onboarding/` 컬렉션은 wire 계약이나 decision의 이유를 반복하지 않고, 요청·프레임·이벤트가 실제로 어떻게 흐르는지 설명한다.
 
 ## 코드 열기 전에 읽는 순서
 
@@ -42,7 +42,7 @@
 
 ## 이 컬렉션의 범위
 
-`docs/onboarding/`는 시스템의 흐름과 구성(how it flows)을 설명한다. 정확한 HTTP body, SSE frame, route inventory 같은 wire 계약은 [`../api/`](../api/)가 소유하고, 왜 그런 결정을 했는지는 [`../decisions/`](../decisions/)의 ADR이 소유하며, 데이터 모델과 도메인 용어는 [`../domain/`](../domain/)에서 확인한다.
+`docs/onboarding/`는 시스템의 흐름과 구성(how it flows)을 설명한다. 정확한 HTTP body, SSE frame, route inventory 같은 wire 계약은 [`../api/`](../api/)가 소유하고, 왜 그런 결정을 했는지는 [`../decisions/`](../decisions/)의 decision이 소유하며, 데이터 모델과 도메인 용어는 [`../domain/`](../domain/)에서 확인한다.
 
 ## References
 
@@ -57,12 +57,5 @@
 ### Hubs
 
 - [`../api/`](../api/) — wire/API 계약
-- [`../decisions/`](../decisions/) — ADR 허브
+- [`../decisions/`](../decisions/) — ADR
 - [`../domain/`](../domain/) — 데이터 모델/도메인 문서
-
-### Referenced ADRs
-
-- [ADR-029 — Per-site edge inference with signal-only egress](../decisions/ml/ADR-029-edge-inference-deployment-topology.md)
-- [ADR-034 — SSE realtime transport — read-only cookie-auth push with alertSeq replay](../decisions/backend/ADR-034-sse-realtime-transport.md)
-- [ADR-062 — Host/Edge Compose topology — ML on the edge, front+backend+db on one host](../decisions/common/ADR-062-host-edge-compose-topology.md)
-- [ADR-067 — ML edge API and camera worker service split](../decisions/ml/ADR-067-ml-edge-api-worker-service-split.md)

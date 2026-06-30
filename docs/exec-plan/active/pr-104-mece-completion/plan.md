@@ -94,7 +94,7 @@ Revision 2의 핵심 변경은 **branch freshness를 최우선 게이트로 승�
 
 이 파일들은 #104 branch가 stale하면 없거나 오래된 상태일 수 있다. 따라서 첫 gate에서 존재를 확인해야 하며, 존재하지 않으면 edits를 시작하지 않는다.
 
-### `docs/decisions/ml/ADR-025-yolo26-pose-framework-adoption.md`
+### `docs/decisions/README.md`
 
 - ADR-005의 framework/domain-fit verification successor로 판단한다.
 - `## Verification Results (2026-06-08)` 또는 동등한 하위 섹션을 추가/확장한다.
@@ -103,28 +103,28 @@ Revision 2의 핵심 변경은 **branch freshness를 최우선 게이트로 승�
 - improvement roadmap 핵심을 보존한다: scale-up first, domain fine-tuning if misses persist, serving cost trade-off.
 - `Source mapping`에 original ADR-005 verification table이 이 ADR에 live-preserved 됐음을 명시한다.
 
-### `docs/decisions/ml/ADR-026-frame-model-seam-architecture.md`
+### `docs/decisions/README.md`
 
 - ADR-005의 stream/model seam clauses가 이미 대체되어 있으므로, live-ref audit에서 부족한 serving reuse 또는 `FrameSource`/`ModelModule` contract 세부가 있으면 보강한다.
 - `ml/demo/live_view.py`의 event badge 문맥은 ADR-027이 더 직접적이지만, `ModelModule.predict(frame) -> DetectionResult` truthfulness와 연결되는 경우 ADR-026/027 교차 참조를 유지한다.
 
-### `docs/decisions/ml/ADR-027-inference-output-baseline-policy.md`
+### `docs/decisions/README.md`
 
 - ADR-005 §5 live-ref를 이 successor로 치환할 수 있도록, fake output 금지와 real inference aggregation 원칙을 명시적으로 보강한다.
 - `ml/demo/app.py:175`와 `ml/demo/live_view.py:40`의 “badge aggregates real inference, never invents state” 참조 대상이 되게 한다.
 
-### `docs/decisions/ml/ADR-022-ml-serving-training-lifecycle.md`
+### `docs/decisions/README.md`
 
 - ADR-003의 serving endpoints, `PredictResponse` schema, uv dependency groups, Triton-inspired artifact rationale 중 현재 live-referenced/active인 부분을 audit한다.
 - PR #104의 current split에서는 lifecycle authority가 ADR-022이고 artifact layout은 ADR-015, ML/backend boundary는 ADR-023, demo/product boundary는 ADR-024다. 따라서 누락 내용은 각 owning successor에 분산 보강한다.
 - `ml/demo/app.py:5`와 `ml/demo/live_view.py:41`이 ADR-003 대신 ADR-024/ADR-023/ADR-010 등을 참조하도록 코드 주석을 수정한다.
 
-### `docs/decisions/ml/ADR-012-ml-data-domain-first-layout.md`
+### `docs/decisions/README.md`
 
 - ADR-004 live-referenced 부분인 raw-is-sacred, source footage ownership, gitignore/privacy invariant가 successor에 충분히 존재하는지 확인한다.
 - 부족하면 `retired source ADR-004`에서 inherited invariants를 보강한다.
 
-### `docs/decisions/ml/ADR-015-ml-models-single-root.md`
+### `docs/decisions/README.md`
 
 - ADR-007 live-referenced 부분인 weight cache/model root가 successor에 충분히 존재하는지 확인한다.
 - `ml/demo/model_modules.py:25`는 `ADR-007 and ADR-015`에서 `ADR-015` 또는 `ADR-015/ADR-025`로 갱신한다. 현재 pose cache path는 `ml/models/pose/`이므로 ADR-015가 주 authority다.
@@ -313,7 +313,7 @@ Gate: after edits, live refs outside allowlist must be 0. Allowlisted refs must 
 
 ### Gate 1 — ADR-005 figures present in chosen successor
 
-- `docs/decisions/ml/ADR-025-yolo26-pose-framework-adoption.md`에서 `51.3` search hit가 있어야 한다.
+- `docs/decisions/README.md`에서 `51.3` search hit가 있어야 한다.
 - 같은 파일에서 `Room 502`와 `25%`가 함께 확인되어야 한다.
 - 같은 파일에서 `Room 301`과 `51.3%`가 함께 확인되어야 한다.
 - 같은 파일에 OOD/detection-miss conclusion이 있어야 한다.

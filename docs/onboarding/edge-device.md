@@ -34,7 +34,7 @@
 
 ## 왜 두 프로세스인가
 
-ADR-067은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리한다. RTSP 스트림이 끊기거나 특정 카메라 추론이 느려져도 `ml-api`의 health/readiness/debug/status 표면은 독립적으로 살아 있어야 하고, backend Event API URL·공개 egress·relay token 검증은 한 프로세스에 모여야 한다.
+ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리한다. RTSP 스트림이 끊기거나 특정 카메라 추론이 느려져도 `ml-api`의 health/readiness/debug/status 표면은 독립적으로 살아 있어야 하고, backend Event API URL·공개 egress·relay token 검증은 한 프로세스에 모여야 한다.
 
 | 프로세스 | 책임 | 실제 코드 |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ ADR-067은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 �
 
 ## 3-state 모델
 
-ADR-074 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `ml-api`와 `ml-worker` 사이에 공유 mutable runtime state가 없다는 점이다.
+ADR 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `ml-api`와 `ml-worker` 사이에 공유 mutable runtime state가 없다는 점이다.
 
 | 상태 종류 | Owner | 흐름 | 현재 구현/방향 |
 | --- | --- | --- | --- |
@@ -92,7 +92,7 @@ ADR-074 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `ml-api
 | Events / facts | `ml-worker` 생성, `ml-api` egress | `worker → ml-api /api/v1/relay/* → backend /api/v1/events` | fall, bed-exit, heartbeat fact. `ml-worker`는 backend를 직접 호출하지 않는다. |
 | Runtime / flow state | process-local | 공유 없음 | worker의 detection window, `IncidentManager`, `LatestFrameBuffer`, `StatusStore`; api의 `HeartbeatStore`는 relay heartbeat에서 재구성한 별도 view다. |
 
-last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge가 기존 snapshot으로 계속 판단하는 운영 모델을 뜻한다. 이 문서의 현재 live path에서는 event/fact 업로드만 구현되어 있으며, policy config pull은 ADR-074의 후속 방향이다.
+last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge가 기존 snapshot으로 계속 판단하는 운영 모델을 뜻한다. 이 문서의 현재 live path에서는 event/fact 업로드만 구현되어 있으며, policy config pull은 ADR의 후속 방향이다.
 
 ## `ml-api` lifespan 부트 순서
 
@@ -131,9 +131,9 @@ last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge�
 - [./edge-worker-streaming.md](./edge-worker-streaming.md)
 - [../api/ml-serving-api.md](../api/ml-serving-api.md)
 - [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
-- [ADR-029 — Per-site edge inference with signal-only egress](../decisions/ml/ADR-029-edge-inference-deployment-topology.md)
-- [ADR-056 — ML frame intake and source package layout](../decisions/ml/ADR-056-ml-frame-intake-and-source-package-layout.md)
-- [ADR-057 — FrameObservation runner contracts and edge-runtime package architecture](../decisions/ml/ADR-057-frame-observation-runner-contracts-and-edge-runtime-architecture.md)
-- [ADR-067 — ML Edge Worker And API Relay Contract](../decisions/ml/ADR-067-ml-edge-api-worker-service-split.md)
-- [ADR-068 — ML Edge Worker Portable Video Runtime](../decisions/ml/ADR-068-ml-edge-worker-portable-video-runtime.md)
-- [ADR-074 — ML edge/central state and config-distribution responsibility split](../decisions/ml/ADR-074-ml-edge-central-state-and-config-distribution.md)
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR

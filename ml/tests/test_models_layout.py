@@ -1,7 +1,7 @@
 """Validate the ml/models/ layout + metadata.json contract (docs/rules/ml-models.md).
 
 ml/models/ is gitignored, so git hooks cannot see it — this test is the
-enforcement point for the ADR-015 contract. Skips entirely when the tree is
+enforcement point for the ADR contract. Skips entirely when the tree is
 absent (fresh clone / worktree without the symlink).
 """
 

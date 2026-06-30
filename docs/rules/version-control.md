@@ -2,11 +2,12 @@
 
 > **Single entry point for the version-control domain.** `AGENTS.md` routes here; this hub
 > routes to the four facet rules. No rule body lives here — each facet's SSOT owns its detail,
-> and [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md) records *why*
+> and ADR records *why*
 > the domain is shaped this way.
 
-How a unit of work moves from a GitHub issue to a merged change. The domain is **one decision**
-(ADR-008) expressed as four MECE facets, each with exactly one rule SSOT:
+How a unit of work moves from a GitHub issue to a merged change. The domain is
+captured in the ADR and expressed as four facets, each with exactly one
+rule SSOT:
 
 | Facet | Rule SSOT | Covers |
 |-------|-----------|--------|
@@ -17,10 +18,10 @@ How a unit of work moves from a GitHub issue to a merged change. The domain is *
 
 ## Why (decisions)
 
-- [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md) — the single
+- ADR — the single
   version-control decision: issue-driven worktrees enforced git-natively from one source, the
   PR size gate, and the issue Type auto-label.
-- [ADR-016](../decisions/common/ADR-016-enforcement-timing-principle.md) — cross-cutting
+- ADR — cross-cutting
   enforcement-*timing* principle (what blocks early vs. stays audit-tier); shared with other
   domains, not owned by version control.
 

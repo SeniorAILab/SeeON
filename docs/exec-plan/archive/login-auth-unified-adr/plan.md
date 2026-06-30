@@ -37,7 +37,7 @@ status: done
 
 ## Acceptance Checks
 
-- `docs/decisions/backend/ADR-071-login-oauth-operational-gate.md` covers OAuth,
+- `docs/decisions/README.md` covers OAuth,
   password login, signup, session/token handling, `/auth/session`, and Kakao
   operations.
 - `docs/decisions/README.md` maps retired auth source ADRs to ADR-071.

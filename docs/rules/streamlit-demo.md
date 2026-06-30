@@ -5,9 +5,9 @@
 >
 > **Decision references (not repeated here):**
 > live per-frame inference as the standard observation mode →
-> [ADR-010](../decisions/ml/ADR-010-realtime-live-inference-demo-mode.md);
+> ADR;
 > live-camera page and `CameraSource` →
-> [ADR-011](../decisions/ml/ADR-011-live-camera-intake-and-multipage-demo.md).
+> ADR.
 
 ## 1. Allowed operator controls
 
@@ -57,7 +57,7 @@ frame_ph.image(overlay, channels="RGB", use_container_width=True)
   path.
 - **Inference is never strided.** The model consumes every consecutive frame
   (stride-1 `VideoFileSource`) so live windows match the training/eval
-  pipelines (ADR-013 anti-skew). Only the *repaint* is decimated — every
+  pipelines (ADR anti-skew). Only the *repaint* is decimated — every
   `RENDER_FRAME_STRIDE`-th frame via `render_due()`, which also repaints
   immediately on any fall-state change so decimation never delays an alarm.
 - Pacing: `frame_interval = 1.0 / max(fps, 1.0)` per processed frame; sleep
@@ -66,14 +66,14 @@ frame_ph.image(overlay, channels="RGB", use_container_width=True)
 - **Latched event badge** — `FallEventLatch` (demo.live_view) turns rising
   edges of the raw fall signal into a persistent 🚨 badge (first onset time +
   count) above the status line. It is aggregation of real inference only —
-  it never invents or extends a fall state (ADR-027); the raw per-frame
+  it never invents or extends a fall state (ADR); the raw per-frame
   status stays untouched. Product alerting (ack, notifications) is backend
-  scope (ADR-023), not the demo's.
+  scope (ADR), not the demo's.
 
 ## 3. Independent overlay toggles
 
 Bounding boxes and the pose skeleton are **independent render options** on a
-single `DetectionResult` (per ADR-027), not separate models. Expose each as
+single `DetectionResult` (per ADR), not separate models. Expose each as
 its own `st.checkbox`; all four on/off combinations must render correctly, and
 "both off" returns a clean frame. `render_yolo_overlay(frame, result,
 show_boxes=..., show_pose=...)` honors the flags.
@@ -81,8 +81,8 @@ show_boxes=..., show_pose=...)` honors the flags.
 ## 4. Local-only demo — all data sources available
 
 The demo is a local developer/operator tool with no external/deployed surface
-([ADR-045](../decisions/common/ADR-045-streamlit-demo-local-only.md), superseding
-ADR-028; non-product per [ADR-024](../decisions/common/ADR-024-ml-demo-product-surface-boundary.md)).
+(ADR, superseding
+ADR; non-product per ADR).
 There is no `FALL_DEMO_MODE` and no public/operator branching: the demo always
 lists every internal `ml/data/{domain}/{raw,processed}` source plus session
 uploads, and always offers the laptop camera as a live source.
@@ -97,9 +97,9 @@ uploads, and always offers the laptop camera as a live source.
 
 - **Never expose this demo externally as-is** — it lists patient-adjacent
   nursing-home footage by design. Reviving a hosted demo requires a new
-  data-access-boundary ADR first (ADR-045). Footage custody (footage stays on
+  data-access-boundary decision first (ADR). Footage custody (footage stays on
   operator disks, out of Git) is owned by
-  [ADR-018](../decisions/ml/ADR-018-cross-machine-dataset-custody.md), not a demo runtime mode.
+  ADR, not a demo runtime mode.
 - The upload widget accepts the `SUPPORTED_VIDEO_EXTENSIONS` set (mp4, mov, avi, mkv).
 - `video_id` format is `"{domain}/{role}/{filename}"` — unique within one
   `ml/data/` root; never reintroduce the role-only format (it collides across
@@ -119,7 +119,7 @@ Selecting the pose model size is a **one-line weight swap through the model cont
 (`pose_weight_filename(size)` → `yolo26{size}-pose.pt`), not bespoke UI logic.
 Any future "choose pose model" or "choose downstream classifier" control must be
 wired through `demo.classifiers` / `demo.model_modules`, leaving the renderer
-and downstream consumers untouched (ADR-050/027). Do not branch the UI on
+and downstream consumers untouched (ADR). Do not branch the UI on
 framework internals.
 
 ## 7. Operational notes
@@ -127,7 +127,7 @@ framework internals.
 - **First-select latency.** `yolo26{s,m,l,x}-pose.pt` weights download on first
   selection and are large. They cache to `ml/models/pose/` (not the `ml/` root) via
   `pose_weight_path(size)` — see [ml-filesystem-layout.md](./ml-filesystem-layout.md)
-  and ADR-015. `*.pt` is gitignored — never commit weights. Expect a one-time
+  and ADR. `*.pt` is gitignored — never commit weights. Expect a one-time
   download delay when a size is picked for the first time.
 - **Import contract.** `streamlit run demo/app.py` only puts `ml/demo/` on the
   path; pytest uses `pythonpath=["."]` = `ml/`. `app.py` bootstraps `sys.path`
@@ -136,14 +136,14 @@ framework internals.
   Do not reintroduce `core`/`util` imports or `try/except ModuleNotFoundError`
   dual-import shims.
 - **Never fabricate data.** Nothing in the demo may paint keypoints, boxes, or
-  labels that did not come from a real model inference (ADR-027).
+  labels that did not come from a real model inference (ADR).
 
 ## 8. No demo-only fallback — run the real single code path
 
 The demo is the **edge-node prototype** of the production system
-([ADR-029](../decisions/ml/ADR-029-edge-inference-deployment-topology.md)), not a
+(ADR), not a
 separate toy wired to mocks. It must exercise the same model/domain code paths where practical, while production live classification belongs to `ml-worker`; a demo that invents mocks proves nothing about production and rots.
-This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
+This is ADR
 (fail-fast, no fake substitution) applied to the demo.
 
 **Do NOT:**
@@ -156,8 +156,8 @@ This is [ADR-014](../decisions/common/ADR-014-fail-fast-error-policy.md)
   from production. If a dependency (serving, DB, backend) is down, the demo
   **fails loudly** — it does not quietly degrade to a fake path. When required model artifacts are missing, temporal fall classification raises instead of fabricating probability.
 
-**Allowed (not a bypass):** pose extraction and temporal classification stay **edge-local** in the demo harness. That mirrors the edge-local half of ADR-029, while the production service that performs live classification is `ml-worker`, not `ml-api`.
+**Allowed (not a bypass):** pose extraction and temporal classification stay **edge-local** in the demo harness. That mirrors the edge-local half of ADR, while the production service that performs live classification is `ml-worker`, not `ml-api`.
 What must never be bypassed is the **classification decision** and the **emit
 path**. The demo surface may differ from `front/`
-([ADR-024](../decisions/common/ADR-024-ml-demo-product-surface-boundary.md)); the
+(ADR); the
 code path underneath may not.

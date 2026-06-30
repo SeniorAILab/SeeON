@@ -30,8 +30,8 @@ See `src/AGENTS.md` before changing frontend application code.
   Both paths must mint the same httpOnly backend session cookie and restore via
   `/auth/session`. Do not reintroduce frontend mock auth users or localStorage
   auth sessions.
-- `strictPort` 3000 (ADR-041); pnpm only, never an npm lockfile.
+- `strictPort` 3000 (ADR); pnpm only, never an npm lockfile.
 
 ## Run
 - test: `pnpm --filter front test`.
-- lint: `pnpm --filter front lint` (check) / `pnpm --filter front lint:fix` (autofix). Convention: ADR-070.
+- lint: `pnpm --filter front lint` (check) / `pnpm --filter front lint:fix` (autofix). Convention: ADR.

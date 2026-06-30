@@ -1,7 +1,7 @@
 # Worktree Workflow
 
 > The branch & worktree facet of version control (hub: `docs/rules/version-control.md`).
-> See [ADR-008](../decisions/common/ADR-008-issue-driven-worktree-enforcement.md) for the
+> See ADR for the
 > rationale. Enforcement is automatic via `scripts/git-guard/` and `.githooks/` after running
 > `scripts/git-guard/setup-hooks.sh`.
 
@@ -159,7 +159,7 @@ git remote set-url origin https://github.com/SeniorAILab/eldercare-fall-ai.git
 | `scripts/git-guard/assert-not-main.sh` | Exits 1 when HEAD is on a protected branch |
 | `scripts/git-guard/check-freshness.sh` | Compares HEAD to upstream; block or warn mode |
 | `scripts/git-guard/check-lint.sh` | Lint + typecheck on changed packages at pre-push (mirrors `ci.yml`); `GIT_GUARD_SKIP_LINT=1` bypass |
-| `scripts/git-guard/deny-assets.sh` | Blocks committing large/binary asset classes (irreversible-leak gate, ADR-016) |
+| `scripts/git-guard/deny-assets.sh` | Blocks committing large/binary asset classes (irreversible-leak gate, ADR) |
 | `scripts/git-guard/sync-main.sh` | Fast-forwards local default branch to `origin` (ff-only, safe); run at session start |
 | `scripts/git-guard/check-migrations.sh` | Rejects out-of-order Prisma migrations (new ts ≤ latest on base); run in backend CI |
 | `scripts/git-guard/setup-hooks.sh` | Post-clone setup (idempotent) |

@@ -1,10 +1,9 @@
 # Rule: ML training pipeline conventions
 
 > Scope: `ml/training/` and the artifacts it produces. Operational parameters,
-> procedures, and contracts. The *decisions* behind them live in
-> [ADR-013](../decisions/ml/ADR-013-le2i-training-pipeline-decisions.md)
-> (dataset, labelling, threshold policy, gold-clip eval) on top of
-> [ADR-009](../decisions/ml/ADR-009-fall-classification-strategy.md) (strategy) and [ADR-025](../decisions/ml/ADR-025-yolo26-pose-framework-adoption.md) (pose backbone; extracted from retired source ADR-005).
+> procedures, and contracts. The current decisions behind dataset, labelling,
+> threshold, gold-clip evaluation, strategy, and pose backbone choices are
+> summarized in the ADR.
 
 ## Locked parameters (`training/config.py` is the single source of truth)
 
@@ -20,7 +19,7 @@
 | `FEATURE_DIM` | 45 | defined by `training/data/features.py` — never derived elsewhere |
 
 Changing `T_WINDOW`/`STRIDE`/`OVERLAP_THRESHOLD` invalidates every trained
-artifact and the metadata contract — that is an ADR-013 supersede, not a tweak.
+artifact and the metadata contract — that is an ADR supersede, not a tweak.
 
 ## Pipeline procedure
 
@@ -75,5 +74,5 @@ moved — the live demo depends on this.
   (`le2i-poc-results.csv`, `gold8-poc-results.csv`).
 - The gold-clip pass (`--gold-clips-dir`, default: the nursing-home processed
   folder) is the domain-transfer check — report it alongside Le2i metrics,
-  including `no_person_frac` per clip and the ADR-009 rule-based floor (0/8).
+  including `no_person_frac` per clip and the ADR rule-based floor (0/8).
   Le2i metrics alone never gate a model.

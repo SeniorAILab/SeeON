@@ -133,7 +133,7 @@ def test_detect_invokes_runner_exactly_once() -> None:
     detector.detect(_frame())
 
     # One seed-frame inference; the page caches the ROIs and never re-detects
-    # per frame (the per-frame path stays a single pose pass, ADR-005 §3).
+    # per frame (the per-frame path stays a single pose pass; see the ADR).
     assert runner.calls == 1
 
 

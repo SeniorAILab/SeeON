@@ -1,7 +1,7 @@
 # Rule: Code Stability — Deny-List
 
 **Scope:** repo-wide (`ml/`, `backend/`, `front/`).
-**Records:** ADR-014 (fail-fast error policy).
+**Records:** ADR (fail-fast error policy).
 **Grounding:** `docs/research/code-stability-enforcement-practices.md` — verified enforcement
 standards (NASA/JPL Power of Ten Rules 5/7, TigerBeetle Tiger Style) are deny-lists of
 mechanically checkable violations, not advisory prose. Every rule below maps to a lint rule ID
@@ -63,5 +63,5 @@ lint config is hardened (tracked separately — see plan `code-stability-enforce
   no rule in this document can catch it. That is a runtime-monitoring concern (research §3),
   not a code-stability one. Mixing the two dilutes both.
 - **Resilience fallbacks** (circuit breakers, graceful degradation): the default in this repo is
-  fail-fast; a legitimate resilience exception must cite ADR-014's escape hatch — an explicit,
+  fail-fast; a legitimate resilience exception must use the documented escape hatch — an explicit,
   logged, alert-raising degradation, never a silent one.
