@@ -6,25 +6,24 @@
 
 `front/`는 ADR에 따라 Vite 5 + React 18이 제품 frontend SSOT다. 로컬/운영 런타임의 기본값은 real backend 모드이며, `front/src/services/apiClient.ts`의 `API_BASE_URL` 기본값은 `VITE_API_BASE_URL ?? "/api/v1"`다. `VITE_USE_MOCK=true`는 `front/AGENTS.md`와 `front/src/AGENTS.md`가 명시하듯 자동테스트 전용이며, dev/prod의 demo 경로나 제품 런타임으로 취급하지 않는다.
 
-운영 컨테이너에서는 `front/nginx.conf`가 정적 SPA를 서빙하고 `/api/`와 `/auth/`를 `backend:8080`으로 same-origin reverse proxy한다. 따라서 브라우저는 대부분 상대 경로(`/api/v1/...`, `/auth/...`)로 호출하고, backend session cookie는 same-origin 요청에 자동 포함된다.
+운영 컨테이너에서는 `front/nginx.conf`가 정적 SPA를 서빙하고 `/api/`를 `backend:8080`으로 same-origin reverse proxy한다. 따라서 브라우저는 상대 경로(`/api/v1/...`)로 호출하고, backend session cookie는 same-origin 요청에 자동 포함된다.
 
 ```text
 Browser SPA (:3000)
   ├─ static assets / client routes ──> Vite build served by nginx
-  ├─ /api/*  ────────────────────────> backend:8080 API
-  └─ /auth/* ────────────────────────> backend:8080 auth/session/OAuth
+  └─ /api/v1/* ──────────────────────> backend:8080 product API, auth/session/OAuth
 ```
 
 ## 2. Backend 호출 seam: service → apiClient
 
-프론트의 backend 호출 경계는 `front/src/services/apiClient.ts`다. `requestJson()`과 `requestNoContent()`는 `buildApiUrl()`로 base URL을 붙이고, real backend 모드에서는 기본 `credentials: "include"`로 cookie auth를 유지한다. 인증처럼 `/auth/*` 또는 비버전 prefix가 필요한 호출은 endpoint 함수에서 `{ apiPrefix: false }`를 넘긴다.
+프론트의 backend 호출 경계는 `front/src/services/apiClient.ts`다. `requestJson()`과 `requestNoContent()`는 `buildApiUrl()`로 `/api/v1` base URL을 붙이고, real backend 모드에서는 기본 `credentials: "include"`로 cookie auth를 유지한다. 인증 endpoint도 `/api/v1/auth/*`로 호출한다.
 
 ```text
 user action / page effect
   → domain service (`front/src/services/*.ts`)
   → endpoint mapper (`front/src/services/api/*.ts`, backend DTO parse/map)
   → `requestJson` / `requestNoContent` (`front/src/services/apiClient.ts`)
-  → backend (`/api/v1/*`, `/auth/*`)
+  → backend (`/api/v1/*`)
 ```
 
 | 계층 | 주요 파일 | 책임 |
@@ -35,7 +34,7 @@ user action / page effect
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
 | TTS side effect | `front/src/services/tts/*`, `front/src/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
 
-현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/auth/login`, `restoreSessionEndpoint()`는 `/auth/session`, `logoutEndpoint()`는 `/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/store/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
+현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/api/v1/auth/login`, `restoreSessionEndpoint()`는 `/api/v1/auth/session`, `logoutEndpoint()`는 `/api/v1/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/store/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
 
 대시보드/관리/이벤트/영상/구역 service는 같은 seam을 향하도록 분리되어 있다. `dashboardService.ts`는 dashboard read-model shape(`DashboardResponse`)를 페이지에 제공하고, `eventService.ts`는 이벤트 확인·조치 유스케이스, `adminService.ts`는 시설/층/공간/알림규칙/사용자 관리 유스케이스, `videoService.ts`는 관리자 전용 event clip 권한·signed URL·access log 정책, `zoneService.ts`는 공간 내 구역과 어르신 배정을 담당한다.
 

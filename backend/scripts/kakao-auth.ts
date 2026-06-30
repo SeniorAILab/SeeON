@@ -5,7 +5,7 @@ import { request } from 'node:https';
 import { dirname, resolve } from 'node:path';
 
 const DEFAULT_ENV_PATH = resolve(process.cwd(), '../.env.local');
-const DEFAULT_REDIRECT_URI = 'http://localhost:8080/auth/kakao/callback';
+const DEFAULT_REDIRECT_URI = 'http://localhost:8080/api/v1/auth/kakao/callback';
 const KAKAO_AUTHORIZE_URL = 'https://kauth.kakao.com/oauth/authorize';
 const KAKAO_TOKEN_URL = 'https://kauth.kakao.com/oauth/token';
 const REQUEST_TIMEOUT_MS = 10_000;

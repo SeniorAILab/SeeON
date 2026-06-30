@@ -13,7 +13,7 @@ GET /api/v1/dashboard/stream
 - Auth is cookie-based with the `app_session` cookie.
 - The route uses `SessionGuard` and `RequireFacilityGuard`, so every stream is bound to one authenticated facility.
 - The stream periodically re-validates the server session. If the session is revoked, expired, or version-invalid, the server emits `event: session-invalid` and closes the stream.
-- The legacy `/sse` auth probe is removed. Session checks use `/auth/session`; realtime clients use `/api/v1/dashboard/stream`.
+- The legacy `/sse` auth probe is removed. Session checks use `/api/v1/auth/session`; realtime clients use `/api/v1/dashboard/stream`.
 
 ## Event contract
 
