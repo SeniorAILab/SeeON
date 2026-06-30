@@ -5,17 +5,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
 const SSE_PATH = "/dashboard/stream";
 
-
-interface ApiClientOptions {
-  apiPrefix?: boolean;
-}
-
-export function buildApiUrl(
-  path: string,
-  { apiPrefix = true }: ApiClientOptions = {}
-): string {
-  const base = apiPrefix ? API_BASE_URL : API_BASE_URL.replace(/\/api(?:\/v\d+)?\/?$/, "");
-  return `${base}${path}`;
+export function buildApiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
 }
 
 export function buildSseUrl(): string {
@@ -28,12 +19,11 @@ export function isAbsoluteApiUrl(url: string): boolean {
 
 export async function requestJson(
   path: string,
-  options: RequestInit = {},
-  clientOptions?: ApiClientOptions
+  options: RequestInit = {}
 ): Promise<unknown> {
   const credentials: RequestCredentials | undefined =
     options.credentials ?? (!USE_MOCK ? "include" : undefined);
-  const res = await fetch(buildApiUrl(path, clientOptions), {
+  const res = await fetch(buildApiUrl(path), {
     ...options,
     ...(credentials ? { credentials } : {}),
     headers: {
@@ -50,12 +40,11 @@ export async function requestJson(
 
 export async function requestNoContent(
   path: string,
-  options: RequestInit = {},
-  clientOptions?: ApiClientOptions
+  options: RequestInit = {}
 ): Promise<void> {
   const credentials: RequestCredentials | undefined =
     options.credentials ?? (!USE_MOCK ? "include" : undefined);
-  const res = await fetch(buildApiUrl(path, clientOptions), {
+  const res = await fetch(buildApiUrl(path), {
     ...options,
     ...(credentials ? { credentials } : {}),
     headers: {

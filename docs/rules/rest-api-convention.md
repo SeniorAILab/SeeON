@@ -1,14 +1,12 @@
 # REST API convention
 
-This repo has three HTTP namespaces. Do not add a fourth without an decision.
+This repo keeps product HTTP routes under `/api/v1/*`. Do not add another product namespace without a decision.
 
 ## Namespaces
 
-- `/api/*` is the product API used by the dashboard and other authenticated product clients.
-  - Current examples: `GET /api/status`, `GET /api/alerts`, `PATCH /api/alerts/:id/ack`, `GET /api/cameras`, `GET /api/residents`, `GET /api/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/facilities/current`, `POST /api/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/floors`, `/api/spaces`, and `/api/spaces/:spaceId/zones`.
-  - Product `/api/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
-- `/auth/*` is session and OAuth only.
-  - Current examples: `/auth/kakao/login`, `/auth/kakao/callback`, `/auth/session`, and `/auth/logout` in `backend/src/auth/auth.controller.ts`.
+- `/api/v1/*` is the product API used by the dashboard and other authenticated product clients.
+  - Current examples: `POST /api/v1/auth/login`, `GET /api/v1/auth/kakao/login`, `GET /api/v1/auth/session`, `GET /api/v1/alerts`, `PATCH /api/v1/alerts/:id/ack`, `GET /api/v1/cameras`, `GET /api/v1/residents`, `GET /api/v1/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/v1/facilities/current`, `POST /api/v1/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/v1/floors`, `/api/v1/spaces`, and `/api/v1/spaces/:spaceId/zones`.
+  - Product `/api/v1/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
 - ML Event API ingress is under `/api/v1/events` and is no-HMAC.
   - Current canonical routes: `POST /api/v1/events` and `POST /api/v1/events/heartbeat` in `backend/src/events/events.controller.ts`.
 
@@ -33,7 +31,7 @@ This repo has three HTTP namespaces. Do not add a fourth without an decision.
   - `PATCH /api/alerts/:id/ack` returns the updated alert.
   - Duplicate `POST /api/v1/events` returns a body with duplicate status instead of pretending a second event was created.
 - `204 No Content` for logout or delete-like operations that intentionally return no body.
-  - `POST /auth/logout` is the reference.
+  - `POST /api/v1/auth/logout` is the reference.
 - DELETE semantics for product resources: `204` for a hard delete, `200` with a body for a soft delete (e.g. `isActive=false`), and `409` when the resource is still referenced (e.g. a floor with active child spaces).
 
 ## Error shape
@@ -57,3 +55,4 @@ Concrete refactor history:
 - `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.
 - `GET /api/resident-assignments` becomes `GET /api/residents/assignments` (assignments folded into the residents aggregate, ADR).
 - `/api/zones[/:zoneId]` becomes `/api/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).
+- `/auth/*` moves to `/api/v1/auth/*`; no unversioned compatibility alias is retained.

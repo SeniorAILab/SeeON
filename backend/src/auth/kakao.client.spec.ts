@@ -6,7 +6,7 @@ function client(env: Record<string, string> = {}): KakaoClient {
   return new KakaoClient(
     new ConfigService({
       KAKAO_REST_API_KEY: 'test-rest-api-key',
-      KAKAO_REDIRECT_URI: 'http://localhost/auth/kakao/callback',
+      KAKAO_REDIRECT_URI: 'http://localhost/api/v1/auth/kakao/callback',
       ...env,
     }),
   );
@@ -55,7 +55,7 @@ describe('KakaoClient.buildAuthorizeUrl scope resolution', () => {
     const url = new URL(client().buildAuthorizeUrl('test-state'));
     expect(url.searchParams.get('client_id')).toBe('test-rest-api-key');
     expect(url.searchParams.get('redirect_uri')).toBe(
-      'http://localhost/auth/kakao/callback',
+      'http://localhost/api/v1/auth/kakao/callback',
     );
     expect(url.searchParams.get('response_type')).toBe('code');
     expect(url.searchParams.get('state')).toBe('test-state');

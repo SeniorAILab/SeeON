@@ -46,30 +46,22 @@ export function mapBackendRoleToFrontRole(
 }
 
 export function kakaoLoginUrl(): string {
-  return buildApiUrl("/auth/kakao/login", { apiPrefix: false });
+  return buildApiUrl("/auth/kakao/login");
 }
 
 export async function logoutEndpoint(): Promise<void> {
-  await requestNoContent(
-    "/auth/logout",
-    {
-      method: "POST",
-      credentials: "include",
-    },
-    { apiPrefix: false }
-  );
+  await requestNoContent("/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
 }
 
 export async function loginEndpoint(input: LoginInput): Promise<AuthSession> {
-  const body = await requestJson(
-    "/auth/login",
-    {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify(input),
-    },
-    { apiPrefix: false }
-  );
+  const body = await requestJson("/auth/login", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
   const session = parseAuthSessionResponse(body);
   if (!session) throw new Error("로그인 응답이 올바르지 않습니다.");
   return session;
@@ -78,28 +70,20 @@ export async function loginEndpoint(input: LoginInput): Promise<AuthSession> {
 export async function registerEndpoint(
   input: RegisterInput
 ): Promise<AuthSession> {
-  const body = await requestJson(
-    "/auth/register",
-    {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify(input),
-    },
-    { apiPrefix: false }
-  );
+  const body = await requestJson("/auth/register", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
   const session = parseAuthSessionResponse(body);
   if (!session) throw new Error("회원가입 응답이 올바르지 않습니다.");
   return session;
 }
 
 export async function restoreSessionEndpoint(): Promise<AuthSession | null> {
-  const body = await requestJson(
-    "/auth/session",
-    {
-      credentials: "include",
-    },
-    { apiPrefix: false }
-  );
+  const body = await requestJson("/auth/session", {
+    credentials: "include",
+  });
   return parseAuthSessionResponse(body);
 }
 

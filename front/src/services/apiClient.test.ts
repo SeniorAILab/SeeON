@@ -79,7 +79,7 @@ describe("apiClient.requestJson", () => {
     );
   });
 
-  it("keeps apiPrefix:false prefixless with the default /api/v1 base", async () => {
+  it("prefixes auth paths with the default /api/v1 base", async () => {
     vi.stubEnv("VITE_USE_MOCK", "false");
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -87,10 +87,10 @@ describe("apiClient.requestJson", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { requestJson } = await import("./apiClient");
-    await requestJson("/auth/session", {}, { apiPrefix: false });
+    await requestJson("/auth/session");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/auth/session",
+      "/api/v1/auth/session",
       expect.objectContaining({ credentials: "include" })
     );
   });
