@@ -6,7 +6,7 @@ Python (uv) project. Owns **two lifecycles**:
 - `api/` — **online gateway**: private/local FastAPI app exposing health, status, models, relay routes, and bounded control surfaces; no ML/model loading.
 - `worker.edge_worker` — **online worker**: production RTSP camera ownership, model/domain evaluation, heartbeat/alert fact creation, and local relay to `ml-api`.
 
-Production live path: `RTSP -> ml-worker -> ml-api /api/v1/relay/* -> backend /api/v1/events` (ADR-067/029). `ml-api`
+Production live path: `RTSP -> ml-worker -> ml-api /api/v1/relay/* -> backend /api/v1/events` (decision map). `ml-api`
 does not own production RTSP or raw frame relay; it owns backend Event API gateway side effects.
 
 Plus `demo/` (Streamlit ML-demo UI), `tests/`, and `models/` artifact storage.
@@ -28,14 +28,14 @@ ml/
   training/               # batch training, evaluation, and artifact production
   demo/                   # Streamlit local demo UI
   tests/                  # pytest coverage for package boundaries and behavior
-  models/                 # ADR-015 model artifacts (gitignored weights where applicable)
+  models/                 # decision map model artifacts (gitignored weights where applicable)
     pose/                 # YOLO pose weights resolved by contracts.artifacts.pose_weight_path()
     fall/                 # trained fall-classifier artifacts and metadata
   data/                   # local datasets/uploads (gitignored)
     raw/  processed/  uploads/
 ```
 
-The artifact layout is path-addressed under `ml/models/` per ADR-015. Pose weights cache under `ml/models/pose/`; trained fall-classifier files live under the model-family directories used by the training catalog. Do not reintroduce retired model/version artifact trees.
+The artifact layout is path-addressed under `ml/models/` per decision map. Pose weights cache under `ml/models/pose/`; trained fall-classifier files live under the model-family directories used by the training catalog. Do not reintroduce retired model/version artifact trees.
 
 ## Commands (from repo root)
 

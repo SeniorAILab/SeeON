@@ -3,7 +3,7 @@
 > Scope: NotebookLM 노트북에 입수하는 모든 소스. 모든 수치 기준은 `SRC_GATE_*`
 > 환경변수로 오버라이드 가능하다(하드코딩 없음).
 > 강제 메커니즘은 `.claude/skills/notebooklm-source-curation/`에 구현된다.
-> Venue 판정 메커니즘 근거는 향후 별도 ADR로 distill한다. 현재 재구성된 ADR-021은 ML demo cloud deployment deferral이므로 이 규칙은 ADR-021 번호를 선점하지 않는다.
+> Venue 판정 메커니즘 근거는 향후 별도 decision로 distill한다. 현재 재구성된 decision map은 ML demo cloud deployment deferral이므로 이 규칙은 decision map 번호를 선점하지 않는다.
 
 ---
 
@@ -30,7 +30,7 @@
 
 - 기본 N: **10** (`SRC_GATE_VENUE_TOP_N=10`)
 - Allowlist 파일: `docs/rules/notebooklm-venue-allowlist.yaml`
-- Venue 판정 메커니즘: **수동 스냅샷 YAML, repo 커밋, 연 1회 갱신** (ADR-021 플래그).
+- Venue 판정 메커니즘: **수동 스냅샷 YAML, repo 커밋, 연 1회 갱신** (decision map 플래그).
   GS Metrics는 통상 매년 6월 갱신된다. 갱신 후 allowlist를 PR로 업데이트한다.
 
 **대상 카테고리** (낙상 도메인 특성: CV/AI 학회 중심 + 의료 저널 혼합):

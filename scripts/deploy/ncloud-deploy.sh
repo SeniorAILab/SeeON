@@ -146,7 +146,7 @@ assert_prisma_managed() {
   # migrate deploy) when the schema already has domain tables but no
   # _prisma_migrations ledger — a database that predates Prisma tracking (e.g. the
   # legacy raw-SQL replay path). Auto-baselining here would be unsafe; the operator
-  # must run the guarded one-time DEPLOY_DB_MODE=baseline-existing instead (ADR-073).
+  # must run the guarded one-time DEPLOY_DB_MODE=baseline-existing instead (decision map).
   rows="$(prisma_migration_rows)"
   table_count="$(domain_table_rows)"
   if [ "$rows" -le 0 ] && [ "$table_count" -gt 0 ]; then
@@ -197,7 +197,7 @@ reset_demo() {
 bootstrap_super_admin() {
   # No-op unless SUPER_ADMIN_PASSWORD is configured (script self-skips). Distinct
   # layer from the demo seed: idempotently ensures one email/password SUPER_ADMIN
-  # exists so a migrated production database is operable (ADR-073).
+  # exists so a migrated production database is operable (decision map).
   compose_full run --rm backend node dist/prisma/seed-super-admin.js
 }
 

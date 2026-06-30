@@ -30,7 +30,7 @@ hub only (no rule body).
 
 ## Steps (execution order)
 
-1. **Rework ADR-008 → single "Version Control" decision** (`docs/decisions/common/ADR-008-*.md`):
+1. **Rework ADR-008 → single "Version Control" decision** (`docs/decisions/README.md`):
    - Retitle to reflect the version-control domain.
    - Absorb ADR-039 content: PR size threshold (XL>1000 hard, L>500 recommended), logic-churn
      basis, `size/override` hatch — as a Decision section + its drivers.

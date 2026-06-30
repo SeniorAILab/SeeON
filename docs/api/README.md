@@ -2,7 +2,7 @@
 
 `docs/api/` is the single owner for the **current** front↔backend↔ML HTTP API and realtime event contracts.
 
-These pages describe the contract **as implemented** (issue #216 / PR #217 plus the facility rename and placement route follow-ups): the code matches these files, not the other way around. Future API/event changes update these pages (and the relevant ADR) first, then the code.
+These pages describe the contract **as implemented** (issue #216 / PR #217 plus the facility rename and placement route follow-ups): the code matches these files, not the other way around. Future API/event changes update these pages (and the relevant decision) first, then the code.
 
 ## Contract index
 
@@ -18,10 +18,10 @@ These pages describe the contract **as implemented** (issue #216 / PR #217 plus 
 API/event changes are made in this order:
 
 1. Update the relevant `docs/api/*` page with the new contract.
-2. Update or add the relevant ADR under `docs/decisions/{backend,frontend,ml,common}/` when the change is expensive to reverse or changes ownership boundaries.
+2. Update or add the relevant decision under `docs/decisions/{backend,frontend,ml,common}/` when the change is expensive to reverse or changes ownership boundaries.
 3. Refactor backend, frontend, ML API, tests, and migrations to match the documented contract.
 
-Do not create a root `contracts/` directory. Contract ownership stays under `docs/api/`, with ADRs explaining durable decisions.
+Do not create a root `contracts/` directory. Contract ownership stays under `docs/api/`, with decisions explaining durable decisions.
 
 ## Layer ownership
 
@@ -32,4 +32,4 @@ Do not create a root `contracts/` directory. Contract ownership stays under `doc
 
 ## Removed routes
 
-Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later ADR changes this contract: `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API prediction routes `POST /predict` plus `POST /debug/predict/{window,source}` (removed; live classification is worker-produced and relayed as Event API `confidence`).
+Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later decision changes this contract: `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse` and `GET /auth/me` (session probes folded into `/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API prediction routes `POST /predict` plus `POST /debug/predict/{window,source}` (removed; live classification is worker-produced and relayed as Event API `confidence`).

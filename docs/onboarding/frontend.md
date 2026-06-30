@@ -4,7 +4,7 @@
 
 ## 1. SPA 런타임 개요
 
-`front/`는 ADR-055에 따라 Vite 5 + React 18이 제품 frontend SSOT다. 로컬/운영 런타임의 기본값은 real backend 모드이며, `front/src/services/apiClient.ts`의 `API_BASE_URL` 기본값은 `VITE_API_BASE_URL ?? "/api/v1"`다. `VITE_USE_MOCK=true`는 `front/AGENTS.md`와 `front/src/AGENTS.md`가 명시하듯 자동테스트 전용이며, dev/prod의 demo 경로나 제품 런타임으로 취급하지 않는다.
+`front/`는 decision map에 따라 Vite 5 + React 18이 제품 frontend SSOT다. 로컬/운영 런타임의 기본값은 real backend 모드이며, `front/src/services/apiClient.ts`의 `API_BASE_URL` 기본값은 `VITE_API_BASE_URL ?? "/api/v1"`다. `VITE_USE_MOCK=true`는 `front/AGENTS.md`와 `front/src/AGENTS.md`가 명시하듯 자동테스트 전용이며, dev/prod의 demo 경로나 제품 런타임으로 취급하지 않는다.
 
 운영 컨테이너에서는 `front/nginx.conf`가 정적 SPA를 서빙하고 `/api/`와 `/auth/`를 `backend:8080`으로 same-origin reverse proxy한다. 따라서 브라우저는 대부분 상대 경로(`/api/v1/...`, `/auth/...`)로 호출하고, backend session cookie는 same-origin 요청에 자동 포함된다.
 
@@ -160,6 +160,6 @@ backend controller/service/repository
 - [Backend Architecture](./backend.md)
 - [Realtime Events API](../api/realtime-events.md)
 - [Dashboard API](../api/dashboard-api.md)
-- [ADR-055 — Vite React Front Stack as `front/` SSOT](../decisions/frontend/ADR-055-vite-react-front-stack.md)
-- [ADR-034 — SSE Realtime Transport — Read-Only Cookie-Auth Push with alertSeq Replay](../decisions/backend/ADR-034-sse-realtime-transport.md)
-- [ADR-061 — Facility-Scoped SSE](../decisions/backend/ADR-061-facility-scoped-sse.md)
+- decision map
+- decision map
+- decision map

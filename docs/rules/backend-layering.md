@@ -80,4 +80,4 @@ Current examples are helper functions in `backend/src/dashboard/sse.controller.t
 
 ## Retired contracts are removed deliberately
 
-Retired contracts must not remain documented as retained seams. The old `ALERT_PREDICTION_PORT` / `MlServingPredictionAdapter` backend-pull path is removed; live ML ingress is `POST /api/v1/events` with Event API `confidence`. Reintroducing backend-pull prediction requires a successor ADR and focused tests.
+Retired contracts must not remain documented as retained seams. The old `ALERT_PREDICTION_PORT` / `MlServingPredictionAdapter` backend-pull path is removed; live ML ingress is `POST /api/v1/events` with Event API `confidence`. Reintroducing backend-pull prediction requires a successor decision and focused tests.

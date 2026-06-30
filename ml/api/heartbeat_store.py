@@ -1,4 +1,4 @@
-"""API-owned per-camera heartbeat liveness store (ADR-067 gateway, MECE).
+"""API-owned per-camera heartbeat liveness store.
 
 The worker relays liveness facts to ml-api ``/relay/heartbeat``. ml-api records
 the local ``received_at`` per camera (after relay-token auth + camera binding,

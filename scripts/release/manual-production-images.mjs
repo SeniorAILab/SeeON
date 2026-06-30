@@ -1,6 +1,6 @@
 // Host stack (backend/front) runs on the amd64 Naver Cloud VM; the edge stack
 // (ml-api/ml-worker) runs on the external edge device (aarch64 Jetson Nano B01,
-// arm64 — ADR-062/ADR-068). These deployment targets are fixed per release, so
+// arm64 — decision map). These deployment targets are fixed per release, so
 // each image's build platform is a pinned constant, not a tunable flag.
 const HOST_PLATFORM = "linux/amd64";
 const EDGE_PLATFORM = "linux/arm64";

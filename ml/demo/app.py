@@ -2,7 +2,7 @@
 
 This is an ML demo surface, NOT the product frontend.  The product frontend is
 ``front/`` (Next.js); product-level alerts and webhooks live in ``backend/``
-(NestJS).  See ADR-024 for the demo/product surface boundary and ADR-010 for the live
+(NestJS).  See the decision map for the demo/product surface boundary and live
 per-frame inference mode decision.
 """
 
@@ -63,7 +63,7 @@ st.set_page_config(page_title=APP_PAGE_TITLE, layout="wide")
 ensure_fall_models()
 
 # Rendering decimation only — inference always consumes every consecutive
-# frame (train/serve parity, ADR-013; see demo-live-inference-frame-parity).
+# frame (train/serve parity, decision map; see demo-live-inference-frame-parity).
 RENDER_FRAME_STRIDE: Final = 4
 PLAYING_KEY: Final = "live_playing"
 
@@ -89,7 +89,7 @@ def main() -> None:
     )
     st.markdown(brand_html, unsafe_allow_html=True)
     st.caption(
-        "로컬 ML 데모 전용 — 실시간 프레임 단위 추론 (ADR-010). "
+        "로컬 ML 데모 전용 — 실시간 프레임 단위 추론 (decision map). "
         "임상 진단 또는 백엔드 알림 서비스가 아닙니다."
     )
 
@@ -121,7 +121,7 @@ def _list_videos() -> list[videos.RegisteredVideo]:
 
     Domain selector over ml/data/{domain}/{processed,raw} plus uploads, then a
     role selector within the chosen domain. This is a local developer tool, so
-    every internal data source is listed (ADR-045 — demo is local-only).
+    every internal data source is listed (decision map — demo is local-only).
     """
     domain_options = [*videos.list_domains(), videos.UPLOADS_DOMAIN]
     col_domain, col_role = st.columns(2)
@@ -209,9 +209,9 @@ def _render_live_viewer(
     # Streamlit is single-threaded: the render loop below blocks the script run,
     # so 정지 takes effect at the start of the next rerun rather than mid-clip.
     # Inference consumes EVERY consecutive frame (stride-1 source) so live
-    # windows match the training/eval pipelines (ADR-013 anti-skew); only the
+    # windows match the training/eval pipelines (decision map anti-skew); only the
     # placeholder repaint is decimated via render_due — that incremental
-    # render IS the live view (ADR-010). Pacing targets the clip's native fps
+    # render IS the live view (decision map). Pacing targets the clip's native fps
     # and degrades to slower-than-real-time when pose can't keep up — frames
     # are never skipped to catch up.
     model = build_model(size, classifier_key, classifier_params, decision_threshold)
@@ -242,7 +242,7 @@ def _render_live_viewer(
             )
             detected_at = _utc_now_iso()
             # Latched event badge: repainted only on a rising edge (정상→낙상);
-            # the raw per-frame status below stays untouched (ADR-027 — the
+            # the raw per-frame status below stays untouched (decision map — the
             # badge aggregates real inference, it never invents state).
             if latch.update_signal(status.is_fall, frame_time_sec):
                 if alert_client is not None:

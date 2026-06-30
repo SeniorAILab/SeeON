@@ -353,7 +353,7 @@ def _get_eval_split_hash() -> str | None:
 def _measure_latency_ms(family: str) -> float:
     """Measure single-window CPU inference latency for *family*.
 
-    Protocol (ADR-017 §3): batch=1, 10 warmup calls discarded, median of 100
+    Protocol: batch=1, 10 warmup calls discarded, median of 100
     measurements on CPU.  The model is loaded from its artifact directory.
     """
     import numpy as np
