@@ -1,6 +1,6 @@
-// ML routing (decision map): ML signal --> POST /api/v1/events [single canonical ingress]
+// ML routing (ADR): ML signal --> POST /api/v1/events [single canonical ingress]
 //   -> backend policy owns: DetectionEvent(space/zone) write -> SpaceStatus(read-model) update
-//   -> AlertRule evaluation -> Kakao fan-out (decision map).
+//   -> AlertRule evaluation -> Kakao fan-out (ADR).
 // ML must NOT write DetectionEvent/SpaceStatus directly and MUST NOT add another ingress namespace.
 // This controller is a deferred read-model surface: guarded + 501 until the read-model lands.
 

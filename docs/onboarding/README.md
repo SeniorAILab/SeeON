@@ -57,5 +57,5 @@
 ### Hubs
 
 - [`../api/`](../api/) — wire/API 계약
-- [`../decisions/`](../decisions/) — decision map
+- [`../decisions/`](../decisions/) — ADR
 - [`../domain/`](../domain/) — 데이터 모델/도메인 문서

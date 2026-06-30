@@ -3,7 +3,7 @@
 > Scope: `ml/training/` and the artifacts it produces. Operational parameters,
 > procedures, and contracts. The current decisions behind dataset, labelling,
 > threshold, gold-clip evaluation, strategy, and pose backbone choices are
-> summarized in the decision map.
+> summarized in the ADR.
 
 ## Locked parameters (`training/config.py` is the single source of truth)
 
@@ -19,7 +19,7 @@
 | `FEATURE_DIM` | 45 | defined by `training/data/features.py` — never derived elsewhere |
 
 Changing `T_WINDOW`/`STRIDE`/`OVERLAP_THRESHOLD` invalidates every trained
-artifact and the metadata contract — that is an decision map supersede, not a tweak.
+artifact and the metadata contract — that is an ADR supersede, not a tweak.
 
 ## Pipeline procedure
 
@@ -74,5 +74,5 @@ moved — the live demo depends on this.
   (`le2i-poc-results.csv`, `gold8-poc-results.csv`).
 - The gold-clip pass (`--gold-clips-dir`, default: the nursing-home processed
   folder) is the domain-transfer check — report it alongside Le2i metrics,
-  including `no_person_frac` per clip and the decision map rule-based floor (0/8).
+  including `no_person_frac` per clip and the ADR rule-based floor (0/8).
   Le2i metrics alone never gate a model.

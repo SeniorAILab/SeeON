@@ -1,7 +1,7 @@
 # NotebookLM venue allowlist
 # GS Metrics snapshot: 2025
 # Next refresh: 2026-06
-# Mechanism: manual snapshot (decision map distill pending)
+# Mechanism: manual snapshot (ADR distill pending)
 # Top-N default: 10 (SRC_GATE_VENUE_TOP_N)
 #
 # Domain note: fall-detection spans CV/AI (conference-centric) + medical (journal-centric).

@@ -45,7 +45,7 @@ def main() -> None:
     st.set_page_config(page_title="라이브 카메라", layout="wide")
     st.title("라이브 카메라 낙상 탐지")
     st.caption(
-        "실시간 카메라 추론 — 정확도 논외 (decision map). "
+        "실시간 카메라 추론 — 정확도 논외 (ADR). "
         "이것은 임상적 판정이나 백엔드 알림 플로우가 아닙니다."
     )
 
@@ -87,7 +87,7 @@ def main() -> None:
         status_ph.info("▶︎ 시작을 눌러 실시간 추론을 시작하세요.")
         return
 
-    # No pacing sleep — the camera itself is the real-time gate (decision map).
+    # No pacing sleep — the camera itself is the real-time gate (ADR).
     model = build_model(size, classifier_key, classifier_params)
     source = CameraSource(selected_index)
 

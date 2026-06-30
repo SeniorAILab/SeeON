@@ -2,11 +2,11 @@
 
 > **Single entry point for the version-control domain.** `AGENTS.md` routes here; this hub
 > routes to the four facet rules. No rule body lives here — each facet's SSOT owns its detail,
-> and decision map records *why*
+> and ADR records *why*
 > the domain is shaped this way.
 
 How a unit of work moves from a GitHub issue to a merged change. The domain is
-captured in the decision map and expressed as four facets, each with exactly one
+captured in the ADR and expressed as four facets, each with exactly one
 rule SSOT:
 
 | Facet | Rule SSOT | Covers |
@@ -18,10 +18,10 @@ rule SSOT:
 
 ## Why (decisions)
 
-- decision map — the single
+- ADR — the single
   version-control decision: issue-driven worktrees enforced git-natively from one source, the
   PR size gate, and the issue Type auto-label.
-- decision map — cross-cutting
+- ADR — cross-cutting
   enforcement-*timing* principle (what blocks early vs. stays audit-tier); shared with other
   domains, not owned by version control.
 

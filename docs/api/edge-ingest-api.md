@@ -2,7 +2,7 @@
 
 Backend Event API is the canonical ML-to-backend ingress. It accepts no-HMAC event facts from `ml-api`, resolves facility/space ownership from `camera_id`, and turns events into backend-owned read-model, status, SSE, and delivery state.
 
-Production live path: `RTSP -> ml-worker -> ml-api -> backend /api/v1/events` (decision map).
+Production live path: `RTSP -> ml-worker -> ml-api -> backend /api/v1/events` (ADR).
 
 `ml-worker` relays local facts to `ml-api` at `/api/v1/relay/*`. `ml-api` posts backend events through the single `API_BACKEND_EVENTS_URL` setting. Camera HMAC credentials and `Camera.ingestMode` are removed; cameras are identified by `camera_id`, and backend resolves the trusted facility/space from that camera.
 

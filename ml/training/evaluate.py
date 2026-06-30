@@ -446,7 +446,7 @@ def _run_gold8_eval(
 
         print(
             f"[evaluate/gold8] {key!r}: {n_pred_fall}/{n_total}"
-            f" clips predicted fall (threshold={thr:.4f}) — decision map rule-based floor: 0/8"
+            f" clips predicted fall (threshold={thr:.4f}) — ADR rule-based floor: 0/8"
         )
 
     # === 단계 3: CSV 기록 — gold8-poc-results.csv에 클립별 결과 저장 ===

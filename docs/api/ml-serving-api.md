@@ -2,9 +2,9 @@
 
 `ml-api` is a FastAPI service for private/local edge health, status, relay, and bounded operator-control surfaces. It is a pure relay/status/backend-gateway process: it does **not** expose prediction routes, does **not** load ML models, and does **not** run classification. Classification happens in `ml-worker`; the worker relays facts to `ml-api`, and `ml-api` forwards backend Event API requests.
 
-Production live path: `RTSP -> ml-worker probability -> ml-api /api/v1/relay/* -> backend /api/v1/events confidence` (decision map). Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (decision map). The retired backend-pull `/debug/predict/*` seam from decision map is not part of the live path and has been removed.
+Production live path: `RTSP -> ml-worker probability -> ml-api /api/v1/relay/* -> backend /api/v1/events confidence` (ADR). Backend owns alert policy, persistence, deduplication, delivery, and dashboard history (ADR). The retired backend-pull `/debug/predict/*` seam from ADR is not part of the live path and has been removed.
 
-Production camera ownership is not part of the API process. The edge node runs `ml-api` for unversioned health probes plus `/api/v1` status/models/relay routes. It runs `ml-worker` for long-running RTSP capture, model/domain evaluation, heartbeat facts, and alert fact creation (decision map). The API service does not own live camera streams, raw frame relay, model loading, or prediction.
+Production camera ownership is not part of the API process. The edge node runs `ml-api` for unversioned health probes plus `/api/v1` status/models/relay routes. It runs `ml-worker` for long-running RTSP capture, model/domain evaluation, heartbeat facts, and alert fact creation (ADR). The API service does not own live camera streams, raw frame relay, model loading, or prediction.
 
 ## `GET /health/live`
 
@@ -24,7 +24,7 @@ Legacy aggregate health report for local/demo observability. It reports API proc
 
 ## `GET /api/v1/status`
 
-Runtime status snapshot. This is operational state for the edge API relay process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and relay heartbeat/alert facts to `ml-api`, which publishes backend Event API requests to `API_BACKEND_EVENTS_URL` per decision map.
+Runtime status snapshot. This is operational state for the edge API relay process, not an alert-history API. Backend remains the owner of persisted alert/dashboard state. Production camera workers run out-of-process and relay heartbeat/alert facts to `ml-api`, which publishes backend Event API requests to `API_BACKEND_EVENTS_URL` per ADR.
 
 ## `GET /api/v1/models`
 

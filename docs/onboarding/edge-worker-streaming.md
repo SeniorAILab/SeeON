@@ -44,7 +44,7 @@ RTSP camera
 
 ## 레이어 사다리와 worker orchestration
 
-decision map과 `ml/AGENTS.md`의 dependency ladder는 worker가 어느 package를 어떤 방향으로 조립하는지 정한다.
+ADR과 `ml/AGENTS.md`의 dependency ladder는 worker가 어느 package를 어떤 방향으로 조립하는지 정한다.
 
 | Layer | Package | worker에서의 역할 |
 | --- | --- | --- |
@@ -169,9 +169,9 @@ worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`�
 - [./edge-device.md](./edge-device.md)
 - [../api/ml-serving-api.md](../api/ml-serving-api.md)
 - [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
-- decision map
-- decision map
-- decision map
-- decision map
-- decision map
-- decision map
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR
+- ADR

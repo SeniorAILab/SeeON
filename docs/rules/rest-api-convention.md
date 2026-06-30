@@ -18,8 +18,8 @@ This repo has three HTTP namespaces. Do not add a fourth without an decision.
 - Use plural nouns for collections: `/api/alerts`, `/api/residents`, `/api/cameras`, `/api/guardians`, `/api/facilities`, `/api/floors`, `/api/spaces`.
 - Use nested singleton sub-resources when the resource exists only in the context of a parent.
   - Snapshot canonical path: `/api/alerts/:id/snapshot`.
-  - Resident placement sub-resource: `GET`/`PUT /api/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/residents/assignments` (resident-namespaced, decision map).
-  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, decision map).
+  - Resident placement sub-resource: `GET`/`PUT /api/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/residents/assignments` (resident-namespaced, ADR).
+  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR).
   - Facility singleton: `GET`/`PATCH /api/facilities/current` (the session's facility; never addressed by id from the client).
   - Do not add new top-level snapshot paths such as `/api/snapshots/:alertId`.
 - Use verbs only when the operation is not naturally represented as a resource state update. The existing `/api/alerts/:id/ack` mutation is accepted as the dashboard acknowledgement action; new status transitions should prefer resource-oriented naming unless there is a concrete reason.
@@ -55,5 +55,5 @@ Concrete refactor history:
 - `POST /api/orgs` is renamed to `POST /api/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
 - `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/alerts/:alertId/snapshot`.
 - `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.
-- `GET /api/resident-assignments` becomes `GET /api/residents/assignments` (assignments folded into the residents aggregate, decision map).
-- `/api/zones[/:zoneId]` becomes `/api/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, decision map).
+- `GET /api/resident-assignments` becomes `GET /api/residents/assignments` (assignments folded into the residents aggregate, ADR).
+- `/api/zones[/:zoneId]` becomes `/api/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).

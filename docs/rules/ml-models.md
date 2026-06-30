@@ -2,7 +2,7 @@
 
 > Scope: the `ml/` uv project. A standing convention every change must follow.
 > Records the *operational* "where does this model file go" rule; the *why* lives
-> in decision map.
+> in ADR.
 
 ## Layout
 
@@ -76,5 +76,5 @@ lane setup (alongside the `ml/data` symlink).
   use the kebab form as the on-disk key. The mapping lives in
   `demo/temporal_module.py:_KEY_TO_ARTIFACT`.
 
-See decision map for the full design rationale and
+See ADR for the full design rationale and
 supersede relationships to retired source decisions.

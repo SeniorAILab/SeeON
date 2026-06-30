@@ -80,15 +80,15 @@ document:
         intent: 카메라→포즈→분류→이벤트→알림→대시보드의 단방향 파이프라인을 high-level mermaid로 표현한다.
         must:
         - 'mermaid 다이어그램: edge_node → ml_serving(POST /predict) → backend(POST /ingest/alerts) → kakao fan-out → front 흐름 표현'
-        - decision map(ML 신호만/backend 정책 소유) 인용
-        - decision map(모노레포), decision map(serving/training 경계) 참조
+        - ADR(ML 신호만/backend 정책 소유) 인용
+        - ADR(모노레포), ADR(serving/training 경계) 참조
       ML:
         intent: ML 파이프라인을 Video Ingest → 데이터셋 구성 → 모델 선택 → 모델 트레이닝 → Serving 5개 ### 서브섹션으로 코드 근거로 서술한다.
         must:
         - '### Video Ingest (literal H3): RTSP/카메라 프레임 수신, ml/util/frame_source.py CameraSource(opencv). 미검증 세부(전용 캡처 스크립트 등)는 deferred'
-        - '### 데이터셋 구성 (literal H3): ml/data/{le2i,nursing-home,eval,uploads} 도메인-우선 레이아웃(decision map), ml/models 단일 루트(decision map) 인용'
-        - '### 모델 선택 (literal H3): YOLO26-pose(ml/core/model_modules.py, yolo26{size}-pose.pt, default size n)(decision map), fall 분류 전략(decision map)·채택 기준(decision map) 인용'
-        - '### 모델 트레이닝 (literal H3): ml/training/{train.py,extract_poses.py,evaluate.py,config.py}, serving/training 경계(decision map) 인용; 미검증 세부는 deferred'
+        - '### 데이터셋 구성 (literal H3): ml/data/{le2i,nursing-home,eval,uploads} 도메인-우선 레이아웃(ADR), ml/models 단일 루트(ADR) 인용'
+        - '### 모델 선택 (literal H3): YOLO26-pose(ml/core/model_modules.py, yolo26{size}-pose.pt, default size n)(ADR), fall 분류 전략(ADR)·채택 기준(ADR) 인용'
+        - '### 모델 트레이닝 (literal H3): ml/training/{train.py,extract_poses.py,evaluate.py,config.py}, serving/training 경계(ADR) 인용; 미검증 세부는 deferred'
         - '### Serving (literal H3): ml/serving/main.py PredictRequest(source_id|upload_id|window) + PredictResponse{fall_probability,operating_threshold,is_fall} 계약, ml/serving/pipeline.py YoloPoseModule 추론 인용'
       Backend:
         intent: NestJS ingest/alert 파이프라인을 HMAC·dedup·kakao fan-out 계약 기준으로 서술한다.
@@ -97,14 +97,14 @@ document:
         - backend/src/ingest/ingest-alert.service.ts — dedup/rate-limit/freshness 정책
         - backend/src/auth/kakao.client.ts — POST kapi.kakao.com/v2/api/talk/memo/default/send, Bearer {recipient_access_token}
         - backend/src/alerts/ — alerts.controller.ts·alerts.service.ts·ports/·repositories/ 구조 인용
-        - 'decision map: backend가 product policy·external side-effect 소유'
+        - 'ADR: backend가 product policy·external side-effect 소유'
       Front:
-        intent: front/(Vite + React 18 + react-router 앱, #257 머지, decision map)를 진리 원천으로 대시보드 구조를 서술한다.
+        intent: front/(Vite + React 18 + react-router 앱, #257 머지, ADR)를 진리 원천으로 대시보드 구조를 서술한다.
         must:
         - front/ Vite 앱 기준 서술 — main에서 직접 읽어 인용(git fetch/show 불필요)
         - front/src/router.tsx 라우팅, front/src/services/ API 레이어, front/src/pages/ 화면 구조 인용
         - ALERT_DASHBOARD_URL 알림 링크 대상 역할 명시
-        - decision map(vite-react-front-stack) 인용. 코드 근거 확인 불가 항목은 deferred 표시
+        - ADR(vite-react-front-stack) 인용. 코드 근거 확인 불가 항목은 deferred 표시
   30_delivery:
     title: Eldercare 30 Delivery
     file: Eldercare 30 Delivery.md
@@ -169,26 +169,26 @@ document:
         must:
         - 영상이 사이트 밖으로 나가지 않는 아키텍처(keypoint만 POST /predict로 전송) 명시
         - HmacIngestGuard HMAC-SHA256 서명 검증으로 ingest 인증 명시
-        - kakao token 암호화 저장(decision map 참조)
+        - kakao token 암호화 저장(ADR 참조)
 background:
   eldercare_architecture:
-    status: DRAFTED — backend/·ml/ 코드 직접 읽어 계약 확정(2026-06-19). front은 #257 머지로 Vite 전환(2026-06-20, decision map). 배포 토폴로지는 decision map로 distill 완료. 모델은 YOLO26-pose(decision map).
+    status: DRAFTED — backend/·ml/ 코드 직접 읽어 계약 확정(2026-06-19). front은 #257 머지로 Vite 전환(2026-06-20, ADR). 배포 토폴로지는 ADR로 distill 완료. 모델은 YOLO26-pose(ADR).
     intent: 낙상 탐지·알림 파이프라인의 컴포넌트·데이터 계약·decision 색인·배포 토폴로지 결정근거를 depth로 박아 섹션들이 인용한다.
     components:
       edge_node:
-        role: 사이트(병원)별 추론 디바이스. CCTV/카메라 프레임 수신 → 포즈추출(17kp) → 분류(fall 판정) → 서명 이벤트를 원격 backend로 push. 추론(serving pipeline)과 emit(thin client)은 같은 디바이스에 살되 책임 분리(decision map).
+        role: 사이트(병원)별 추론 디바이스. CCTV/카메라 프레임 수신 → 포즈추출(17kp) → 분류(fall 판정) → 서명 이벤트를 원격 backend로 push. 추론(serving pipeline)과 emit(thin client)은 같은 디바이스에 살되 책임 분리(ADR).
         prototype: Streamlit 데모가 현재 프로토타입 — opencv 캡처(ml/util/frame_source.py CameraSource) + 알림 push(ml/core/alert_client.py). 현재는 추론을 in-process로 돌림.
         status: 데모-스코프 프로토타입. 프로덕션 엣지 디바이스(Jetson/Hailo급)는 future work.
       ml_serving:
-        role: FastAPI 추론 서비스(엣지 런타임). 신호만 반환하고 알림은 미발송(decision map). is_fall = fall_probability >= operating_threshold 계산 후 반환.
+        role: FastAPI 추론 서비스(엣지 런타임). 신호만 반환하고 알림은 미발송(ADR). is_fall = fall_probability >= operating_threshold 계산 후 반환.
         path: ml/serving/main.py
       backend:
-        role: NestJS. ingest 수신·HMAC 검증·알림 정책(dedup/rate-limit/freshness)·수신자 fan-out·kakao 발송. product policy와 external side-effect 소유(decision map).
+        role: NestJS. ingest 수신·HMAC 검증·알림 정책(dedup/rate-limit/freshness)·수신자 fan-out·kakao 발송. product policy와 external side-effect 소유(ADR).
         path: backend/src/{ingest,auth}
       front:
-        role: Vite + React 18 + react-router 대시보드. 알림 메시지 link 대상(ALERT_DASHBOARD_URL). #257 머지로 Next.js → Vite 전환(decision map).
+        role: Vite + React 18 + react-router 대시보드. 알림 메시지 link 대상(ALERT_DASHBOARD_URL). #257 머지로 Next.js → Vite 전환(ADR).
         path: front/ (src/{router.tsx,pages,services,components,hooks,lib})
-        decision_map: `docs/decisions/README.md`
+        ADR: `docs/decisions/README.md`
     data_contracts:
       predict:
         endpoint: POST /predict (ml_serving)
@@ -212,13 +212,13 @@ background:
         headers: Authorization Bearer {recipient_access_token}, x-www-form-urlencoded
         body: template_object={object_type:text, text:한국어≤180자, link:{web_url,mobile_web_url}}
     adr_index:
-      decision map: 모노레포 구성(backend/ml/front) — `docs/decisions/README.md`
-      decision map: ML serving/training 라이프사이클 경계 — `docs/decisions/README.md`
-      decision map: ML은 신호만 반환 / backend가 prediction boundary 소유 — `docs/decisions/README.md`
-      decision map: YOLO26-pose 프레임워크 채택 — `docs/decisions/README.md`
-      decision map: per-site 엣지 추론 배포 토폴로지 — `docs/decisions/README.md`
-      decision map: 카카오 사용자별 토큰 암호화 저장 — `docs/decisions/README.md`
-      decision map: front Vite + React 스택 채택(Next.js 대체) — `docs/decisions/README.md`
+      ADR: 모노레포 구성(backend/ml/front) — `docs/decisions/README.md`
+      ADR: ML serving/training 라이프사이클 경계 — `docs/decisions/README.md`
+      ADR: ML은 신호만 반환 / backend가 prediction boundary 소유 — `docs/decisions/README.md`
+      ADR: YOLO26-pose 프레임워크 채택 — `docs/decisions/README.md`
+      ADR: per-site 엣지 추론 배포 토폴로지 — `docs/decisions/README.md`
+      ADR: 카카오 사용자별 토큰 암호화 저장 — `docs/decisions/README.md`
+      ADR: front Vite + React 스택 채택(Next.js 대체) — `docs/decisions/README.md`
     deployment_topology_decision:
       decision: 포즈추출부터 분류까지 엣지 디바이스에서 수행하고, 원격 backend로는 서명된 fall 이벤트(메타데이터)만 push한다. ML serving은 신호만 반환하고 알림 정책·발송은 backend가 소유한다.
       drivers:
@@ -232,7 +232,7 @@ background:
       - AWS Panorama / IoT Greengrass→IoT Events→SNS — 엣지 추론·중앙 정책 분리 reference impl. https://aws.amazon.com/panorama/appliance/
       - Milestone XProtect Event Server — 알람 로직·dedup·dispatch가 추론 플러그인과 분리. https://doc.milestonesys.com/latest/en-US/standard_features/sf_mc/sf_systemoverview/mc_eventserverexplained.htm
       - YOLOv11-SEFA on Jetson AGX Orin(낙상 탐지, MQTT 알림). https://www.nature.com/articles/s41598-026-39527-y
-      status: 연구근거 확보 후 decision map(per-site edge inference deployment topology)로 distill 완료. 프로덕션 엣지 하드웨어 적용은 future work.
+      status: 연구근거 확보 후 ADR(per-site edge inference deployment topology)로 distill 완료. 프로덕션 엣지 하드웨어 적용은 future work.
     deferred:
     - 엣지 디바이스 사이징 — 병원당 단일 박스(다중 RTSP 배치추론) vs 구역별 디바이스. 카메라 수에 따른 선택.
     - 멀티사이트 전송 — 표준은 MQTT(TLS, QoS1) 브로커. 현행은 HMAC POST. 사이트 수 증가 시 재검토.

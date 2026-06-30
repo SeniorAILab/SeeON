@@ -21,7 +21,7 @@ API/event changes are made in this order:
 2. Update or add the relevant decision under `docs/decisions/{backend,frontend,ml,common}/` when the change is expensive to reverse or changes ownership boundaries.
 3. Refactor backend, frontend, ML API, tests, and migrations to match the documented contract.
 
-Do not create a root `contracts/` directory. Contract ownership stays under `docs/api/`, with decisions explaining durable decisions.
+Do not create a root `contracts/` directory. Contract ownership stays under `docs/api/`, with decisions explaining ADRs.
 
 ## Layer ownership
 

@@ -49,4 +49,4 @@ else belongs in the body.
 - **Branch / worktree** — `docs/rules/worktree-workflow.md` (branch naming reuses `<type>`).
 - **Issue labels** — `docs/rules/github-labels.md` (`type:` label is the SSOT for `<type>`).
 - **PR / review / merge** — `docs/rules/pr-decomposition-and-review.md`.
-- **Why** — decision map.
+- **Why** — ADR.
