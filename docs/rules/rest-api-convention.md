@@ -13,14 +13,14 @@ This repo keeps product HTTP routes under `/api/v1/*`. Do not add another produc
 ## Path shape
 
 - No dotted path segments. `/api.alerts/events` is banned; it came from the legacy pilot controller and must not be reintroduced.
-- Use plural nouns for collections: `/api/alerts`, `/api/residents`, `/api/cameras`, `/api/guardians`, `/api/facilities`, `/api/floors`, `/api/spaces`.
+- Use plural nouns for collections: `/api/v1/alerts`, `/api/v1/residents`, `/api/v1/cameras`, `/api/v1/guardians`, `/api/v1/facilities`, `/api/v1/floors`, `/api/v1/spaces`.
 - Use nested singleton sub-resources when the resource exists only in the context of a parent.
-  - Snapshot canonical path: `/api/alerts/:id/snapshot`.
-  - Resident placement sub-resource: `GET`/`PUT /api/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/residents/assignments` (resident-namespaced, ADR).
-  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR).
-  - Facility singleton: `GET`/`PATCH /api/facilities/current` (the session's facility; never addressed by id from the client).
-  - Do not add new top-level snapshot paths such as `/api/snapshots/:alertId`.
-- Use verbs only when the operation is not naturally represented as a resource state update. The existing `/api/alerts/:id/ack` mutation is accepted as the dashboard acknowledgement action; new status transitions should prefer resource-oriented naming unless there is a concrete reason.
+  - Snapshot canonical path: `/api/v1/alerts/:id/snapshot`.
+  - Resident placement sub-resource: `GET`/`PUT /api/v1/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/v1/residents/assignments` (resident-namespaced, ADR).
+  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/v1/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR).
+  - Facility singleton: `GET`/`PATCH /api/v1/facilities/current` (the session's facility; never addressed by id from the client).
+  - Do not add new top-level snapshot paths such as `/api/v1/snapshots/:alertId`.
+- Use verbs only when the operation is not naturally represented as a resource state update. The existing `/api/v1/alerts/:id/ack` mutation is accepted as the dashboard acknowledgement action; new status transitions should prefer resource-oriented naming unless there is a concrete reason.
 
 ## Status codes
 
@@ -28,7 +28,7 @@ This repo keeps product HTTP routes under `/api/v1/*`. Do not add another produc
   - `POST /api/v1/events` returns `201` for a newly created event.
   - Snapshot upload may return `201` when it stores a new snapshot object.
 - `200 OK` for mutations that return a body or idempotent duplicate responses.
-  - `PATCH /api/alerts/:id/ack` returns the updated alert.
+  - `PATCH /api/v1/alerts/:id/ack` returns the updated alert.
   - Duplicate `POST /api/v1/events` returns a body with duplicate status instead of pretending a second event was created.
 - `204 No Content` for logout or delete-like operations that intentionally return no body.
   - `POST /api/v1/auth/logout` is the reference.
@@ -50,9 +50,9 @@ A path rename must update backend routes, frontend service callers (`front/src/s
 
 Concrete refactor history:
 
-- `POST /api/orgs` is renamed to `POST /api/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
-- `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/alerts/:alertId/snapshot`.
+- Legacy `POST /api/orgs` is renamed to `POST /api/v1/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
+- Legacy `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/v1/alerts/:alertId/snapshot`.
 - `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.
-- `GET /api/resident-assignments` becomes `GET /api/residents/assignments` (assignments folded into the residents aggregate, ADR).
-- `/api/zones[/:zoneId]` becomes `/api/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).
+- Legacy `GET /api/resident-assignments` becomes `GET /api/v1/residents/assignments` (assignments folded into the residents aggregate, ADR).
+- Legacy `/api/zones[/:zoneId]` becomes `/api/v1/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).
 - `/auth/*` moves to `/api/v1/auth/*`; no unversioned compatibility alias is retained.
