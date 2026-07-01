@@ -3,7 +3,8 @@ slug: poc-intent-prd-recovery
 title: Recover deleted POC monitor intent into the PRD
 author: codex
 created: 2026-07-01
-status: active
+status: superseded-by
+superseded-by: poc-intent-deferred-prd-backlog
 ---
 
 # Plan
