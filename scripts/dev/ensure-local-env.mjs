@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  assertNoUnknownArgs,
   LocalEnvError,
   loadAndValidateLocalEnv,
   parseCommonArgs,
@@ -7,7 +8,8 @@ import {
 } from './local-env.mjs';
 
 async function main() {
-  const { envFile } = parseCommonArgs(process.argv.slice(2));
+  const { envFile, rest } = parseCommonArgs(process.argv.slice(2));
+  assertNoUnknownArgs(rest);
   const { summary } = await loadAndValidateLocalEnv(envFile);
   printLocalEnvSummary(summary);
 }

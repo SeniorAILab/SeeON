@@ -41,6 +41,16 @@ export function parseCommonArgs(argv) {
   return parsed;
 }
 
+export function assertNoUnknownArgs(args, allowedFlags = []) {
+  const allowed = new Set(allowedFlags);
+  const unknownArgs = args.filter((arg) => !allowed.has(arg));
+  if (unknownArgs.length > 0) {
+    throw new LocalEnvError([
+      `unknown argument(s): ${unknownArgs.join(', ')}`,
+    ]);
+  }
+}
+
 export async function loadAndValidateLocalEnv(envFile) {
   const resolvedEnvFile = resolve(envFile);
   const env = await readEnvFile(resolvedEnvFile);
