@@ -3,14 +3,13 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
 import { useAuthStore } from "@/store/authStore";
-import { roleLabel } from "@/lib/labels";
+import { roleLabel } from "@/lib/roles";
 import type { Role, User } from "@/types";
 
 const roleChip: Record<Role, string> = {
   SUPER_ADMIN: "bg-brand-soft text-brand",
-  FACILITY_ADMIN: "bg-status-stableBg text-status-stable",
+  ADMIN: "bg-status-stableBg text-status-stable",
   STAFF: "bg-status-cautionBg text-status-caution",
-  VIEWER: "bg-gray-100 text-gray-500",
 };
 
 export function UsersPage() {
@@ -49,7 +48,7 @@ export function UsersPage() {
                   <span
                     className={"rounded-md px-2 py-0.5 text-xs font-medium " + roleChip[u.role]}
                   >
-                    {roleLabel[u.role]}
+                    {roleLabel(u.role)}
                   </span>
                 </td>
               </tr>

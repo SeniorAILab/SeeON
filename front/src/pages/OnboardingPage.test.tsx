@@ -19,7 +19,7 @@ beforeEach(() => {
       id: "user-1",
       name: "원장",
       email: "",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: null,
     },
     initialized: true,
@@ -35,7 +35,7 @@ function renderOnboarding() {
       <Routes>
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/login" element={<div>LOGIN_PAGE</div>} />
-        <Route path="/admin/dashboard" element={<div>ADMIN_DASHBOARD</div>} />
+        <Route path="/dashboard/facilities/:facilityId/admin" element={<div>ADMIN_DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );

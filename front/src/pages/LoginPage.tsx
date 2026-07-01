@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ShieldCheck, UserPlus } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
@@ -19,6 +19,7 @@ function KakaoSymbol({ className }: { className?: string }) {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const login = useAuthStore((s) => s.login);
   const kakaoLogin = useAuthStore((s) => s.kakaoLogin);
@@ -45,7 +46,7 @@ export function LoginPage() {
     try {
       const user = await login({ email, password });
       resolveForUser(user.facilityId);
-      navigate(defaultPathForUser(user), { replace: true });
+      navigate(loginDestination(location.state, user), { replace: true });
     } catch (caught) {
       if (!(caught instanceof Error)) {
         throw caught;
@@ -141,6 +142,24 @@ export function LoginPage() {
       </div>
     </div>
   );
+}
+
+function loginDestination(state: unknown, user: Parameters<typeof defaultPathForUser>[0]): string {
+  if (
+    state &&
+    typeof state === "object" &&
+    "from" in state &&
+    state.from &&
+    typeof state.from === "object" &&
+    "pathname" in state.from &&
+    typeof state.from.pathname === "string" &&
+    state.from.pathname !== "/login"
+  ) {
+    const search = "search" in state.from && typeof state.from.search === "string" ? state.from.search : "";
+    const hash = "hash" in state.from && typeof state.from.hash === "string" ? state.from.hash : "";
+    return `${state.from.pathname}${search}${hash}`;
+  }
+  return defaultPathForUser(user);
 }
 
 function authErrorMessage(code: string | null): string | null {

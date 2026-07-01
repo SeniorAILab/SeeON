@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid } from "lucide-react";
+import { DoorOpen, LayoutGrid } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
@@ -29,6 +29,9 @@ export function MonitorHeader({
   soundEnabled,
   onToggleSound,
   fullscreenRef,
+  floorSelectorPath,
+  floorSelectorLabel = "층 선택",
+  exitPath,
 }: {
   facilityName: string;
   floorTitle: string;
@@ -39,6 +42,9 @@ export function MonitorHeader({
   soundEnabled: boolean;
   onToggleSound: () => void;
   fullscreenRef: React.RefObject<HTMLElement>;
+  floorSelectorPath?: string;
+  floorSelectorLabel?: string;
+  exitPath?: string;
 }) {
   const navigate = useNavigate();
   const now = useClock();
@@ -81,13 +87,24 @@ export function MonitorHeader({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("/monitor")}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
-          >
-            <LayoutGrid className="h-5 w-5" />
-            층 선택
-          </button>
+          {floorSelectorPath && (
+            <button
+              onClick={() => navigate(floorSelectorPath)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+            >
+              <LayoutGrid className="h-5 w-5" />
+              {floorSelectorLabel}
+            </button>
+          )}
+          {exitPath && (
+            <button
+              onClick={() => navigate(exitPath)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+            >
+              <DoorOpen className="h-5 w-5" />
+              나가기
+            </button>
+          )}
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
           <FullscreenButton targetRef={fullscreenRef} />
         </div>

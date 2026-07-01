@@ -38,7 +38,7 @@ export function ActionLogForm({
   if (disabled) {
     return (
       <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-400">
-        조치 기록은 케어 직원 이상 권한에서 작성할 수 있습니다.
+        조치 기록은 요양보호사 이상 권한에서 작성할 수 있습니다.
       </p>
     );
   }

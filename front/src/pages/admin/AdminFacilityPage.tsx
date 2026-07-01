@@ -3,14 +3,11 @@ import { Save } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Input } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import type { Facility } from "@/types";
 
 export function AdminFacilityPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [facility, setFacility] = useState<Facility | null>(null);
   const [saved, setSaved] = useState(false);

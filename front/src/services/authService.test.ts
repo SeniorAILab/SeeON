@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { authService, mapBackendRoleToFrontRole } from "./authService";
+import { authService } from "./authService";
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -39,7 +39,7 @@ describe("authService backend session", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/auth/login",
+      "/api/v1/auth/login",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
@@ -73,7 +73,7 @@ describe("authService backend session", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/auth/register",
+      "/api/v1/auth/register",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
@@ -104,7 +104,7 @@ describe("authService backend session", () => {
       id: "user-1",
       name: "원장",
       email: "",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: "facility-1",
     });
   });
@@ -142,13 +142,5 @@ describe("authService backend session", () => {
       })
     );
     expect(session.user.facilityId).toBe("facility-1");
-  });
-});
-
-describe("mapBackendRoleToFrontRole", () => {
-  it("maps backend RBAC roles without exposing CAREGIVER as facility admin", () => {
-    expect(mapBackendRoleToFrontRole("SUPER_ADMIN")).toBe("SUPER_ADMIN");
-    expect(mapBackendRoleToFrontRole("ADMIN")).toBe("FACILITY_ADMIN");
-    expect(mapBackendRoleToFrontRole("CAREGIVER")).toBe("STAFF");
   });
 });

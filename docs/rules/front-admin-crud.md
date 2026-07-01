@@ -20,7 +20,7 @@ patterns already in the repo:
   which wrap `front/src/services/apiClient.ts` `request()`; never call `fetch`
   ad-hoc from a component.
 - **Casing**: the backend product API (`/api/*`) returns camelCase matching
-  `front/src/types/index.ts` (the domain SSOT) — map at the service boundary, not
+  `front/src/types/index.ts` (the frontend type mirror) — map at the service boundary, not
   scattered across components.
 - **Mock vs real**: `apiClient.ts` defaults to real backend mode when
   `VITE_USE_MOCK` is unset or `false`; explicit `VITE_USE_MOCK=true` is the mock

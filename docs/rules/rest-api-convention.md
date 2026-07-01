@@ -1,28 +1,26 @@
 # REST API convention
 
-This repo has three HTTP namespaces. Do not add a fourth without an decision.
+This repo keeps product HTTP routes under `/api/v1/*`. Do not add another product namespace without a decision.
 
 ## Namespaces
 
-- `/api/*` is the product API used by the dashboard and other authenticated product clients.
-  - Current examples: `GET /api/status`, `GET /api/alerts`, `PATCH /api/alerts/:id/ack`, `GET /api/cameras`, `GET /api/residents`, `GET /api/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/facilities/current`, `POST /api/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/floors`, `/api/spaces`, and `/api/spaces/:spaceId/zones`.
-  - Product `/api/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
-- `/auth/*` is session and OAuth only.
-  - Current examples: `/auth/kakao/login`, `/auth/kakao/callback`, `/auth/session`, and `/auth/logout` in `backend/src/auth/auth.controller.ts`.
+- `/api/v1/*` is the product API used by the dashboard and other authenticated product clients.
+  - Current examples: `POST /api/v1/auth/login`, `GET /api/v1/auth/kakao/login`, `GET /api/v1/auth/session`, `GET /api/v1/alerts`, `PATCH /api/v1/alerts/:id/ack`, `GET /api/v1/cameras`, `GET /api/v1/residents`, `GET /api/v1/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/v1/facilities/current`, `POST /api/v1/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/v1/floors`, `/api/v1/spaces`, and `/api/v1/spaces/:spaceId/zones`.
+  - Product `/api/v1/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
 - ML Event API ingress is under `/api/v1/events` and is no-HMAC.
   - Current canonical routes: `POST /api/v1/events` and `POST /api/v1/events/heartbeat` in `backend/src/events/events.controller.ts`.
 
 ## Path shape
 
 - No dotted path segments. `/api.alerts/events` is banned; it came from the legacy pilot controller and must not be reintroduced.
-- Use plural nouns for collections: `/api/alerts`, `/api/residents`, `/api/cameras`, `/api/guardians`, `/api/facilities`, `/api/floors`, `/api/spaces`.
+- Use plural nouns for collections: `/api/v1/alerts`, `/api/v1/residents`, `/api/v1/cameras`, `/api/v1/guardians`, `/api/v1/facilities`, `/api/v1/floors`, `/api/v1/spaces`.
 - Use nested singleton sub-resources when the resource exists only in the context of a parent.
-  - Snapshot canonical path: `/api/alerts/:id/snapshot`.
-  - Resident placement sub-resource: `GET`/`PUT /api/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/residents/assignments` (resident-namespaced, ADR).
-  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR).
-  - Facility singleton: `GET`/`PATCH /api/facilities/current` (the session's facility; never addressed by id from the client).
-  - Do not add new top-level snapshot paths such as `/api/snapshots/:alertId`.
-- Use verbs only when the operation is not naturally represented as a resource state update. The existing `/api/alerts/:id/ack` mutation is accepted as the dashboard acknowledgement action; new status transitions should prefer resource-oriented naming unless there is a concrete reason.
+  - Snapshot canonical path: `/api/v1/alerts/:id/snapshot`.
+  - Resident placement sub-resource: `GET`/`PUT /api/v1/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/v1/residents/assignments` (resident-namespaced, ADR).
+  - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/v1/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR).
+  - Facility singleton: `GET`/`PATCH /api/v1/facilities/current` (the session's facility; never addressed by id from the client).
+  - Do not add new top-level snapshot paths such as `/api/v1/snapshots/:alertId`.
+- Use verbs only when the operation is not naturally represented as a resource state update. The existing `/api/v1/alerts/:id/ack` mutation is accepted as the dashboard acknowledgement action; new status transitions should prefer resource-oriented naming unless there is a concrete reason.
 
 ## Status codes
 
@@ -30,10 +28,10 @@ This repo has three HTTP namespaces. Do not add a fourth without an decision.
   - `POST /api/v1/events` returns `201` for a newly created event.
   - Snapshot upload may return `201` when it stores a new snapshot object.
 - `200 OK` for mutations that return a body or idempotent duplicate responses.
-  - `PATCH /api/alerts/:id/ack` returns the updated alert.
+  - `PATCH /api/v1/alerts/:id/ack` returns the updated alert.
   - Duplicate `POST /api/v1/events` returns a body with duplicate status instead of pretending a second event was created.
 - `204 No Content` for logout or delete-like operations that intentionally return no body.
-  - `POST /auth/logout` is the reference.
+  - `POST /api/v1/auth/logout` is the reference.
 - DELETE semantics for product resources: `204` for a hard delete, `200` with a body for a soft delete (e.g. `isActive=false`), and `409` when the resource is still referenced (e.g. a floor with active child spaces).
 
 ## Error shape
@@ -52,8 +50,9 @@ A path rename must update backend routes, frontend service callers (`front/src/s
 
 Concrete refactor history:
 
-- `POST /api/orgs` is renamed to `POST /api/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
-- `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/alerts/:alertId/snapshot`.
+- Legacy `POST /api/orgs` is renamed to `POST /api/v1/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
+- Legacy `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/v1/alerts/:alertId/snapshot`.
 - `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.
-- `GET /api/resident-assignments` becomes `GET /api/residents/assignments` (assignments folded into the residents aggregate, ADR).
-- `/api/zones[/:zoneId]` becomes `/api/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).
+- Legacy `GET /api/resident-assignments` becomes `GET /api/v1/residents/assignments` (assignments folded into the residents aggregate, ADR).
+- Legacy `/api/zones[/:zoneId]` becomes `/api/v1/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).
+- `/auth/*` moves to `/api/v1/auth/*`; no unversioned compatibility alias is retained.

@@ -105,7 +105,7 @@ export function SignupPage() {
 
           <div className="mb-5">
             <h2 className="text-lg font-bold text-ink">회원가입</h2>
-            <p className="mt-1 text-sm text-ink-soft">시설 관리자 계정을 생성합니다.</p>
+            <p className="mt-1 text-sm text-ink-soft">관리자 계정을 생성합니다.</p>
           </div>
 
           <form onSubmit={handleSignup} className="space-y-4">

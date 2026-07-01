@@ -5,7 +5,7 @@ import type {
   LoginInput,
   RegisterInput,
 } from "@/services/authService";
-import type { Role, User } from "@/types";
+import type { User } from "@/types";
 
 interface AuthState {
   user: User | null;
@@ -87,24 +87,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null });
   },
 }));
-
-// 권한 헬퍼 ----------------------------------------------------
-const order: Record<Role, number> = {
-  VIEWER: 0,
-  STAFF: 1,
-  FACILITY_ADMIN: 2,
-  SUPER_ADMIN: 3,
-};
-
-export function hasRole(user: User | null, min: Role): boolean {
-  if (!user) return false;
-  return order[user.role] >= order[min];
-}
-
-export function canAcknowledge(user: User | null): boolean {
-  return hasRole(user, "STAFF");
-}
-
-export function canAdmin(user: User | null): boolean {
-  return hasRole(user, "FACILITY_ADMIN");
-}

@@ -5,15 +5,13 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Select } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
+import { monitorHomePath } from "@/lib/routeAccess";
 import type { Floor, MonitorSettings, Space } from "@/types";
 
 export function AdminMonitorSettingsPage() {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const settings = useMonitorSettingsStore();
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -36,11 +34,15 @@ export function AdminMonitorSettingsPage() {
     <div className="max-w-2xl space-y-5">
       <PageHeader
         title="모니터 표시 설정"
-        description="각 층 대형 모니터(현황판)의 표시 방식을 설정합니다."
+        description="요양원 대형 모니터의 전체 층 기본 화면과 층별 표시 방식을 설정합니다."
         action={
-          <Button variant="secondary" onClick={() => navigate("/monitor")}>
+          <Button
+            variant="secondary"
+            disabled={!facilityId}
+            onClick={() => navigate(monitorHomePath(facilityId))}
+          >
             <ExternalLink className="h-4 w-4" />
-            현황판 열기
+            모니터 열기
           </Button>
         }
       />
@@ -111,7 +113,7 @@ export function AdminMonitorSettingsPage() {
             onChange={(v) => settings.update({ nightMode: v })}
           />
           <Toggle
-            label="전체 보기 허용"
+            label="전체 층 화면 표시"
             checked={settings.allowAllView}
             onChange={(v) => settings.update({ allowAllView: v })}
           />
@@ -125,7 +127,7 @@ export function AdminMonitorSettingsPage() {
           <h3 className="font-semibold text-ink">표시할 공간 선택</h3>
         </div>
         <p className="mb-3 text-xs text-gray-400">
-          선택 해제한 공간은 현황판에 표시되지 않습니다. (전체 선택 시 모든 공간 표시)
+          선택 해제한 공간은 모니터에 표시되지 않습니다. (전체 선택 시 모든 공간 표시)
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {spaces.map((s) => (

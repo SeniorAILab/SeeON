@@ -11,12 +11,17 @@ import type { DashboardResponse } from "@/types";
 export function useDashboard(pollMs = 20_000) {
   const user = useAuthStore((s) => s.user);
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = currentFacilityId ?? user?.facilityId ?? null;
 
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
+    if (!facilityId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
     const res = await dashboardService.getDashboard(facilityId);
     setData(res);
     setLoading(false);
