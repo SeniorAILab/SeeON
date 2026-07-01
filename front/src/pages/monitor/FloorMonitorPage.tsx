@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { MonitorHeader } from "@/components/monitor/MonitorHeader";
 import { AlertBanner } from "@/components/monitor/AlertBanner";
 import { MonitorStatusCard } from "@/components/monitor/MonitorStatusCard";
@@ -13,22 +13,30 @@ import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
+import {
+  ACCESS_DENIED_PATH,
+  dashboardAdminPath,
+  dashboardStaffPath,
+  monitorFloorPath,
+  monitorHomePath,
+} from "@/lib/routeAccess";
 import type { Facility, Floor, Space, SpaceStatus } from "@/types";
 
 function gridCols(n: number): string {
-  if (n <= 2) return "grid-cols-1 sm:grid-cols-2";
-  if (n <= 4) return "grid-cols-1 sm:grid-cols-2";
-  if (n <= 6) return "grid-cols-2 lg:grid-cols-3";
+  if (n <= 2) return "grid-cols-1 lg:grid-cols-2";
+  if (n <= 4) return "grid-cols-1 lg:grid-cols-2";
+  if (n <= 6) return "grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3";
   // 14공간 등 다수: 55인치 TV 기준 최대 5열
-  return "grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+  return "grid-cols-1 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5";
 }
 const densityFor = (n: number): "comfortable" | "compact" => (n > 6 ? "compact" : "comfortable");
 
 export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
-  const { floorId } = useParams();
+  const navigate = useNavigate();
+  const { facilityId: routeFacilityId, floorId } = useParams();
   const user = useAuthStore((s) => s.user);
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = routeFacilityId ?? currentFacilityId ?? user?.facilityId;
 
   const nightMode = useMonitorSettingsStore((s) => s.nightMode);
   const visibleSpaceIds = useMonitorSettingsStore((s) => s.visibleSpaceIds);
@@ -41,8 +49,16 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const [selected, setSelected] = useState<Space | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const acknowledge = useMonitorStore((s) => s.acknowledge);
+  const effectiveFacilityId = facilityId ?? "";
+  const exitPath =
+    facilityId && (user?.role === "SUPER_ADMIN" || user?.role === "FACILITY_ADMIN")
+      ? dashboardAdminPath(facilityId)
+      : facilityId
+        ? dashboardStaffPath(facilityId)
+        : ACCESS_DENIED_PATH;
 
   useEffect(() => {
+    if (!facilityId) return;
     dashboardService.getDashboard(facilityId).then((d) => {
       setFacility(d.facility);
       setFloors(d.floors);
@@ -59,7 +75,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   }, [allSpaces, allView, floorId, visibleSpaceIds]);
 
   const { statuses, sortedSpaces, summary, totalPeople, connection, lastUpdateAt } =
-    useRealtimeSpaceStatus(facilityId, shownSpaces);
+    useRealtimeSpaceStatus(effectiveFacilityId, shownSpaces);
 
   // TTS 음성 안내 — 주의/위험/응급 공간을 음성으로 안내 (켜진 경우에만)
   const ttsAlerts = useMemo(
@@ -74,6 +90,8 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const floorTitle = allView ? "전체 층" : `${floorName} ${floorLabel(floorId, allSpaces)}`;
 
   const floorOf = (id: string) => floors.find((f) => f.id === id);
+
+  if (!facilityId) return <Navigate to={ACCESS_DENIED_PATH} replace />;
 
   if (!facility) {
     return <div className="flex min-h-screen items-center justify-center bg-bg text-xl text-ink-soft">현황판을 준비하는 중...</div>;
@@ -92,6 +110,9 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           soundEnabled={soundEnabled}
           onToggleSound={() => setSound(!soundEnabled)}
           fullscreenRef={rootRef}
+          floorSelectorPath={allView ? undefined : monitorHomePath(facilityId)}
+          floorSelectorLabel="전체 보기"
+          exitPath={exitPath}
         />
 
         <div className="mt-4 space-y-4">
@@ -100,14 +121,34 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           {allView ? (
             // 전체 보기: 층별 섹션
             <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 shadow-card">
+                <span className="mr-1 text-base font-bold text-ink-soft">층 바로가기</span>
+                {floors.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => navigate(monitorFloorPath(facilityId, f.id))}
+                    className="rounded-xl border border-border px-3 py-2 text-base font-bold text-ink hover:border-brand hover:text-brand"
+                  >
+                    {f.name}
+                  </button>
+                ))}
+              </div>
               {floors.map((f) => {
                 const fs = sortedSpaces.filter((s) => s.floorId === f.id);
                 if (fs.length === 0) return null;
                 return (
                   <section key={f.id}>
-                    <div className="mb-2 flex items-baseline gap-3">
+                    <div className="mb-2 flex flex-wrap items-baseline gap-3">
                       <h2 className="text-2xl font-extrabold text-ink 2xl:text-3xl">{f.name}</h2>
                       <FloorSummaryStats summary={sectionSummary(fs, statuses)} className="text-lg 2xl:text-xl" />
+                      <button
+                        type="button"
+                        onClick={() => navigate(monitorFloorPath(facilityId, f.id))}
+                        className="ml-auto rounded-xl border border-border px-3 py-1.5 text-sm font-bold text-ink-soft hover:border-brand hover:text-brand"
+                      >
+                        이 층만 보기
+                      </button>
                     </div>
                     <div className={`grid gap-3 ${gridCols(fs.length)}`}>
                       {fs.map((space) => (

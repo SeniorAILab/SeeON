@@ -7,7 +7,7 @@ import { RiskBadge } from "@/components/RiskBadge";
 import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
 import { eventService } from "@/services/eventService";
 import { useAuthStore, canAcknowledge } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { spaces } from "@/data/mockData";
 import { formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/labels";
@@ -22,8 +22,7 @@ const FILTERS = [
 export function EventsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [filter, setFilter] = useState("ALL");
