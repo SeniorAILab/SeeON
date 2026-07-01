@@ -19,7 +19,10 @@ export interface RequestWithAuth extends Request {
   sessionId?: string;
   rotatedSessionToken?: string | null;
   rotatedSessionMaxAgeSeconds?: number;
+  effectiveFacilityId?: string;
 }
+
+const FACILITY_SCOPE_HEADER = 'x-facility-id';
 
 @Injectable()
 export class SessionGuard implements CanActivate {
@@ -42,8 +45,25 @@ export class RequireFacilityGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<RequestWithAuth>();
     if (!request.user) throw new UnauthorizedException('Missing session');
-    if (!request.user.facilityId)
-      throw new ForbiddenException('Facility onboarding required');
-    return true;
+    if (request.user.facilityId) {
+      request.effectiveFacilityId = request.user.facilityId;
+      return true;
+    }
+    const requestedFacilityId = readFacilityScopeHeader(request);
+    if (request.user.role === 'SUPER_ADMIN' && requestedFacilityId) {
+      request.effectiveFacilityId = requestedFacilityId;
+      return true;
+    }
+    throw new ForbiddenException('Facility onboarding required');
   }
+}
+
+export function readFacilityScopeHeader(
+  request: RequestWithAuth,
+): string | null {
+  const value = request.headers[FACILITY_SCOPE_HEADER];
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string') return null;
+  const facilityId = raw.trim();
+  return facilityId.length > 0 ? facilityId : null;
 }

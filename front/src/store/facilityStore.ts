@@ -18,7 +18,11 @@ export const useFacilityStore = create<FacilityState>((set) => ({
   },
 }));
 
+export function getCurrentFacilityId(): string | null {
+  return useFacilityStore.getState().currentFacilityId;
+}
+
 export function facilitiesForUser(userFacilityId: string | null): Facility[] {
-  if (userFacilityId === null) return allFacilities; // SUPER_ADMIN: 전체
-  return allFacilities.filter((f) => f.id === userFacilityId);
+  if (userFacilityId === null) return allFacilities;
+  return allFacilities.filter((facility) => facility.id === userFacilityId);
 }

@@ -95,6 +95,30 @@ describe("apiClient.requestJson", () => {
     );
   });
 
+  it("sends the selected facility scope header with session-backed requests", async () => {
+    vi.stubEnv("VITE_USE_MOCK", "false");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(okJsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { useFacilityStore } = await import("@/store/facilityStore");
+    const { requestJson } = await import("./apiClient");
+    useFacilityStore.getState().setFacility("fac_happy_nokyang");
+
+    await requestJson("/floors");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/floors",
+      expect.objectContaining({
+        credentials: "include",
+        headers: expect.objectContaining({
+          "x-facility-id": "fac_happy_nokyang",
+        }),
+      })
+    );
+  });
+
   it("test_build_sse_url_uses_dashboard_stream_path", async () => {
     vi.stubEnv("VITE_API_BASE_URL", undefined);
 

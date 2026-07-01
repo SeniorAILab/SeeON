@@ -105,4 +105,20 @@ describe("dashboardEndpoints", () => {
       "/dashboards/facilities/fac-a/monitor?floorId=fl-2f"
     );
   });
+
+  it("lists facilities through the backend facility selector endpoint", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/facilities")) return okJsonResponse([facility]);
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { listFacilities } = await import("./dashboardEndpoints");
+    await expect(listFacilities()).resolves.toEqual([facility]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/facilities",
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
 });

@@ -14,7 +14,8 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
    - `/onboarding` when a facility-bound user needs to create one.
 5. Frontend/server rendering reads `GET /api/v1/auth/session` for the current user.
 6. Onboarding creates the facility through `POST /api/v1/facilities`.
-7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
+7. Super-admin facility selection uses `GET /api/v1/facilities`. After a facility route is selected, the frontend sends `X-Facility-Id: <facilityId>` on tenant-scoped requests; this request-scoped selector is accepted only for `SUPER_ADMIN`.
+8. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
 
 `POST /api/v1/auth/logout` revokes the session and clears the session cookie.
 
@@ -82,10 +83,13 @@ Returns current status for one facility-scoped resident.
 
 These routes are current. Product resource routes are facility-scoped via `SessionGuard`, `RequireFacilityGuard`, and, where controllers attach it, `FacilityContextInterceptor`.
 
+For facility-less `SUPER_ADMIN`, tenant resource routes require the selected facility in `X-Facility-Id`. Facility-bound `ADMIN`/`STAFF` accounts always use their session facility; a conflicting header cannot switch them to another tenant.
+
 ### Facility
 
 | Method | Path | Body | Response |
 |---|---|---|---|
+| GET | `/api/v1/facilities` | none | role-aware facility selector list: `SUPER_ADMIN` receives all facilities; facility-bound users receive only their own facility |
 | GET | `/api/v1/facilities/current` | none | current facility |
 | PATCH | `/api/v1/facilities/current` | partial `{ name?: string, address?: string or null, phone?: string or null }` (`code` is immutable — ignored if sent) | updated facility |
 
