@@ -19,6 +19,7 @@ ADR remains the name for architectural decision records, but the ADR set has bee
 | [front-admin-crud.md](./front-admin-crud.md) | `front/src/pages/admin/**` | Superseded Next.js-era rule. The current frontend is Vite + React; admin pages live in `front/src/pages/admin/` and use the `front/src/services/*` layer. A reusable Vite admin-CRUD convention is deferred. |
 | [ml-dataset-custody.md](./ml-dataset-custody.md) | fleet-wide (m3-pro <-> m1-pro) | Authority and transfer procedure for footage, labels, and model assets; one-way sync per class; staging-dir transfer procedures; domain provenance registry. |
 | [backend-architecture-lint-and-guard.md](./backend-architecture-lint-and-guard.md) | `backend/**` | Backend layering and DTO enforcement: built-in ESLint for controller/repository/service import boundaries and inline DTO placement; single-source backend guard blocks schema-without-migration at pre-commit and CI; tenant isolation remains structural. |
+| [local-dev-command-taxonomy.md](./local-dev-command-taxonomy.md) | repo-wide | MECE local dev command taxonomy: daily commands are `dev:front`, `dev:backend`, `dev:ml`; DB and Prisma are backend-owned; ML components live under `dev:ml:*`. |
 
 ## ADR Capture
 

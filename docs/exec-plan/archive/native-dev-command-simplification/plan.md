@@ -1,6 +1,7 @@
 ---
 slug: native-dev-command-simplification
-status: active
+status: superseded-by
+superseded-by: pnpm-dev-command-taxonomy-backend-db
 issue: 426
 author: gjc
 date: 2026-06-27
