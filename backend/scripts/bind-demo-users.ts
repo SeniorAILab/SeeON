@@ -143,7 +143,7 @@ export async function bindDemoUsers(
 ): Promise<{ readonly boundCount: number; readonly changes: readonly BindChange[]; readonly dryRun: boolean }> {
   if (options.kakaoIds.length === 0 && options.emails.length === 0) {
     throw new CliInputError(
-      'Usage: pnpm demo:bind -- --email <kakao-email> or DEMO_SUPER_ADMIN_KAKAO_ID=<id> pnpm demo:bind',
+      'Usage: pnpm backend:demo:bind -- --email <kakao-email> or DEMO_SUPER_ADMIN_KAKAO_ID=<id> pnpm backend:demo:bind',
     );
   }
 
