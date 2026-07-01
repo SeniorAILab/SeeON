@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  assertNoUnknownArgs,
   LocalEnvError,
   loadAndValidateLocalEnv,
   parseCommonArgs,
@@ -20,6 +21,7 @@ async function main() {
   }
 
   const common = parseCommonArgs(restArgs);
+  assertNoUnknownArgs(common.rest, ['--reset']);
   const reset = common.rest.includes('--reset');
   const { env, resolvedEnvFile, summary } = await loadAndValidateLocalEnv(
     common.envFile,

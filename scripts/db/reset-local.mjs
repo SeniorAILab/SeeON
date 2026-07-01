@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  assertNoUnknownArgs,
   LocalEnvError,
   loadAndValidateLocalEnv,
   parseCommonArgs,
@@ -14,7 +15,8 @@ const repoRoot = resolve(__dirname, '..', '..');
 const backendDir = resolve(repoRoot, 'backend');
 
 async function main() {
-  const { dryRun, envFile } = parseCommonArgs(process.argv.slice(2));
+  const { dryRun, envFile, rest } = parseCommonArgs(process.argv.slice(2));
+  assertNoUnknownArgs(rest);
   const { env, summary } = await loadAndValidateLocalEnv(envFile);
   printLocalEnvSummary(summary);
 
