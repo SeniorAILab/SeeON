@@ -119,4 +119,4 @@ These are implementation-visible diagnostics, not normal dashboard state.
 
 ## Removed probe route
 
-`GET /sse` is removed from the target contract. It was an auth/session probe returning `: auth-ok`, not the dashboard stream. Tests that used it must move to `/auth/session` or another documented probe.
+`GET /sse` is removed from the target contract. It was an auth/session probe returning `: auth-ok`, not the dashboard stream. Tests that used it must move to `/api/v1/auth/session` or another documented probe.

@@ -73,7 +73,7 @@ describe("auth endpoint mappers", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/auth/login",
+      "/api/v1/auth/login",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
@@ -111,7 +111,7 @@ describe("auth endpoint mappers", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/auth/register",
+      "/api/v1/auth/register",
       expect.objectContaining({
         method: "POST",
         credentials: "include",

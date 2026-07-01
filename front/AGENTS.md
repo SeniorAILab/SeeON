@@ -28,7 +28,7 @@ See `src/AGENTS.md` before changing frontend application code.
   seeded DB. See `../docs/architecture.md`.
 - Login in dev/prod is backend-owned for both email/password and Kakao OAuth.
   Both paths must mint the same httpOnly backend session cookie and restore via
-  `/auth/session`. Do not reintroduce frontend mock auth users or localStorage
+  `/api/v1/auth/session`. Do not reintroduce frontend mock auth users or localStorage
   auth sessions.
 - `strictPort` 3000 (ADR); pnpm only, never an npm lockfile.
 
