@@ -1,8 +1,5 @@
 import type { Role, User } from "@/types";
 
-export const ADMIN_HOME_PATH = "/admin/dashboard";
-export const STAFF_HOME_PATH = "/now";
-
 const ROLE_LABELS: Record<Role, string> = {
   SUPER_ADMIN: "시스템 관리자",
   ADMIN: "원장님",
@@ -17,18 +14,6 @@ const ROLE_RANK: Record<Role, number> = {
 
 export function roleLabel(role: Role): string {
   return ROLE_LABELS[role];
-}
-
-export function defaultPathForRole(role: Role): string {
-  return role === "STAFF" ? STAFF_HOME_PATH : ADMIN_HOME_PATH;
-}
-
-export function defaultPathForUser(user: User): string {
-  return defaultPathForRole(user.role);
-}
-
-export function forbiddenPathForUser(_user: User): string {
-  return STAFF_HOME_PATH;
 }
 
 export function canAccessRole(role: Role, min: Role): boolean {

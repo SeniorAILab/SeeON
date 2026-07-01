@@ -21,25 +21,26 @@ beforeEach(() => {
 
 function renderAdminRoute() {
   return render(
-    <MemoryRouter initialEntries={["/admin/dashboard"]}>
+    <MemoryRouter initialEntries={["/dashboard/facilities/fac_happy_nokyang/admin"]}>
       <Routes>
         <Route
-          path="/admin/dashboard"
+          path="/dashboard/facilities/:facilityId/admin"
           element={
             <RequireAuth minRole="ADMIN">
               <div>ADMIN_DASHBOARD</div>
             </RequireAuth>
           }
         />
-        <Route path="/now" element={<div>NOW_PAGE</div>} />
+        <Route path="/access-denied" element={<div>ACCESS_DENIED_PAGE</div>} />
+        <Route path="/dashboard" element={<div>WRONG_DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
 describe("RequireAuth", () => {
-  it("요양 보호사가 관리자 경로로 접근하면 실제 직원 경로로 보낸다", () => {
+  it("요양 보호사가 관리자 경로로 접근하면 접근 거부 화면으로 보낸다", () => {
     renderAdminRoute();
-    expect(screen.getByText("NOW_PAGE")).toBeTruthy();
+    expect(screen.getByText("ACCESS_DENIED_PAGE")).toBeTruthy();
   });
 });

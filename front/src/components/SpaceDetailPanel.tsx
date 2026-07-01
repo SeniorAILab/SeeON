@@ -18,6 +18,8 @@ import { BedDouble } from "lucide-react";
 import { sampleTimeline } from "@/data/mockData";
 import { useAuthStore } from "@/store/authStore";
 import { canAcknowledge, canAdmin } from "@/lib/roles";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
+import { dashboardAdminPath } from "@/lib/routeAccess";
 import type { ActionType, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 
 interface Props {
@@ -31,6 +33,7 @@ interface Props {
 export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: Props) {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  const facilityId = useActiveFacilityId();
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [zones, setZones] = useState<ZoneWithResident[]>([]);
@@ -105,7 +108,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
           {/* 관리자 전용: 이슈 상세·근거 영상 진입 */}
           {canAdmin(user) && openEvent && (
             <button
-              onClick={() => navigate(`/admin/events/${openEvent.id}`)}
+              onClick={() => navigate(`${dashboardAdminPath(facilityId)}/events/${openEvent.id}`)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand/30 bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand hover:bg-brand/10"
             >
               <Film className="h-4 w-4" />

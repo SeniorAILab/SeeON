@@ -51,6 +51,21 @@ function buildStatusesFromSpaces(spaces: Space[]): Record<string, SpaceStatus> {
   return Object.fromEntries(spaces.map((space) => [space.id, statusFromSpace(space)]));
 }
 
+function pathSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+export const dashboardReadModelPath = {
+  superAdmin: () => "/dashboards/super-admin",
+  facilityAdmin: (facilityId: string) =>
+    `/dashboards/facilities/${pathSegment(facilityId)}/admin`,
+  facilityStaff: (facilityId: string) =>
+    `/dashboards/facilities/${pathSegment(facilityId)}/staff`,
+  facilityMonitor: (facilityId: string, floorId?: string | "all") => {
+    const base = `/dashboards/facilities/${pathSegment(facilityId)}/monitor`;
+    return floorId ? `${base}?floorId=${pathSegment(floorId)}` : base;
+  },
+};
 
 export async function listStatuses(): Promise<Record<string, SpaceStatus>> {
   return buildStatusesFromSpaces(await listSpaces());

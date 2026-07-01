@@ -8,9 +8,10 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
 2. For email/password, the backend validates the password hash and sets the same session cookie used by OAuth.
 3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with the env-driven scope from ADR (default `talk_message`), then receives `GET /api/v1/auth/kakao/callback?code=...&state=...`.
 4. Backend validates state, exchanges the code, stores/updates Kakao identity, sets the session cookie, then redirects:
-   - `/admin/dashboard` for `SUPER_ADMIN` and `ADMIN` users who already have a facility.
-   - `/now` for `STAFF` users who already have a facility.
-   - `/onboarding` when the user needs to create one.
+   - `/dashboard` for `SUPER_ADMIN`.
+   - `/dashboard/facilities/:facilityId/admin` for `ADMIN` users who already have a facility.
+   - `/dashboard/facilities/:facilityId/staff` for `STAFF` users who already have a facility.
+   - `/onboarding` when a facility-bound user needs to create one.
 5. Frontend/server rendering reads `GET /api/v1/auth/session` for the current user.
 6. Onboarding creates the facility through `POST /api/v1/facilities`.
 7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.

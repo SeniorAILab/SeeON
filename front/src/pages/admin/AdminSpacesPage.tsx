@@ -3,8 +3,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Input, Select } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { spaceTypeLabel } from "@/lib/labels";
 import type { Floor, Space, SpaceType } from "@/types";
 
@@ -33,9 +32,7 @@ function emptyDraft(facilityId: string, floorId: string): Draft {
 }
 
 export function AdminSpacesPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [floors, setFloors] = useState<Floor[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);

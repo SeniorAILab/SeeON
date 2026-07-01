@@ -3,14 +3,11 @@ import { Plus, ChevronUp, ChevronDown, Trash2, Check, X, Pencil } from "lucide-r
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Input } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import type { Floor } from "@/types";
 
 export function AdminFloorsPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [floors, setFloors] = useState<Floor[]>([]);
   const [newName, setNewName] = useState("");

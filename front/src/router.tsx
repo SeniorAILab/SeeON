@@ -1,11 +1,15 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RouterBootstrap } from "@/components/RouterBootstrap";
+import { FacilityRouteScope } from "@/components/FacilityRouteScope";
+import { RoleRouteRedirect } from "@/components/RoleRouteRedirect";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
+import { AccessDeniedPage } from "@/pages/AccessDeniedPage";
+import { SuperAdminDashboardPage } from "@/pages/SuperAdminDashboardPage";
 import { NowPage } from "@/pages/staff/NowPage";
 import { RoomsPage } from "@/pages/staff/RoomsPage";
 import { AlertsPage } from "@/pages/staff/AlertsPage";
@@ -20,9 +24,7 @@ import { UsersPage } from "@/pages/admin/UsersPage";
 import { AdminMonitorSettingsPage } from "@/pages/admin/AdminMonitorSettingsPage";
 import { FocusResidentsPage } from "@/pages/admin/FocusResidentsPage";
 import { AdminAssignmentsPage } from "@/pages/admin/AdminAssignmentsPage";
-import { FloorSelectorPage } from "@/pages/monitor/FloorSelectorPage";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
-import { PocFloor2Page } from "@/pages/poc/PocFloor2Page";
 import { UxTestResultPage } from "@/pages/admin/UxTestResultPage";
 
 export const router = createBrowserRouter([
@@ -43,6 +45,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/access-denied",
+    element: (
+      <RouterBootstrap>
+        <AccessDeniedPage />
+      </RouterBootstrap>
+    ),
+  },
+  {
     path: "/onboarding",
     element: (
       <RouterBootstrap>
@@ -51,81 +61,80 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // ---------- 직원 모드 (기본) : 크게 · 단순 · 한글 ----------
   {
     path: "/",
     element: (
       <RouterBootstrap>
         <RequireAuth>
-          <StaffLayout />
+          <RoleRouteRedirect />
+        </RequireAuth>
+      </RouterBootstrap>
+    ),
+  },
+  {
+    path: "/dashboard",
+    element: (
+      <RouterBootstrap>
+        <RequireAuth minRole="SUPER_ADMIN">
+          <SuperAdminDashboardPage />
+        </RequireAuth>
+      </RouterBootstrap>
+    ),
+  },
+  {
+    path: "/dashboard/facilities/:facilityId/staff",
+    element: (
+      <RouterBootstrap>
+        <RequireAuth>
+          <FacilityRouteScope>
+            <StaffLayout />
+          </FacilityRouteScope>
         </RequireAuth>
       </RouterBootstrap>
     ),
     children: [
-      { index: true, element: <Navigate to="/now" replace /> },
-      { path: "now", element: <NowPage /> },
+      { index: true, element: <NowPage /> },
       { path: "rooms", element: <RoomsPage /> },
       { path: "alerts", element: <AlertsPage /> },
     ],
   },
-
-  // ---------- 모니터(현황판) 모드 : 대형 화면 상시 표시 (로그인 사용자 누구나) ----------
   {
-    path: "/monitor",
+    path: "/monitor/:facilityId",
     element: (
       <RouterBootstrap>
         <RequireAuth>
-          <FloorSelectorPage />
+          <FacilityRouteScope>
+            <FloorMonitorPage allView />
+          </FacilityRouteScope>
         </RequireAuth>
       </RouterBootstrap>
     ),
   },
   {
-    path: "/monitor/floor/:floorId",
+    path: "/monitor/:facilityId/floors/:floorId",
     element: (
       <RouterBootstrap>
         <RequireAuth>
-          <FloorMonitorPage />
+          <FacilityRouteScope>
+            <FloorMonitorPage />
+          </FacilityRouteScope>
         </RequireAuth>
       </RouterBootstrap>
     ),
   },
   {
-    path: "/monitor/all",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <FloorMonitorPage allView />
-        </RequireAuth>
-      </RouterBootstrap>
-    ),
-  },
-
-  // ---------- 2층 UX 검증 PoC (개인정보 없음) ----------
-  {
-    path: "/poc/2f",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <PocFloor2Page />
-        </RequireAuth>
-      </RouterBootstrap>
-    ),
-  },
-
-  // ---------- 관리자 모드 : 설정 · 상세 데이터 (ADMIN 이상) ----------
-  {
-    path: "/admin",
+    path: "/dashboard/facilities/:facilityId/admin",
     element: (
       <RouterBootstrap>
         <RequireAuth minRole="ADMIN">
-          <AppLayout />
+          <FacilityRouteScope>
+            <AppLayout />
+          </FacilityRouteScope>
         </RequireAuth>
       </RouterBootstrap>
     ),
     children: [
-      { index: true, element: <Navigate to="/admin/dashboard" replace /> },
-      { path: "dashboard", element: <DashboardPage /> },
+      { index: true, element: <DashboardPage /> },
       { path: "events", element: <EventsPage /> },
       { path: "events/:eventId", element: <AdminEventDetailPage /> },
       { path: "focus-residents", element: <FocusResidentsPage /> },
@@ -140,5 +149,14 @@ export const router = createBrowserRouter([
     ],
   },
 
-  { path: "*", element: <Navigate to="/now" replace /> },
+  {
+    path: "*",
+    element: (
+      <RouterBootstrap>
+        <RequireAuth>
+          <RoleRouteRedirect />
+        </RequireAuth>
+      </RouterBootstrap>
+    ),
+  },
 ]);

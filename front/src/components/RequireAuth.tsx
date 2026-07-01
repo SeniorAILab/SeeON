@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
-import { forbiddenPathForUser, hasRole } from "@/lib/roles";
+import { forbiddenPathForUser } from "@/lib/routeAccess";
+import { hasRole } from "@/lib/roles";
 import type { Role } from "@/types";
 
 export function RequireAuth({

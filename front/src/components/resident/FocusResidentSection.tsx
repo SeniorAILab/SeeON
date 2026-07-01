@@ -5,7 +5,7 @@ import { residentService } from "@/services/residentService";
 import { announceFocusResidents } from "@/services/tts/announceFocus";
 import { useAuthStore } from "@/store/authStore";
 import { canAcknowledge } from "@/lib/roles";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { residentActionLabel } from "@/lib/labels";
 import type { FocusResidentView, ResidentActionType } from "@/types";
 
@@ -18,8 +18,7 @@ const BTNS: { type: ResidentActionType; label: string; Icon: typeof Check; tone:
 
 export function FocusResidentSection() {
   const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [items, setItems] = useState<FocusResidentView[]>([]);
   const [doneMap, setDoneMap] = useState<Record<string, string>>({});

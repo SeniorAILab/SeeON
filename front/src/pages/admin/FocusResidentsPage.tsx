@@ -6,10 +6,10 @@ import { Card } from "@/components/ui/primitives";
 import { RiskBadge } from "@/components/RiskBadge";
 import { EventTimeline } from "@/components/EventTimeline";
 import { residentService } from "@/services/residentService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { formatDateTime } from "@/lib/format";
 import { residentActionLabel } from "@/lib/labels";
+import { dashboardAdminPath } from "@/lib/routeAccess";
 import type { DetectionEvent, FocusResidentView, ResidentAction, VideoClip } from "@/types";
 
 type Detail = FocusResidentView & {
@@ -19,9 +19,7 @@ type Detail = FocusResidentView & {
 };
 
 export function FocusResidentsPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
   const [ids, setIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -37,7 +35,9 @@ export function FocusResidentsPage() {
       {ids.length === 0 ? (
         <p className="text-sm text-ink-soft">오늘 집중 관찰 대상이 없습니다.</p>
       ) : (
-        ids.map((id) => <ResidentDetailCard key={id} residentId={id} />)
+        ids.map((id) => (
+          <ResidentDetailCard key={id} facilityId={facilityId} residentId={id} />
+        ))
       )}
     </div>
   );
@@ -63,7 +63,13 @@ function Delta({ value }: { value: number }) {
   );
 }
 
-function ResidentDetailCard({ residentId }: { residentId: string }) {
+function ResidentDetailCard({
+  facilityId,
+  residentId,
+}: {
+  facilityId: string;
+  residentId: string;
+}) {
   const navigate = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
   const [actions, setActions] = useState<ResidentAction[]>([]);
@@ -123,7 +129,9 @@ function ResidentDetailCard({ residentId }: { residentId: string }) {
       {/* 관련 영상 클립 */}
       {d.clip && d.recentEvents[0] && (
         <button
-          onClick={() => navigate(`/admin/events/${d.clip!.eventId}`)}
+          onClick={() =>
+            navigate(`${dashboardAdminPath(facilityId)}/events/${d.clip!.eventId}`)
+          }
           className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand-soft px-3 py-2 text-sm font-semibold text-brand hover:bg-brand/10"
         >
           <Film className="h-4 w-4" />

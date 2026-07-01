@@ -5,16 +5,14 @@ import type { Facility } from "@/types";
 interface FacilityState {
   currentFacilityId: string | null;
   setFacility: (id: string) => void;
-  resolveForUser: (userFacilityId: string | null) => string;
+  resolveForUser: (userFacilityId: string | null) => string | null;
 }
-
-const DEFAULT_FACILITY = "fac_happy_nokyang";
 
 export const useFacilityStore = create<FacilityState>((set) => ({
   currentFacilityId: null,
   setFacility: (id) => set({ currentFacilityId: id }),
   resolveForUser: (userFacilityId) => {
-    const id = userFacilityId ?? DEFAULT_FACILITY;
+    const id = userFacilityId;
     set({ currentFacilityId: id });
     return id;
   },

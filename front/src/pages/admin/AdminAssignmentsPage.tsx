@@ -6,14 +6,11 @@ import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { adminService } from "@/services/adminService";
 import { zoneService, type ZoneWithResident } from "@/services/zoneService";
 import { residentService } from "@/services/residentService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import type { Floor, Resident, Space } from "@/types";
 
 export function AdminAssignmentsPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Space[]>([]);
