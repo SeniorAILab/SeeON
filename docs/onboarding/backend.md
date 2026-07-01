@@ -4,12 +4,11 @@
 
 ## 한눈에 보는 책임
 
-Backend는 `backend/src/app.module.ts`에 등록된 NestJS 모듈 묶음이며, PostgreSQL/Prisma 위에서 auth/session, RLS 멀티테넌시, Event API ingress, alert 정책, SSE, Kakao delivery outbox를 소유한다. `backend/src/main.ts`는 전역 prefix를 `api`로 두고 URI versioning 기본값을 `v1`로 켜며, `/auth/*`는 prefix에서 제외해 세션/OAuth namespace로 분리한다.
+Backend는 `backend/src/app.module.ts`에 등록된 NestJS 모듈 묶음이며, PostgreSQL/Prisma 위에서 auth/session, RLS 멀티테넌시, Event API ingress, alert 정책, SSE, Kakao delivery outbox를 소유한다. `backend/src/main.ts`는 전역 prefix를 `api`로 두고 URI versioning 기본값을 `v1`로 켜며, auth/session/OAuth도 `/api/v1/auth/*` product API convention에 둔다.
 
 ```text
 Browser dashboard
-  ├─ /auth/*                 → AuthController → SessionService
-  └─ /api/v1/* product API   → guards/interceptor → domain controller/service/repository
+  └─ /api/v1/* product API   → AuthController / guards / domain controller-service-repository
 
 Edge device
   └─ POST /api/v1/events, /api/v1/events/heartbeat
@@ -21,7 +20,7 @@ Edge device
 
 | 축 | 규칙 | 근거 |
 | --- | --- | --- |
-| REST namespace | product API는 `/api/*`, session/OAuth는 `/auth/*`, ML Event API ingress는 `/api/v1/events`와 `/api/v1/events/heartbeat`만 사용한다. dotted path나 legacy machine-ingest/HMAC route를 되살리지 않는다. | `backend/src/main.ts`, `backend/src/events/events.controller.ts`, `docs/rules/rest-api-convention.md`, ADR |
+| REST namespace | product API는 `/api/v1/*`만 사용하고, session/OAuth는 `/api/v1/auth/*`, ML Event API ingress는 `/api/v1/events`와 `/api/v1/events/heartbeat`만 사용한다. dotted path나 legacy machine-ingest/HMAC route를 되살리지 않는다. | `backend/src/main.ts`, `backend/src/events/events.controller.ts`, `docs/rules/rest-api-convention.md`, ADR |
 | DTO boundary | `@Body()` 요청 타입은 `*RequestDto` 등 역할 suffix가 있는 DTO여야 하며, DTO는 owning domain의 `dto/*.dto.ts`에 둔다. 외부 edge 입력은 `snake_case`, backend service/repository 내부는 mapper/parser 이후 `camelCase`를 쓴다. | `backend/src/events/dto/event.dto.ts`, `docs/rules/dto-convention.md`, ADR |
 | Layering guard | controller→service→repository→ports/adapters/presenter 경계를 따른다. ESLint는 controller↛repository/Prisma/adapter, repository↛HTTP/service/controller 등을 warn-first로 드러내고, hard gate는 `scripts/backend-guard/`가 소유한다. | `docs/rules/backend-layering.md`, `docs/rules/backend-architecture-lint-and-guard.md`, ADR |
 | Prisma naming | TypeScript/Prisma Client 필드는 `camelCase`, DB column/table은 `snake_case`를 `@map`/`@@map`으로 연결한다. 응답 DTO도 dashboard/frontend 계약에 맞춰 `camelCase`로 낸다. | `backend/prisma/schema.prisma`, `docs/rules/rest-api-convention.md`, ADR |
@@ -76,7 +75,7 @@ HTTP request
 
 | Module | 주 책임 |
 | --- | --- |
-| `AuthModule` | Kakao/email auth, signed session cookie, `/auth/*`, session validation/rotation/revocation |
+| `AuthModule` | Kakao/email auth, signed session cookie, `/api/v1/auth/*`, session validation/rotation/revocation |
 | `ResidentsModule`, `ResidentAssignmentsModule`, `ResidentRiskSummariesModule` | resident profile, placement, risk summary read/write |
 | `GuardiansModule` | guardian domain |
 | `FacilitiesModule`, `FloorsModule`, `SpacesModule`, `ZonesModule`, `SpaceStatusesModule`, `CamerasModule` | facility topology와 camera ownership/placement |
@@ -85,7 +84,7 @@ HTTP request
 | `DashboardModule`, `StatusModule` | dashboard read-side API와 SSE/status snapshot |
 | `PrismaModule` | Prisma client lifecycle, RLS GUC binding, tenant access guard |
 
-`backend/src/main.ts`의 `app.setGlobalPrefix('api', { exclude: ['/', 'auth/(.*)'] })`와 URI versioning 때문에 `@Controller({ path: 'alerts', version: '1' })`는 `/api/v1/alerts`가 되고, `AuthController`의 `@Version(VERSION_NEUTRAL)` `/auth/*` route는 `/auth/*`로 유지된다.
+`backend/src/main.ts`의 `app.setGlobalPrefix('api', { exclude: ['/'] })`와 URI versioning 때문에 `@Controller({ path: 'alerts', version: '1' })`는 `/api/v1/alerts`가 되고, `AuthController`의 `auth/*` route도 `/api/v1/auth/*`로 노출된다. `/auth/*` compatibility alias는 유지하지 않는다.
 
 ## 요청이 계층을 통과하는 방식
 
