@@ -107,8 +107,8 @@ def test_edge_api_host_port_is_loopback_only() -> None:
 
 def test_native_ml_dev_server_binds_loopback_only() -> None:
     package_json = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
-    assert "dev:ml" not in package_json["scripts"]
-    command = package_json["scripts"]["dev:ml-api"]
+    assert package_json["scripts"]["dev:ml"] == "pnpm dev:ml:api"
+    command = package_json["scripts"]["dev:ml:api"]
 
     assert "--host 127.0.0.1" in command
     assert "--host 0.0.0.0" not in command

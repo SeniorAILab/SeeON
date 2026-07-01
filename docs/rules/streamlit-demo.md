@@ -90,7 +90,7 @@ uploads, and always offers the laptop camera as a live source.
 - **Run it:**
 
   ```bash
-  pnpm dev:demo
+  pnpm dev:ml:demo
   # or directly:
   cd ml && uv run streamlit run demo/app.py
   ```
