@@ -90,4 +90,19 @@ describe("dashboardEndpoints", () => {
     expect(dashboard.unacknowledgedEvents).toHaveLength(1);
     expect(dashboard.summary.danger).toBe(1);
   });
+
+  it("exposes role dashboard read-model paths using facility scope", async () => {
+    const { dashboardReadModelPath } = await import("./dashboardEndpoints");
+
+    expect(dashboardReadModelPath.superAdmin()).toBe("/dashboards/super-admin");
+    expect(dashboardReadModelPath.facilityAdmin("fac-a")).toBe(
+      "/dashboards/facilities/fac-a/admin"
+    );
+    expect(dashboardReadModelPath.facilityStaff("fac-a")).toBe(
+      "/dashboards/facilities/fac-a/staff"
+    );
+    expect(dashboardReadModelPath.facilityMonitor("fac-a", "fl-2f")).toBe(
+      "/dashboards/facilities/fac-a/monitor?floorId=fl-2f"
+    );
+  });
 });

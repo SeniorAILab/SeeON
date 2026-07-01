@@ -37,8 +37,8 @@ export function MonitorStatusCard({
           tone[level]
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-2xl font-extrabold leading-none text-ink 2xl:text-3xl">{space.name}</h3>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="break-keep text-2xl font-extrabold leading-tight text-ink 2xl:text-3xl">{space.name}</h3>
           <LargeRiskBadge status={level} size="md" />
         </div>
         <div className="mt-2 flex items-end gap-1.5">
@@ -67,8 +67,8 @@ export function MonitorStatusCard({
         tone[level]
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-5xl font-extrabold leading-none text-ink 2xl:text-6xl">{space.name}</h3>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <h3 className="break-keep text-4xl font-extrabold leading-tight text-ink md:text-5xl 2xl:text-6xl">{space.name}</h3>
         <LargeRiskBadge status={level} />
       </div>
       <div className="mt-5 flex items-center gap-3">

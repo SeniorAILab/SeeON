@@ -6,8 +6,7 @@ import { Card } from "@/components/ui/primitives";
 import { RiskBadge } from "@/components/RiskBadge";
 import { EventTimeline } from "@/components/EventTimeline";
 import { residentService } from "@/services/residentService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { formatDateTime } from "@/lib/format";
 import { residentActionLabel } from "@/lib/labels";
 import type { DetectionEvent, FocusResidentView, ResidentAction, VideoClip } from "@/types";
@@ -19,9 +18,7 @@ type Detail = FocusResidentView & {
 };
 
 export function FocusResidentsPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
   const [ids, setIds] = useState<string[]>([]);
 
   useEffect(() => {
