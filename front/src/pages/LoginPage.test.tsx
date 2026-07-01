@@ -24,8 +24,9 @@ function renderLogin(initialEntry = "/login") {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/now" element={<div>NOW_PAGE</div>} />
-        <Route path="/admin/dashboard" element={<div>ADMIN_DASHBOARD</div>} />
+        <Route path="/dashboard" element={<div>SUPER_ADMIN_DASHBOARD</div>} />
+        <Route path="/dashboard/facilities/:facilityId/admin" element={<div>ADMIN_DASHBOARD</div>} />
+        <Route path="/dashboard/facilities/:facilityId/staff" element={<div>FACILITY_STAFF_DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -78,12 +79,12 @@ describe("LoginPage", () => {
     ).toBeTruthy();
   });
 
-  it("이메일 로그인 성공 시 사용자 기본 경로로 이동한다", async () => {
+  it("시설 관리자 이메일 로그인 성공 시 시설 관리자 대시보드로 이동한다", async () => {
     const login = vi.fn().mockResolvedValue({
       id: "user-1",
-      name: "시설 관리자",
+      name: "관리자",
       email: "admin@sen.ai",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: "facility-1",
     });
     useAuthStore.setState({ login });
@@ -104,6 +105,28 @@ describe("LoginPage", () => {
     });
   });
 
+  it("슈퍼 관리자 이메일 로그인 성공 시 시스템 대시보드로 이동한다", async () => {
+    const login = vi.fn().mockResolvedValue({
+      id: "user-super",
+      name: "SeniorAILab Super Admin",
+      email: "seniorsailab@gmail.com",
+      role: "SUPER_ADMIN",
+      facilityId: null,
+    });
+    useAuthStore.setState({ login });
+    renderLogin();
+
+    fireEvent.change(screen.getByPlaceholderText("name@facility.com"), {
+      target: { value: "seniorsailab@gmail.com" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("비밀번호"), {
+      target: { value: "seniorailab1@" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
+
+    await waitFor(() => expect(screen.getByText("SUPER_ADMIN_DASHBOARD")).toBeTruthy());
+  });
+
   it("회원가입 버튼 클릭 시 회원가입 폼 화면으로 이동한다", () => {
     renderLogin();
 
@@ -120,7 +143,7 @@ describe("LoginPage", () => {
       id: "user-1",
       name: "홍원장",
       email: "owner@example.test",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: "facility-1",
     });
     useAuthStore.setState({ register });

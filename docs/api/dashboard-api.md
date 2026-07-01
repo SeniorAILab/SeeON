@@ -1,20 +1,22 @@
 # Dashboard API
 
-The dashboard API is the authenticated backend read-model and admin CRUD surface consumed by the Vite + React frontend. All product `/api/v1/*` dashboard routes use camelCase JSON responses for the frontend SSOT and are facility-scoped unless noted.
+The dashboard API is the authenticated backend read-model and admin CRUD surface consumed by the Vite + React frontend. All product `/api/v1/*` dashboard routes use camelCase JSON responses that match the frontend type mirror and are facility-scoped unless noted.
 
 ## Auth and onboarding flow
 
-1. The browser authenticates through either `POST /auth/login` with email/password or `GET /auth/kakao/login`.
+1. The browser authenticates through either `POST /api/v1/auth/login` with email/password or `GET /api/v1/auth/kakao/login`.
 2. For email/password, the backend validates the password hash and sets the same session cookie used by OAuth.
-3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with the env-driven scope from ADR (default `talk_message`), then receives `GET /auth/kakao/callback?code=...&state=...`.
+3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with the env-driven scope from ADR (default `talk_message`), then receives `GET /api/v1/auth/kakao/callback?code=...&state=...`.
 4. Backend validates state, exchanges the code, stores/updates Kakao identity, sets the session cookie, then redirects:
-   - `/dashboard` when the user already has a facility.
-   - `/onboarding` when the user needs to create one.
-5. Frontend/server rendering reads `GET /auth/session` for the current user.
+   - `/dashboard` for `SUPER_ADMIN`.
+   - `/dashboard/facilities/:facilityId/admin` for `ADMIN` users who already have a facility.
+   - `/dashboard/facilities/:facilityId/staff` for `STAFF` users who already have a facility.
+   - `/onboarding` when a facility-bound user needs to create one.
+5. Frontend/server rendering reads `GET /api/v1/auth/session` for the current user.
 6. Onboarding creates the facility through `POST /api/v1/facilities`.
 7. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
 
-`POST /auth/logout` revokes the session and clears the session cookie.
+`POST /api/v1/auth/logout` revokes the session and clears the session cookie.
 
 ## Alerts read-model
 

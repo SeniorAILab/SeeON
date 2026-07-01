@@ -1,9 +1,9 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuthStore, hasRole } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
 import { forbiddenPathForUser } from "@/lib/routeAccess";
+import { hasRole } from "@/lib/roles";
 import type { Role } from "@/types";
 
-/** 인증 + (선택) 최소 권한 가드 */
 export function RequireAuth({
   children,
   minRole,

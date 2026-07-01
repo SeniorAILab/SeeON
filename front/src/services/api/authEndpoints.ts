@@ -1,4 +1,4 @@
-import type { AuthSession, BackendRole, Role, User } from "@/types";
+import type { AuthSession, Role, User } from "@/types";
 import { buildApiUrl, requestJson, requestNoContent } from "../apiClient";
 
 interface AuthUserResponseDto {
@@ -30,46 +30,36 @@ export interface RegisterInput {
   readonly facilityName: string;
 }
 
-export function mapBackendRoleToFrontRole(
-  role: BackendRole | string | null | undefined
-): Role {
+export function parseRole(role: string | null | undefined): Role | null {
   switch (role) {
     case "SUPER_ADMIN":
       return "SUPER_ADMIN";
     case "ADMIN":
-      return "FACILITY_ADMIN";
-    case "CAREGIVER":
+      return "ADMIN";
+    case "STAFF":
       return "STAFF";
     default:
-      return "STAFF";
+      return null;
   }
 }
 
 export function kakaoLoginUrl(): string {
-  return buildApiUrl("/auth/kakao/login", { apiPrefix: false });
+  return buildApiUrl("/auth/kakao/login");
 }
 
 export async function logoutEndpoint(): Promise<void> {
-  await requestNoContent(
-    "/auth/logout",
-    {
-      method: "POST",
-      credentials: "include",
-    },
-    { apiPrefix: false }
-  );
+  await requestNoContent("/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
 }
 
 export async function loginEndpoint(input: LoginInput): Promise<AuthSession> {
-  const body = await requestJson(
-    "/auth/login",
-    {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify(input),
-    },
-    { apiPrefix: false }
-  );
+  const body = await requestJson("/auth/login", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
   const session = parseAuthSessionResponse(body);
   if (!session) throw new Error("로그인 응답이 올바르지 않습니다.");
   return session;
@@ -78,28 +68,20 @@ export async function loginEndpoint(input: LoginInput): Promise<AuthSession> {
 export async function registerEndpoint(
   input: RegisterInput
 ): Promise<AuthSession> {
-  const body = await requestJson(
-    "/auth/register",
-    {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify(input),
-    },
-    { apiPrefix: false }
-  );
+  const body = await requestJson("/auth/register", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
   const session = parseAuthSessionResponse(body);
   if (!session) throw new Error("회원가입 응답이 올바르지 않습니다.");
   return session;
 }
 
 export async function restoreSessionEndpoint(): Promise<AuthSession | null> {
-  const body = await requestJson(
-    "/auth/session",
-    {
-      credentials: "include",
-    },
-    { apiPrefix: false }
-  );
+  const body = await requestJson("/auth/session", {
+    credentials: "include",
+  });
   return parseAuthSessionResponse(body);
 }
 
@@ -124,17 +106,18 @@ export function parseAuthSessionResponse(body: unknown): AuthSession | null {
   ) {
     return null;
   }
-  return {
-    user: mapAuthUser(body.user),
-  };
+  const user = mapAuthUser(body.user);
+  return user ? { user } : null;
 }
 
-function mapAuthUser(dto: AuthUserResponseDto): User {
+function mapAuthUser(dto: AuthUserResponseDto): User | null {
+  const role = parseRole(dto.role);
+  if (!role) return null;
   return {
     id: dto.id,
     name: dto.nickname?.trim() || "사용자",
     email: dto.email?.trim() ?? "",
-    role: mapBackendRoleToFrontRole(dto.role),
+    role,
     facilityId: dto.facilityId ?? null,
   };
 }

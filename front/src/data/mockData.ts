@@ -48,9 +48,8 @@ export const facilities: Facility[] = [
 // ---------- 사용자 ----------
 export const users: (User & { password: string })[] = [
   { id: "u_super", name: "통합관리자", email: "super@sen.ai", password: "1234", role: "SUPER_ADMIN", facilityId: null },
-  { id: "u_admin", name: "김원장", email: "admin@sen.ai", password: "1234", role: "FACILITY_ADMIN", facilityId: FAC },
+  { id: "u_admin", name: "김원장", email: "admin@sen.ai", password: "1234", role: "ADMIN", facilityId: FAC },
   { id: "u_staff", name: "이간호", email: "staff@sen.ai", password: "1234", role: "STAFF", facilityId: FAC },
-  { id: "u_viewer", name: "박보호자", email: "viewer@sen.ai", password: "1234", role: "VIEWER", facilityId: FAC },
 ];
 
 // ---------- 층 ----------
