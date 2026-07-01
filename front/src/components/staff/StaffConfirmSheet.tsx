@@ -5,7 +5,7 @@ import { StaffStatusBadge } from "./StaffStatusBadge";
 import { peoplePhrase, plainDescription } from "@/lib/staffCopy";
 import { alertService } from "@/services/alertService";
 import { useAuthStore } from "@/store/authStore";
-import { canAcknowledge } from "@/lib/rolePolicy";
+import { canAcknowledge } from "@/lib/roles";
 import type { ActionType, AlertView, Floor, Space, SpaceStatus } from "@/types";
 
 // 직원용 조치는 큰 버튼 3개만. 추가 기록은 접어둔다.

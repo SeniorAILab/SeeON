@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { residentService } from "@/services/residentService";
 import { announceFocusResidents } from "@/services/tts/announceFocus";
 import { useAuthStore } from "@/store/authStore";
-import { canAcknowledge } from "@/lib/rolePolicy";
+import { canAcknowledge } from "@/lib/roles";
 import { useFacilityStore } from "@/store/facilityStore";
 import { residentActionLabel } from "@/lib/labels";
 import type { FocusResidentView, ResidentActionType } from "@/types";

@@ -4,10 +4,10 @@ import { Bell, ListChecks, CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Sett
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
 import { useAuthStore } from "@/store/authStore";
-import { canAdmin } from "@/lib/rolePolicy";
+import { canAdmin } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
-import { ADMIN_HOME_PATH } from "@/lib/rolePolicy";
+import { ADMIN_HOME_PATH } from "@/lib/roles";
 
 // 직원용 메뉴는 최대 3개만.
 const NAV = [

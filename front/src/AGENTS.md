@@ -15,7 +15,7 @@ state, mocks, and tests for the Vite React app.
 | Pages | `pages/` | Route-level UI surfaces. |
 | Reusable UI | `components/` | Dashboard widgets, monitor UI, layout, video. |
 | State | `store/`, `stores/`, `hooks/` | Client state and shared hooks. |
-| Role policy | `lib/rolePolicy.ts` | Frontend mirror for PRD role labels, capabilities, and default routes. |
+| Roles | `lib/roles.ts` | Frontend mirror for PRD role labels, permission helpers, and default routes. |
 | Mock mode | `mocks/`, `data/` | Automated-tests-only runtime (`VITE_USE_MOCK=true`); not in dev/prod. |
 | Tests | `test/`, `*.test.tsx`, `*.test.ts` | Vitest/jsdom setup and colocated specs. |
 

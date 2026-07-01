@@ -14,7 +14,7 @@
 // =============================================================
 import { db } from "./db";
 import { delay, uid } from "@/lib/utils";
-import { canAdmin } from "@/lib/rolePolicy";
+import { canAdmin } from "@/lib/roles";
 import type {
   SignedVideoUrl,
   User,

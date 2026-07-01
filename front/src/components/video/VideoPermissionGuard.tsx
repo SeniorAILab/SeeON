@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import { canAdmin } from "@/lib/rolePolicy";
+import { canAdmin } from "@/lib/roles";
 import { useAuthStore } from "@/store/authStore";
 
 /**

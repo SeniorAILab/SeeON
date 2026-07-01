@@ -86,7 +86,7 @@ backend alert/status stream
   → `components/layout/` route shells
   → domain components (`monitor/`, `staff/`, `resident/`, `poc/`, `video/`, shared root components)
   → `pages/**` route-level composition
-  → `router.tsx` + `RequireAuth` + `rolePolicy.ts` RBAC/default route
+  → `router.tsx` + `RequireAuth` + `roles.ts` RBAC/default route
 ```
 
 | 디렉터리/파일 | 재사용 책임 | 예시 |
@@ -100,11 +100,11 @@ backend alert/status stream
 | `front/src/pages/` | route-level composition과 page-local UI state | `DashboardPage.tsx`, `pages/staff/*`, `pages/monitor/*`, `pages/admin/*` |
 | `front/src/hooks/` | page가 재사용하는 data/side-effect seam | `useDashboard`, `useRealtimeSpaceStatus`, `useTTSAlerts` |
 | `front/src/types/index.ts` | PRD/API contract의 frontend type mirror | `Role`, `Space`, `SpaceStatus`, `DetectionEvent`, `DashboardResponse` 등 |
-| `front/src/lib/` | pure formatting/label/policy helper | `format.ts`, `labels.ts`, `alert.ts`, `rolePolicy.ts` |
+| `front/src/lib/` | pure formatting/label/role helper | `format.ts`, `labels.ts`, `alert.ts`, `roles.ts` |
 
 이 구조에서는 page가 orchestration을 맡고 컴포넌트는 props로만 렌더링한다. 예를 들어 `front/src/pages/monitor/FloorMonitorPage.tsx`는 `dashboardService.getDashboard()`로 시설/층/공간 seed를 얻고, `useRealtimeSpaceStatus()`로 실시간 status projection을 읽은 뒤, domain component에 `spaces`, `statuses`, `summary`, `connection`을 전달한다. `front/src/pages/DashboardPage.tsx`도 `dashboardService.getDashboard()`를 호출하고 `StatsBar`, `FloorTabs`, `StatusCard`, `SpaceDetailPanel`을 조합하지만, backend transport나 DTO parsing은 알지 않는다.
 
-라우팅과 RBAC는 `front/src/router.tsx`와 `front/src/lib/rolePolicy.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`)와 직원 route(`/now`, `/rooms`, `/alerts`), monitor route(`/monitor`, `/monitor/floor/:floorId`, `/monitor/all`), 관리자 route(`/admin/*`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="ADMIN"`로 제한한다. `rolePolicy.ts`는 사용자-facing role label, capability, 기본 경로를 PRD의 `SUPER_ADMIN | ADMIN | STAFF` 계약에서 함께 파생한다.
+라우팅과 RBAC는 `front/src/router.tsx`와 `front/src/lib/roles.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`)와 직원 route(`/now`, `/rooms`, `/alerts`), monitor route(`/monitor`, `/monitor/floor/:floorId`, `/monitor/all`), 관리자 route(`/admin/*`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="ADMIN"`로 제한한다. `roles.ts`는 사용자-facing role label, permission helper, 기본 경로를 PRD의 `SUPER_ADMIN | ADMIN | STAFF` 계약에서 직접 읽히게 둔다.
 
 ## 5. 핵심 흐름 다이어그램
 

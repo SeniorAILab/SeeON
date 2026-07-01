@@ -17,7 +17,7 @@ import { zoneService, type ZoneWithResident } from "@/services/zoneService";
 import { BedDouble } from "lucide-react";
 import { sampleTimeline } from "@/data/mockData";
 import { useAuthStore } from "@/store/authStore";
-import { canAcknowledge, canAdmin } from "@/lib/rolePolicy";
+import { canAcknowledge, canAdmin } from "@/lib/roles";
 import type { ActionType, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 
 interface Props {
