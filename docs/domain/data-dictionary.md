@@ -25,7 +25,7 @@ Important fields: `id`, `name`, `businessRegistrationNumber`, `code`, `address`,
 
 ### User
 
-Authenticated platform user. A user may be unbound from a facility until onboarding completes. `sessionVersion` invalidates existing sessions after account/security changes. Target RBAC roles are `SUPER_ADMIN`, `ADMIN`, and `CAREGIVER`; `CAREGIVER` represents the shared facility TV/monitor view, not a personal caregiver login.
+Authenticated platform user. A user may be unbound from a facility until onboarding completes. `sessionVersion` invalidates existing sessions after account/security changes. Target RBAC roles are `SUPER_ADMIN`, `ADMIN`, and `STAFF` with product labels 시스템 관리자, 원장님, and 요양보호사. `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility.
 
 Important fields: `id`, `facilityId`, `kakaoId`, `nickname`, `role`, `sessionVersion`.
 

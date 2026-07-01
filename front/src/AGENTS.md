@@ -11,10 +11,11 @@ state, mocks, and tests for the Vite React app.
 | App entry | `main.tsx`, `router.tsx` | React bootstrap and route tree. |
 | Backend access | `services/api/` | Endpoint mappers and backend DTO validation. |
 | Workflows | `services/` | Service-level orchestration over endpoint functions. |
-| Domain types | `types/index.ts` | Frontend domain SSOT until Phase 2. |
+| Domain types | `types/index.ts` | Frontend type mirror of the PRD/API contract. |
 | Pages | `pages/` | Route-level UI surfaces. |
 | Reusable UI | `components/` | Dashboard widgets, monitor UI, layout, video. |
 | State | `store/`, `stores/`, `hooks/` | Client state and shared hooks. |
+| Roles | `lib/roles.ts` | Frontend mirror for PRD role labels, permission helpers, and default routes. |
 | Mock mode | `mocks/`, `data/` | Automated-tests-only runtime (`VITE_USE_MOCK=true`); not in dev/prod. |
 | Tests | `test/`, `*.test.tsx`, `*.test.ts` | Vitest/jsdom setup and colocated specs. |
 

@@ -20,9 +20,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
-import { useAuthStore, canAdmin } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
+import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
-import { roleLabel } from "@/lib/labels";
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -124,7 +124,7 @@ export function AppLayout() {
             <div className="min-w-0 leading-tight">
               <div className="truncate text-sm font-medium text-ink">{user?.name}</div>
               <div className="text-[11px] text-gray-400">
-                {user ? roleLabel[user.role] : ""}
+                {user ? roleLabel(user.role) : ""}
               </div>
             </div>
           </div>

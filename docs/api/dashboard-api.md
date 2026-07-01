@@ -1,6 +1,6 @@
 # Dashboard API
 
-The dashboard API is the authenticated backend read-model and admin CRUD surface consumed by the Vite + React frontend. All product `/api/v1/*` dashboard routes use camelCase JSON responses for the frontend SSOT and are facility-scoped unless noted.
+The dashboard API is the authenticated backend read-model and admin CRUD surface consumed by the Vite + React frontend. All product `/api/v1/*` dashboard routes use camelCase JSON responses that match the frontend type mirror and are facility-scoped unless noted.
 
 ## Auth and onboarding flow
 
@@ -8,7 +8,8 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
 2. For email/password, the backend validates the password hash and sets the same session cookie used by OAuth.
 3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with the env-driven scope from ADR (default `talk_message`), then receives `GET /api/v1/auth/kakao/callback?code=...&state=...`.
 4. Backend validates state, exchanges the code, stores/updates Kakao identity, sets the session cookie, then redirects:
-   - `/dashboard` when the user already has a facility.
+   - `/admin/dashboard` for `SUPER_ADMIN` and `ADMIN` users who already have a facility.
+   - `/now` for `STAFF` users who already have a facility.
    - `/onboarding` when the user needs to create one.
 5. Frontend/server rendering reads `GET /api/v1/auth/session` for the current user.
 6. Onboarding creates the facility through `POST /api/v1/facilities`.

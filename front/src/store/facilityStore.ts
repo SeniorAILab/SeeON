@@ -14,8 +14,6 @@ export const useFacilityStore = create<FacilityState>((set) => ({
   currentFacilityId: null,
   setFacility: (id) => set({ currentFacilityId: id }),
   resolveForUser: (userFacilityId) => {
-    // FACILITY_ADMIN/STAFF/VIEWER 는 자기 시설로 고정
-    // SUPER_ADMIN(null)은 기본 시설 선택
     const id = userFacilityId ?? DEFAULT_FACILITY;
     set({ currentFacilityId: id });
     return id;

@@ -81,9 +81,9 @@ describe("LoginPage", () => {
   it("이메일 로그인 성공 시 사용자 기본 경로로 이동한다", async () => {
     const login = vi.fn().mockResolvedValue({
       id: "user-1",
-      name: "시설 관리자",
+      name: "관리자",
       email: "admin@sen.ai",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: "facility-1",
     });
     useAuthStore.setState({ login });
@@ -120,7 +120,7 @@ describe("LoginPage", () => {
       id: "user-1",
       name: "홍원장",
       email: "owner@example.test",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: "facility-1",
     });
     useAuthStore.setState({ register });
