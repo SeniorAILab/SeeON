@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -14,17 +14,8 @@ import {
   dashboardStaffPath,
   monitorHomePath,
 } from "@/lib/routeAccess";
-import { dashboardService } from "@/services/dashboardService";
 import { useAuthStore } from "@/store/authStore";
 import { facilitiesForUser, useFacilityStore } from "@/store/facilityStore";
-
-type FacilityReadModel = {
-  facilityId: string;
-  floors: number;
-  spaces: number;
-  unacknowledged: number;
-  status: "ready" | "unavailable";
-};
 
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
@@ -32,49 +23,6 @@ export function SuperAdminDashboardPage() {
   const logout = useAuthStore((s) => s.logout);
   const setFacility = useFacilityStore((s) => s.setFacility);
   const facilities = useMemo(() => facilitiesForUser(null), []);
-  const [readModels, setReadModels] = useState<Record<string, FacilityReadModel>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      facilities.map(async (facility) => {
-        try {
-          const dashboard = await dashboardService.getDashboard(facility.id);
-          const isScopedToFacility = dashboard.facility.id === facility.id;
-          if (!isScopedToFacility) {
-            return {
-              facilityId: facility.id,
-              floors: 0,
-              spaces: 0,
-              unacknowledged: 0,
-              status: "unavailable" as const,
-            };
-          }
-          return {
-            facilityId: facility.id,
-            floors: dashboard.floors.length,
-            spaces: dashboard.spaces.length,
-            unacknowledged: dashboard.unacknowledgedEvents.length,
-            status: "ready" as const,
-          };
-        } catch {
-          return {
-            facilityId: facility.id,
-            floors: 0,
-            spaces: 0,
-            unacknowledged: 0,
-            status: "unavailable" as const,
-          };
-        }
-      })
-    ).then((items) => {
-      if (cancelled) return;
-      setReadModels(Object.fromEntries(items.map((item) => [item.facilityId, item])));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [facilities]);
 
   async function handleLogout() {
     await logout();
@@ -85,8 +33,6 @@ export function SuperAdminDashboardPage() {
     setFacility(facilityId);
     navigate(path);
   }
-
-  const availableReadModels = Object.values(readModels).filter((item) => item.status === "ready");
 
   return (
     <div className="min-h-screen bg-bg">
@@ -118,21 +64,13 @@ export function SuperAdminDashboardPage() {
           </div>
           <div className="grid w-full grid-cols-3 gap-2 text-center md:w-auto">
             <Metric label="요양원" value={facilities.length} />
-            <Metric
-              label="공간"
-              value={availableReadModels.reduce((sum, item) => sum + item.spaces, 0)}
-            />
-            <Metric
-              label="미확인"
-              value={availableReadModels.reduce((sum, item) => sum + item.unacknowledged, 0)}
-            />
+            <Metric label="공간" value={null} />
+            <Metric label="미확인" value={null} />
           </div>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">
           {facilities.map((facility) => {
-            const readModel = readModels[facility.id];
-            const unavailable = readModel?.status === "unavailable";
             return (
               <Card key={facility.id} className="p-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -146,17 +84,11 @@ export function SuperAdminDashboardPage() {
                     <p className="mt-0.5 text-sm text-ink-soft">{facility.phone}</p>
                   </div>
                   <div className="grid w-full grid-cols-3 gap-2 text-center md:w-[180px]">
-                    <Metric label="층" value={unavailable ? null : readModel?.floors ?? 0} compact />
-                    <Metric label="공간" value={unavailable ? null : readModel?.spaces ?? 0} compact />
-                    <Metric label="알림" value={unavailable ? null : readModel?.unacknowledged ?? 0} compact />
+                    <Metric label="층" value={null} compact />
+                    <Metric label="공간" value={null} compact />
+                    <Metric label="알림" value={null} compact />
                   </div>
                 </div>
-
-                {unavailable && (
-                  <div className="mt-3 rounded-lg border border-status-caution/30 bg-status-cautionBg px-3 py-2 text-sm font-semibold text-ink-soft">
-                    대시보드 연결 실패
-                  </div>
-                )}
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button
