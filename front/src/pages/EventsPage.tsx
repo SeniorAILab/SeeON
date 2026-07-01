@@ -8,10 +8,11 @@ import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
 import { eventService } from "@/services/eventService";
 import { useAuthStore } from "@/store/authStore";
 import { canAcknowledge } from "@/lib/roles";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { spaces } from "@/data/mockData";
 import { formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/labels";
+import { dashboardAdminPath } from "@/lib/routeAccess";
 import type { DetectionEvent } from "@/types";
 
 const FILTERS = [
@@ -23,8 +24,7 @@ const FILTERS = [
 export function EventsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [filter, setFilter] = useState("ALL");
@@ -92,7 +92,7 @@ export function EventsPage() {
             return (
               <Card
                 key={ev.id}
-                onClick={() => navigate(`/admin/events/${ev.id}`)}
+                onClick={() => navigate(`${dashboardAdminPath(facilityId)}/events/${ev.id}`)}
                 className="flex cursor-pointer flex-wrap items-center gap-3 p-4 transition-colors hover:border-brand/40"
               >
                 <div className="min-w-0 flex-1">

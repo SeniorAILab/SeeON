@@ -103,7 +103,7 @@ backend alert/status stream
 
 이 구조에서는 page가 orchestration을 맡고 컴포넌트는 props로만 렌더링한다. 예를 들어 `front/src/pages/monitor/FloorMonitorPage.tsx`는 `dashboardService.getDashboard()`로 시설/층/공간 seed를 얻고, `useRealtimeSpaceStatus()`로 실시간 status projection을 읽은 뒤, domain component에 `spaces`, `statuses`, `summary`, `connection`을 전달한다. `front/src/pages/DashboardPage.tsx`도 `dashboardService.getDashboard()`를 호출하고 `StatsBar`, `FloorTabs`, `StatusCard`, `SpaceDetailPanel`을 조합하지만, backend transport나 DTO parsing은 알지 않는다.
 
-라우팅과 RBAC는 `front/src/router.tsx`와 `front/src/lib/roles.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`)와 직원 route(`/now`, `/rooms`, `/alerts`), monitor route(`/monitor`, `/monitor/floor/:floorId`, `/monitor/all`), 관리자 route(`/admin/*`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="ADMIN"`로 제한한다. `roles.ts`는 사용자-facing role label, permission helper, 기본 경로를 PRD의 `SUPER_ADMIN | ADMIN | STAFF` 계약에서 직접 읽히게 둔다.
+라우팅과 RBAC는 `front/src/router.tsx`, `front/src/lib/routeAccess.ts`, `front/src/lib/roles.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`), 시스템 대시보드(`/dashboard`), 시설 관리자 workbench(`/dashboard/facilities/:facilityId/admin`), 시설 직원 workbench(`/dashboard/facilities/:facilityId/staff`), monitor route(`/monitor/:facilityId`, `/monitor/:facilityId/floors/:floorId`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="ADMIN"`로 제한한다. `routeAccess.ts`는 기본 경로와 facility-scoped path builder를, `roles.ts`는 사용자-facing role label과 permission helper를 `SUPER_ADMIN | ADMIN | STAFF` 계약에서 직접 읽히게 둔다.
 
 ## 5. 핵심 흐름 다이어그램
 

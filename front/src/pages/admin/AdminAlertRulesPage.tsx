@@ -3,17 +3,14 @@ import { Plus, Trash2, Bell } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Input, Select } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { levelLabel } from "@/lib/labels";
 import type { AlertRule, Level, Space } from "@/types";
 
 const LEVELS: Level[] = ["LOW", "MEDIUM", "HIGH"];
 
 export function AdminAlertRulesPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);

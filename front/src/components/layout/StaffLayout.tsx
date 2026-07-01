@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
 import { Bell, ListChecks, CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
@@ -7,27 +7,37 @@ import { useAuthStore } from "@/store/authStore";
 import { canAdmin } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
-import { ADMIN_HOME_PATH } from "@/lib/roles";
-
-// 직원용 메뉴는 최대 3개만.
-const NAV = [
-  { to: "/now", label: "지금 확인할 곳", Icon: Bell },
-  { to: "/rooms", label: "전체 방 상태", Icon: ListChecks },
-  { to: "/alerts", label: "확인한 알림", Icon: CheckCheck },
-];
+import {
+  DASHBOARD_HOME_PATH,
+  dashboardAdminPath,
+  dashboardStaffAlertsPath,
+  dashboardStaffPath,
+  dashboardStaffRoomsPath,
+  monitorHomePath,
+} from "@/lib/routeAccess";
 
 export function StaffLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const { facilityId: routeFacilityId } = useParams<{ facilityId: string }>();
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const soundEnabled = useUiStore((s) => s.soundEnabled);
   const toggleSound = useUiStore((s) => s.toggleSound);
 
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const myFacilities = facilitiesForUser(user?.facilityId ?? null);
-  const facility = myFacilities.find((f) => f.id === currentFacilityId) ?? myFacilities[0];
+  const myFacilities = facilitiesForUser(user?.role === "SUPER_ADMIN" ? null : user?.facilityId ?? null);
+  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? user?.facilityId ?? "";
+  const facility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? myFacilities[0];
+  const activeFacilityId = facility?.id ?? workspaceFacilityId;
+  const nav = activeFacilityId
+    ? [
+        { to: dashboardStaffPath(activeFacilityId), label: "지금 확인할 곳", Icon: Bell },
+        { to: dashboardStaffRoomsPath(activeFacilityId), label: "전체 방 상태", Icon: ListChecks },
+        { to: dashboardStaffAlertsPath(activeFacilityId), label: "확인한 알림", Icon: CheckCheck },
+      ]
+    : [];
 
   // 테마 클래스를 이 트리에만 적용 (직원 화면 다크모드)
   useEffect(() => {
@@ -43,13 +53,13 @@ export function StaffLayout() {
     <div className={cn("min-h-screen bg-bg", theme === "dark" && "dark")}>
       {/* 상단 바 */}
       <header className="sticky top-0 z-20 border-b border-border bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-3 sm:gap-3">
           <LogoMark size={36} />
-          <div className="min-w-0 leading-tight">
+          <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-lg font-bold text-ink">{facility?.name}</div>
           </div>
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="flex w-full flex-wrap items-center gap-1 sm:ml-auto sm:w-auto sm:flex-nowrap">
             <IconBtn
               onClick={toggleSound}
               label={soundEnabled ? "소리 알림 켜짐" : "소리 알림 꺼짐"}
@@ -60,26 +70,32 @@ export function StaffLayout() {
               {theme === "dark" ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
             </IconBtn>
             <button
-              onClick={() => navigate("/monitor")}
-              className="ml-1 inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+              onClick={() => activeFacilityId && navigate(monitorHomePath(activeFacilityId))}
+              disabled={!activeFacilityId}
+              className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
             >
               <MonitorPlay className="h-5 w-5" />
-              현황판
-            </button>
-            <button
-              onClick={() => navigate("/poc/2f")}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
-            >
-              <MonitorPlay className="h-5 w-5" />
-              2층 현황
+              모니터
             </button>
             {canAdmin(user) && (
               <button
-                onClick={() => navigate(ADMIN_HOME_PATH)}
-                className="ml-1 inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+                onClick={() =>
+                  activeFacilityId && navigate(dashboardAdminPath(activeFacilityId))
+                }
+                disabled={!activeFacilityId}
+                className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
               >
                 <Settings className="h-5 w-5" />
-                관리자
+                관리자 모드
+              </button>
+            )}
+            {user?.role === "SUPER_ADMIN" && (
+              <button
+                onClick={() => navigate(DASHBOARD_HOME_PATH)}
+                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
+              >
+                <Settings className="h-5 w-5" />
+                전체 대시보드
               </button>
             )}
             <IconBtn onClick={handleLogout} label="로그아웃">
@@ -90,7 +106,7 @@ export function StaffLayout() {
 
         {/* 큰 탭 메뉴 (최대 3개) */}
         <nav className="mx-auto flex max-w-5xl gap-1 px-2 pb-1">
-          {NAV.map(({ to, label, Icon }) => (
+          {nav.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
               to={to}

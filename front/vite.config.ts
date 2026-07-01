@@ -23,7 +23,6 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         "/api": backendTarget,
-        "/auth": backendTarget,
         "/ingest": backendTarget,
       },
     },

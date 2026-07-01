@@ -6,8 +6,7 @@ import { StatusCard } from "@/components/StatusCard";
 import { SpaceDetailPanel } from "@/components/SpaceDetailPanel";
 import { Select } from "@/components/ui/primitives";
 import { dashboardService } from "@/services/dashboardService";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { spaceTypeLabel } from "@/lib/labels";
 import type { DashboardResponse, Space, SpaceType } from "@/types";
 
@@ -22,9 +21,7 @@ const SPACE_TYPES: SpaceType[] = [
 ];
 
 export function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = currentFacilityId ?? user?.facilityId ?? "fac_happy_nokyang";
+  const facilityId = useActiveFacilityId();
 
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +31,11 @@ export function DashboardPage() {
   const [selected, setSelected] = useState<Space | null>(null);
 
   async function load() {
+    if (!facilityId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const res = await dashboardService.getDashboard(facilityId);
     setData(res);

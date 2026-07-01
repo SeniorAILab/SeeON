@@ -4,6 +4,7 @@ import { StaffSpaceCard } from "@/components/staff/StaffSpaceCard";
 import { StaffConfirmSheet } from "@/components/staff/StaffConfirmSheet";
 import { FocusResidentSection } from "@/components/resident/FocusResidentSection";
 import { useDashboard } from "@/hooks/useDashboard";
+import { buildTTSAlerts, useTTSAlerts } from "@/hooks/useTTSAlerts";
 import { useUiStore } from "@/store/uiStore";
 import { signalDanger } from "@/lib/alert";
 import { attentionRank, needsAttention } from "@/lib/staffCopy";
@@ -27,7 +28,12 @@ export function NowPage() {
       );
   }, [data]);
 
-  // 새로운 위험 발생 시에만 소리/진동 (반복 자극 방지)
+  const ttsAlerts = useMemo(
+    () => (data ? buildTTSAlerts(attention, data.statuses, data.floors) : []),
+    [attention, data]
+  );
+  useTTSAlerts(ttsAlerts, soundEnabled);
+
   useEffect(() => {
     if (!data) return;
     const dangerIds = attention

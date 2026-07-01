@@ -6,9 +6,12 @@ import { useUxTestStore, uxSummary } from "@/stores/uxTestStore";
 import { useFeedbackStore, FEEDBACK_QUESTIONS } from "@/stores/feedbackStore";
 import { formatDateTime } from "@/lib/format";
 import { statusWord } from "@/lib/staffCopy";
+import { monitorFloorPath } from "@/lib/routeAccess";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 
 export function UxTestResultPage() {
   const navigate = useNavigate();
+  const facilityId = useActiveFacilityId();
   const logs = useUxTestStore((s) => s.logs);
   const reset = useUxTestStore((s) => s.reset);
   const responses = useFeedbackStore((s) => s.responses);
@@ -30,7 +33,11 @@ export function UxTestResultPage() {
         title="UX 테스트 결과"
         description="2층 UX 검증 모드의 이벤트·확인 기록과 직원 피드백입니다."
         action={
-          <Button variant="secondary" onClick={() => navigate("/poc/2f")}>
+          <Button
+            variant="secondary"
+            disabled={!facilityId}
+            onClick={() => navigate(monitorFloorPath(facilityId, "fl_2f"))}
+          >
             <ExternalLink className="h-4 w-4" />
             2층 검증 모드 열기
           </Button>
