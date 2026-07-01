@@ -16,7 +16,7 @@ import { eventService } from "@/services/eventService";
 import { dashboardService } from "@/services/dashboardService";
 import { videoService } from "@/services/videoService";
 import { useAuthStore } from "@/store/authStore";
-import { canAcknowledge } from "@/lib/rolePolicy";
+import { canAcknowledge } from "@/lib/roles";
 import { spaces, floors } from "@/data/mockData";
 import { formatDateTime } from "@/lib/format";
 import { eventTypeLabel, kakaoLabel } from "@/lib/labels";

@@ -17,7 +17,7 @@ import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
 import { useUxTestStore } from "@/stores/uxTestStore";
 import { useAuthStore } from "@/store/authStore";
-import { canAdmin } from "@/lib/rolePolicy";
+import { canAdmin } from "@/lib/roles";
 import { useFacilityStore } from "@/store/facilityStore";
 import { cn } from "@/lib/utils";
 import { attentionRank } from "@/lib/staffCopy";

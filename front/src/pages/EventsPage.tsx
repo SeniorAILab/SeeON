@@ -7,7 +7,7 @@ import { RiskBadge } from "@/components/RiskBadge";
 import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
 import { eventService } from "@/services/eventService";
 import { useAuthStore } from "@/store/authStore";
-import { canAcknowledge } from "@/lib/rolePolicy";
+import { canAcknowledge } from "@/lib/roles";
 import { useFacilityStore } from "@/store/facilityStore";
 import { spaces } from "@/data/mockData";
 import { formatDateTime } from "@/lib/format";

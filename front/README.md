@@ -76,7 +76,7 @@ React 18 · TypeScript(strict) · Vite · Tailwind CSS · Zustand · React Route
 src/
 ├── types/index.ts          PRD/API 계약을 반영한 프론트 타입
 ├── data/mockData.ts        행복한요양원 녹양역점 더미 데이터
-├── lib/                    utils · labels(도메인 라벨) · rolePolicy(역할 호칭/권한/라우팅) · format(시간)
+├── lib/                    utils · labels(도메인 라벨) · roles(역할 호칭/권한/라우팅) · format(시간)
 ├── services/               ★ 교체 가능한 API/서비스 레이어 ★
 │   ├── apiClient.ts        fetch 래퍼 (실제 백엔드 진입점)
 │   ├── db.ts               인메모리 Mock DB

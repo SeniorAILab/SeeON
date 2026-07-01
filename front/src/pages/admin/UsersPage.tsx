@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/primitives";
 import { adminService } from "@/services/adminService";
 import { useAuthStore } from "@/store/authStore";
-import { roleLabel } from "@/lib/rolePolicy";
+import { roleLabel } from "@/lib/roles";
 import type { Role, User } from "@/types";
 
 const roleChip: Record<Role, string> = {

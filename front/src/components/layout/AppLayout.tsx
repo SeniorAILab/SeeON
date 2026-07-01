@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
 import { useAuthStore } from "@/store/authStore";
-import { canAdmin, roleLabel } from "@/lib/rolePolicy";
+import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 
 function useClock() {
