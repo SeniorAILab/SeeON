@@ -1,8 +1,8 @@
-# Backend relationship data model SSOT
+# Backend relationship data model
 
 Status: 타겟 모델(합의됨); 스키마 remodel은 room-centric remodel PR들(PR3~8)로 진행 중. Until those PRs land, `backend/prisma/schema.prisma` still contains transitional legacy fields such as `Camera.residentId`, `Space.cameraId`, required `Alert.residentId`, `Resident.room`, and `Role = OWNER | ADMIN`.
 
-This document is the canonical relationship reference for backend domain docs. Field names below use product/API camelCase unless explicitly marked as database or ingest fields.
+This document is the backend relationship reference derived from the PRD/API contract. Field names below use product/API camelCase unless explicitly marked as database or ingest fields.
 
 ## Naming and API relation rules
 
@@ -43,7 +43,7 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 | `Guardian` | Tenant/RLS | `Guardian(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; `Resident` 1→N `Guardian`. | Emergency-contact data linked to one resident within the same facility. |
 | `Alert` | Tenant/RLS | Target: `Alert(facilityId) -> Facility(id)`; required `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, cameraId) -> Camera(facilityId, id)` as source; optional `(facilityId, residentId) -> Resident(facilityId, id)` when known. `Space` 1→N `Alert`; `Camera` 0/1→N `Alert`; `Resident` 0/1→N `Alert`. | `spaceId` is NOT NULL and is the historical room anchor. `cameraId` records the source. `residentId` is nullable for empty-room/unknown-person alerts. |
 | `ResidentStatus` | Tenant/RLS | `ResidentStatus(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; optional `(facilityId, sourceId) -> Camera(facilityId, id)`. `Resident` 1→0/1 `ResidentStatus`. | Resident-centric current-state read model. Empty-room alerts skip resident status updates. |
-| `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `ServerSession`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | CAREGIVER`. `SUPER_ADMIN`/`ADMIN` are personal login roles; `CAREGIVER` is the facility shared TV/monitor dashboard view, not a personal caregiver account. |
+| `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `ServerSession`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | STAFF`, labeled 시스템 관리자 / 원장님 / 요양보호사. `SUPER_ADMIN`/`ADMIN` have facility administration capability; `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility. |
 | `KakaoIdentity` | Auth/root | `KakaoIdentity(userId) -> User(id)`; optional `KakaoIdentity(facilityId) -> Facility(id)`; `User` 1→0/1 `KakaoIdentity`. | OAuth/self-notification identity for a facility-bound user. |
 | `ServerSession` | Auth/root | `ServerSession(userId) -> User(id)`; optional `ServerSession(facilityId) -> Facility(id)`; `User` 1→N `ServerSession`. | Server-side session/revocation root. Tenant-domain access starts only after authenticated facility binding. |
 | `AlertEvent` | Backend outbox, non-RLS | No tenant-domain FK. `AlertEvent` 1→N `DeliveryAttempt`; idempotency key is `(sourceId, externalEventId)`. | Delivery/outbox audit row keyed by ingest/source identity. Keep separate from dashboard `Alert` read model. |
@@ -83,4 +83,4 @@ Current `backend/prisma/schema.prisma` is not yet the final target. During the r
 - `Space.cameraId` is a transitional claim used for strict backfill; final ownership is `Camera.spaceId`.
 - `Alert.residentId` is currently required; target is nullable after `Alert.spaceId` is established.
 - `Resident.room` is legacy free text; target placement is `ResidentAssignment` only.
-- `Role = OWNER | ADMIN` is legacy; target RBAC is `SUPER_ADMIN | ADMIN | CAREGIVER` with a backend SSOT.
+- `Role = OWNER | ADMIN` is legacy; target RBAC is `SUPER_ADMIN | ADMIN | STAFF`.

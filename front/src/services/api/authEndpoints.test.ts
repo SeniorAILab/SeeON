@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFacilityEndpoint,
   loginEndpoint,
-  mapBackendRoleToFrontRole,
+  parseRole,
   parseAuthSessionResponse,
   registerEndpoint,
 } from "./authEndpoints";
@@ -34,11 +34,11 @@ describe("auth endpoint mappers", () => {
       user: {
         id: "user-1",
         name: "원장",
-      email: "admin@sen.ai",
-      role: "FACILITY_ADMIN",
-      facilityId: "facility-1",
-    },
-  });
+        email: "admin@sen.ai",
+        role: "ADMIN",
+        facilityId: "facility-1",
+      },
+    });
   });
 
   it("rejects malformed backend session responses", () => {
@@ -47,8 +47,25 @@ describe("auth endpoint mappers", () => {
     expect(parseAuthSessionResponse({})).toBeNull();
   });
 
-  it("keeps backend caregiver users as staff in the frontend", () => {
-    expect(mapBackendRoleToFrontRole("CAREGIVER")).toBe("STAFF");
+  it("rejects legacy backend role names instead of silently mapping them", () => {
+    expect(
+      parseAuthSessionResponse({
+        user: {
+          id: "user-1",
+          email: "staff@sen.ai",
+          nickname: "직원",
+          role: "CARE" + "GIVER",
+          facilityId: "facility-1",
+        },
+      })
+    ).toBeNull();
+    expect(parseRole("CARE" + "GIVER")).toBeNull();
+  });
+
+  it("parses the shared API role contract", () => {
+    expect(parseRole("SUPER_ADMIN")).toBe("SUPER_ADMIN");
+    expect(parseRole("ADMIN")).toBe("ADMIN");
+    expect(parseRole("STAFF")).toBe("STAFF");
   });
 
   it("logs in through the backend password endpoint", async () => {

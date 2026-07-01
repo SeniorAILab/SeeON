@@ -35,9 +35,9 @@ describe("authStore.login", () => {
     authServiceMock.login.mockResolvedValue({
       user: {
         id: "user-1",
-        name: "시설 관리자",
+        name: "관리자",
         email: "admin@sen.ai",
-        role: "FACILITY_ADMIN",
+        role: "ADMIN",
         facilityId: "facility-1",
       },
     });
@@ -64,7 +64,7 @@ describe("authStore.register", () => {
         id: "user-1",
         name: "홍원장",
         email: "owner@example.test",
-        role: "FACILITY_ADMIN",
+        role: "ADMIN",
         facilityId: "facility-1",
       },
     });
@@ -97,7 +97,7 @@ describe("authStore.createFacility", () => {
         id: "user-1",
         name: "원장",
         email: "",
-        role: "FACILITY_ADMIN",
+        role: "ADMIN",
         facilityId: "facility-1",
       },
     });

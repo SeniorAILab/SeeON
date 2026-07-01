@@ -1,12 +1,6 @@
-// =============================================================
-// Senior AI Lab · 도메인 타입 정의
-// 백엔드/AI 모델 연동 시 그대로 공유 가능한 단일 소스 오브 트루스
-// =============================================================
-
 // ---------- 열거형(Enum) ----------
 
-export type Role = "SUPER_ADMIN" | "FACILITY_ADMIN" | "STAFF" | "VIEWER";
-export type BackendRole = "SUPER_ADMIN" | "ADMIN" | "CAREGIVER";
+export type Role = "SUPER_ADMIN" | "ADMIN" | "STAFF";
 
 export type SpaceType =
   | "ROOM"
