@@ -4,7 +4,6 @@ import type {
   KakaoAlertStatus,
   Level,
   ResidentActionType,
-  Role,
   SpaceStatusLevel,
   SpaceType,
 } from "@/types";
@@ -37,13 +36,6 @@ export const spaceTypeLabel: Record<SpaceType, string> = {
   STORAGE: "창고",
   STAFF_LOUNGE: "직원휴게",
   ETC: "기타",
-};
-
-export const roleLabel: Record<Role, string> = {
-  SUPER_ADMIN: "통합 관리자",
-  FACILITY_ADMIN: "시설 관리자",
-  STAFF: "케어 직원",
-  VIEWER: "읽기 전용",
 };
 
 export const kakaoLabel: Record<KakaoAlertStatus, string> = {

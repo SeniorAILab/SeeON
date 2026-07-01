@@ -7,7 +7,7 @@ front/src/
 ├── services/
 │   ├── api/             # endpoint mappers: backend DTO validation + domain mapping
 │   └── *.ts             # service workflows
-├── types/               # index.ts = frontend domain SSOT (until Phase 2)
+├── types/               # index.ts = frontend type mirror of PRD/API contract
 ├── pages/ components/   # views
 ├── hooks/ store/ stores/ # state
 ├── lib/                 # utilities
@@ -21,7 +21,7 @@ See `src/AGENTS.md` before changing frontend application code.
 ## Guards
 - Components never call the backend directly — go through `src/services/*` (the API seam).
 - Backend endpoint calls live under `src/services/api/*`; service files consume endpoint functions instead of scattering `fetch()` or backend JSON casts.
-- `src/types/index.ts` is the frontend domain SSOT until Phase 2.
+- `src/types/index.ts` mirrors the PRD/API contract for frontend code.
 - Real backend mode is default (`VITE_USE_MOCK` unset or `false`). Mock mode
   (`VITE_USE_MOCK=true`, the frontend-alone "demo" path) is for automated tests
   only and is NOT used in dev/prod runtime — dev/prod run on the real backend +

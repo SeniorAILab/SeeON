@@ -3,10 +3,11 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Bell, ListChecks, CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
-import { useAuthStore, canAdmin } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
+import { canAdmin } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
-import { ADMIN_HOME_PATH } from "@/lib/routeAccess";
+import { ADMIN_HOME_PATH } from "@/lib/roles";
 
 // 직원용 메뉴는 최대 3개만.
 const NAV = [

@@ -1,4 +1,4 @@
-export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'CAREGIVER';
+export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'STAFF';
 
 export type BindOptions = {
   readonly dryRun: boolean;

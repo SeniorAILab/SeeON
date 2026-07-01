@@ -4,7 +4,7 @@
 
 ## 1. SPA 런타임 개요
 
-`front/`는 ADR에 따라 Vite 5 + React 18이 제품 frontend SSOT다. 로컬/운영 런타임의 기본값은 real backend 모드이며, `front/src/services/apiClient.ts`의 `API_BASE_URL` 기본값은 `VITE_API_BASE_URL ?? "/api/v1"`다. `VITE_USE_MOCK=true`는 `front/AGENTS.md`와 `front/src/AGENTS.md`가 명시하듯 자동테스트 전용이며, dev/prod의 demo 경로나 제품 런타임으로 취급하지 않는다.
+`front/`는 PRD/API 계약을 구현하는 Vite 5 + React 18 제품 frontend다. 로컬/운영 런타임의 기본값은 real backend 모드이며, `front/src/services/apiClient.ts`의 `API_BASE_URL` 기본값은 `VITE_API_BASE_URL ?? "/api/v1"`다. `VITE_USE_MOCK=true`는 `front/AGENTS.md`와 `front/src/AGENTS.md`가 명시하듯 자동테스트 전용이며, dev/prod의 demo 경로나 제품 런타임으로 취급하지 않는다.
 
 운영 컨테이너에서는 `front/nginx.conf`가 정적 SPA를 서빙하고 `/api/`를 `backend:8080`으로 same-origin reverse proxy한다. 따라서 브라우저는 상대 경로(`/api/v1/...`)로 호출하고, backend session cookie는 same-origin 요청에 자동 포함된다.
 
@@ -29,7 +29,7 @@ user action / page effect
 | 계층 | 주요 파일 | 책임 |
 | --- | --- | --- |
 | API client seam | `front/src/services/apiClient.ts` | `VITE_API_BASE_URL`, `/dashboard/stream` SSE URL 생성, `fetch` wrapper, cookie credentials, `ApiError` 표준화 |
-| Endpoint mapper | `front/src/services/api/authEndpoints.ts` | backend DTO 검증·frontend domain type 매핑. 예: `loginEndpoint()`, `restoreSessionEndpoint()`, `mapBackendRoleToFrontRole()` |
+| Endpoint mapper | `front/src/services/api/authEndpoints.ts` | backend DTO 검증·frontend type mirror 생성. 예: `loginEndpoint()`, `restoreSessionEndpoint()`, `parseRole()` |
 | Workflow service | `front/src/services/authService.ts`, `dashboardService.ts`, `eventService.ts`, `adminService.ts`, `videoService.ts`, `zoneService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
 | TTS side effect | `front/src/services/tts/*`, `front/src/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
@@ -85,7 +85,7 @@ backend alert/status stream
   → `components/layout/` route shells
   → domain components (`monitor/`, `staff/`, `resident/`, `poc/`, `video/`, shared root components)
   → `pages/**` route-level composition
-  → `router.tsx` + `RequireAuth` + `routeAccess.ts` RBAC/default route
+  → `router.tsx` + `RequireAuth` + `roles.ts` RBAC/default route
 ```
 
 | 디렉터리/파일 | 재사용 책임 | 예시 |
@@ -98,12 +98,12 @@ backend alert/status stream
 | `front/src/components/video/` | 관리자 전용 event clip UI와 권한 표시 | `VideoPermissionGuard`, `AdminEventVideoPlayer`, `VideoAccessLogTable` |
 | `front/src/pages/` | route-level composition과 page-local UI state | `DashboardPage.tsx`, `pages/staff/*`, `pages/monitor/*`, `pages/admin/*` |
 | `front/src/hooks/` | page가 재사용하는 data/side-effect seam | `useDashboard`, `useRealtimeSpaceStatus`, `useTTSAlerts` |
-| `front/src/types/index.ts` | frontend domain SSOT | `Role`, `Space`, `SpaceStatus`, `DetectionEvent`, `DashboardResponse` 등 |
-| `front/src/lib/` | pure formatting/label/policy helper | `format.ts`, `labels.ts`, `alert.ts`, `routeAccess.ts` |
+| `front/src/types/index.ts` | PRD/API contract의 frontend type mirror | `Role`, `Space`, `SpaceStatus`, `DetectionEvent`, `DashboardResponse` 등 |
+| `front/src/lib/` | pure formatting/label/role helper | `format.ts`, `labels.ts`, `alert.ts`, `roles.ts` |
 
 이 구조에서는 page가 orchestration을 맡고 컴포넌트는 props로만 렌더링한다. 예를 들어 `front/src/pages/monitor/FloorMonitorPage.tsx`는 `dashboardService.getDashboard()`로 시설/층/공간 seed를 얻고, `useRealtimeSpaceStatus()`로 실시간 status projection을 읽은 뒤, domain component에 `spaces`, `statuses`, `summary`, `connection`을 전달한다. `front/src/pages/DashboardPage.tsx`도 `dashboardService.getDashboard()`를 호출하고 `StatsBar`, `FloorTabs`, `StatusCard`, `SpaceDetailPanel`을 조합하지만, backend transport나 DTO parsing은 알지 않는다.
 
-라우팅과 RBAC는 `front/src/router.tsx`와 `front/src/lib/routeAccess.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`)와 직원 route(`/now`, `/rooms`, `/alerts`), monitor route(`/monitor`, `/monitor/floor/:floorId`, `/monitor/all`), 관리자 route(`/admin/*`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="FACILITY_ADMIN"`로 제한한다. `routeAccess.ts`는 `SUPER_ADMIN`/`FACILITY_ADMIN`의 기본 경로를 `/admin/dashboard`, `STAFF`/`VIEWER`의 기본 경로를 `/now`로 고정해 로그인 이후 page 선택 정책을 한 곳에 둔다.
+라우팅과 RBAC는 `front/src/router.tsx`와 `front/src/lib/roles.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`)와 직원 route(`/now`, `/rooms`, `/alerts`), monitor route(`/monitor`, `/monitor/floor/:floorId`, `/monitor/all`), 관리자 route(`/admin/*`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="ADMIN"`로 제한한다. `roles.ts`는 사용자-facing role label, permission helper, 기본 경로를 PRD의 `SUPER_ADMIN | ADMIN | STAFF` 계약에서 직접 읽히게 둔다.
 
 ## 5. 핵심 흐름 다이어그램
 

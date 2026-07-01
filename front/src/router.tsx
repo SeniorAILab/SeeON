@@ -24,7 +24,6 @@ import { FloorSelectorPage } from "@/pages/monitor/FloorSelectorPage";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
 import { PocFloor2Page } from "@/pages/poc/PocFloor2Page";
 import { UxTestResultPage } from "@/pages/admin/UxTestResultPage";
-import { ADMIN_HOME_PATH } from "@/lib/routeAccess";
 
 export const router = createBrowserRouter([
   {
@@ -114,16 +113,12 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // ---------- 관리자 모드 : 설정 · 상세 데이터 (FACILITY_ADMIN 이상) ----------
-  {
-    path: "/dashboard",
-    element: <Navigate to={ADMIN_HOME_PATH} replace />,
-  },
+  // ---------- 관리자 모드 : 설정 · 상세 데이터 (ADMIN 이상) ----------
   {
     path: "/admin",
     element: (
       <RouterBootstrap>
-        <RequireAuth minRole="FACILITY_ADMIN">
+        <RequireAuth minRole="ADMIN">
           <AppLayout />
         </RequireAuth>
       </RouterBootstrap>

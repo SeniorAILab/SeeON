@@ -13,7 +13,6 @@ import type {
   RegisterInput,
 } from "./api/authEndpoints";
 
-export { mapBackendRoleToFrontRole } from "./api/authEndpoints";
 export type {
   CreateFacilityInput,
   LoginInput,

@@ -19,7 +19,7 @@ beforeEach(() => {
       id: "user-1",
       name: "원장",
       email: "",
-      role: "FACILITY_ADMIN",
+      role: "ADMIN",
       facilityId: null,
     },
     initialized: true,
