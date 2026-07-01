@@ -27,6 +27,24 @@ Edge device
 | Prisma naming | TypeScript/Prisma Client 필드는 `camelCase`, DB column/table은 `snake_case`를 `@map`/`@@map`으로 연결한다. 응답 DTO도 dashboard/frontend 계약에 맞춰 `camelCase`로 낸다. | `backend/prisma/schema.prisma`, `docs/rules/rest-api-convention.md`, ADR |
 | RLS default-deny | tenant table 접근은 `PrismaService.withFacilityContext(facilityId, fn)` 안에서만 한다. 이 메서드가 transaction-local `app.facility_id` GUC를 설정하고, `$allOperations` guard가 bound context 없는 tenant model 접근을 차단한다. | `backend/src/prisma/prisma.service.ts`, `backend/src/common/tenant-context.ts`, ADR |
 
+## Local dev DB workflow
+
+Backend local development uses real PostgreSQL. The root commands absorb the DB
+dependency instead of pretending the NestJS process is dependency-free:
+
+| Command | Contract |
+| --- | --- |
+| `pnpm dev:backend` | Verify `.env.local`, start local PostgreSQL, generate Prisma Client, run `prisma migrate dev`, then start backend `start:dev`. This does not reset the DB. |
+| `pnpm dev:local` | Destructive full-local loop: verify local DB URLs, start PostgreSQL, run guarded local reset/replay/seed, then start backend and front native dev servers. |
+| `pnpm dev:local:reset` | Explicit alias for the same destructive full-local reset loop. |
+| `pnpm db:reset:local` | Guarded local-only Prisma reset/generate/seed, without starting app servers. |
+| `pnpm smoke:backend:no-db` | Provider-overridden route wiring smoke. This is not E2E and does not prove DB-backed behavior. |
+
+Do not put `migrate`, `db push`, reset, or seed in NestJS lifecycle hooks.
+`backend/package.json` keeps `start:dev` as raw Nest watch mode so root
+orchestration can call it without recursion. Existing Prisma migration folders
+remain committed history; local reset replays them and does not squash them.
+
 ## Layered 아키텍처
 
 ```text
