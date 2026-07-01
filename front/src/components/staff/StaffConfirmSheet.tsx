@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import { StaffStatusBadge } from "./StaffStatusBadge";
 import { peoplePhrase, plainDescription } from "@/lib/staffCopy";
 import { alertService } from "@/services/alertService";
-import { useAuthStore, canAcknowledge } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
+import { canAcknowledge } from "@/lib/rolePolicy";
 import type { ActionType, AlertView, Floor, Space, SpaceStatus } from "@/types";
 
 // 직원용 조치는 큰 버튼 3개만. 추가 기록은 접어둔다.
@@ -154,7 +155,7 @@ export function StaffConfirmSheet({
 
             {!allowed ? (
               <p className="rounded-xl bg-surface2 p-4 text-staff-body text-ink-soft">
-                조치 기록은 케어 직원 권한에서 할 수 있습니다.
+                조치 기록은 요양보호사 권한에서 할 수 있습니다.
               </p>
             ) : (
               <>

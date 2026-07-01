@@ -26,13 +26,12 @@ function renderAdminRoute() {
         <Route
           path="/admin/dashboard"
           element={
-            <RequireAuth minRole="FACILITY_ADMIN">
+            <RequireAuth minRole="ADMIN">
               <div>ADMIN_DASHBOARD</div>
             </RequireAuth>
           }
         />
         <Route path="/now" element={<div>NOW_PAGE</div>} />
-        <Route path="/dashboard" element={<div>WRONG_DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );

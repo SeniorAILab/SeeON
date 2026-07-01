@@ -54,7 +54,7 @@ httpOnly 쿠키 세션을 만든 뒤 프론트가 `/auth/session`으로 복원�
 
 이 기능은 **"실시간 CCTV 관제"가 아니라 "AI 위험 감지 근거 영상 확인"**입니다. AI가 위험으로 감지한 **이벤트 구간(감지 10초 전 ~ 10초 후, 약 20초)** 클립만 관리자에게 제공합니다.
 
-- **권한 분리**: STAFF/VIEWER는 영상 영역 자체가 없고 "영상은 관리자만 확인할 수 있습니다" 안내만 표시. FACILITY_ADMIN/SUPER_ADMIN만 이벤트 상세(`/admin/events/:id`)에서 클립 확인.
+- **권한 분리**: STAFF는 영상 영역 자체가 없고 "영상은 관리자만 확인할 수 있습니다" 안내만 표시. ADMIN/SUPER_ADMIN만 이벤트 상세(`/admin/events/:id`)에서 클립 확인.
 - **보안 경계는 서비스 레이어**(`services/videoService.ts`): 권한 검증 → signed URL(토큰+5분 만료) 발급 → 모든 접근을 `VideoAccessLog`로 기록(누가/언제/무엇을). `clipUrl` 직접 노출 금지.
 - **다운로드/외부 공유 비활성화**, 보관기간(`expiresAt`) 경과 시 자동 삭제, 이벤트와 무관한 전체 CCTV 탐색 기능 없음.
 - **상태별 UI**: 클립 없음 / 생성 중(PROCESSING) / 만료 각각 안내 상태를 제공(`VideoUnavailableState`).
@@ -74,9 +74,9 @@ React 18 · TypeScript(strict) · Vite · Tailwind CSS · Zustand · React Route
 
 ```
 src/
-├── types/index.ts          도메인 타입 (백엔드/AI와 공유하는 단일 소스)
+├── types/index.ts          PRD/API 계약을 반영한 프론트 타입
 ├── data/mockData.ts        행복한요양원 녹양역점 더미 데이터
-├── lib/                    utils · labels(한국어 라벨) · format(시간)
+├── lib/                    utils · labels(도메인 라벨) · rolePolicy(역할 호칭/권한/라우팅) · format(시간)
 ├── services/               ★ 교체 가능한 API/서비스 레이어 ★
 │   ├── apiClient.ts        fetch 래퍼 (실제 백엔드 진입점)
 │   ├── db.ts               인메모리 Mock DB

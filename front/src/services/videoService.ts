@@ -1,7 +1,6 @@
 // =============================================================
 // 영상(이슈 근거 클립) 서비스 — 보안 경계
 // 정책:
-//  · 관리자(FACILITY_ADMIN/SUPER_ADMIN)만 접근. 직원/뷰어는 URL 조차 받지 못함.
 //  · 실시간 CCTV 탐색 불가 — 이벤트에 연결된 클립만 조회.
 //  · clipUrl 직접 노출 금지, signed URL(토큰+만료) 발급 후에만 재생.
 //  · 모든 접근을 VideoAccessLog 로 기록(누가/언제/무엇을).
@@ -15,7 +14,7 @@
 // =============================================================
 import { db } from "./db";
 import { delay, uid } from "@/lib/utils";
-import { hasRole } from "@/store/authStore";
+import { canAdmin } from "@/lib/rolePolicy";
 import type {
   SignedVideoUrl,
   User,
@@ -32,7 +31,7 @@ export class VideoPermissionError extends Error {
 }
 
 function assertAdmin(user: User | null): asserts user is User {
-  if (!hasRole(user, "FACILITY_ADMIN")) throw new VideoPermissionError();
+  if (!canAdmin(user)) throw new VideoPermissionError();
 }
 
 export const videoService = {

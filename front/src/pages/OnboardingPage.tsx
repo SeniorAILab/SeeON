@@ -4,7 +4,7 @@ import { Building2, ShieldCheck } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
-import { defaultPathForUser } from "@/lib/routeAccess";
+import { defaultPathForUser } from "@/lib/rolePolicy";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";

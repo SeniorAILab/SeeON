@@ -1,4 +1,4 @@
-import type { AuthSession, BackendRole, Role, User } from "@/types";
+import type { AuthSession, Role, User } from "@/types";
 import { buildApiUrl, requestJson, requestNoContent } from "../apiClient";
 
 interface AuthUserResponseDto {
@@ -30,18 +30,16 @@ export interface RegisterInput {
   readonly facilityName: string;
 }
 
-export function mapBackendRoleToFrontRole(
-  role: BackendRole | string | null | undefined
-): Role {
+export function parseRole(role: string | null | undefined): Role | null {
   switch (role) {
     case "SUPER_ADMIN":
       return "SUPER_ADMIN";
     case "ADMIN":
-      return "FACILITY_ADMIN";
-    case "CAREGIVER":
+      return "ADMIN";
+    case "STAFF":
       return "STAFF";
     default:
-      return "STAFF";
+      return null;
   }
 }
 
@@ -124,17 +122,18 @@ export function parseAuthSessionResponse(body: unknown): AuthSession | null {
   ) {
     return null;
   }
-  return {
-    user: mapAuthUser(body.user),
-  };
+  const user = mapAuthUser(body.user);
+  return user ? { user } : null;
 }
 
-function mapAuthUser(dto: AuthUserResponseDto): User {
+function mapAuthUser(dto: AuthUserResponseDto): User | null {
+  const role = parseRole(dto.role);
+  if (!role) return null;
   return {
     id: dto.id,
     name: dto.nickname?.trim() || "사용자",
     email: dto.email?.trim() ?? "",
-    role: mapBackendRoleToFrontRole(dto.role),
+    role,
     facilityId: dto.facilityId ?? null,
   };
 }
