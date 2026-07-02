@@ -13,9 +13,11 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { RequireFacilityGuard, SessionGuard } from '../auth/session.guard.js';
+import { ApiCookieAuth } from '@nestjs/swagger';
+import { RequireFacilityGuard, JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { RequireCapability, RolesGuard } from '../auth/roles.guard.js';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
-import type { RequestWithAuth } from '../auth/session.guard.js';
+import type { RequestWithAuth } from '../auth/jwt-auth.guard.js';
 import type {
   CreateResidentRequestDto,
   MoveResidentAssignmentRequestDto,
@@ -26,7 +28,8 @@ import type {
 import { ResidentsService } from './residents.service.js';
 
 @Controller({ path: 'residents', version: '1' })
-@UseGuards(SessionGuard, RequireFacilityGuard)
+@ApiCookieAuth()
+@UseGuards(JwtAuthGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ResidentsController {
   constructor(private readonly service: ResidentsService) {}
@@ -58,11 +61,15 @@ export class ResidentsController {
     return this.service.getOne(requireFacilityId(req), id);
   }
 
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
   @Post()
   create(@Req() req: RequestWithAuth, @Body() body: CreateResidentRequestDto) {
     return this.service.create(requireFacilityId(req), body);
   }
 
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
   @Patch(':id')
   update(
     @Req() req: RequestWithAuth,
@@ -72,6 +79,8 @@ export class ResidentsController {
     return this.service.update(requireFacilityId(req), id, body);
   }
 
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
   @Delete(':id')
   remove(@Req() req: RequestWithAuth, @Param('id') id: string) {
     return this.service.remove(requireFacilityId(req), id);
@@ -82,6 +91,8 @@ export class ResidentsController {
     return this.service.currentAssignment(requireFacilityId(req), id);
   }
 
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
   @Put(':id/assignment')
   move(
     @Req() req: RequestWithAuth,

@@ -105,9 +105,6 @@ export async function getAlertEndpoint(id: string): Promise<AlertView> {
   return parseAlert(await requestJson(`/alerts/${encodeURIComponent(id)}`));
 }
 
-export async function ackAlertEndpoint(id: string): Promise<AlertView> {
-  return parseAlert(await requestJson(`/alerts/${id}/ack`, { method: "PATCH" }));
-}
 
 export async function resolveAlertEndpoint(id: string): Promise<AlertView> {
   return parseAlert(await requestJson(`/alerts/${id}/resolve`, { method: "PATCH" }));
