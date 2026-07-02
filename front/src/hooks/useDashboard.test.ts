@@ -12,67 +12,20 @@ vi.mock("@/services/dashboardService", () => ({
 
 interface MockEventSourceInstance {
   url: string;
-  init?: EventSourceInit;
-  onmessage: ((event: MessageEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
   close: ReturnType<typeof vi.fn>;
-  listeners: Map<string, Array<(event: Event) => void>>;
-  emit: (type: string) => void;
 }
 
 const eventSources: MockEventSourceInstance[] = [];
 
-class MockEventSource implements MockEventSourceInstance {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSED = 2;
-
-  readonly CONNECTING = 0;
-  readonly OPEN = 1;
-  readonly CLOSED = 2;
-  readonly url: string;
-  readonly init?: EventSourceInit;
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
+class MockEventSource {
   close = vi.fn();
-  listeners = new Map<string, Array<(event: Event) => void>>();
-  readyState = MockEventSource.OPEN;
-  withCredentials = false;
+  onerror: ((event: Event) => void) | null = null;
 
-  constructor(url: string, init?: EventSourceInit) {
-    this.url = url;
-    this.init = init;
-    this.withCredentials = Boolean(init?.withCredentials);
+  constructor(readonly url: string) {
     eventSources.push(this);
   }
 
-  addEventListener(type: string, listener: (event: Event) => void) {
-    const listeners = this.listeners.get(type) ?? [];
-    listeners.push(listener);
-    this.listeners.set(type, listeners);
-  }
-
-  removeEventListener(type: string, listener: (event: Event) => void) {
-    const listeners = this.listeners.get(type) ?? [];
-    this.listeners.set(
-      type,
-      listeners.filter((item) => item !== listener)
-    );
-  }
-
-  dispatchEvent(event: Event): boolean {
-    if (event.type === "message") {
-      this.onmessage?.(event as MessageEvent);
-    }
-    for (const listener of this.listeners.get(event.type) ?? []) {
-      listener(event);
-    }
-    return true;
-  }
-
-  emit(type: string) {
-    this.dispatchEvent(new MessageEvent(type, { data: "{}" }));
-  }
+  addEventListener() {}
 }
 
 function dashboardResponse(): DashboardResponse {
@@ -99,14 +52,15 @@ function dashboardResponse(): DashboardResponse {
   };
 }
 
-async function importHook({ mockMode = false } = {}) {
+async function importHook() {
   vi.resetModules();
-  vi.stubEnv("VITE_USE_MOCK", mockMode ? "true" : "false");
+  vi.stubEnv("VITE_USE_MOCK", "false");
   vi.stubEnv("VITE_API_BASE_URL", undefined);
-  const [{ useAuthStore }, { useFacilityStore }, { useDashboard }] =
+  const [{ useAuthStore }, { useFacilityStore }, { useMonitorStore }, { useDashboard }] =
     await Promise.all([
       import("@/store/authStore"),
       import("@/store/facilityStore"),
+      import("@/stores/monitorStore"),
       import("./useDashboard"),
     ]);
 
@@ -124,10 +78,10 @@ async function importHook({ mockMode = false } = {}) {
   });
   useFacilityStore.setState({ currentFacilityId: "facility-1" });
 
-  return { useDashboard, useFacilityStore };
+  return { useDashboard, useFacilityStore, useMonitorStore };
 }
 
-describe("useDashboard SSE refresh", () => {
+describe("useDashboard single live store", () => {
   beforeEach(() => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
@@ -136,46 +90,34 @@ describe("useDashboard SSE refresh", () => {
     getDashboardMock.mockResolvedValue(dashboardResponse());
     eventSources.length = 0;
     vi.stubGlobal("EventSource", MockEventSource);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } })));
   });
 
-  it("opens one EventSource connection per mounted hook in real mode", async () => {
+  it("mounts multiple dashboard consumers through one monitorStore EventSource", async () => {
     const { useDashboard } = await importHook();
 
+    renderHook(() => useDashboard());
     renderHook(() => useDashboard());
 
     await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(1));
     expect(eventSources).toHaveLength(1);
-    expect(eventSources[0].url).toBe(
-      "/api/v1/dashboard/stream?facilityId=facility-1"
-    );
+    expect(eventSources[0].url).toBe("/api/v1/dashboard/stream?facilityId=facility-1");
   });
 
-  it("reloads on default alert, named status, and named status-snapshot events", async () => {
+  it("reuses monitorStore reload for admin dashboard refresh", async () => {
     const { useDashboard } = await importHook();
-    renderHook(() => useDashboard());
-    await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(1));
+    const { result } = renderHook(() => useDashboard());
 
-    act(() => eventSources[0].emit("message"));
-    await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.data?.facility.id).toBe("facility-1"));
+    await act(async () => {
+      await result.current.reload();
+    });
 
-    act(() => eventSources[0].emit("status"));
-    await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(3));
-
-    act(() => eventSources[0].emit("status-snapshot"));
-    await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(4));
+    expect(getDashboardMock).toHaveBeenCalledTimes(2);
+    expect(eventSources).toHaveLength(1);
   });
 
-  it("closes the EventSource connection on cleanup", async () => {
-    const { useDashboard } = await importHook();
-    const { unmount } = renderHook(() => useDashboard());
-    await waitFor(() => expect(eventSources).toHaveLength(1));
-
-    unmount();
-
-    expect(eventSources[0].close).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes and reopens the EventSource connection when the facility changes", async () => {
+  it("moves the single connection when the facility changes", async () => {
     const { useDashboard, useFacilityStore } = await importHook();
     renderHook(() => useDashboard());
     await waitFor(() => expect(eventSources).toHaveLength(1));
@@ -184,47 +126,6 @@ describe("useDashboard SSE refresh", () => {
 
     await waitFor(() => expect(eventSources).toHaveLength(2));
     expect(eventSources[0].close).toHaveBeenCalledTimes(1);
-    expect(eventSources[1].url).toBe(
-      "/api/v1/dashboard/stream?facilityId=facility-2"
-    );
-  });
-
-  it("keeps polling as a fallback when EventSource is unavailable", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("EventSource", undefined);
-    const { useDashboard } = await importHook();
-
-    renderHook(() => useDashboard(1_000));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(getDashboardMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      vi.advanceTimersByTime(1_000);
-      await Promise.resolve();
-    });
-
-    expect(getDashboardMock).toHaveBeenCalledTimes(2);
-    expect(eventSources).toHaveLength(0);
-  });
-
-  it("test_vite_use_mock_true_preserves_mock_realtime_engine", async () => {
-    vi.useFakeTimers();
-    const { useDashboard } = await importHook({ mockMode: true });
-
-    renderHook(() => useDashboard(1_000));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(getDashboardMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      vi.advanceTimersByTime(1_000);
-      await Promise.resolve();
-    });
-
-    expect(getDashboardMock).toHaveBeenCalledTimes(2);
-    expect(eventSources).toHaveLength(0);
+    expect(eventSources[1].url).toBe("/api/v1/dashboard/stream?facilityId=facility-2");
   });
 });

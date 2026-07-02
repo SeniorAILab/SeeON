@@ -10,8 +10,6 @@ import { SignupPage } from "@/pages/SignupPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { AccessDeniedPage } from "@/pages/AccessDeniedPage";
 import { SuperAdminDashboardPage } from "@/pages/SuperAdminDashboardPage";
-import { NowPage } from "@/pages/staff/NowPage";
-import { RoomsPage } from "@/pages/staff/RoomsPage";
 import { AlertsPage } from "@/pages/staff/AlertsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { EventsPage } from "@/pages/EventsPage";
@@ -93,34 +91,10 @@ export const router = createBrowserRouter([
       </RouterBootstrap>
     ),
     children: [
-      { index: true, element: <NowPage /> },
-      { path: "rooms", element: <RoomsPage /> },
+      { index: true, element: <FloorMonitorPage allView /> },
+      { path: "floors/:floorId", element: <FloorMonitorPage /> },
       { path: "alerts", element: <AlertsPage /> },
     ],
-  },
-  {
-    path: "/monitor/:facilityId",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <FacilityRouteScope>
-            <FloorMonitorPage allView />
-          </FacilityRouteScope>
-        </RequireAuth>
-      </RouterBootstrap>
-    ),
-  },
-  {
-    path: "/monitor/:facilityId/floors/:floorId",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <FacilityRouteScope>
-            <FloorMonitorPage />
-          </FacilityRouteScope>
-        </RequireAuth>
-      </RouterBootstrap>
-    ),
   },
   {
     path: "/dashboard/facilities/:facilityId/admin",

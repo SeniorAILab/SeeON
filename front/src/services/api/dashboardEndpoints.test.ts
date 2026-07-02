@@ -63,7 +63,16 @@ describe("dashboardEndpoints", () => {
   it("hydrates room statuses from spaces and overlays room-level alerts without mis-keying resident status", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
-      if (url.endsWith("/facilities/current")) return okJsonResponse(facility);
+      if (url.endsWith("/auth/me")) {
+        return okJsonResponse({
+          id: "user-1",
+          email: "admin@sen.ai",
+          nickname: "원장",
+          role: "ADMIN",
+          facilityId: facility.id,
+        });
+      }
+      if (url.endsWith(`/facilities/${facility.id}`)) return okJsonResponse(facility);
       if (url.endsWith("/floors")) return okJsonResponse(floors);
       if (url.endsWith("/spaces")) return okJsonResponse(spaces);
       if (url.endsWith("/alerts")) return okJsonResponse([bedExitAlert]);
@@ -89,6 +98,36 @@ describe("dashboardEndpoints", () => {
     });
     expect(dashboard.unacknowledgedEvents).toHaveLength(1);
     expect(dashboard.summary.danger).toBe(1);
+  });
+
+  it("gets the current facility through /auth/me then /facilities/:id", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/auth/me")) {
+        return okJsonResponse({
+          id: "user-1",
+          email: "admin@sen.ai",
+          nickname: "원장",
+          role: "ADMIN",
+          facilityId: facility.id,
+        });
+      }
+      if (url.endsWith(`/facilities/${facility.id}`)) return okJsonResponse(facility);
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getCurrentFacility } = await import("./dashboardEndpoints");
+    await expect(getCurrentFacility()).resolves.toEqual(facility);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/auth/me",
+      expect.objectContaining({ credentials: "include" })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/facilities/${facility.id}`,
+      expect.objectContaining({ credentials: "include" })
+    );
   });
 
   it("exposes role dashboard read-model paths using facility scope", async () => {

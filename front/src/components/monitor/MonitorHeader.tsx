@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DoorOpen, LayoutGrid } from "lucide-react";
+import { DoorOpen, LayoutGrid, RefreshCw } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
-import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
 import { RealtimeUpdateIndicator } from "./RealtimeUpdateIndicator";
 import { FloorSummaryStats } from "./FloorSummaryStats";
@@ -28,6 +27,7 @@ export function MonitorHeader({
   lastUpdateAt,
   soundEnabled,
   onToggleSound,
+  onRefresh,
   fullscreenRef,
   floorSelectorPath,
   floorSelectorLabel = "층 선택",
@@ -41,6 +41,7 @@ export function MonitorHeader({
   lastUpdateAt: string | null;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  onRefresh: () => void;
   fullscreenRef: React.RefObject<HTMLElement>;
   floorSelectorPath?: string;
   floorSelectorLabel?: string;
@@ -59,7 +60,6 @@ export function MonitorHeader({
         <div>
           <div className="flex items-center gap-2 text-xl font-semibold text-ink-soft 2xl:text-2xl">
             {facilityName}
-            <PrivacyNotice variant="badge" />
           </div>
           <h1 className="text-3xl font-extrabold leading-tight text-ink 2xl:text-4xl">
             {floorTitle} 안전 현황
@@ -87,6 +87,13 @@ export function MonitorHeader({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={onRefresh}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+          >
+            <RefreshCw className="h-5 w-5" />
+            새로고침
+          </button>
           {floorSelectorPath && (
             <button
               onClick={() => navigate(floorSelectorPath)}

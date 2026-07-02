@@ -48,8 +48,8 @@ export function AlertsPage() {
     [alerts]
   );
 
-  async function acknowledge(alert: AlertView) {
-    await runAction(alert.id, () => alertService.acknowledge(alert.id));
+  async function resolveNew(alert: AlertView) {
+    await runAction(alert.id, () => alertService.resolveNew(alert.id));
   }
 
   async function resolve(alert: AlertView) {
@@ -92,7 +92,7 @@ export function AlertsPage() {
             renderAction={(alert) => (
               <button
                 disabled={busyId !== null}
-                onClick={() => acknowledge(alert)}
+                onClick={() => resolveNew(alert)}
                 className="min-h-[56px] rounded-xl bg-brand px-6 text-staff-btn text-white disabled:opacity-60"
               >
                 확인

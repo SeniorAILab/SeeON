@@ -156,7 +156,7 @@ export function SuperAdminDashboardPage() {
                     }
                   >
                     <Smartphone className="h-4 w-4" />
-                    직원 화면
+                    모니터
                   </Button>
                   <Button
                     type="button"

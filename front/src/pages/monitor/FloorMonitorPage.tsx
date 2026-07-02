@@ -48,7 +48,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const [allSpaces, setAllSpaces] = useState<Space[]>([]);
   const [selected, setSelected] = useState<Space | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const acknowledge = useMonitorStore((s) => s.acknowledge);
+  const reload = useMonitorStore((s) => s.reload);
   const effectiveFacilityId = facilityId ?? "";
   const exitPath =
     facilityId && (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN")
@@ -109,6 +109,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           lastUpdateAt={lastUpdateAt}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSound(!soundEnabled)}
+          onRefresh={() => void reload()}
           fullscreenRef={rootRef}
           floorSelectorPath={allView ? undefined : monitorHomePath(facilityId)}
           floorSelectorLabel="전체 보기"
@@ -172,7 +173,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
               statuses={statuses}
               floorOf={floorOf}
               onSelect={setSelected}
-              onAck={acknowledge}
+              onAck={setSelected}
             />
           )}
 

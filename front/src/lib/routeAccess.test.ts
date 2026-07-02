@@ -35,8 +35,8 @@ describe("routeAccess", () => {
   it("시설 workspace와 monitor display 경로를 facility id로 만든다", () => {
     expect(dashboardAdminPath("fac-a")).toBe("/dashboard/facilities/fac-a/admin");
     expect(dashboardStaffPath("fac-a")).toBe("/dashboard/facilities/fac-a/staff");
-    expect(monitorHomePath("fac-a")).toBe("/monitor/fac-a");
-    expect(monitorFloorPath("fac-a", "fl-2f")).toBe("/monitor/fac-a/floors/fl-2f");
+    expect(monitorHomePath("fac-a")).toBe("/dashboard/facilities/fac-a/staff");
+    expect(monitorFloorPath("fac-a", "fl-2f")).toBe("/dashboard/facilities/fac-a/staff/floors/fl-2f");
   });
 
   it("권한 거부는 직원 홈으로 숨기지 않고 접근 거부 경로로 보낸다", () => {

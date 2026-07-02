@@ -12,6 +12,7 @@ import type { DashboardSummary, Space, SpaceStatus } from "@/types";
  */
 export function useRealtimeSpaceStatus(facilityId: string, spaces: Space[]) {
   const start = useMonitorStore((s) => s.start);
+  const stop = useMonitorStore((s) => s.stop);
   const statuses = useMonitorStore((s) => s.statuses);
   const connection = useMonitorStore((s) => s.connection);
   const lastUpdateAt = useMonitorStore((s) => s.lastUpdateAt);
@@ -19,8 +20,10 @@ export function useRealtimeSpaceStatus(facilityId: string, spaces: Space[]) {
   const demoMode = useMonitorSettingsStore((s) => s.demoMode);
 
   useEffect(() => {
-    if (facilityId) start(facilityId, refreshMs);
-  }, [facilityId, refreshMs, start]);
+    if (!facilityId) return;
+    start(facilityId, refreshMs);
+    return () => stop();
+  }, [facilityId, refreshMs, start, stop]);
 
   // 데모 모드/갱신 간격 변경을 엔진에 반영
   useEffect(() => {

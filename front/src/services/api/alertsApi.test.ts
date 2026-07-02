@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  ackAlertEndpoint,
   listAlertsEndpoint,
   mapAlert,
   resolveAlertEndpoint,
@@ -77,13 +76,6 @@ describe("alerts API seam", () => {
     expect(alert.kakaoAlertStatus).toBe("ACKNOWLEDGED");
   });
 
-  it("acks an alert through the PATCH endpoint", async () => {
-    requestJsonMock.mockResolvedValue({ ...baseDto, status: "ACKED" });
-
-    await ackAlertEndpoint("a1");
-
-    expect(requestJsonMock).toHaveBeenCalledWith("/alerts/a1/ack", { method: "PATCH" });
-  });
 
   it("resolves an alert through the PATCH endpoint", async () => {
     requestJsonMock.mockResolvedValue({ ...baseDto, status: "RESOLVED" });

@@ -1,5 +1,13 @@
 import { getCurrentFacilityId } from "@/store/facilityStore";
 
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
+  unauthorizedHandler = handler;
+}
+
 export const USE_MOCK =
   import.meta.env.VITE_USE_MOCK?.toString() === "true";
 
@@ -17,9 +25,10 @@ export function buildSseUrl(
   facilityId: string | null = getCurrentFacilityId(),
 ): string {
   const url = buildApiUrl(SSE_PATH);
-  if (!facilityId) return url;
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}${FACILITY_SCOPE_QUERY}=${encodeURIComponent(facilityId)}`;
+  const params = new URLSearchParams();
+  if (facilityId) params.set(FACILITY_SCOPE_QUERY, facilityId);
+  const query = params.toString();
+  return query ? `${url}?${query}` : url;
 }
 
 export function isAbsoluteApiUrl(url: string): boolean {
@@ -37,6 +46,7 @@ export async function requestJson(
     ...(credentials ? { credentials } : {}),
     headers: requestHeaders({ "Content-Type": "application/json" }, options.headers, credentials),
   });
+  handleUnauthorized(res.status);
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, text);
@@ -55,6 +65,7 @@ export async function requestNoContent(
     ...(credentials ? { credentials } : {}),
     headers: requestHeaders({}, options.headers, credentials),
   });
+  handleUnauthorized(res.status);
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, text);
@@ -77,6 +88,10 @@ function requestHeaders(
   return Object.fromEntries(merged.entries());
 }
 
+function handleUnauthorized(status: number): void {
+  if (status !== 401) return;
+  unauthorizedHandler?.();
+}
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);

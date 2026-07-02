@@ -18,7 +18,7 @@ const alertDto = {
   type: "bed-exit",
   probability: 0.92,
   detectedAt: "2026-06-22T01:00:00.000Z",
-  status: "ACKED",
+  status: "RESOLVED",
 };
 
 describe("eventService real mode actions", () => {
@@ -29,10 +29,10 @@ describe("eventService real mode actions", () => {
     vi.stubEnv("VITE_USE_MOCK", "false");
   });
 
-  it("routes staff confirm actions to backend alert ack by alert id", async () => {
+  it("routes staff confirm actions to backend alert resolve by alert id", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/alerts/alert_201/ack") && init?.method === "PATCH") {
+      if (url.endsWith("/alerts/alert_201/resolve") && init?.method === "PATCH") {
         return okJsonResponse(alertDto);
       }
       throw new Error(`Unexpected request ${url}`);
@@ -43,7 +43,7 @@ describe("eventService real mode actions", () => {
     const event = await eventService.addAction("alert_201", "ACKNOWLEDGED", undefined, "Care Staff");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/alerts/alert_201/ack",
+      "/api/v1/alerts/alert_201/resolve",
       expect.objectContaining({ method: "PATCH", credentials: "include" })
     );
     expect(event).toMatchObject({
