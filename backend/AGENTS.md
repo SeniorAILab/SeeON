@@ -21,6 +21,11 @@ See `src/AGENTS.md` before changing Nest application code. See
 - `prisma/schema.prisma` is the data SSOT — change via migration, never hand-edit the DB.
 - See `prisma/AGENTS.md` before changing schema, migrations, runtime DB roles, or
   deploy-time database replay.
+- Facility scope is never accepted from client-provided headers, query strings, route
+  params, or customer facility codes. `RequireFacilityGuard` must derive scope from the
+  authenticated user's facility binding or `server_sessions.active_facility_id`.
+- `SUPER_ADMIN` rows stay facility-less; facility selection persists only through the
+  backend-issued opaque selector and server-owned session state.
 - Event API (`POST /api/v1/events` + `POST /api/v1/events/heartbeat`) is the only ML ingress; do not reintroduce legacy machine-ingest routes, HMAC camera credentials, or `Camera.ingestMode`.
 - Never commit real `.env*`; native dev reads the repo-root `.env.local` SSOT.
 

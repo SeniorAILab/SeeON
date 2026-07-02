@@ -4,11 +4,6 @@
 //   - prisma/seed.ts            → demo dataset (facility/residents/cameras), only on reset-demo.
 //   - scripts/bind-demo-users.ts → ad-hoc operator promotion of EXISTING Kakao-backed users.
 //
-// Here we idempotently guarantee that one email/password SUPER_ADMIN exists so a
-// freshly migrated production database is operable. It runs after `prisma migrate
-// deploy` in the safe deploy path (ADR) and is driven entirely by runtime env —
-// no credentials are committed. If SUPER_ADMIN_PASSWORD is unset the bootstrap is a
-// no-op, so deploys without a configured super admin are never blocked.
 import { PrismaClient } from '@prisma/client';
 
 import { hashPassword, verifyPassword } from '../src/auth/password';
@@ -25,7 +20,6 @@ export type SuperAdminConfig =
       readonly email: string;
       readonly password: string;
       readonly nickname: string;
-      readonly facilityId: string | null;
     };
 
 export function readSuperAdminConfig(
@@ -35,10 +29,8 @@ export function readSuperAdminConfig(
   if (password.length === 0) {
     return { skip: true, reason: 'SUPER_ADMIN_PASSWORD is not set' };
   }
-  const email = (env.SUPER_ADMIN_EMAIL ?? '').trim() || DEFAULT_EMAIL;
   const nickname = (env.SUPER_ADMIN_NICKNAME ?? '').trim() || DEFAULT_NICKNAME;
-  const facilityId = (env.SUPER_ADMIN_FACILITY_ID ?? '').trim() || null;
-  return { skip: false, email, password, nickname, facilityId };
+  return { skip: false, email: DEFAULT_EMAIL, password, nickname };
 }
 
 export type ExistingSuperAdmin = {
@@ -56,7 +48,6 @@ export type SuperAdminAction = 'create' | 'update' | 'noop';
 export function decideSuperAdminAction(
   existing: ExistingSuperAdmin,
   passwordMatches: boolean,
-  facilityId: string | null,
 ): SuperAdminAction {
   if (existing === null) {
     return 'create';
@@ -65,7 +56,7 @@ export function decideSuperAdminAction(
     existing.role === 'SUPER_ADMIN' &&
     existing.passwordHash !== null &&
     passwordMatches &&
-    existing.facilityId === facilityId
+    existing.facilityId === null
   ) {
     return 'noop';
   }
@@ -117,11 +108,7 @@ export async function bootstrapSuperAdmin(
     existing?.passwordHash != null
       ? await verifyPassword(config.password, existing.passwordHash)
       : false;
-  const action = decideSuperAdminAction(
-    existing,
-    passwordMatches,
-    config.facilityId,
-  );
+  const action = decideSuperAdminAction(existing, passwordMatches);
   if (action === 'noop') {
     return 'noop';
   }
@@ -134,7 +121,7 @@ export async function bootstrapSuperAdmin(
         passwordHash,
         nickname: config.nickname,
         role: 'SUPER_ADMIN',
-        facilityId: config.facilityId,
+        facilityId: null,
       },
     });
     return 'create';
@@ -147,7 +134,7 @@ export async function bootstrapSuperAdmin(
       nickname: config.nickname,
       role: 'SUPER_ADMIN',
       sessionVersion: { increment: 1 },
-      facilityId: config.facilityId,
+      facilityId: null,
     },
   });
   return 'update';
@@ -173,7 +160,7 @@ async function main(): Promise<void> {
   try {
     const action = await bootstrapSuperAdmin(prisma, config);
     console.log(
-      `Super-admin bootstrap ${action}: email=${config.email} role=SUPER_ADMIN facility=${config.facilityId ?? '<none>'}`,
+      `Super-admin bootstrap ${action}: email=${config.email} role=SUPER_ADMIN facility=<none>`,
     );
   } finally {
     await prisma.$disconnect();

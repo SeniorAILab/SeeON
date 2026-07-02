@@ -25,11 +25,10 @@ describe('super-admin bootstrap config', () => {
       email: 'seniorsailab@gmail.com',
       password: 'pw',
       nickname: 'Senior AI Lab',
-      facilityId: null,
     });
   });
 
-  it('uses and trims explicit overrides', () => {
+  it('allows nickname override but keeps canonical email and no facility binding', () => {
     expect(
       readSuperAdminConfig({
         SUPER_ADMIN_PASSWORD: 'pw',
@@ -39,17 +38,16 @@ describe('super-admin bootstrap config', () => {
       }),
     ).toEqual({
       skip: false,
-      email: 'admin@example.com',
+      email: 'seniorsailab@gmail.com',
       password: 'pw',
       nickname: 'Boss',
-      facilityId: 'fac_happy_nokyang',
     });
   });
 });
 
 describe('super-admin action decision', () => {
   it('creates when no user exists', () => {
-    expect(decideSuperAdminAction(null, false, null)).toBe('create');
+    expect(decideSuperAdminAction(null, false)).toBe('create');
   });
 
   it('no-ops only when already SUPER_ADMIN with a matching password and facility binding', () => {
@@ -62,16 +60,14 @@ describe('super-admin action decision', () => {
           facilityId: null,
         },
         true,
-        null,
       ),
     ).toBe('noop');
   });
 
-  it('updates an existing non-super-admin, password mismatch, or facility mismatch', () => {
+  it('updates an existing non-super-admin, password mismatch, or facility binding', () => {
     const cases: {
       existing: ExistingSuperAdmin;
       matches: boolean;
-      facilityId: string | null;
     }[] = [
       {
         existing: {
@@ -81,7 +77,6 @@ describe('super-admin action decision', () => {
           facilityId: 'fac_happy_nokyang',
         },
         matches: true,
-        facilityId: null,
       },
       {
         existing: {
@@ -91,7 +86,6 @@ describe('super-admin action decision', () => {
           facilityId: null,
         },
         matches: false,
-        facilityId: null,
       },
       {
         existing: {
@@ -101,7 +95,6 @@ describe('super-admin action decision', () => {
           facilityId: null,
         },
         matches: false,
-        facilityId: null,
       },
       {
         existing: {
@@ -111,13 +104,10 @@ describe('super-admin action decision', () => {
           facilityId: 'fac_happy_nokyang',
         },
         matches: true,
-        facilityId: null,
       },
     ];
-    for (const { existing, matches, facilityId } of cases) {
-      expect(decideSuperAdminAction(existing, matches, facilityId)).toBe(
-        'update',
-      );
+    for (const { existing, matches } of cases) {
+      expect(decideSuperAdminAction(existing, matches)).toBe('update');
     }
   });
 });
@@ -128,7 +118,6 @@ describe('bootstrapSuperAdmin wiring', () => {
     email: 'seniorsailab@gmail.com',
     password: 's3cret-pass',
     nickname: 'Senior AI Lab',
-    facilityId: null,
   };
 
   function makePrisma(existing: ExistingSuperAdmin): {

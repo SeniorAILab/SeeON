@@ -183,6 +183,11 @@ promote  -->  docs/decisions/README.md or owning rules/api/domain/onboarding/scr
 - 최소 변경: 목표 달성에 필요한 가장 작은 diff만 만든다 — 인접 리팩터·포맷·스코프 확장 금지.
 - 불필요한 주석 금지: 코드로 자명한 것은 주석으로 달지 않고, 스테일·장식 주석은 추가·잔존시키지 않는다.
 
+### Facility scope authority
+- Tenant facility scope is backend/session-owned. Frontend routes, request headers, SSE URLs, local storage, and customer-facing facility codes must not be used as tenant selectors.
+- `SUPER_ADMIN` starts facility-less and selects a facility only with a backend-issued opaque selector; the backend stores the active facility in server session state. `ADMIN`/`STAFF` scope comes from authenticated user/session state.
+- Do not reintroduce `X-Facility-Id`, `facilityId` query parameters, `/dashboard/facilities/:facilityId/*`, `/monitor/:facilityId`, or customer facility codes as access-control inputs. `Facility.id` remains an internal database key.
+
 ### E2E verification integrity
 - **E2E는 production code path를 실제로 관통해야 한다.** Backend ingest, ML worker, frontend, 외부 연동 등 사용자가 요구한 표면을 검증할 때 stub/fake/mock 서버·레지스트리·탐지기·DB 대체물을 끼워 넣은 실행은 E2E로 부르지 않는다.
 - Stub/mock harness는 unit, contract, smoke, local fixture 검증으로만 명명한다. 필요하면 별도 보조 증거로 남길 수 있지만, 최종 E2E acceptance evidence를 대체할 수 없다.

@@ -1,65 +1,49 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import {
   Bell,
-  LogOut,
   Building2,
   Layers,
   DoorOpen,
   BedDouble,
   ShieldAlert,
   Users as UsersIcon,
-  ChevronDown,
-  Menu,
-  X,
-  Smartphone,
   LayoutGrid,
   MonitorPlay,
   Heart,
   FlaskConical,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { LogoMark } from "@/components/Logo";
 import { useAuthStore } from "@/store/authStore";
-import { canAdmin, roleLabel } from "@/lib/roles";
+import { canAdmin } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
-import { listFacilities } from "@/services/api/dashboardEndpoints";
+import { listFacilities, selectFacility } from "@/services/api/dashboardEndpoints";
 import {
   DASHBOARD_HOME_PATH,
   dashboardAdminPath,
   dashboardStaffPath,
   monitorHomePath,
 } from "@/lib/routeAccess";
-
-function useClock() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000 * 30);
-    return () => clearInterval(t);
-  }, []);
-  return now;
-}
+import { AppHeader } from "./AppHeader";
+import { AppSidebar, type AppNavItem } from "./AppSidebar";
 
 export function AppLayout() {
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
-  const { facilityId: routeFacilityId } = useParams<{ facilityId: string }>();
-  const now = useClock();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [facilitySelectorError, setFacilitySelectorError] = useState<string | null>(null);
   const userFacilityId = user?.facilityId ?? null;
   const userId = user?.id;
   const userRole = user?.role;
 
-  // 관리자 화면은 항상 밝게(라이트) 표시 — 다크모드는 직원 야간 화면 전용
   useEffect(() => {
     document.documentElement.classList.remove("dark");
   }, []);
 
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilities = useFacilityStore((s) => s.facilities);
-  const setFacility = useFacilityStore((s) => s.setFacility);
-  const setFacilities = useFacilityStore((s) => s.setFacilities);
+  const currentFacilityId = useFacilityStore((state) => state.currentFacilityId);
+  const facilities = useFacilityStore((state) => state.facilities);
+  const setFacility = useFacilityStore((state) => state.setFacility);
+  const setFacilities = useFacilityStore((state) => state.setFacilities);
 
   useEffect(() => {
     if (!userId) {
@@ -70,10 +54,18 @@ export function AppLayout() {
     let cancelled = false;
     listFacilities()
       .then((nextFacilities) => {
-        if (!cancelled) setFacilities(nextFacilities);
+        if (!cancelled) {
+          setFacilities(nextFacilities);
+          setFacilitySelectorError(null);
+        }
       })
-      .catch(() => {
-        if (!cancelled) setFacilities([]);
+      .catch((caught) => {
+        if (!cancelled) {
+          setFacilities([]);
+          setFacilitySelectorError(
+            caught instanceof Error ? caught.message : "시설 목록을 불러오지 못했습니다."
+          );
+        }
       });
 
     return () => {
@@ -85,177 +77,84 @@ export function AppLayout() {
     userRole === "SUPER_ADMIN" ? null : userFacilityId,
     facilities,
   );
-  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? userFacilityId ?? "";
-  const currentFacility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? null;
+  const workspaceFacilityId = currentFacilityId ?? userFacilityId ?? "";
+  const currentFacility = myFacilities.find((facility) => facility.id === workspaceFacilityId) ?? null;
   const activeFacilityId = currentFacility?.id ?? workspaceFacilityId;
-
-  async function handleLogout() {
-    await logout();
-    navigate("/login");
-  }
-
-  const adminBase = activeFacilityId ? dashboardAdminPath(activeFacilityId) : "";
-  const nav = activeFacilityId
+  const adminBase = dashboardAdminPath();
+  const canOpenAdminSections = canAdmin(user);
+  const nav: readonly AppNavItem[] = activeFacilityId
     ? [
         { to: adminBase, label: "상세 대시보드", Icon: LayoutGrid, show: true },
         { to: `${adminBase}/events`, label: "이벤트", Icon: Bell, show: true },
         { to: `${adminBase}/focus-residents`, label: "관심 어르신", Icon: Heart, show: true },
-        { to: `${adminBase}/monitor-settings`, label: "모니터 설정", Icon: MonitorPlay, show: canAdmin(user) },
+        { to: `${adminBase}/monitor-settings`, label: "모니터 설정", Icon: MonitorPlay, show: canOpenAdminSections },
         { to: `${adminBase}/ux-test`, label: "UX 테스트 결과", Icon: FlaskConical, show: true },
-        { to: `${adminBase}/facility`, label: "시설 설정", Icon: Building2, show: canAdmin(user) },
-        { to: `${adminBase}/floors`, label: "층 관리", Icon: Layers, show: canAdmin(user) },
-        { to: `${adminBase}/spaces`, label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
-        { to: `${adminBase}/assignments`, label: "구역/침대 배정", Icon: BedDouble, show: canAdmin(user) },
-        { to: `${adminBase}/alert-rules`, label: "알림 규칙", Icon: ShieldAlert, show: canAdmin(user) },
-        { to: `${adminBase}/users`, label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
-      ].filter((n) => n.show)
+        { to: `${adminBase}/facility`, label: "시설 설정", Icon: Building2, show: canOpenAdminSections },
+        { to: `${adminBase}/floors`, label: "층 관리", Icon: Layers, show: canOpenAdminSections },
+        { to: `${adminBase}/spaces`, label: "공간 관리", Icon: DoorOpen, show: canOpenAdminSections },
+        { to: `${adminBase}/assignments`, label: "구역/침대 배정", Icon: BedDouble, show: canOpenAdminSections },
+        { to: `${adminBase}/alert-rules`, label: "알림 규칙", Icon: ShieldAlert, show: canOpenAdminSections },
+        { to: `${adminBase}/users`, label: "사용자", Icon: UsersIcon, show: canOpenAdminSections },
+      ].filter((item) => item.show)
     : [];
+
+  async function selectWorkspaceFacility(optionValue: string): Promise<void> {
+    if (!optionValue) return;
+    if (userRole === "SUPER_ADMIN") {
+      const selected = myFacilities.find((facility) => facility.selectionToken === optionValue);
+      if (!selected?.selectionToken) {
+        setFacilitySelectorError("시설 선택 토큰이 없습니다. 다시 로그인해 주세요.");
+        return;
+      }
+      setFacilitySelectorError(null);
+      try {
+        const facility = await selectFacility(selected.selectionToken);
+        setFacility(facility.id);
+        navigate(dashboardAdminPath());
+      } catch (caught) {
+        setFacilitySelectorError(
+          caught instanceof Error ? caught.message : "시설 선택에 실패했습니다."
+        );
+      }
+      return;
+    }
+    setFacility(optionValue);
+    navigate(dashboardAdminPath());
+  }
+
+  async function handleLogout(): Promise<void> {
+    await logout();
+    navigate("/login");
+  }
 
   return (
     <div className="flex min-h-screen bg-bg">
-      {/* 모바일 오버레이 */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* 사이드바 */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-surface transition-transform lg:static lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-          <LogoMark size={32} />
-          <div className="leading-tight">
-            <div className="text-sm font-bold text-ink">Senior AI Lab</div>
-            <div className="text-[11px] text-gray-400">관리자</div>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-          {nav.map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setMobileOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-brand-soft text-brand"
-                    : "text-ink-soft hover:bg-gray-100"
-                )
-              }
-            >
-              <Icon className="h-4.5 w-4.5 h-[18px] w-[18px]" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="border-t border-border p-3">
-          <div className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-ink-soft">
-              {user?.name.slice(0, 1)}
-            </div>
-            <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm font-medium text-ink">{user?.name}</div>
-              <div className="text-[11px] text-gray-400">
-                {user ? roleLabel(user.role) : ""}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink-soft hover:bg-gray-100"
-          >
-            <LogOut className="h-4 w-4" />
-            로그아웃
-          </button>
-        </div>
-      </aside>
-
-      {/* 메인 */}
+      <AppSidebar
+        mobileOpen={mobileOpen}
+        nav={nav}
+        user={user}
+        onCloseMobile={() => setMobileOpen(false)}
+        onLogout={() => {
+          void handleLogout();
+        }}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-2 border-b border-border bg-surface/80 px-4 py-2 backdrop-blur lg:flex-nowrap lg:gap-3 lg:px-6">
-          <button
-            className="rounded-lg p-1.5 text-ink-soft hover:bg-gray-100 lg:hidden"
-            onClick={() => setMobileOpen((v) => !v)}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-
-          {/* 시설 선택 (SUPER_ADMIN 은 전환 가능) */}
-          <div className="relative min-w-0 flex-1 lg:flex-none">
-            {myFacilities.length > 1 ? (
-              <div className="flex max-w-full items-center gap-2 rounded-lg border border-border px-3 py-1.5">
-                <Building2 className="h-4 w-4 text-gray-400" />
-                <select
-                  className="min-w-0 max-w-full truncate bg-transparent text-sm font-semibold text-ink focus:outline-none"
-                  value={currentFacility?.id ?? ""}
-                  onChange={(e) => {
-                    const selectedFacilityId = e.target.value;
-                    if (!selectedFacilityId) return;
-                    setFacility(selectedFacilityId);
-                    navigate(dashboardAdminPath(selectedFacilityId));
-                  }}
-                >
-                  {myFacilities.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Building2 className="h-4 w-4 text-gray-400" />
-                {currentFacility?.name ?? workspaceFacilityId}
-              </div>
-            )}
-          </div>
-
-          <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:gap-3">
-            {user?.role === "SUPER_ADMIN" && (
-              <button
-                onClick={() => navigate(DASHBOARD_HOME_PATH)}
-                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
-              >
-                <LayoutGrid className="h-4 w-4" />
-                전체 대시보드
-              </button>
-            )}
-            {activeFacilityId && (
-              <button
-                onClick={() => navigate(monitorHomePath(activeFacilityId))}
-                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
-              >
-                <MonitorPlay className="h-4 w-4" />
-                모니터
-              </button>
-            )}
-            <button
-              onClick={() => activeFacilityId && navigate(dashboardStaffPath(activeFacilityId))}
-              disabled={!activeFacilityId}
-              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
-            >
-              <Smartphone className="h-4 w-4" />
-              직원 모드
-            </button>
-            <div className="hidden text-sm tabular-nums text-ink-soft sm:block">
-              {now.getFullYear()}.{String(now.getMonth() + 1).padStart(2, "0")}.
-              {String(now.getDate()).padStart(2, "0")}{" "}
-              {String(now.getHours()).padStart(2, "0")}:
-              {String(now.getMinutes()).padStart(2, "0")}
-            </div>
-          </div>
-        </header>
-
+        <AppHeader
+          activeFacilityId={activeFacilityId}
+          currentFacility={currentFacility}
+          facilitySelectorError={facilitySelectorError}
+          mobileOpen={mobileOpen}
+          myFacilities={myFacilities}
+          userRole={userRole}
+          workspaceFacilityId={workspaceFacilityId}
+          onOpenDashboardHome={() => navigate(DASHBOARD_HOME_PATH)}
+          onOpenMonitor={() => navigate(monitorHomePath())}
+          onOpenStaffMode={() => navigate(dashboardStaffPath())}
+          onSelectWorkspaceFacility={(optionValue) => {
+            void selectWorkspaceFacility(optionValue);
+          }}
+          onToggleMobile={() => setMobileOpen((isOpen) => !isOpen)}
+        />
         <main className="flex-1 p-4 lg:p-6">
           <Outlet />
         </main>

@@ -30,6 +30,10 @@ See `src/AGENTS.md` before changing frontend application code.
   Both paths must mint the same httpOnly backend session cookie and restore via
   `/api/v1/auth/session`. Do not reintroduce frontend mock auth users or localStorage
   auth sessions.
+- Tenant scope is not a frontend-owned value. Do not place internal `Facility.id`,
+  customer facility codes, `X-Facility-Id`, or `facilityId` query values in routes,
+  headers, SSE URLs, or access-control decisions. `SUPER_ADMIN` selection must call the
+  backend opaque selector endpoint before entering facility-scoped screens.
 - `strictPort` 3000 (ADR); pnpm only, never an npm lockfile.
 
 ## Run

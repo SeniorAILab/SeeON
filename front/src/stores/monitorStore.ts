@@ -88,7 +88,7 @@ export const useMonitorStore = create<MonitorState>((set) => ({
         .catch(() => set({ connection: "RECONNECTING" }));
     }, intervalMs);
     if (typeof EventSource === "undefined") return;
-    const url = buildSseUrl(facilityId);
+    const url = buildSseUrl();
     const eventSource = isAbsoluteApiUrl(url)
       ? new EventSource(url, { withCredentials: true })
       : new EventSource(url);

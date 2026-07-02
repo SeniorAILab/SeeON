@@ -24,19 +24,15 @@ function user(role: User["role"], facilityId: string | null): User {
 describe("routeAccess", () => {
   it("역할별 기본 경로를 approved UI journey에 맞춘다", () => {
     expect(defaultPathForUser(user("SUPER_ADMIN", null))).toBe(DASHBOARD_HOME_PATH);
-    expect(defaultPathForUser(user("ADMIN", "fac-a"))).toBe(
-      "/dashboard/facilities/fac-a/admin"
-    );
-    expect(defaultPathForUser(user("STAFF", "fac-a"))).toBe(
-      "/dashboard/facilities/fac-a/staff"
-    );
+    expect(defaultPathForUser(user("ADMIN", "fac-a"))).toBe("/dashboard/admin");
+    expect(defaultPathForUser(user("STAFF", "fac-a"))).toBe("/dashboard/staff");
   });
 
-  it("시설 workspace와 monitor display 경로를 facility id로 만든다", () => {
-    expect(dashboardAdminPath("fac-a")).toBe("/dashboard/facilities/fac-a/admin");
-    expect(dashboardStaffPath("fac-a")).toBe("/dashboard/facilities/fac-a/staff");
-    expect(monitorHomePath("fac-a")).toBe("/monitor/fac-a");
-    expect(monitorFloorPath("fac-a", "fl-2f")).toBe("/monitor/fac-a/floors/fl-2f");
+  it("시설 workspace와 monitor display 경로에 internal facility id를 노출하지 않는다", () => {
+    expect(dashboardAdminPath()).toBe("/dashboard/admin");
+    expect(dashboardStaffPath()).toBe("/dashboard/staff");
+    expect(monitorHomePath()).toBe("/monitor");
+    expect(monitorFloorPath("fl-2f")).toBe("/monitor/floors/fl-2f");
   });
 
   it("권한 거부는 직원 홈으로 숨기지 않고 접근 거부 경로로 보낸다", () => {

@@ -2,8 +2,8 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
-import { RouterBootstrap } from "@/components/RouterBootstrap";
 import { FacilityRouteScope } from "@/components/FacilityRouteScope";
+import { RouterBootstrap } from "@/components/RouterBootstrap";
 import { RoleRouteRedirect } from "@/components/RoleRouteRedirect";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
@@ -82,7 +82,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/dashboard/facilities/:facilityId/staff",
+    path: "/dashboard/staff",
     element: (
       <RouterBootstrap>
         <RequireAuth>
@@ -99,7 +99,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/monitor/:facilityId",
+    path: "/monitor",
     element: (
       <RouterBootstrap>
         <RequireAuth>
@@ -111,7 +111,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/monitor/:facilityId/floors/:floorId",
+    path: "/monitor/floors/:floorId",
     element: (
       <RouterBootstrap>
         <RequireAuth>
@@ -123,7 +123,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/dashboard/facilities/:facilityId/admin",
+    path: "/dashboard/admin",
     element: (
       <RouterBootstrap>
         <RequireAuth minRole="ADMIN">

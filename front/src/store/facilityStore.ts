@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import type { Facility } from "@/types";
+import type { FacilitySelectorItem } from "@/services/api/dashboardEndpoints";
 
 interface FacilityState {
   currentFacilityId: string | null;
-  facilities: Facility[];
+  facilities: FacilitySelectorItem[];
   setFacility: (id: string) => void;
-  setFacilities: (facilities: readonly Facility[]) => void;
+  setFacilities: (facilities: readonly FacilitySelectorItem[]) => void;
   resolveForUser: (userFacilityId: string | null) => string | null;
 }
 
@@ -27,8 +27,8 @@ export function getCurrentFacilityId(): string | null {
 
 export function facilitiesForUser(
   userFacilityId: string | null,
-  facilities: readonly Facility[],
-): Facility[] {
+  facilities: readonly FacilitySelectorItem[],
+): FacilitySelectorItem[] {
   if (userFacilityId === null) return [...facilities];
   return facilities.filter((facility) => facility.id === userFacilityId);
 }

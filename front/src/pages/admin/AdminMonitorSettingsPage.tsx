@@ -39,7 +39,7 @@ export function AdminMonitorSettingsPage() {
           <Button
             variant="secondary"
             disabled={!facilityId}
-            onClick={() => navigate(monitorHomePath(facilityId))}
+            onClick={() => navigate(monitorHomePath())}
           >
             <ExternalLink className="h-4 w-4" />
             모니터 열기

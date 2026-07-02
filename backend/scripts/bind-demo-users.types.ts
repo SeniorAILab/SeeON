@@ -11,7 +11,7 @@ export type BindChange = {
   readonly id: string;
   readonly kakaoId: string;
   readonly nextFacilityId: string;
-  readonly nextRole: 'SUPER_ADMIN';
+  readonly nextRole: 'ADMIN';
   readonly previousFacilityId: string | null;
   readonly previousRole: RoleName;
 };
@@ -52,7 +52,7 @@ export type BindPrisma = {
       readonly where: { readonly id: string };
       readonly data: {
         readonly facilityId: string;
-        readonly role: 'SUPER_ADMIN';
+        readonly role: 'ADMIN';
         readonly sessionVersion: { readonly increment: 1 };
       };
     }) => Promise<unknown>;

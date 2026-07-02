@@ -37,10 +37,6 @@ export function hasRbacCapability(
   return RBAC_PERMISSIONS[role].has(capability);
 }
 
-function pathSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
 export function postLoginPathForUser(user: {
   role: AuthRole;
   facilityId: string | null;
@@ -49,13 +45,9 @@ export function postLoginPathForUser(user: {
     case Role.SUPER_ADMIN:
       return '/dashboard';
     case Role.ADMIN:
-      return user.facilityId
-        ? `/dashboard/facilities/${pathSegment(user.facilityId)}/admin`
-        : '/onboarding';
+      return user.facilityId ? '/dashboard/admin' : '/onboarding';
     case Role.STAFF:
-      return user.facilityId
-        ? `/dashboard/facilities/${pathSegment(user.facilityId)}/staff`
-        : '/onboarding';
+      return user.facilityId ? '/dashboard/staff' : '/onboarding';
   }
 }
 

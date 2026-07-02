@@ -14,18 +14,22 @@ import {
   dashboardStaffPath,
   monitorHomePath,
 } from "@/lib/routeAccess";
-import { listFacilities } from "@/services/api/dashboardEndpoints";
+import {
+  listFacilities,
+  selectFacility,
+  type FacilitySelectorItem,
+} from "@/services/api/dashboardEndpoints";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
-import type { Facility } from "@/types";
 
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const setFacility = useFacilityStore((s) => s.setFacility);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [facilities, setFacilities] = useState<FacilitySelectorItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectingToken, setSelectingToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,9 +65,24 @@ export function SuperAdminDashboardPage() {
     navigate("/login");
   }
 
-  function enterFacility(facilityId: string, path: string) {
-    setFacility(facilityId);
-    navigate(path);
+  async function enterFacility(facility: FacilitySelectorItem, path: string) {
+    if (!facility.selectionToken) {
+      setError("시설 선택 토큰이 없습니다. 다시 로그인해 주세요.");
+      return;
+    }
+    setSelectingToken(facility.selectionToken);
+    setError(null);
+    try {
+      const selected = await selectFacility(facility.selectionToken);
+      setFacility(selected.id);
+      navigate(path);
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "시설 선택에 실패했습니다.";
+      setError(message);
+    } finally {
+      setSelectingToken(null);
+    }
   }
 
   return (
@@ -120,12 +139,12 @@ export function SuperAdminDashboardPage() {
           <div className="grid gap-3 lg:grid-cols-2">
           {facilities.map((facility) => {
             return (
-              <Card key={facility.id} className="p-4">
+              <Card key={facility.selectionToken ?? facility.id} className="p-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-brand-soft px-2 py-1 text-xs font-semibold text-brand">
                       <Building2 className="h-3.5 w-3.5" />
-                      {facility.code}
+                      등록 시설
                     </div>
                     <h3 className="break-keep text-lg font-bold text-ink">{facility.name}</h3>
                     <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
@@ -141,8 +160,9 @@ export function SuperAdminDashboardPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button
                     type="button"
+                    disabled={selectingToken === facility.selectionToken}
                     onClick={() =>
-                      enterFacility(facility.id, dashboardAdminPath(facility.id))
+                      enterFacility(facility, dashboardAdminPath())
                     }
                   >
                     <LayoutDashboard className="h-4 w-4" />
@@ -151,8 +171,9 @@ export function SuperAdminDashboardPage() {
                   <Button
                     type="button"
                     variant="secondary"
+                    disabled={selectingToken === facility.selectionToken}
                     onClick={() =>
-                      enterFacility(facility.id, dashboardStaffPath(facility.id))
+                      enterFacility(facility, dashboardStaffPath())
                     }
                   >
                     <Smartphone className="h-4 w-4" />
@@ -161,7 +182,8 @@ export function SuperAdminDashboardPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => enterFacility(facility.id, monitorHomePath(facility.id))}
+                    disabled={selectingToken === facility.selectionToken}
+                    onClick={() => enterFacility(facility, monitorHomePath())}
                   >
                     <MonitorPlay className="h-4 w-4" />
                     모니터

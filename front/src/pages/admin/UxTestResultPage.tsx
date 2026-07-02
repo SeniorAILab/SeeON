@@ -36,7 +36,7 @@ export function UxTestResultPage() {
           <Button
             variant="secondary"
             disabled={!facilityId}
-            onClick={() => navigate(monitorFloorPath(facilityId, "fl_2f"))}
+            onClick={() => navigate(monitorFloorPath("fl_2f"))}
           >
             <ExternalLink className="h-4 w-4" />
             2층 검증 모드 열기

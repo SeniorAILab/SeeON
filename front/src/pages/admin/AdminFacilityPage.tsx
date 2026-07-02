@@ -2,32 +2,41 @@ import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Input } from "@/components/ui/primitives";
-import { adminService } from "@/services/adminService";
-import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
-import type { Facility } from "@/types";
+import {
+  getCurrentFacility,
+  updateCurrentFacility,
+  type FacilityProfileInput,
+} from "@/services/api/dashboardEndpoints";
 
 export function AdminFacilityPage() {
-  const facilityId = useActiveFacilityId();
-
-  const [facility, setFacility] = useState<Facility | null>(null);
+  const [facility, setFacility] = useState<FacilityProfileInput | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    adminService.listFacilities().then((list) => {
-      setFacility(list.find((f) => f.id === facilityId) ?? null);
+    getCurrentFacility().then((next) => {
+      setFacility({
+        name: next.name,
+        address: next.address,
+        phone: next.phone,
+      });
     });
-  }, [facilityId]);
+  }, []);
 
   if (!facility) return <p className="text-sm text-gray-400">불러오는 중...</p>;
 
-  function set<K extends keyof Facility>(key: K, value: Facility[K]) {
+  function set<K extends keyof FacilityProfileInput>(key: K, value: FacilityProfileInput[K]) {
     setFacility((f) => (f ? { ...f, [key]: value } : f));
     setSaved(false);
   }
 
   async function save() {
     if (!facility) return;
-    await adminService.updateFacility(facility.id, facility);
+    const next = await updateCurrentFacility(facility);
+    setFacility({
+      name: next.name,
+      address: next.address,
+      phone: next.phone,
+    });
     setSaved(true);
   }
 
@@ -37,9 +46,6 @@ export function AdminFacilityPage() {
       <Card className="space-y-4 p-6">
         <Field label="시설명">
           <Input value={facility.name} onChange={(e) => set("name", e.target.value)} />
-        </Field>
-        <Field label="시설 코드" hint="AI 모델 연동 시 facilityCode 로 사용됩니다.">
-          <Input value={facility.code} onChange={(e) => set("code", e.target.value)} />
         </Field>
         <Field label="주소">
           <Input value={facility.address} onChange={(e) => set("address", e.target.value)} />

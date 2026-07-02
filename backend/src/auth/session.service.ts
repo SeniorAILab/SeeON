@@ -22,6 +22,7 @@ export interface ValidSession {
   session: ServerSession;
   user: AuthenticatedUser;
   rotatedToken: string | null;
+  rotatedFromSessionId: string | null;
   maxAgeSeconds: number;
 }
 
@@ -41,6 +42,7 @@ export class SessionService implements OnModuleInit {
       User,
       'id' | 'facilityId' | 'role' | 'kakaoId' | 'nickname' | 'sessionVersion'
     >,
+    options: { readonly activeFacilityId?: string | null } = {},
   ): Promise<{ token: string; maxAgeSeconds: number; session: ServerSession }> {
     if (!hasRbacCapability(user.role, 'personalLogin')) {
       throw new UnauthorizedException('Role cannot create a personal session');
@@ -49,7 +51,12 @@ export class SessionService implements OnModuleInit {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAt = new Date((nowSeconds + ttlSeconds) * 1000);
     const session = await this.prisma.db.serverSession.create({
-      data: { userId: user.id, facilityId: user.facilityId, expiresAt },
+      data: {
+        userId: user.id,
+        facilityId: user.facilityId,
+        activeFacilityId: options.activeFacilityId ?? null,
+        expiresAt,
+      },
     });
     const token = createSignedSessionToken(
       {
@@ -92,13 +99,17 @@ export class SessionService implements OnModuleInit {
     let activeSession = session;
 
     let rotatedToken: string | null = null;
+    let rotatedFromSessionId: string | null = null;
     if (options.rotate !== false && this.shouldRotate(payload.iat)) {
       await this.prisma.db.serverSession.update({
         where: { id: session.id },
         data: { revokedAt: new Date() },
       });
-      const rotated = await this.createSession(user);
+      const rotated = await this.createSession(user, {
+        activeFacilityId: session.activeFacilityId,
+      });
       rotatedToken = rotated.token;
+      rotatedFromSessionId = session.id;
       activeSession = rotated.session;
     }
 
@@ -106,6 +117,7 @@ export class SessionService implements OnModuleInit {
       session: activeSession,
       user: toAuthenticatedUser(user),
       rotatedToken,
+      rotatedFromSessionId,
       maxAgeSeconds: this.sessionTtlSeconds(),
     };
   }
@@ -116,6 +128,17 @@ export class SessionService implements OnModuleInit {
       data: { revokedAt: new Date() },
     });
   }
+
+  async setActiveFacility(
+    sessionId: string,
+    activeFacilityId: string,
+  ): Promise<ServerSession> {
+    return this.prisma.db.serverSession.update({
+      where: { id: sessionId },
+      data: { activeFacilityId },
+    });
+  }
+
   /**
    * Lightweight re-auth check for SSE re-auth tick (F6/AC4).
    * Returns false if the session is revoked, expired, or the user's

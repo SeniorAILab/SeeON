@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
   Patch,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -13,7 +16,10 @@ import {
 } from '../../auth/session.guard.js';
 import type { RequestWithAuth } from '../../auth/session.guard.js';
 import { FacilitiesService } from '../services/facilities.service.js';
-import type { UpdateFacilityRequestDto } from '../dto/facility.dto.js';
+import type {
+  FacilitySelectionRequestDto,
+  UpdateFacilityRequestDto,
+} from '../dto/facility.dto.js';
 
 @Controller({ path: 'facilities', version: '1' })
 @UseGuards(SessionGuard)
@@ -23,7 +29,30 @@ export class FacilitiesController {
   @Get()
   list(@Req() req: RequestWithAuth) {
     if (!req.user) throw new ForbiddenException('Session user required');
-    return this.service.listForUser(req.user);
+    return this.service.listForUser(req.user, { sessionId: req.sessionId });
+  }
+
+  @Post('selection')
+  @HttpCode(200)
+  select(
+    @Req() req: RequestWithAuth,
+    @Body() body: FacilitySelectionRequestDto,
+  ) {
+    if (!req.user) throw new ForbiddenException('Session user required');
+    if (!req.sessionId) throw new ForbiddenException('Session scope required');
+    const selectionToken =
+      typeof body.selectionToken === 'string' ? body.selectionToken.trim() : '';
+    if (!selectionToken) {
+      throw new BadRequestException('selectionToken is required');
+    }
+    return this.service.selectForUser(
+      req.user,
+      {
+        sessionId: req.sessionId,
+        rotatedFromSessionId: req.rotatedFromSessionId,
+      },
+      selectionToken,
+    );
   }
 
   @Get('current')

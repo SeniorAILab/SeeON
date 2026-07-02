@@ -12,6 +12,7 @@ const seededFacility = {
   address: "경기도 의정부시 녹양로 12",
   phone: "031-123-4567",
 };
+const seededSelector = { ...seededFacility, selectionToken: "selector-token" };
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -42,7 +43,7 @@ describe("SuperAdminDashboardPage", () => {
   it("renders the facility selector without preloading facility-scoped dashboard APIs", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
-      if (url.endsWith("/facilities")) return okJsonResponse([seededFacility]);
+      if (url.endsWith("/facilities")) return okJsonResponse([seededSelector]);
       throw new Error(`Unexpected request ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -63,7 +64,14 @@ describe("SuperAdminDashboardPage", () => {
   it("stores the selected facility before entering a facility-scoped route", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>(async () => okJsonResponse([seededFacility]))
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/facilities")) return okJsonResponse([seededSelector]);
+        if (url.endsWith("/facilities/selection")) {
+          return okJsonResponse({ facility: seededFacility });
+        }
+        throw new Error(`Unexpected request ${url}`);
+      })
     );
 
     render(

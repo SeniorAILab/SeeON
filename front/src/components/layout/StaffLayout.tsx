@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Bell, ListChecks, CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
@@ -21,7 +21,6 @@ export function StaffLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const { facilityId: routeFacilityId } = useParams<{ facilityId: string }>();
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const soundEnabled = useUiStore((s) => s.soundEnabled);
@@ -58,14 +57,14 @@ export function StaffLayout() {
     userRole === "SUPER_ADMIN" ? null : userFacilityId,
     facilities,
   );
-  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? userFacilityId ?? "";
+  const workspaceFacilityId = currentFacilityId ?? userFacilityId ?? "";
   const facility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? null;
   const activeFacilityId = facility?.id ?? workspaceFacilityId;
   const nav = activeFacilityId
     ? [
-        { to: dashboardStaffPath(activeFacilityId), label: "지금 확인할 곳", Icon: Bell },
-        { to: dashboardStaffRoomsPath(activeFacilityId), label: "전체 방 상태", Icon: ListChecks },
-        { to: dashboardStaffAlertsPath(activeFacilityId), label: "확인한 알림", Icon: CheckCheck },
+        { to: dashboardStaffPath(), label: "지금 확인할 곳", Icon: Bell },
+        { to: dashboardStaffRoomsPath(), label: "전체 방 상태", Icon: ListChecks },
+        { to: dashboardStaffAlertsPath(), label: "확인한 알림", Icon: CheckCheck },
       ]
     : [];
 
@@ -102,7 +101,7 @@ export function StaffLayout() {
               {theme === "dark" ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
             </IconBtn>
             <button
-              onClick={() => activeFacilityId && navigate(monitorHomePath(activeFacilityId))}
+              onClick={() => activeFacilityId && navigate(monitorHomePath())}
               disabled={!activeFacilityId}
               className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
             >
@@ -112,7 +111,7 @@ export function StaffLayout() {
             {canAdmin(user) && (
               <button
                 onClick={() =>
-                  activeFacilityId && navigate(dashboardAdminPath(activeFacilityId))
+                  activeFacilityId && navigate(dashboardAdminPath())
                 }
                 disabled={!activeFacilityId}
                 className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"

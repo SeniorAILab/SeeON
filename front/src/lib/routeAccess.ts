@@ -12,32 +12,28 @@ function segment(value: string): string {
   return encodeURIComponent(value);
 }
 
-function dashboardFacilityPath(facilityId: string): string {
-  return `${DASHBOARD_HOME_PATH}/facilities/${segment(facilityId)}`;
+export function dashboardAdminPath(): string {
+  return `${DASHBOARD_HOME_PATH}/admin`;
 }
 
-export function dashboardAdminPath(facilityId: string): string {
-  return `${dashboardFacilityPath(facilityId)}/admin`;
+export function dashboardStaffPath(): string {
+  return `${DASHBOARD_HOME_PATH}/staff`;
 }
 
-export function dashboardStaffPath(facilityId: string): string {
-  return `${dashboardFacilityPath(facilityId)}/staff`;
+export function dashboardStaffRoomsPath(): string {
+  return `${dashboardStaffPath()}/rooms`;
 }
 
-export function dashboardStaffRoomsPath(facilityId: string): string {
-  return `${dashboardStaffPath(facilityId)}/rooms`;
+export function dashboardStaffAlertsPath(): string {
+  return `${dashboardStaffPath()}/alerts`;
 }
 
-export function dashboardStaffAlertsPath(facilityId: string): string {
-  return `${dashboardStaffPath(facilityId)}/alerts`;
+export function monitorHomePath(): string {
+  return "/monitor";
 }
 
-export function monitorHomePath(facilityId: string): string {
-  return `/monitor/${segment(facilityId)}`;
-}
-
-export function monitorFloorPath(facilityId: string, floorId: string): string {
-  return `${monitorHomePath(facilityId)}/floors/${segment(floorId)}`;
+export function monitorFloorPath(floorId: string): string {
+  return `${monitorHomePath()}/floors/${segment(floorId)}`;
 }
 
 export function defaultPathForRole(role: Role): string {
@@ -59,11 +55,11 @@ export function defaultPathForUser(user: User): string {
       return DASHBOARD_HOME_PATH;
     case "ADMIN":
       return user.facilityId
-        ? dashboardAdminPath(user.facilityId)
+        ? dashboardAdminPath()
         : ONBOARDING_PATH;
     case "STAFF":
       return user.facilityId
-        ? dashboardStaffPath(user.facilityId)
+        ? dashboardStaffPath()
         : ACCESS_DENIED_PATH;
     default:
       return assertNever(user.role);

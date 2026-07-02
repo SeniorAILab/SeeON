@@ -128,7 +128,7 @@ describe('AuthController', () => {
     );
 
     expect(response.redirect).toHaveBeenCalledWith(
-      'https://app.example.com/dashboard/facilities/demo-facility-01/staff',
+      'https://app.example.com/dashboard/staff',
     );
   });
 
@@ -151,7 +151,7 @@ describe('AuthController', () => {
     );
 
     expect(response.redirect).toHaveBeenCalledWith(
-      'https://app.example.com/dashboard/facilities/demo-facility-01/admin',
+      'https://app.example.com/dashboard/admin',
     );
   });
 

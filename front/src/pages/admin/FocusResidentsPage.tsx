@@ -36,7 +36,7 @@ export function FocusResidentsPage() {
         <p className="text-sm text-ink-soft">오늘 집중 관찰 대상이 없습니다.</p>
       ) : (
         ids.map((id) => (
-          <ResidentDetailCard key={id} facilityId={facilityId} residentId={id} />
+          <ResidentDetailCard key={id} residentId={id} />
         ))
       )}
     </div>
@@ -63,13 +63,7 @@ function Delta({ value }: { value: number }) {
   );
 }
 
-function ResidentDetailCard({
-  facilityId,
-  residentId,
-}: {
-  facilityId: string;
-  residentId: string;
-}) {
+function ResidentDetailCard({ residentId }: { residentId: string }) {
   const navigate = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
   const [actions, setActions] = useState<ResidentAction[]>([]);
@@ -130,7 +124,7 @@ function ResidentDetailCard({
       {d.clip && d.recentEvents[0] && (
         <button
           onClick={() =>
-            navigate(`${dashboardAdminPath(facilityId)}/events/${d.clip!.eventId}`)
+            navigate(`${dashboardAdminPath()}/events/${d.clip!.eventId}`)
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand-soft px-3 py-2 text-sm font-semibold text-brand hover:bg-brand/10"
         >
