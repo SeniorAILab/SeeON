@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, Volume2, Check, CalendarClock, Hand } from "lucide-react";
+import { Heart, Volume2, Check, Footprints, Hand } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { residentService } from "@/services/residentService";
 import { announceFocusResidents } from "@/services/tts/announceFocus";
@@ -12,7 +12,7 @@ import type { FocusResidentView, ResidentActionType } from "@/types";
 // 직원용: 점수/모델 설명 없이 "오늘 더 자주 확인해주세요"만.
 const BTNS: { type: ResidentActionType; label: string; Icon: typeof Check; tone: string }[] = [
   { type: "CHECKED", label: "확인함", Icon: Check, tone: "bg-status-stable" },
-  { type: "VISIT_PLANNED", label: "방문 예정", Icon: CalendarClock, tone: "bg-brand" },
+  { type: "STAFF_VISIT", label: "직원 방문 중", Icon: Footprints, tone: "bg-brand" },
   { type: "HELP_REQUEST", label: "도움 요청", Icon: Hand, tone: "bg-status-danger" },
 ];
 
@@ -77,19 +77,19 @@ export function FocusResidentSection() {
                 {doneMap[v.resident.id]} 처리했습니다.
               </p>
             ) : (
-              <div className="mt-3 flex flex-wrap gap-2.5">
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
                 {BTNS.map(({ type, label, Icon, tone }) => (
                   <button
                     key={type}
                     disabled={!canAcknowledge(user)}
                     onClick={() => act(v.resident.id, type)}
                     className={cn(
-                      "inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-staff-btn text-white disabled:opacity-50",
+                      "inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl px-4 text-staff-btn text-white disabled:opacity-50",
                       tone
                     )}
                   >
                     <Icon className="h-6 w-6" />
-                    {label}
+                    <span className="whitespace-nowrap">{label}</span>
                   </button>
                 ))}
               </div>

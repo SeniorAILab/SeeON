@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -14,15 +14,47 @@ import {
   dashboardStaffPath,
   monitorHomePath,
 } from "@/lib/routeAccess";
+import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { useAuthStore } from "@/store/authStore";
-import { facilitiesForUser, useFacilityStore } from "@/store/facilityStore";
+import { useFacilityStore } from "@/store/facilityStore";
+import type { Facility } from "@/types";
 
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const setFacility = useFacilityStore((s) => s.setFacility);
-  const facilities = useMemo(() => facilitiesForUser(null), []);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadFacilities() {
+      setLoading(true);
+      setError(null);
+      try {
+        const nextFacilities = await listFacilities();
+        if (!active) return;
+        setFacilities(nextFacilities);
+      } catch (caught) {
+        if (!active) return;
+        const message =
+          caught instanceof Error ? caught.message : "시설 목록을 불러오지 못했습니다.";
+        setError(message);
+        setFacilities([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadFacilities();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleLogout() {
     await logout();
@@ -69,7 +101,23 @@ export function SuperAdminDashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        {loading ? (
+          <Card className="p-5">
+            <div className="text-sm font-semibold text-ink">시설 목록을 불러오는 중...</div>
+            <div className="mt-1 text-sm text-ink-soft">시드된 요양원 정보를 확인하고 있습니다.</div>
+          </Card>
+        ) : error ? (
+          <Card className="border-status-danger bg-status-dangerBg p-5">
+            <div className="text-sm font-bold text-status-danger">시설 목록 연결 실패</div>
+            <div className="mt-1 break-all text-sm text-ink-soft">{error}</div>
+          </Card>
+        ) : facilities.length === 0 ? (
+          <Card className="p-5">
+            <div className="text-sm font-semibold text-ink">등록된 요양원이 없습니다.</div>
+            <div className="mt-1 text-sm text-ink-soft">먼저 backend seed 또는 시설 등록을 확인하세요.</div>
+          </Card>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
           {facilities.map((facility) => {
             return (
               <Card key={facility.id} className="p-4">
@@ -122,7 +170,8 @@ export function SuperAdminDashboardPage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+        )}
 
       </main>
     </div>

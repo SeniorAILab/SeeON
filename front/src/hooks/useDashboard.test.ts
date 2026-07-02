@@ -145,7 +145,9 @@ describe("useDashboard SSE refresh", () => {
 
     await waitFor(() => expect(getDashboardMock).toHaveBeenCalledTimes(1));
     expect(eventSources).toHaveLength(1);
-    expect(eventSources[0].url).toBe("/api/v1/dashboard/stream");
+    expect(eventSources[0].url).toBe(
+      "/api/v1/dashboard/stream?facilityId=facility-1"
+    );
   });
 
   it("reloads on default alert, named status, and named status-snapshot events", async () => {
@@ -182,7 +184,9 @@ describe("useDashboard SSE refresh", () => {
 
     await waitFor(() => expect(eventSources).toHaveLength(2));
     expect(eventSources[0].close).toHaveBeenCalledTimes(1);
-    expect(eventSources[1].url).toBe("/api/v1/dashboard/stream");
+    expect(eventSources[1].url).toBe(
+      "/api/v1/dashboard/stream?facilityId=facility-2"
+    );
   });
 
   it("keeps polling as a fallback when EventSource is unavailable", async () => {

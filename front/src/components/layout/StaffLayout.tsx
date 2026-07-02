@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { canAdmin } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
+import { listFacilities } from "@/services/api/dashboardEndpoints";
 import {
   DASHBOARD_HOME_PATH,
   dashboardAdminPath,
@@ -25,11 +26,40 @@ export function StaffLayout() {
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const soundEnabled = useUiStore((s) => s.soundEnabled);
   const toggleSound = useUiStore((s) => s.toggleSound);
+  const userFacilityId = user?.facilityId ?? null;
+  const userId = user?.id;
+  const userRole = user?.role;
 
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const myFacilities = facilitiesForUser(user?.role === "SUPER_ADMIN" ? null : user?.facilityId ?? null);
-  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? user?.facilityId ?? "";
-  const facility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? myFacilities[0];
+  const facilities = useFacilityStore((s) => s.facilities);
+  const setFacilities = useFacilityStore((s) => s.setFacilities);
+
+  useEffect(() => {
+    if (!userId) {
+      setFacilities([]);
+      return;
+    }
+
+    let cancelled = false;
+    listFacilities()
+      .then((nextFacilities) => {
+        if (!cancelled) setFacilities(nextFacilities);
+      })
+      .catch(() => {
+        if (!cancelled) setFacilities([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setFacilities, userFacilityId, userId, userRole]);
+
+  const myFacilities = facilitiesForUser(
+    userRole === "SUPER_ADMIN" ? null : userFacilityId,
+    facilities,
+  );
+  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? userFacilityId ?? "";
+  const facility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? null;
   const activeFacilityId = facility?.id ?? workspaceFacilityId;
   const nav = activeFacilityId
     ? [
@@ -56,7 +86,9 @@ export function StaffLayout() {
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-3 sm:gap-3">
           <LogoMark size={36} />
           <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-lg font-bold text-ink">{facility?.name}</div>
+            <div className="truncate text-lg font-bold text-ink">
+              {facility?.name ?? workspaceFacilityId}
+            </div>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-1 sm:ml-auto sm:w-auto sm:flex-nowrap">

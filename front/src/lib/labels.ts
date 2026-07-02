@@ -71,6 +71,6 @@ export const actionTypeLabel: Record<ActionType, string> = {
 
 export const residentActionLabel: Record<ResidentActionType, string> = {
   CHECKED: "확인함",
-  VISIT_PLANNED: "방문 예정",
+  STAFF_VISIT: "직원 방문 중",
   HELP_REQUEST: "도움 요청",
 };
