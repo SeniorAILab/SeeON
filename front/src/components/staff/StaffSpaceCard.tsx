@@ -64,12 +64,12 @@ export function StaffSpaceCard({
         </p>
 
         {showButtons && !compact && (
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 grid gap-3 sm:flex sm:flex-wrap">
             <button
               onClick={onConfirm}
-              className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-staff-btn text-white transition-colors hover:brightness-110"
+              className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-brand px-6 text-staff-btn text-white transition-colors hover:brightness-110 sm:flex-1"
             >
-              확인하러 감
+              <span className="whitespace-nowrap">확인하러 감</span>
               <ArrowRight className="h-6 w-6" />
             </button>
             {isDanger && onHelp && (
@@ -78,7 +78,7 @@ export function StaffSpaceCard({
                 className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-status-danger px-6 text-staff-btn text-white transition-colors hover:brightness-110"
               >
                 <Hand className="h-6 w-6" />
-                도움 요청
+                <span className="whitespace-nowrap">도움 요청</span>
               </button>
             )}
           </div>
@@ -89,7 +89,7 @@ export function StaffSpaceCard({
             onClick={onConfirm}
             className="mt-4 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-staff-btn text-white hover:brightness-110"
           >
-            확인하러 감
+            <span className="whitespace-nowrap">확인하러 감</span>
             <ArrowRight className="h-6 w-6" />
           </button>
         )}

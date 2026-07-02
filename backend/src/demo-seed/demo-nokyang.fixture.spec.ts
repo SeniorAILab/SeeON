@@ -1,4 +1,5 @@
 import {
+  NOKYANG_ADMIN_EMAIL,
   NOKYANG_FACILITY_ID,
   nokyangAssignments,
   nokyangCameras,
@@ -19,6 +20,7 @@ describe('nokyang demo fixture', () => {
       code: 'happy-nokyang',
       name: '행복한요양원 녹양역점',
     });
+    expect(NOKYANG_ADMIN_EMAIL).toBe('happy8568090@gmail.com');
     expect(nokyangFloors.map((floor) => floor.id)).toEqual([
       'fl_b1',
       'fl_1f',

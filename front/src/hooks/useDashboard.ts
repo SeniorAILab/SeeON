@@ -43,8 +43,9 @@ export function useDashboard(pollMs = 20_000) {
 
   useEffect(() => {
     if (USE_MOCK || typeof EventSource === "undefined") return;
+    if (!facilityId) return;
 
-    const url = buildSseUrl();
+    const url = buildSseUrl(facilityId);
     const eventSource = isAbsoluteApiUrl(url)
       ? new EventSource(url, { withCredentials: true })
       : new EventSource(url);
@@ -72,7 +73,7 @@ export function useDashboard(pollMs = 20_000) {
     };
 
     return () => eventSource.close();
-  }, [handleSessionInvalid, reload]);
+  }, [facilityId, handleSessionInvalid, reload]);
 
   return { data, loading, reload };
 }

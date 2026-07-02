@@ -10,7 +10,12 @@ Replace the tiny backend demo seed with the 녹양역점 demo facility data that
 frontend mock used during PoC, while keeping real backend auth/session flows.
 
 ## Decisions
-- `seniorsailab@gmail.com` is the 녹양역점 backend `ADMIN`.
+- `seniorsailab@gmail.com` is the Senior AI Lab platform account. It has role
+  `SUPER_ADMIN` and is not bound to a facility.
+- `happy8568090@gmail.com` is the 녹양역점 backend `ADMIN` bound to
+  `fac_happy_nokyang`.
+- Facility-less `SUPER_ADMIN` users enter tenant dashboards through an explicit
+  request-scoped `X-Facility-Id` selected from the backend facility list.
 - The Kakao account labelled `rhqjatn310@kakao` becomes `SUPER_ADMIN` only
   through explicit binding after the actual DB `kakaoId` or Kakao email row is
   known.
@@ -23,7 +28,7 @@ frontend mock used during PoC, while keeping real backend auth/session flows.
 2. Add backend Prisma fixture data for facility, floors, spaces, zones,
    residents, assignments, guardians, cameras, and resident statuses.
 3. Refactor the seed to upsert that fixture idempotently and seed
-   `seniorsailab@gmail.com` as `ADMIN`.
+   `happy8568090@gmail.com` as `ADMIN`.
 4. Restrict `demo:bind` to exact Kakao id/email, add dry-run/audit output, and
    keep it fail-closed.
 5. Update runbooks/env examples and verify with backend tests/build, release,

@@ -23,6 +23,7 @@ import { LogoMark } from "@/components/Logo";
 import { useAuthStore } from "@/store/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
+import { listFacilities } from "@/services/api/dashboardEndpoints";
 import {
   DASHBOARD_HOME_PATH,
   dashboardAdminPath,
@@ -46,6 +47,9 @@ export function AppLayout() {
   const { facilityId: routeFacilityId } = useParams<{ facilityId: string }>();
   const now = useClock();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const userFacilityId = user?.facilityId ?? null;
+  const userId = user?.id;
+  const userRole = user?.role;
 
   // 관리자 화면은 항상 밝게(라이트) 표시 — 다크모드는 직원 야간 화면 전용
   useEffect(() => {
@@ -53,11 +57,36 @@ export function AppLayout() {
   }, []);
 
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
+  const facilities = useFacilityStore((s) => s.facilities);
   const setFacility = useFacilityStore((s) => s.setFacility);
-  const myFacilities = facilitiesForUser(user?.role === "SUPER_ADMIN" ? null : user?.facilityId ?? null);
-  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? user?.facilityId ?? "";
-  const currentFacility =
-    myFacilities.find((f) => f.id === workspaceFacilityId) ?? myFacilities[0];
+  const setFacilities = useFacilityStore((s) => s.setFacilities);
+
+  useEffect(() => {
+    if (!userId) {
+      setFacilities([]);
+      return;
+    }
+
+    let cancelled = false;
+    listFacilities()
+      .then((nextFacilities) => {
+        if (!cancelled) setFacilities(nextFacilities);
+      })
+      .catch(() => {
+        if (!cancelled) setFacilities([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setFacilities, userFacilityId, userId, userRole]);
+
+  const myFacilities = facilitiesForUser(
+    userRole === "SUPER_ADMIN" ? null : userFacilityId,
+    facilities,
+  );
+  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? userFacilityId ?? "";
+  const currentFacility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? null;
   const activeFacilityId = currentFacility?.id ?? workspaceFacilityId;
 
   async function handleLogout() {
@@ -167,10 +196,12 @@ export function AppLayout() {
                 <Building2 className="h-4 w-4 text-gray-400" />
                 <select
                   className="min-w-0 max-w-full truncate bg-transparent text-sm font-semibold text-ink focus:outline-none"
-                  value={currentFacility?.id}
+                  value={currentFacility?.id ?? ""}
                   onChange={(e) => {
-                    setFacility(e.target.value);
-                    navigate(dashboardAdminPath(e.target.value));
+                    const selectedFacilityId = e.target.value;
+                    if (!selectedFacilityId) return;
+                    setFacility(selectedFacilityId);
+                    navigate(dashboardAdminPath(selectedFacilityId));
                   }}
                 >
                   {myFacilities.map((f) => (
@@ -184,7 +215,7 @@ export function AppLayout() {
             ) : (
               <div className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <Building2 className="h-4 w-4 text-gray-400" />
-                {currentFacility?.name}
+                {currentFacility?.name ?? workspaceFacilityId}
               </div>
             )}
           </div>

@@ -24,6 +24,10 @@ export async function getCurrentFacility(): Promise<Facility> {
   return (await requestJson("/facilities/current")) as Facility;
 }
 
+export async function listFacilities(): Promise<Facility[]> {
+  return expectArray<Facility>(await requestJson("/facilities"), "facilities");
+}
+
 export async function listFloors(): Promise<Floor[]> {
   return expectArray<Floor>(await requestJson("/floors"), "floors");
 }

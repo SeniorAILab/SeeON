@@ -35,7 +35,7 @@ export class ResidentRiskSummariesController {
 }
 
 function requireFacilityId(req: RequestWithAuth): string {
-  const facilityId = req.user?.facilityId;
+  const facilityId = req.effectiveFacilityId ?? req.user?.facilityId;
   if (!facilityId) throw new ForbiddenException('Facility context required');
   return facilityId;
 }
