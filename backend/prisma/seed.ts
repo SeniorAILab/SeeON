@@ -65,7 +65,9 @@ async function upsertAdmin(tx: Prisma.TransactionClient): Promise<void> {
 function requiredNokyangAdminPassword(): string {
   const password = process.env.NOKYANG_ADMIN_PASSWORD ?? '';
   if (password.length === 0) {
-    throw new Error('NOKYANG_ADMIN_PASSWORD must be set for Nokyang admin seed');
+    throw new Error(
+      'NOKYANG_ADMIN_PASSWORD must be set for Nokyang admin seed',
+    );
   }
   return password;
 }
