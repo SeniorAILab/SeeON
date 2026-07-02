@@ -14,6 +14,7 @@ describe('RequireFacilityGuard', () => {
   it('uses the session facility for facility-bound users', () => {
     const request = {
       headers: { 'x-facility-id': 'other-facility' },
+      query: { facilityId: 'query-facility' },
       user: {
         id: 'user-1',
         email: 'admin@example.test',
@@ -34,6 +35,27 @@ describe('RequireFacilityGuard', () => {
   it('allows facility-less super admins to enter an explicitly selected facility scope', () => {
     const request = {
       headers: { 'x-facility-id': 'fac_happy_nokyang' },
+      user: {
+        id: 'user-1',
+        email: 'seniorsailab@gmail.com',
+        facilityId: null,
+        role: 'SUPER_ADMIN',
+        nickname: 'Senior AI Lab',
+        kakaoId: null,
+        sessionVersion: 0,
+      },
+    } as Partial<RequestWithAuth>;
+
+    expect(new RequireFacilityGuard().canActivate(contextFor(request))).toBe(
+      true,
+    );
+    expect(request.effectiveFacilityId).toBe('fac_happy_nokyang');
+  });
+
+  it('allows facility-less super admins to enter a facility scope from EventSource query', () => {
+    const request = {
+      headers: {},
+      query: { facilityId: 'fac_happy_nokyang' },
       user: {
         id: 'user-1',
         email: 'seniorsailab@gmail.com',

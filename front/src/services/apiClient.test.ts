@@ -129,6 +129,18 @@ describe("apiClient.requestJson", () => {
     expect(isAbsoluteApiUrl(buildSseUrl())).toBe(false);
   });
 
+  it("adds the selected facility scope to the dashboard stream URL", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", undefined);
+
+    const { useFacilityStore } = await import("@/store/facilityStore");
+    const { buildSseUrl } = await import("./apiClient");
+    useFacilityStore.getState().setFacility("fac_happy_nokyang");
+
+    expect(buildSseUrl()).toBe(
+      "/api/v1/dashboard/stream?facilityId=fac_happy_nokyang"
+    );
+  });
+
   it("builds an absolute dashboard stream SSE URL when VITE_API_BASE_URL is absolute", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "http://localhost:8080/api/v1");
 
@@ -137,5 +149,16 @@ describe("apiClient.requestJson", () => {
     expect(buildSseUrl()).toBe("http://localhost:8080/api/v1/dashboard/stream");
     expect(buildSseUrl()).not.toContain(["", "api", "v1", "sse"].join("/"));
     expect(isAbsoluteApiUrl(buildSseUrl())).toBe(true);
+  });
+
+  it("adds the selected facility scope to absolute dashboard stream URLs", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "http://localhost:8080/api/v1");
+
+    const { buildSseUrl, isAbsoluteApiUrl } = await import("./apiClient");
+
+    expect(buildSseUrl("fac_happy_nokyang")).toBe(
+      "http://localhost:8080/api/v1/dashboard/stream?facilityId=fac_happy_nokyang"
+    );
+    expect(isAbsoluteApiUrl(buildSseUrl("fac_happy_nokyang"))).toBe(true);
   });
 });

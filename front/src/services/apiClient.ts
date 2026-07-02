@@ -7,13 +7,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
 const SSE_PATH = "/dashboard/stream";
 const FACILITY_SCOPE_HEADER = "X-Facility-Id";
+const FACILITY_SCOPE_QUERY = "facilityId";
 
 export function buildApiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
 
-export function buildSseUrl(): string {
-  return buildApiUrl(SSE_PATH);
+export function buildSseUrl(
+  facilityId: string | null = getCurrentFacilityId(),
+): string {
+  const url = buildApiUrl(SSE_PATH);
+  if (!facilityId) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}${FACILITY_SCOPE_QUERY}=${encodeURIComponent(facilityId)}`;
 }
 
 export function isAbsoluteApiUrl(url: string): boolean {

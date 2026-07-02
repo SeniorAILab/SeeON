@@ -7,6 +7,7 @@ import { useFacilityStore } from "@/store/facilityStore";
 export function FacilityRouteScope({ children }: { children: ReactNode }) {
   const { facilityId } = useParams<{ facilityId: string }>();
   const user = useAuthStore((s) => s.user);
+  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
   const setFacility = useFacilityStore((s) => s.setFacility);
 
   const canEnterFacility =
@@ -20,6 +21,8 @@ export function FacilityRouteScope({ children }: { children: ReactNode }) {
   if (!facilityId || !user || !canEnterFacility) {
     return <Navigate to={ACCESS_DENIED_PATH} replace />;
   }
+
+  if (currentFacilityId !== facilityId) return null;
 
   return <>{children}</>;
 }

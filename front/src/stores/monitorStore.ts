@@ -11,6 +11,7 @@ import {
   type AlertMergeState,
 } from "@/services/alertMerge";
 import { useAuthStore } from "@/store/authStore";
+import { useFacilityStore } from "@/store/facilityStore";
 import { realtimeEngine } from "@/mocks/realtimeEngine";
 import type { ConnectionState, SpaceStatus } from "@/types";
 
@@ -62,6 +63,7 @@ export const useMonitorStore = create<MonitorState>((set) => ({
     }
 
     activeFacilityId = facilityId;
+    useFacilityStore.getState().setFacility(facilityId);
     alertMergeState = createAlertMergeState();
     set({ running: true, connection: "RECONNECTING" });
     dashboardService.getDashboard(facilityId).then((dashboard) => {
@@ -86,7 +88,7 @@ export const useMonitorStore = create<MonitorState>((set) => ({
         .catch(() => set({ connection: "RECONNECTING" }));
     }, intervalMs);
     if (typeof EventSource === "undefined") return;
-    const url = buildSseUrl();
+    const url = buildSseUrl(facilityId);
     const eventSource = isAbsoluteApiUrl(url)
       ? new EventSource(url, { withCredentials: true })
       : new EventSource(url);

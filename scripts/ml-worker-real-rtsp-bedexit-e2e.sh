@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# allow: SIZE_OK - this real-RTSP proof keeps preflight, config, run, DB readback,
+# and evidence writing in one audited operator command for reproducibility.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() {
@@ -70,6 +72,29 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
+}
+
+redact_url_userinfo() {
+  python3 - "$1" <<'PY'
+from __future__ import annotations
+
+import sys
+from urllib.parse import urlsplit, urlunsplit
+
+url = sys.argv[1]
+parts = urlsplit(url)
+if not parts.username and not parts.password:
+    print(url)
+    raise SystemExit
+
+host = parts.hostname or ""
+if ":" in host and not host.startswith("["):
+    host = f"[{host}]"
+if parts.port is not None:
+    host = f"{host}:{parts.port}"
+
+print(urlunsplit((parts.scheme, f"<redacted>@{host}", parts.path, parts.query, parts.fragment)))
+PY
 }
 
 psql_scalar() {
@@ -196,7 +221,29 @@ YAML
 redact_config() {
   local source="$1"
   local target="$2"
-  sed 's/^  token: .*/  token: <redacted>/' "$source" >"$target"
+  local redacted_rtsp_url
+  redacted_rtsp_url="$(redact_url_userinfo "$rtsp_url")"
+  python3 - "$source" "$target" "$redacted_rtsp_url" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1])
+target = Path(sys.argv[2])
+redacted_rtsp_url = sys.argv[3]
+
+text = source.read_text()
+text = re.sub(r"^  token: .*$", "  token: <redacted>", text, flags=re.MULTILINE)
+text = re.sub(
+    r"^(    rtsp_url: ).*$",
+    rf"\g<1>{redacted_rtsp_url}",
+    text,
+    flags=re.MULTILINE,
+)
+target.write_text(text)
+PY
 }
 
 wait_for_policy_cooldown() {
@@ -240,8 +287,10 @@ capture_rows_since() {
 }
 
 write_command_file() {
+  local redacted_rtsp_url
+  redacted_rtsp_url="$(redact_url_userinfo "$rtsp_url")"
   cat >"$command_file" <<EOF
-BED_EXIT_RTSP_URL='${rtsp_url}' \\
+BED_EXIT_RTSP_URL='${redacted_rtsp_url}' \\
 ML_MODELS_DIR='${models_dir}' \\
 BACKEND_BASE_URL='${backend_base_url}' \\
 RELAY_URL='${relay_base_url}' \\
@@ -261,12 +310,14 @@ write_summary() {
   local exclude_started_at="$4"
   local exclude_events="$5"
   local exclude_alerts="$6"
+  local redacted_rtsp_url
+  redacted_rtsp_url="$(redact_url_userinfo "$rtsp_url")"
   cat >"$summary" <<EOF
 # Real RTSP worker bed-exit E2E
 
 - Captured at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 - Worker: real \`python -m worker.edge_worker\`
-- RTSP source: \`${rtsp_url}\`
+- RTSP source: \`${redacted_rtsp_url}\`
 - Facility/camera/resident: \`${facility_id}\` / \`${camera_id}\` / \`${resident_id}\`
 - Backend: \`${backend_base_url}\`
 - Relay: \`${relay_base_url}\`

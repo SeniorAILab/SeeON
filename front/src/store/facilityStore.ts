@@ -1,16 +1,19 @@
 import { create } from "zustand";
-import { facilities as allFacilities } from "@/data/mockData";
 import type { Facility } from "@/types";
 
 interface FacilityState {
   currentFacilityId: string | null;
+  facilities: Facility[];
   setFacility: (id: string) => void;
+  setFacilities: (facilities: readonly Facility[]) => void;
   resolveForUser: (userFacilityId: string | null) => string | null;
 }
 
 export const useFacilityStore = create<FacilityState>((set) => ({
   currentFacilityId: null,
+  facilities: [],
   setFacility: (id) => set({ currentFacilityId: id }),
+  setFacilities: (facilities) => set({ facilities: [...facilities] }),
   resolveForUser: (userFacilityId) => {
     const id = userFacilityId;
     set({ currentFacilityId: id });
@@ -22,7 +25,10 @@ export function getCurrentFacilityId(): string | null {
   return useFacilityStore.getState().currentFacilityId;
 }
 
-export function facilitiesForUser(userFacilityId: string | null): Facility[] {
-  if (userFacilityId === null) return allFacilities;
-  return allFacilities.filter((facility) => facility.id === userFacilityId);
+export function facilitiesForUser(
+  userFacilityId: string | null,
+  facilities: readonly Facility[],
+): Facility[] {
+  if (userFacilityId === null) return [...facilities];
+  return facilities.filter((facility) => facility.id === userFacilityId);
 }

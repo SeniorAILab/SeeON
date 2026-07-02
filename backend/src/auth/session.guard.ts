@@ -23,6 +23,7 @@ export interface RequestWithAuth extends Request {
 }
 
 const FACILITY_SCOPE_HEADER = 'x-facility-id';
+const FACILITY_SCOPE_QUERY = 'facilityId';
 
 @Injectable()
 export class SessionGuard implements CanActivate {
@@ -49,7 +50,7 @@ export class RequireFacilityGuard implements CanActivate {
       request.effectiveFacilityId = request.user.facilityId;
       return true;
     }
-    const requestedFacilityId = readFacilityScopeHeader(request);
+    const requestedFacilityId = readFacilityScope(request);
     if (request.user.role === 'SUPER_ADMIN' && requestedFacilityId) {
       request.effectiveFacilityId = requestedFacilityId;
       return true;
@@ -58,11 +59,23 @@ export class RequireFacilityGuard implements CanActivate {
   }
 }
 
+export function readFacilityScope(request: RequestWithAuth): string | null {
+  return (
+    readFacilityScopeValue(request.headers[FACILITY_SCOPE_HEADER]) ??
+    readFacilityScopeValue(request.query[FACILITY_SCOPE_QUERY])
+  );
+}
+
 export function readFacilityScopeHeader(
   request: RequestWithAuth,
 ): string | null {
-  const value = request.headers[FACILITY_SCOPE_HEADER];
-  const raw = Array.isArray(value) ? value[0] : value;
+  return readFacilityScopeValue(request.headers[FACILITY_SCOPE_HEADER]);
+}
+
+function readFacilityScopeValue(value: unknown): string | null {
+  const raw = Array.isArray(value)
+    ? value.find((item: unknown): item is string => typeof item === 'string')
+    : value;
   if (typeof raw !== 'string') return null;
   const facilityId = raw.trim();
   return facilityId.length > 0 ? facilityId : null;
