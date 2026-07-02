@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, Volume2, Check, CalendarClock, Hand } from "lucide-react";
+import { Heart, Volume2, Check, Footprints, Hand } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { residentService } from "@/services/residentService";
 import { announceFocusResidents } from "@/services/tts/announceFocus";
@@ -12,7 +12,7 @@ import type { FocusResidentView, ResidentActionType } from "@/types";
 // 직원용: 점수/모델 설명 없이 "오늘 더 자주 확인해주세요"만.
 const BTNS: { type: ResidentActionType; label: string; Icon: typeof Check; tone: string }[] = [
   { type: "CHECKED", label: "확인함", Icon: Check, tone: "bg-status-stable" },
-  { type: "VISIT_PLANNED", label: "방문 예정", Icon: CalendarClock, tone: "bg-brand" },
+  { type: "STAFF_VISIT", label: "직원 방문 중", Icon: Footprints, tone: "bg-brand" },
   { type: "HELP_REQUEST", label: "도움 요청", Icon: Hand, tone: "bg-status-danger" },
 ];
 

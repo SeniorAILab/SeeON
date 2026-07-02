@@ -191,7 +191,7 @@ export interface Resident {
 
 export type ResidentActionType =
   | "CHECKED" // 확인함
-  | "VISIT_PLANNED" // 방문 예정
+  | "STAFF_VISIT" // 직원 방문 중
   | "HELP_REQUEST"; // 도움 요청
 
 export interface ResidentAction {
