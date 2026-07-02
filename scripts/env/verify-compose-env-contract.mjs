@@ -39,6 +39,9 @@ API_CAMERA_INVENTORY=[{"camera_id":"cam-edge-01","facility_id":"facility-prod","
 `;
 
 const forbiddenHostFragments = [
+  'DEMO_ADMIN_KAKAO_EMAIL',
+  'DEMO_ADMIN_KAKAO_ID',
+  'DEMO_LOGIN_PASSWORD',
   'fall_dev',
   'fall_app:fall_app',
   'postgresql://fall:fall@',
