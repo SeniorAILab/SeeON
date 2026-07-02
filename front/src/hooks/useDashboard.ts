@@ -45,7 +45,7 @@ export function useDashboard(pollMs = 20_000) {
     if (USE_MOCK || typeof EventSource === "undefined") return;
     if (!facilityId) return;
 
-    const url = buildSseUrl(facilityId);
+    const url = buildSseUrl();
     const eventSource = isAbsoluteApiUrl(url)
       ? new EventSource(url, { withCredentials: true })
       : new EventSource(url);

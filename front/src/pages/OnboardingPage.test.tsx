@@ -35,7 +35,7 @@ function renderOnboarding() {
       <Routes>
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/login" element={<div>LOGIN_PAGE</div>} />
-        <Route path="/dashboard/facilities/:facilityId/admin" element={<div>ADMIN_DASHBOARD</div>} />
+        <Route path="/dashboard/admin" element={<div>ADMIN_DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );

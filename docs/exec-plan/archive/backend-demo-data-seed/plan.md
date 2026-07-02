@@ -1,6 +1,7 @@
 ---
 slug: backend-demo-data-seed
-status: active
+status: superseded-by
+superseded-by: facility-server-owned-scope
 ---
 
 # Backend Demo Data Seed

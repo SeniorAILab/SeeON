@@ -21,10 +21,10 @@ beforeEach(() => {
 
 function renderAdminRoute() {
   return render(
-    <MemoryRouter initialEntries={["/dashboard/facilities/fac_happy_nokyang/admin"]}>
+    <MemoryRouter initialEntries={["/dashboard/admin"]}>
       <Routes>
         <Route
-          path="/dashboard/facilities/:facilityId/admin"
+          path="/dashboard/admin"
           element={
             <RequireAuth minRole="ADMIN">
               <div>ADMIN_DASHBOARD</div>

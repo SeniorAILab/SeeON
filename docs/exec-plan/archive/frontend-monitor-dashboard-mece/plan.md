@@ -3,7 +3,8 @@ slug: frontend-monitor-dashboard-mece
 title: Frontend dashboard and monitor journey alignment
 author: codex
 created: 2026-07-01
-status: active
+status: superseded-by
+superseded-by: facility-server-owned-scope
 ---
 
 # Plan

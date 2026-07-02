@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { RoleRouteRedirect } from "./RoleRouteRedirect";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
@@ -32,12 +32,12 @@ describe("RoleRouteRedirect", () => {
       <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route path="/" element={<RoleRouteRedirect />} />
-          <Route path="/dashboard/facilities/:facilityId/admin" element={<RouteProbe />} />
+          <Route path="/dashboard/admin" element={<RouteProbe />} />
         </Routes>
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("fac_happy_nokyang:admin")).toBeTruthy();
+    expect(await screen.findByText("/dashboard/admin")).toBeTruthy();
   });
 
   it("routes staff to the facility staff workbench", async () => {
@@ -47,20 +47,18 @@ describe("RoleRouteRedirect", () => {
       <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route path="/" element={<RoleRouteRedirect />} />
-          <Route path="/dashboard/facilities/:facilityId/staff" element={<RouteProbe />} />
+          <Route path="/dashboard/staff" element={<RouteProbe />} />
         </Routes>
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("fac_happy_nokyang:staff")).toBeTruthy();
+    expect(await screen.findByText("/dashboard/staff")).toBeTruthy();
   });
 });
 
 function RouteProbe() {
-  const { facilityId } = useParams();
   const location = useLocation();
-  const suffix = location.pathname.endsWith("/admin") ? "admin" : "staff";
-  return <div>{facilityId}:{suffix}</div>;
+  return <div>{location.pathname}</div>;
 }
 
 function setUser(role: User["role"], facilityId: string | null): void {

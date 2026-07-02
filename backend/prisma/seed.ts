@@ -40,7 +40,7 @@ async function upsertFacility(tx: Prisma.TransactionClient): Promise<void> {
 }
 
 async function upsertAdmin(tx: Prisma.TransactionClient): Promise<void> {
-  const demoLoginPassword = process.env.DEMO_LOGIN_PASSWORD ?? '1234';
+  const demoLoginPassword = requiredDemoLoginPassword();
   const passwordHash = await hashPassword(demoLoginPassword);
   await tx.user.upsert({
     where: { email: NOKYANG_ADMIN_EMAIL },
@@ -60,6 +60,14 @@ async function upsertAdmin(tx: Prisma.TransactionClient): Promise<void> {
       role: 'ADMIN',
     },
   });
+}
+
+function requiredDemoLoginPassword(): string {
+  const password = process.env.DEMO_LOGIN_PASSWORD ?? '';
+  if (password.length === 0) {
+    throw new Error('DEMO_LOGIN_PASSWORD must be set for Nokyang admin seed');
+  }
+  return password;
 }
 
 async function upsertFacilityGraph(

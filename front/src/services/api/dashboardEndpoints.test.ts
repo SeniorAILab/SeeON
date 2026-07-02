@@ -91,34 +91,88 @@ describe("dashboardEndpoints", () => {
     expect(dashboard.summary.danger).toBe(1);
   });
 
-  it("exposes role dashboard read-model paths using facility scope", async () => {
-    const { dashboardReadModelPath } = await import("./dashboardEndpoints");
-
-    expect(dashboardReadModelPath.superAdmin()).toBe("/dashboards/super-admin");
-    expect(dashboardReadModelPath.facilityAdmin("fac-a")).toBe(
-      "/dashboards/facilities/fac-a/admin"
-    );
-    expect(dashboardReadModelPath.facilityStaff("fac-a")).toBe(
-      "/dashboards/facilities/fac-a/staff"
-    );
-    expect(dashboardReadModelPath.facilityMonitor("fac-a", "fl-2f")).toBe(
-      "/dashboards/facilities/fac-a/monitor?floorId=fl-2f"
-    );
-  });
-
   it("lists facilities through the backend facility selector endpoint", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
-      if (url.endsWith("/facilities")) return okJsonResponse([facility]);
+      if (url.endsWith("/facilities")) {
+        return okJsonResponse([{ ...facility, selectionToken: "opaque-token" }]);
+      }
       throw new Error(`Unexpected request ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const { listFacilities } = await import("./dashboardEndpoints");
-    await expect(listFacilities()).resolves.toEqual([facility]);
+    await expect(listFacilities()).resolves.toEqual([
+      { ...facility, selectionToken: "opaque-token" },
+    ]);
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/facilities",
       expect.objectContaining({ credentials: "include" })
+    );
+  });
+
+  it("selects a facility with an opaque backend-issued token", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/facilities/selection")) {
+        expect(init?.body).toBe(JSON.stringify({ selectionToken: "opaque-token" }));
+        return okJsonResponse({ facility });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { selectFacility } = await import("./dashboardEndpoints");
+    await expect(selectFacility("opaque-token")).resolves.toEqual(facility);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/facilities/selection",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      })
+    );
+  });
+
+  it("updates only the current facility profile fields", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/facilities/current")) {
+        expect(init?.body).toBe(
+          JSON.stringify({
+            name: "행복한요양원 녹양역점",
+            address: "경기도 의정부시",
+            phone: "031-856-8090",
+          })
+        );
+        return okJsonResponse({
+          ...facility,
+          name: "행복한요양원 녹양역점",
+          address: "경기도 의정부시",
+          phone: "031-856-8090",
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { updateCurrentFacility } = await import("./dashboardEndpoints");
+    await expect(
+      updateCurrentFacility({
+        name: "행복한요양원 녹양역점",
+        address: "경기도 의정부시",
+        phone: "031-856-8090",
+      })
+    ).resolves.toMatchObject({
+      name: "행복한요양원 녹양역점",
+      address: "경기도 의정부시",
+      phone: "031-856-8090",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/facilities/current",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+      })
     );
   });
 });

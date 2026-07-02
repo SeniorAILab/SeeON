@@ -50,16 +50,19 @@ describe("AppLayout facility selector", () => {
   it("uses backend facilities instead of mock facility fallback", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(okJsonResponse([nokyangFacility, backendOnlyFacility]));
+      .mockResolvedValue(okJsonResponse([
+        { ...nokyangFacility, selectionToken: "token-a" },
+        { ...backendOnlyFacility, selectionToken: "token-b" },
+      ]));
     vi.stubGlobal("fetch", fetchMock);
 
     render(
       <MemoryRouter
-        initialEntries={["/dashboard/facilities/fac_happy_nokyang/admin"]}
+        initialEntries={["/dashboard/admin"]}
       >
         <Routes>
           <Route
-            path="/dashboard/facilities/:facilityId/admin"
+            path="/dashboard/admin"
             element={<AppLayout />}
           >
             <Route index element={<div>Admin child</div>} />
@@ -74,15 +77,15 @@ describe("AppLayout facility selector", () => {
     }
 
     expect(Array.from(selector.options).map((option) => option.value)).toEqual([
-      "fac_happy_nokyang",
-      "fac_backend_only",
+      "token-a",
+      "token-b",
     ]);
     expect(screen.queryByText("맑은 의정부점")).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/facilities",
       expect.objectContaining({
-        headers: expect.objectContaining({
-          "x-facility-id": "fac_happy_nokyang",
+        headers: expect.not.objectContaining({
+          "x-facility-id": expect.any(String),
         }),
       })
     );

@@ -28,10 +28,10 @@ describe('RBAC SSOT', () => {
     ).toBe('/dashboard');
     expect(
       postLoginPathForUser({ role: Role.ADMIN, facilityId: 'fac 1' }),
-    ).toBe('/dashboard/facilities/fac%201/admin');
+    ).toBe('/dashboard/admin');
     expect(
       postLoginPathForUser({ role: Role.STAFF, facilityId: 'fac-1' }),
-    ).toBe('/dashboard/facilities/fac-1/staff');
+    ).toBe('/dashboard/staff');
   });
 
   it('creates personal sessions for staff users', async () => {
@@ -42,6 +42,7 @@ describe('RBAC SSOT', () => {
             id: 'session-1',
             userId: 'user-1',
             facilityId: 'facility-1',
+            activeFacilityId: null,
             expiresAt: new Date(Date.now() + 60_000),
             revokedAt: null,
           }),

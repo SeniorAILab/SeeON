@@ -181,36 +181,15 @@ export class AuthController {
   @Get('protected-probe')
   @UseGuards(SessionGuard)
   @Header('cache-control', 'no-store')
-  protectedProbe(
-    @Req() request: RequestWithAuth,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    this.refreshRotatedCookie(request, response);
+  protectedProbe(@Req() request: RequestWithAuth) {
     return { user: request.user ? presentAuthUser(request.user) : null };
   }
 
   @Get('facility-protected-probe')
   @UseGuards(SessionGuard, RequireFacilityGuard)
   @Header('cache-control', 'no-store')
-  facilityProtectedProbe(
-    @Req() request: RequestWithAuth,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    this.refreshRotatedCookie(request, response);
+  facilityProtectedProbe(@Req() request: RequestWithAuth) {
     return { facilityId: request.effectiveFacilityId };
-  }
-
-  private refreshRotatedCookie(
-    request: RequestWithAuth,
-    response: Response,
-  ): void {
-    if (request.rotatedSessionToken && request.rotatedSessionMaxAgeSeconds) {
-      setSessionCookie(
-        response,
-        request.rotatedSessionToken,
-        request.rotatedSessionMaxAgeSeconds,
-      );
-    }
   }
 
   private frontOrigin(): string {

@@ -10,8 +10,8 @@ describe('bind demo users script helpers', () => {
       parseBindArgs(
         ['--dry-run', '--email', ' rhqjatn310@kakao ', ' kakao-1 ', 'kakao-1'],
         {
-          DEMO_SUPER_ADMIN_KAKAO_ID: 'ignored',
-          DEMO_SUPER_ADMIN_KAKAO_EMAIL: 'ignored@example.com',
+          DEMO_ADMIN_KAKAO_ID: 'ignored',
+          DEMO_ADMIN_KAKAO_EMAIL: 'ignored@example.com',
         },
       ),
     ).toEqual({
@@ -22,8 +22,8 @@ describe('bind demo users script helpers', () => {
 
     expect(
       parseBindArgs([], {
-        DEMO_SUPER_ADMIN_KAKAO_ID: 'kakao-2,kakao-2',
-        DEMO_SUPER_ADMIN_KAKAO_EMAIL: 'rhqjatn310@kakao',
+        DEMO_ADMIN_KAKAO_ID: 'kakao-2,kakao-2',
+        DEMO_ADMIN_KAKAO_EMAIL: 'rhqjatn310@kakao',
       }),
     ).toEqual({
       dryRun: false,
@@ -37,7 +37,7 @@ describe('bind demo users script helpers', () => {
     ]);
   });
 
-  it('binds only exact Kakao-backed users to 녹양역점 as SUPER_ADMIN', async () => {
+  it('binds only exact Kakao-backed users to 녹양역점 as ADMIN', async () => {
     const userUpdate = Promise.resolve({});
     const identityUpdate = Promise.resolve({});
     const prisma = {
@@ -76,7 +76,7 @@ describe('bind demo users script helpers', () => {
           id: 'user-1',
           kakaoId: 'kakao-1',
           nextFacilityId: 'fac_happy_nokyang',
-          nextRole: 'SUPER_ADMIN',
+          nextRole: 'ADMIN',
           previousFacilityId: null,
           previousRole: 'ADMIN',
         },
@@ -91,7 +91,7 @@ describe('bind demo users script helpers', () => {
       where: { id: 'user-1' },
       data: {
         facilityId: 'fac_happy_nokyang',
-        role: 'SUPER_ADMIN',
+        role: 'ADMIN',
         sessionVersion: { increment: 1 },
       },
     });

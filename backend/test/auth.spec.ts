@@ -11,6 +11,7 @@ import { KakaoClient } from '../src/auth/kakao.client';
 import { setOAuthStateCookie, setSessionCookie } from '../src/auth/cookie.util';
 import { SessionService } from '../src/auth/session.service';
 import { createSignedSessionToken } from '../src/auth/signed-token';
+import { hashPassword } from '../src/auth/password';
 import { configureVersionedTestApp } from './helpers/versioned-app';
 
 const TEST_SECRET = 'test-session-secret-minimum-32-characters';
@@ -145,11 +146,23 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
     await direct.serverSession.deleteMany();
     await direct.user.deleteMany({ where: { kakaoId: 'kakao-e2e-user' } });
     await direct.user.deleteMany({
-      where: { email: { in: ['ulw-owner@example.test', 'dup@example.test'] } },
+      where: {
+        email: {
+          in: [
+            'ulw-owner@example.test',
+            'login-200@example.test',
+            'dup@example.test',
+            'scope-super@example.test',
+          ],
+        },
+      },
+    });
+    await direct.facility.deleteMany({
+      where: { code: { in: ['scope-a', 'scope-b'] } },
     });
     await direct.facility.deleteMany({ where: { name: 'E2E Facility' } });
     await direct.facility.deleteMany({
-      where: { name: { in: ['ULW 요양원', '중복 요양원'] } },
+      where: { name: { in: ['ULW 요양원', '로그인 요양원', '중복 요양원'] } },
     });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -258,6 +271,76 @@ describe('Kakao auth/session tenant boundary (e2e)', () => {
       role: 'ADMIN',
     });
     expect(JSON.stringify(loggedIn.body)).not.toContain('passwordHash');
+  });
+
+  it('requires server-owned active facility scope for facility-less super admins', async () => {
+    const [primaryFacility, decoyFacility] = await Promise.all([
+      direct.facility.create({
+        data: {
+          code: 'scope-a',
+          name: 'Scope A 요양원',
+          address: 'A address',
+          phone: '010-0000-0001',
+        },
+      }),
+      direct.facility.create({
+        data: {
+          code: 'scope-b',
+          name: 'Scope B 요양원',
+          address: 'B address',
+          phone: '010-0000-0002',
+        },
+      }),
+    ]);
+    const superUser = await direct.user.create({
+      data: {
+        email: 'scope-super@example.test',
+        nickname: 'Scope Super',
+        passwordHash: await hashPassword('scope-password'),
+        role: 'SUPER_ADMIN',
+      },
+    });
+    const session = await app.get(SessionService).createSession(superUser);
+    const cookie = `app_session=${session.token}`;
+
+    await request(app.getHttpServer())
+      .get('/api/v1/facility-protected-probe')
+      .set('cookie', cookie)
+      .set('X-Facility-Id', primaryFacility.id)
+      .query({ facilityId: primaryFacility.id })
+      .expect(403);
+
+    const selectorResponse = await request(app.getHttpServer())
+      .get('/api/v1/facilities')
+      .set('cookie', cookie)
+      .expect(200);
+    const facilities = selectorResponse.body as unknown as Array<{
+      id: string;
+      code: string;
+      selectionToken?: string;
+    }>;
+    const selected = facilities.find(
+      (facility) => facility.id === primaryFacility.id,
+    );
+    expect(selected?.selectionToken).toEqual(expect.any(String));
+    expect(selected?.selectionToken).not.toContain(primaryFacility.id);
+    expect(selected?.selectionToken).not.toContain(primaryFacility.code);
+
+    await request(app.getHttpServer())
+      .post('/api/v1/facilities/selection')
+      .set('cookie', cookie)
+      .send({ selectionToken: selected?.selectionToken })
+      .expect(200);
+
+    const facilityProbe = await request(app.getHttpServer())
+      .get('/api/v1/facility-protected-probe')
+      .set('cookie', cookie)
+      .set('X-Facility-Id', decoyFacility.id)
+      .query({ facilityId: decoyFacility.id })
+      .expect(200);
+    expect(
+      (facilityProbe.body as unknown as FacilityProbeBody).facilityId,
+    ).toBe(primaryFacility.id);
   });
 
   it('rejects signup when required fields are missing', async () => {

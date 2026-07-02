@@ -70,13 +70,13 @@ export function parseBindArgs(
   return {
     dryRun,
     emails: uniqueTrimmed(
-      emails.length > 0 ? emails : commaValues(env.DEMO_SUPER_ADMIN_KAKAO_EMAIL),
+      emails.length > 0 ? emails : commaValues(env.DEMO_ADMIN_KAKAO_EMAIL),
     ),
     kakaoIds: uniqueTrimmed(
       kakaoIds.length > 0
         ? kakaoIds
         : [
-            ...commaValues(env.DEMO_SUPER_ADMIN_KAKAO_ID),
+            ...commaValues(env.DEMO_ADMIN_KAKAO_ID),
             ...commaValues(env.DEMO_KAKAO_IDS),
           ],
     ),
@@ -91,7 +91,10 @@ function buildWhere(
     clauses.push({ kakaoId: { in: [...options.kakaoIds] } });
   }
   if (options.emails.length > 0) {
-    clauses.push({ email: { in: [...options.emails] }, kakaoId: { not: null } });
+    clauses.push({
+      email: { in: [...options.emails] },
+      kakaoId: { not: null },
+    });
   }
   return { OR: clauses };
 }
@@ -109,7 +112,9 @@ function assertAllTargetsFound(
   const missingKakaoIds = options.kakaoIds.filter(
     (kakaoId) => !foundKakaoIds.has(kakaoId),
   );
-  const missingEmails = options.emails.filter((email) => !foundEmails.has(email));
+  const missingEmails = options.emails.filter(
+    (email) => !foundEmails.has(email),
+  );
 
   if (missingKakaoIds.length > 0 || missingEmails.length > 0) {
     throw new CliInputError(
@@ -128,7 +133,9 @@ function assertAllTargetsFound(
   }
 }
 
-function uniqueUsers(users: readonly (FoundUser & { readonly kakaoId: string })[]) {
+function uniqueUsers(
+  users: readonly (FoundUser & { readonly kakaoId: string })[],
+) {
   const byId = new Map<string, FoundUser & { readonly kakaoId: string }>();
   for (const user of users) {
     byId.set(user.id, user);
@@ -140,10 +147,14 @@ export async function bindDemoUsers(
   prisma: BindPrisma,
   options: BindOptions,
   facilityId = DEMO_FACILITY_ID,
-): Promise<{ readonly boundCount: number; readonly changes: readonly BindChange[]; readonly dryRun: boolean }> {
+): Promise<{
+  readonly boundCount: number;
+  readonly changes: readonly BindChange[];
+  readonly dryRun: boolean;
+}> {
   if (options.kakaoIds.length === 0 && options.emails.length === 0) {
     throw new CliInputError(
-      'Usage: pnpm backend:demo:bind -- --email <kakao-email> or DEMO_SUPER_ADMIN_KAKAO_ID=<id> pnpm backend:demo:bind',
+      'Usage: pnpm backend:demo:bind -- --email <kakao-email> or DEMO_ADMIN_KAKAO_ID=<id> pnpm backend:demo:bind',
     );
   }
 
@@ -174,7 +185,7 @@ export async function bindDemoUsers(
     id: user.id,
     kakaoId: user.kakaoId,
     nextFacilityId: facilityId,
-    nextRole: 'SUPER_ADMIN',
+    nextRole: 'ADMIN',
     previousFacilityId: user.facilityId,
     previousRole: user.role,
   }));
@@ -186,7 +197,7 @@ export async function bindDemoUsers(
           where: { id: user.id },
           data: {
             facilityId,
-            role: 'SUPER_ADMIN',
+            role: 'ADMIN',
             sessionVersion: { increment: 1 },
           },
         }),
@@ -213,7 +224,7 @@ function createPrismaClient(): PrismaClient {
 
 function printAudit(result: Awaited<ReturnType<typeof bindDemoUsers>>): void {
   const mode = result.dryRun ? 'DRY-RUN would bind' : 'Bound';
-  console.log(`${mode} ${result.boundCount} demo super-admin user(s).`);
+  console.log(`${mode} ${result.boundCount} demo admin user(s).`);
   for (const change of result.changes) {
     console.log(
       [

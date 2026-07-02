@@ -29,9 +29,9 @@ export function playAlertSound() {
 }
 
 export function vibrateAlert() {
-  if ("vibrate" in navigator) {
-    navigator.vibrate?.([200, 100, 200]);
-  }
+  if (!("vibrate" in navigator)) return;
+  if (navigator.userActivation && !navigator.userActivation.isActive) return;
+  navigator.vibrate?.([200, 100, 200]);
 }
 
 export function signalDanger(soundEnabled: boolean) {

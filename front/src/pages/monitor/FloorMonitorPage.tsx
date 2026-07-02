@@ -33,10 +33,10 @@ const densityFor = (n: number): "comfortable" | "compact" => (n > 6 ? "compact" 
 
 export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const navigate = useNavigate();
-  const { facilityId: routeFacilityId, floorId } = useParams();
+  const { floorId } = useParams();
   const user = useAuthStore((s) => s.user);
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  const facilityId = routeFacilityId ?? currentFacilityId ?? user?.facilityId;
+  const facilityId = currentFacilityId ?? user?.facilityId;
 
   const nightMode = useMonitorSettingsStore((s) => s.nightMode);
   const visibleSpaceIds = useMonitorSettingsStore((s) => s.visibleSpaceIds);
@@ -52,9 +52,9 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const effectiveFacilityId = facilityId ?? "";
   const exitPath =
     facilityId && (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN")
-      ? dashboardAdminPath(facilityId)
+      ? dashboardAdminPath()
       : facilityId
-        ? dashboardStaffPath(facilityId)
+        ? dashboardStaffPath()
         : ACCESS_DENIED_PATH;
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           soundEnabled={soundEnabled}
           onToggleSound={() => setSound(!soundEnabled)}
           fullscreenRef={rootRef}
-          floorSelectorPath={allView ? undefined : monitorHomePath(facilityId)}
+          floorSelectorPath={allView ? undefined : monitorHomePath()}
           floorSelectorLabel="전체 보기"
           exitPath={exitPath}
         />
@@ -127,7 +127,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
                   <button
                     key={f.id}
                     type="button"
-                    onClick={() => navigate(monitorFloorPath(facilityId, f.id))}
+                    onClick={() => navigate(monitorFloorPath(f.id))}
                     className="rounded-xl border border-border px-3 py-2 text-base font-bold text-ink hover:border-brand hover:text-brand"
                   >
                     {f.name}
@@ -144,7 +144,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
                       <FloorSummaryStats summary={sectionSummary(fs, statuses)} className="text-lg 2xl:text-xl" />
                       <button
                         type="button"
-                        onClick={() => navigate(monitorFloorPath(facilityId, f.id))}
+                        onClick={() => navigate(monitorFloorPath(f.id))}
                         className="ml-auto rounded-xl border border-border px-3 py-1.5 text-sm font-bold text-ink-soft hover:border-brand hover:text-brand"
                       >
                         이 층만 보기
