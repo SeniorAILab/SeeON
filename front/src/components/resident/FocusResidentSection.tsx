@@ -77,19 +77,19 @@ export function FocusResidentSection() {
                 {doneMap[v.resident.id]} 처리했습니다.
               </p>
             ) : (
-              <div className="mt-3 flex flex-wrap gap-2.5">
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
                 {BTNS.map(({ type, label, Icon, tone }) => (
                   <button
                     key={type}
                     disabled={!canAcknowledge(user)}
                     onClick={() => act(v.resident.id, type)}
                     className={cn(
-                      "inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-staff-btn text-white disabled:opacity-50",
+                      "inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl px-4 text-staff-btn text-white disabled:opacity-50",
                       tone
                     )}
                   >
                     <Icon className="h-6 w-6" />
-                    {label}
+                    <span className="whitespace-nowrap">{label}</span>
                   </button>
                 ))}
               </div>
