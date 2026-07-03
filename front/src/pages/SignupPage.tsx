@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
+import { SignupConsentFields } from "@/components/SignupConsentFields";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
 import { defaultPathForUser } from "@/lib/routeAccess";
 import {
@@ -32,6 +33,8 @@ export function SignupPage() {
   const [passwordConfirmTouched, setPasswordConfirmTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.remove("dark");
@@ -41,7 +44,7 @@ export function SignupPage() {
   async function handleSignup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
-    if (passwordError || passwordConfirmError) return;
+    if (!canSubmit || passwordError || passwordConfirmError) return;
     try {
       const user = await register({
         name,
@@ -59,13 +62,16 @@ export function SignupPage() {
     }
   }
 
-  const canSubmit =
+  const canSubmit = Boolean(
     name.trim() &&
-    phone.trim() &&
-    facilityName.trim() &&
-    email.trim() &&
-    password &&
-    passwordConfirm;
+      phone.trim() &&
+      facilityName.trim() &&
+      email.trim() &&
+      password &&
+      passwordConfirm &&
+      termsAgreed &&
+      privacyAgreed
+  );
   const passwordError = getSignupPasswordError(password);
   const passwordConfirmError = getSignupPasswordConfirmError(password, passwordConfirm);
   const showPasswordError = Boolean(passwordError && (passwordTouched || submitted));
@@ -224,6 +230,12 @@ export function SignupPage() {
               ) : null}
             </Field>
 
+            <SignupConsentFields
+              termsAgreed={termsAgreed}
+              privacyAgreed={privacyAgreed}
+              onTermsAgreedChange={setTermsAgreed}
+              onPrivacyAgreedChange={setPrivacyAgreed}
+            />
             <Button type="submit" className="w-full" disabled={loading || !canSubmit}>
               {loading ? "가입 중..." : "회원가입"}
             </Button>
