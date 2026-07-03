@@ -37,7 +37,7 @@ Current route inventory cross-checked against `backend/src/**/*.controller.ts` f
 | POST | `/api/v1/cameras` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label: string, spaceId: string }` | Created camera. |
 | PATCH | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label?: string, spaceId?: string }` | Updated camera. |
 | DELETE | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Path `id` | Removed camera result. |
-| GET | `/api/v1/alerts` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query `limit?`, `beforeSeq?`, `residentId?`, `status?`, `afterSeq?` | Alert list ordered by alert sequence. |
+| GET | `/api/v1/alerts` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query `limit?`, `beforeSeq?`, `status?`, `afterSeq?` | Room-centric alert list ordered by alert sequence (no resident fields in the payload). |
 | GET | `/api/v1/alerts/:id` | Same | Path `id` | One alert. |
 | PATCH | `/api/v1/alerts/:id/resolve` | Same | Path `id` | Resolves alert in one step with `resolvedById`/`resolvedAt`; emits `alert-updated`. |
 | GET | `/api/v1/alerts/:alertId/snapshot` | Same | Path `alertId` | Snapshot bytes with private cache headers. |
