@@ -40,7 +40,7 @@ user action / page effect
 
 ## 3. Backend 수신 방식: SSE 중심 갱신
 
-실시간 backend push의 제품 계약은 `GET /api/v1/dashboard/stream` SSE다. API 계약상 session cookie auth와 `RequireFacilityGuard`가 적용되고, 브라우저의 native `EventSource`가 reconnect 시 마지막 수신 `id`를 `Last-Event-ID`로 보내면 backend는 bigint `alertSeq` cursor로 replay한다. wire shape 전체는 `../api/realtime-events.md`가 소유하고, 이 문서는 프론트 소비 흐름만 요약한다.
+실시간 backend push의 제품 계약은 `GET /api/v1/dashboard/stream` SSE다. API 계약상 session cookie auth와 `RequireFacilityGuard`가 적용되고, 브라우저의 native `EventSource`가 reconnect 시 마지막 수신 `id`를 `Last-Event-ID`로 보내면 backend는 bigint `alertSeq` cursor로 replay한다. Wire shape는 backend SSE controller/tests와 `../rules/realtime-sse-convention.md`가 소유하고, 이 문서는 프론트 소비 흐름만 요약한다.
 
 ### 실제 EventSource 구현 위치
 
@@ -69,7 +69,7 @@ backend alert stream
 | `event: session-invalid` | backend가 연결 시점 session을 재검증하다 만료·폐기·회전 등을 감지 | `useDashboard.ts`가 stream을 닫고 `handleSessionInvalid()`에서 `useAuthStore.getState().logout()`을 호출해 강제 로그아웃 상태로 전환한다 |
 | `replay-error` | live 진입 전 진단용 오류 후 stream close | 전용 UI 분기는 없다. `onerror`에서 native reconnect와 polling fallback에 맡긴다 |
 
-중요한 점은 프론트가 SSE payload를 직접 누적해 자체 SSOT를 만들지 않는다는 것이다. 이벤트를 “무언가 바뀌었다”는 invalidation signal로 보고 `dashboardService.getDashboard(facilityId)`를 다시 호출해 dashboard read-model을 seed/reload한다. reload 시드는 `GET /api/v1/alerts`와 시설/공간/거주자 read-model 계약에 맞물리며, 상세 wire 계약은 `../api/dashboard-api.md`로 넘긴다.
+중요한 점은 프론트가 SSE payload를 직접 누적해 자체 SSOT를 만들지 않는다는 것이다. 이벤트를 “무언가 바뀌었다”는 invalidation signal로 보고 `dashboardService.getDashboard(facilityId)`를 다시 호출해 dashboard read-model을 seed/reload한다. reload 시드는 `GET /api/v1/alerts`와 시설/공간/거주자 read-model 계약에 맞물리며, 상세 wire 계약은 backend controller/DTO code, generated OpenAPI(`/api/docs`), endpoint mapper tests, `../rules/rest-api-convention.md`, and `../rules/dto-convention.md`가 소유한다.
 
 `front/src/hooks/useRealtimeSpaceStatus.ts`는 monitor 화면의 상태 소비 hook이다. 이 hook은 `useMonitorStore.start(facilityId, refreshMs)`를 호출하고 `statuses`, `connection`, `lastUpdateAt`을 읽어 정렬된 공간 목록과 요약을 만든다. `front/src/stores/monitorStore.ts`는 `realtimeEngine.subscribe()` 결과를 `statuses`, `connection`, `lastUpdateAt`으로 반영하고, `FloorMonitorPage.tsx`는 이 hook 결과를 `MonitorHeader`, `AlertBanner`, `AdaptiveMonitorLayout`, `MonitorStatusCard`, `MonitorDetailDrawer`에 전달한다. 즉 monitor UI도 page가 직접 stream/protocol을 다루지 않고 hook/store seam을 통해 상태만 소비한다.
 
@@ -155,8 +155,9 @@ backend controller/service/repository
 
 - [전체 시스템 아키텍처](../architecture.md)
 - [Backend Architecture](./backend.md)
-- [Realtime Events API](../api/realtime-events.md)
-- [Dashboard API](../api/dashboard-api.md)
+- [Realtime SSE convention](../rules/realtime-sse-convention.md)
+- [REST API convention](../rules/rest-api-convention.md)
+- [DTO convention](../rules/dto-convention.md)
 - ADR
 - ADR
 - ADR
