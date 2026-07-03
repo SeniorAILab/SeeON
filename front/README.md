@@ -19,13 +19,12 @@ pnpm --filter front preview  # 빌드 결과 미리보기
 
 dev/prod 로그인은 백엔드가 소유합니다. 이메일/비밀번호는 `POST /api/v1/auth/login`,
 Kakao OAuth는 `/api/v1/auth/kakao/login`으로 시작하며, 두 경로 모두 백엔드가 같은
-httpOnly 쿠키 세션을 만든 뒤 프론트가 `/api/v1/auth/session`으로 복원합니다. 처음
+httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/me`로 복원합니다. 처음
 로그인한 계정이 아직 시설에 연결되지 않았다면 `/onboarding`에서
 `POST /api/v1/facilities`로 시설을 등록합니다.
 
 로컬 seed 계정은 `super@sen.ai`, `admin@sen.ai`, `staff@sen.ai`이며 비밀번호는
-`DEMO_LOGIN_PASSWORD` 또는 기본값 `1234`입니다. 이는 백엔드 seed 데이터일 뿐
-프론트 mock 로그인 경로가 아닙니다.
+`NOKYANG_ADMIN_PASSWORD` 등 backend seed 환경변수에서 옵니다. 운영 seed에는 조용한 기본 비밀번호가 없습니다.
 
 ---
 
@@ -46,7 +45,7 @@ httpOnly 쿠키 세션을 만든 뒤 프론트가 `/api/v1/auth/session`으로 �
 
 ### 관리자 모드 (`/dashboard/facilities/:facilityId/admin/*`) — 설정·상세 데이터
 
-상세 대시보드, 이벤트, 시설/층/공간/알림규칙/사용자 설정. 직원 화면에는 노출하지 않는 카메라 ID·신뢰도·관리 기능이 여기 모여 있습니다. 관리자 화면은 항상 라이트 모드.
+상세 대시보드, 이벤트, 시설/층/공간/구역/카메라/보호자/입소자 관리 화면이 여기 모여 있습니다. 라우트는 프론트 화면 경로이며, 백엔드 API 계약은 `docs/api/route-inventory.md`에 있는 실제 컨트롤러 경로만 사용합니다. 관리자 화면은 항상 라이트 모드.
 
 ---
 
@@ -54,13 +53,9 @@ httpOnly 쿠키 세션을 만든 뒤 프론트가 `/api/v1/auth/session`으로 �
 
 이 기능은 **"실시간 CCTV 관제"가 아니라 "AI 위험 감지 근거 영상 확인"**입니다. AI가 위험으로 감지한 **이벤트 구간(감지 10초 전 ~ 10초 후, 약 20초)** 클립만 관리자에게 제공합니다.
 
-- **권한 분리**: STAFF는 영상 영역 자체가 없고 "영상은 관리자만 확인할 수 있습니다" 안내만 표시. ADMIN/SUPER_ADMIN만 이벤트 상세(`/dashboard/facilities/:facilityId/admin/events/:id`)에서 클립 확인.
-- **보안 경계는 서비스 레이어**(`services/videoService.ts`): 권한 검증 → signed URL(토큰+5분 만료) 발급 → 모든 접근을 `VideoAccessLog`로 기록(누가/언제/무엇을). `clipUrl` 직접 노출 금지.
-- **다운로드/외부 공유 비활성화**, 보관기간(`expiresAt`) 경과 시 자동 삭제, 이벤트와 무관한 전체 CCTV 탐색 기능 없음.
-- **상태별 UI**: 클립 없음 / 생성 중(PROCESSING) / 만료 각각 안내 상태를 제공(`VideoUnavailableState`).
-- 컴포넌트: `AdminEventVideoPlayer`(시뮬레이션 플레이어 + 감지시점 마커), `EventClipTimeline`, `VideoPermissionGuard`, `VideoAccessNotice`, `VideoUnavailableState`, `VideoAccessLogTable`.
-
-**★ 실제 연동**: `GET /api/events/:id/video`, `GET /api/videos/:id/signed-url`(S3/NAS presign), `POST /api/videos/:id/access-log`. MVP는 더미 클립 + 시뮬레이션 재생이며, `videoService`의 3개 함수만 실제 스토리지 호출로 교체하면 됩니다. 데모: `203호`(재생 가능), `202호`(재생 가능), `302호`(생성 중 상태).
+- **권한 분리**: STAFF는 영상 영역 자체가 없고 "영상은 관리자만 확인할 수 있습니다" 안내만 표시. ADMIN/SUPER_ADMIN만 이벤트 상세(`/dashboard/facilities/:facilityId/admin/events/:eventId`)에서 근거 UI를 볼 수 있습니다.
+- **현재 백엔드 계약**: 영상 presign/access-log 전용 API는 아직 없습니다. 스냅샷은 실제 컨트롤러가 제공하는 `GET /api/v1/alerts/:alertId/snapshot` 및 `PUT /api/v1/alerts/:alertId/snapshot`만 문서화된 계약입니다.
+- **프론트 보안 경계**: 프론트 라우트 가드는 UX 목적입니다. 최종 권한은 백엔드의 `JwtAuthGuard`, `RequireFacilityGuard`, `RolesGuard`, capability RBAC가 강제합니다.
 
 ---
 
@@ -74,55 +69,55 @@ React 18 · TypeScript(strict) · Vite · Tailwind CSS · Zustand · React Route
 
 ```
 src/
-├── types/index.ts          PRD/API 계약을 반영한 프론트 타입
-├── data/mockData.ts        행복한요양원 녹양역점 더미 데이터
+├── types/index.ts          프론트 UI/domain 타입
+├── data/mockData.ts        frontend-alone 테스트/데모용 더미 데이터
 ├── lib/                    utils · labels(도메인 라벨) · roles(역할 호칭/권한/라우팅) · format(시간)
-├── services/               ★ 교체 가능한 API/서비스 레이어 ★
-│   ├── apiClient.ts        fetch 래퍼 (실제 백엔드 진입점)
-│   ├── db.ts               인메모리 Mock DB
-│   ├── authService.ts      로그인/세션
+├── services/               API/서비스 레이어
+│   ├── apiClient.ts        fetch 래퍼 (`/api/v1`, cookie credentials, X-Facility-Id)
+│   ├── api/                실제 백엔드 endpoint mapper
+│   ├── authService.ts      로그인/세션 복원
 │   ├── dashboardService.ts 대시보드/공간 상태
 │   ├── eventService.ts     이벤트 확인/조치
-│   ├── adminService.ts     시설/층/공간/알림규칙 CRUD
-│   ├── kakaoService.ts     ★ 카카오톡 알림 연동 지점 ★
-│   └── aiIngestService.ts  ★ AI 감지결과 수신 파이프라인 ★
+│   └── adminService.ts     시설/층/공간/구역/카메라/보호자/입소자 호출
 ├── store/                  authStore(권한) · facilityStore(시설 선택)
 ├── components/             StatusCard, RiskBadge, StatusBadge, EventTimeline,
 │                           AIInsightBox, KakaoAlertStatusBadge, ActionLogForm,
 │                           FloorTabs, StatsBar, SpaceDetailPanel, layout/AppLayout ...
 └── pages/                  LoginPage, DashboardPage, EventsPage,
-                            admin/{Facility,Floors,Spaces,AlertRules,Users}Page
+                            admin/{Facility,Floors,Spaces,Assignments,FocusResidents,Users}Page
 ```
 
 ---
 
 ## 데이터 모델
 
-`User · Facility · Floor · Space · SpaceStatus · DetectionEvent · ActionLog · AlertRule · VideoClip · VideoAccessLog`
-전체 정의는 `src/types/index.ts`에 있습니다. 영상 관련 필드는 `DetectionEvent`에 욱여넣지 않고 **`VideoClip`/`VideoAccessLog` 별도 엔티티**로 분리했습니다. 원안 대비 개선 사항:
-
-- `ActionLog`를 별도 엔티티로 분리해 한 이벤트에 **여러 조치 이력**을 누적 (확인→방문→이송 흐름 추적).
-- `KakaoAlertStatus`에 `SENDING`/`FAILED`를 추가해 발송 실패를 UI에서 구분.
-- `AlertRule.sensitivity`(공간별 민감도)를 명시 필드로 분리.
-- `SpaceStatus`에 상세 신호(`bedsideActivity`/`prolongedInactivity`/`soloMovementAttempt`) 추가.
+프론트 타입은 `src/types/index.ts`의 UI/domain view입니다. 실제 백엔드 영속 모델과 API 표면은 Prisma schema 및 `backend/src/**/*.controller.ts`가 소유하고, 현재 route SSOT는 `docs/api/route-inventory.md`입니다. `SpaceStatus`, `DetectionEvent`, `AlertRule`, `ResidentRiskSummary`, `VideoClip` 등 일부 프론트 타입은 아직 mock/화면 호환용이며, 동명의 백엔드 CRUD route가 존재한다는 뜻이 아닙니다.
 
 ---
 
-## ★ 향후 연동 지점 (명확화)
+## 실제 백엔드 연동 계약
 
-기본 개발 런타임은 실제 백엔드 모드입니다. 로그인/세션/시설 생성은 백엔드에 직접 연결되어 있고, 아직 mock 데이터에 남아 있는 화면은 실제 연동 시 **건드릴 파일이 격리**되어 있습니다.
+기본 개발 런타임은 실제 백엔드 모드입니다. `VITE_USE_MOCK`이 unset/`false`이면 `src/services/apiClient.ts`가 `VITE_API_BASE_URL`(기본 `/api/v1`)로 요청하고 `credentials: "include"`를 붙입니다.
 
-### 1) 실제 백엔드 API
-`src/services/apiClient.ts`는 `VITE_USE_MOCK`이 unset/`false`이면 실제 백엔드 모드로 동작하고, `VITE_API_BASE_URL` 기본값은 `/api/v1`입니다. 인증은 `src/services/api/authEndpoints.ts`가 `/api/v1/auth/login`, `/api/v1/auth/session`, `/api/v1/auth/kakao/login`, `/api/v1/facilities`를 담당합니다. 남은 service 파일의 mock 호출만 `requestJson(...)`으로 교체하면 됩니다. 엔드포인트 시그니처는 요구사항 API 설계를 그대로 따릅니다 (`/api/v1/facilities/:id/dashboard`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/events/:id/acknowledge` 등).
+### 인증·시설 스코프
 
-### 2) AI 예측 모델 → 백엔드
-`src/services/aiIngestService.ts`의 `ingest(payload)`가 수신 처리 로직입니다. 실제로는 `POST /api/ai/detection-result`가 동일 payload(`facilityCode`, `cameraId`, `spaceId`, `peopleCount`, `movementLevel`, `fallRiskLevel`, `eventType`, `aiSummary`, `confidence`)를 받아 ① SpaceStatus 업데이트 ② DetectionEvent 생성 ③ 알림 규칙 확인 ④ 카카오톡 발송 ⑤ 대시보드 반영을 수행합니다. 프론트 데모에서 이 함수로 실시간 유입을 시뮬레이션할 수 있습니다.
+- 이메일/비밀번호: `POST /api/v1/auth/login`
+- Kakao OAuth 시작/콜백: `GET /api/v1/auth/kakao/login`, `GET /api/v1/auth/kakao/callback`
+- 부트스트랩: `GET /api/v1/auth/me`
+- 로그아웃: `POST /api/v1/auth/logout`
+- 회원가입/초기 시설 생성: `POST /api/v1/auth/register`
+- 온보딩 시설 생성: `POST /api/v1/facilities`
+- 시설 목록/상세: `GET /api/v1/facilities`, `GET /api/v1/facilities/:id`
 
-### 3) 카카오톡 알림
-`src/services/kakaoService.ts`의 `send()` 내부만 실제 카카오 알림톡(비즈메시지) API 호출로 교체하면 됩니다. 메시지 템플릿 빌더(`buildKakaoMessage`)와 수신자/발송결과 처리가 이미 분리되어 있습니다.
+브라우저 세션은 백엔드가 발급한 httpOnly `app_session` JWT 쿠키입니다. 프론트 localStorage 세션이나 `ServerSession`/`SessionGuard`/`current-facility` API는 현재 계약이 아닙니다. 시설-bound 사용자는 JWT의 `facilityId`가 스코프이고, `SUPER_ADMIN`은 fetch/XHR에서 `X-Facility-Id`, native `EventSource`에서 `facilityId` query param으로 선택한 시설을 전달합니다.
 
-### 4) 실시간 반영
-현재 대시보드는 20초 폴링입니다. 운영 단계에서는 **WebSocket 또는 SSE**로 교체 권장 (`DashboardPage`의 폴링 지점 한 곳).
+### 현재 API 표면
+
+실제 컨트롤러가 제공하는 route만 사용합니다: 시설, 층, 공간, 공간 하위 구역, 입소자와 배정, 카메라, 보호자, 알림, 스냅샷, dashboard SSE, Event API(`POST /api/v1/events`, `POST /api/v1/events/heartbeat`, `GET /api/v1/events`). 제거된 `/api/v1/status`, `/api/v1/space-statuses`, `/api/v1/resident-risk-summaries`, `/api/v1/detection-events`, `/api/v1/alert-rules`, `/api/ai/detection-result`, 영상 presign/access-log route는 현재 계약으로 문서화하지 않습니다.
+
+### 실시간 반영
+
+대시보드 실시간 반영은 `GET /api/v1/dashboard/stream` SSE입니다. 프론트 `buildSseUrl(facilityId)`는 `EventSource` 제한 때문에 `?facilityId=<id>` query selector를 사용하고, 일반 fetch/XHR은 `X-Facility-Id` 헤더를 사용합니다.
 
 ---
 
@@ -130,16 +125,16 @@ src/
 
 각 층 간호사실·복도·야간 스테이션의 큰 모니터/TV에 **상시 띄워두는** 화면입니다. 실제 CCTV 영상은 없지만 인원·움직임·위험도·메시지·감지시각이 자동으로 갱신되어 "상태가 살아 움직이는" 현황판처럼 보입니다. 관제센터가 아니라 병동 현황판/관제판의 명확함을 지향합니다.
 
-- **경로**: `/monitor/:facilityId`(전체 보기) → `/monitor/:facilityId/floors/:floorId`(층별). 진입 버튼은 직원/관리자 헤더에 있습니다.
+- **경로**: `/dashboard/facilities/:facilityId/staff`(전체 보기) → `/dashboard/facilities/:facilityId/staff/floors/:floorId`(층별). 진입 버튼은 직원/관리자 헤더에 있습니다.
 - **멀리서도 보이는 대형 타이포**: 공간명 42px+, 인원 56px+, 상태 36px+, 설명 28px+. 위험 우선 정렬 + 큰 카드 그리드(공간 수에 따라 2×2/3열 자동).
 - **마우스 없이 자동 갱신**: `mockRealtimeEngine`이 2~5초마다 일부 공간 상태를 바꿉니다. 안정이 대부분, 주의는 가끔, **위험은 드물게 발생하고 12~20초 유지**(확인 전까지 계속 강조). 위험/주의 카드는 부드러운 pulse(사이렌 느낌은 배제).
 - **상단 정보**: 시설명 · 층 제목 · 실시간 시계 · "N초 전 갱신" 인디케이터 · 연결 상태(정상/지연/재연결/끊김) · 층 요약(안정·주의·위험) · 위험 배너.
 - **조작 최소화**: 층 선택 / 전체 화면(Fullscreen API, ESC 해제) / 알림음 켜기·끄기(기본 꺼짐, 야간엔 시각 강조 우선) / 카드 클릭 시 오른쪽 슬라이드 상세. 관리자 메뉴·복잡한 설정은 노출하지 않습니다.
-- **권한별 상세**: 카드 클릭 시 직원은 요약+조치 버튼만, 관리자는 이슈 영상·타임라인·접근로그까지(기존 권한 분리 그대로 재사용). 확인 처리 시 실시간 엔진의 위험도 함께 해제됩니다.
+- **권한별 상세**: 카드 클릭 시 직원은 요약+조치 버튼만, 관리자는 관리자 이벤트 상세 화면(`/dashboard/facilities/:facilityId/admin/events/:eventId`)에서 추가 정보를 확인합니다. 프론트 가드는 UX 목적이고 백엔드 capability RBAC가 최종 방어선입니다.
 - **관리자 설정**(`/dashboard/facilities/:facilityId/admin/monitor-settings`): 기본 표시 층, 갱신 간격, 알림음, 야간 모드, 카드 크기, 표시할 공간 선택, 전체 보기 허용. 이 모니터(브라우저)에 저장됩니다.
 - **반응형**: 55인치 TV(아주 큰 카드 2×2/3열) · 태블릿(2열) · 모바일(세로 리스트로 전환).
 
-**★ 실제 연동**: `src/mocks/realtimeEngine.ts`를 WebSocket/SSE/폴링으로 교체하면 됩니다. `subscribe()/getSnapshot()` 인터페이스만 유지하면 UI는 변경이 없습니다. 흐름: `AI Model → /api/ai/detection-result → SpaceStatus 갱신 → WebSocket publish → 엔진 emit 자리 → Monitor 실시간 반영`. 관련 파일: `mocks/realtimeEngine.ts`, `stores/monitorStore.ts`, `stores/monitorSettingsStore.ts`, `hooks/useRealtimeSpaceStatus.ts`.
+**실제 연동**: 운영 모드는 `stores/monitorStore.ts`가 `GET /api/v1/dashboard/stream` SSE와 알림 REST read-model을 합쳐 화면 상태를 갱신합니다. `src/mocks/realtimeEngine.ts`는 `VITE_USE_MOCK=true`인 frontend-alone 테스트/데모 경로입니다.
 
 ### 실제 시설 구조 · 현실형 실시간 변화
 
@@ -190,7 +185,7 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 
 행복한요양원 녹양역점에서 바로 검증할 **PoC**가 1차 목표이되, 구조는 처음부터 **SaaS Ready**로 설계합니다.
 
-- **SaaS Ready**: 모든 핵심 엔티티가 `facilityId`를 가집니다(Facility·Floor·Space·Zone·Resident·ResidentAssignment·DetectionEvent·ActionLog·AlertRule·VideoClip). 기본 `facilityCode=happy-nokyang`. 현재 URL은 `/monitor/floor/:floorId`이며, 향후 `/facilities/:facilityId/...`로 확장 가능한 구조입니다.
+- **SaaS Ready**: 핵심 백엔드 엔티티는 `facilityId`를 통해 시설 스코프를 가집니다(Facility·Floor·Space·Zone·Resident·ResidentAssignment·Guardian·Camera·Alert 등). 프론트 경로는 `/dashboard/facilities/:facilityId/...` 구조이고, API 요청은 cookie JWT + `X-Facility-Id`/SSE query selector 계약을 따릅니다.
 - **Privacy First — 얼굴 인식 미사용**: 로그인·층 선택·모니터 헤더·배정 화면에 "얼굴 인식을 사용하지 않습니다" 안내를 명시했습니다(`PrivacyNotice`). AI는 "어느 공간/구역에서 어떤 행동인지"만 알고, "그 사람이 누구인지"는 모릅니다. 개인 매핑(202호 침대A → 김○○)은 요양원 DB(`ResidentAssignment`)에서만 관리합니다.
 
 ### 구역/침대(Zone) + 어르신 배정(ResidentAssignment)
@@ -198,7 +193,7 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 공간 아래 **침대/구역 단위**로 이벤트를 다룹니다. 모든 호실에 침대A·침대B가 있고, 어르신을 침대에 배정하면 이벤트가 "**202호 침대A** 침상 이탈"처럼 표기됩니다(얼굴 인식 없이 침대 위치만).
 
 - **관리자 · 구역/침대 배정**(`/dashboard/facilities/:facilityId/admin/assignments`): 층 선택 → 호실별 침대에 어르신 배정/해제, 침대 추가/삭제.
-- 실시간 엔진의 호실 위험 이벤트는 배정된 침대(없으면 임의 침대)를 포함해 생성됩니다.
+- mock 실시간 엔진의 호실 위험 이벤트는 배정된 침대(없으면 임의 침대)를 포함해 생성됩니다. 실제 백엔드 이벤트는 현재 camera/space/alert 중심이며 resident-risk-summary route는 없습니다.
 - 공간 상세 패널에 "구역/침대 배정" 표시, 관심 어르신 화면에 침대 위치 표기, 이벤트 타임라인에 구역 칩 표시.
 - 서비스: `services/zoneService.ts`. 엔티티: `Zone`, `ResidentAssignment`.
 
@@ -215,16 +210,16 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다. "감시 대상"이 아니라 "집중 관찰 지원" 톤으로 표현합니다(위험 인물·문제 행동 같은 표현 배제).
 
 - **직원 화면**: "지금 확인할 곳"(`/dashboard/facilities/:facilityId/staff`) 상단에 "오늘 집중 관찰 필요 N명" 섹션. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"만 보여주고 **확인함 / 직원 방문 중 / 도움 요청** 3버튼을 제공합니다. "음성으로 듣기" 버튼으로 TTS 안내를 들을 수 있습니다.
-- **관리자 화면**(`/dashboard/facilities/:facilityId/admin/focus-residents`): 위험도, 위험 행동 횟수(침상 이탈·배회·기립 시도·복도 이동), **전일 대비 증감**, AI 판단 근거·권장 조치, 위험 점수, 관련 근거 영상(이벤트 상세로 이동), 최근 이벤트 타임라인, 조치 기록까지 확인합니다.
+- **관리자 화면**(`/dashboard/facilities/:facilityId/admin/focus-residents`): 프론트 화면은 남아 있지만 현재 백엔드에는 `/api/v1/resident-risk-summaries` route가 없습니다. 실제 연동 전까지 mock/UI 호환 데이터로 취급합니다.
 - **TTS 안내**: "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 짧고 명확하게 안내(`services/tts/announceFocus.ts`).
-- **데이터 모델**: `Resident`, `ResidentRiskSummary`(오늘/전일), `ResidentAction`. 더미: 202호 김○○(파킨슨·치매, 침상 이탈 3회·낙상 높음), 203호 이○○(배회), 401호 박○○(반복 기립). 서비스: `services/residentService.ts`.
+- **데이터 모델**: `Resident`와 배정 정보는 실제 백엔드 route가 있고, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI/mock 타입입니다.
 
 ---
 
 ## 확장성 (SaaS 멀티테넌트)
 
-- 모든 엔티티가 `facilityId`를 보유하고, 서비스 레이어가 시설 단위로 필터링합니다. 두 번째 시설(`햇살가득요양원 의정부점`)을 더미로 포함해 SUPER_ADMIN의 시설 전환을 시연합니다.
-- 층/공간/카메라/알림규칙을 모두 관리자 화면에서 비개발자가 추가·수정할 수 있어, 새 시설 온보딩이 코드 변경 없이 가능합니다.
+- 모든 실제 백엔드 엔티티 요청은 시설 스코프로 필터링됩니다. `SUPER_ADMIN`의 시설 전환은 `GET /api/v1/facilities` 목록과 선택한 시설 스코프(`X-Facility-Id` 또는 SSE `facilityId` query)로 동작합니다.
+- 층/공간/구역/카메라/보호자/입소자/배정은 실제 관리자 API가 있습니다. 알림규칙 route는 현재 제거되어 있으므로 관리자 화면의 alert-rule UI는 백엔드 계약으로 문서화하지 않습니다.
 - 한국어 라벨이 `lib/labels.ts`에 격리되어 다국어/시설별 용어 커스터마이징이 용이합니다.
 
 **운영 전 권장:** Postgres + 시설 단위 Row-Level Security, 테넌트별 데이터 격리 테스트, 카메라/공간 매핑 검증 화면.
@@ -235,7 +230,7 @@ AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다.
 
 - **CCTV 원본 미노출**: 설계상 영상 스트림이 프론트에 존재하지 않습니다. AI 분석 결과(상태·요약)만 전달됩니다 — 개인정보·초상권 리스크 최소화.
 - **권한 분리**: `RequireAuth`가 라우트 단위로 최소 권한을 강제하고, 로그인 사용자는 자기 시설 데이터만 조회합니다. (운영에서는 **서버 측 권한 검증이 최종 방어선** — 프론트 가드는 UX 목적)
-- **세션**: 인증 세션은 백엔드 `app_session` httpOnly 쿠키와 서버 세션 레코드가 소유합니다. 프론트 localStorage auth 세션은 사용하지 않습니다.
+- **세션**: 인증 세션은 백엔드 `app_session` httpOnly JWT 쿠키가 소유하고 `GET /api/v1/auth/me`로 복원합니다. 프론트 localStorage auth 세션과 별도 서버-session API는 사용하지 않습니다.
 - **민감 알림**: 카카오톡 메시지에 어르신 식별정보를 최소화하고 공간 단위로만 표기 (현재 템플릿 준수).
 - **감사 로그**: 모든 조치(`ActionLog`)에 작성자·시각이 남아 보호자/감독기관 신뢰성 확보에 활용 가능.
 - **카피라이팅**: "감시/추적/관제" 대신 "안전 확인/돌봄 지원" 용어를 일관 사용.
@@ -244,4 +239,4 @@ AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다.
 
 ## 알려진 제약 (MVP)
 
-데이터는 인메모리이므로 새로고침 시 일부 변경(층/공간 추가 등)은 seed로 리셋됩니다. 사용자 계정 생성/권한 변경 UI, 실시간 소켓, 차트 분석 화면은 후속 버전 범위입니다.
+실제 백엔드 모드가 기본입니다. `VITE_USE_MOCK=true`의 frontend-alone 데이터는 새로고침 시 일부 변경(층/공간 추가 등)이 seed로 리셋됩니다. 사용자 계정 생성/권한 변경 UI, 영상 전용 API, resident-risk-summary 연동, alert-rule 백엔드 연동은 후속 범위입니다.

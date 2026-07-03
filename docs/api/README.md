@@ -9,7 +9,7 @@ These pages describe the contract **as implemented** (issue #216 / PR #217 plus 
 - [Route inventory](./route-inventory.md) — all backend dashboard/auth/Event API routes plus explicitly removed routes.
 - [Edge Event API](./edge-ingest-api.md) — no-HMAC `POST /api/v1/events` and `POST /api/v1/events/heartbeat`.
 - [Dashboard API](./dashboard-api.md) — authenticated Vite + React dashboard read-model and CRUD APIs.
-- [ML API](./ml-serving-api.md) — ML-free FastAPI gateway for `/health/live`, `/health/ready`, `/status`, `/models` metadata, and `/api/v1/relay/*`. Prediction routes including `POST /predict` and `/debug/predict/*` are removed.
+- [ML API](./ml-serving-api.md) — ML-free FastAPI gateway for `/health/live`, `/health/ready`, `/api/v1/status`, `/api/v1/models` metadata, and `/api/v1/relay/*`. Prediction routes including `POST /predict` and `/debug/predict/*` are removed.
 - [Realtime events](./realtime-events.md) — dashboard SSE stream frame contract.
 - [Kakao delivery API](./kakao-delivery-api.md) — outbox, delivery attempts, and Kakao send-to-me semantics.
 
@@ -26,10 +26,10 @@ Do not create a root `contracts/` directory. Contract ownership stays under `doc
 ## Layer ownership
 
 - Edge `ml-api` submits no-HMAC facts to backend `POST /api/v1/events` and `POST /api/v1/events/heartbeat` using `API_BACKEND_EVENTS_URL`; backend resolves facility/space from `camera_id`.
-- Backend owns alert policy, persistence, deduplication, dashboard read-models, SSE, outbox creation, and Kakao delivery state.
+- Backend owns Event API persistence, camera online/offline state, dashboard alert read-models, SSE, and any separately invoked delivery state. Current Event API ingest does not create outbox rows or dispatch Kakao.
 - ML API owns debug classification and the worker relay gateway: product routes are under `/api/v1`, probes stay `/health/live` and `/health/ready`, and worker relay paths are `/api/v1/relay/*`.
 - Frontend consumes backend dashboard/auth routes; it does not call ML API directly.
 
 ## Removed routes
 
-Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later decision changes this contract: `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse`, `GET /auth/me`, and old `/auth/*` routes (session probes folded into `/api/v1/auth/session`), `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules` (removed skeletons now return `404`), and ML API prediction routes `POST /predict` plus `POST /debug/predict/{window,source}` (removed; live classification is worker-produced and relayed as Event API `confidence`).
+Removed routes are listed explicitly in [route-inventory.md](./route-inventory.md) and MUST NOT be kept as compatibility aliases unless a later decision changes this contract: `GET /api/v1/auth/session` (→ `GET /api/v1/auth/me`), `GET /api/v1/facilities/current` (→ `GET /api/v1/facilities/:id`), removed dashboard status/probe skeletons, `POST /api.alerts/events`, old machine-ingest alert/heartbeat routes, `POST /orgs` (→ `/api/v1/facilities`), `POST /api/orgs` (→ `/api/v1/facilities`), `GET/PUT /api/snapshots/:alertId` (→ `/api/v1/alerts/:alertId/snapshot`), `GET /sse`, unversioned `/auth/*` routes, `GET/PATCH /api/v1/detection-events`, `GET/POST/PATCH/DELETE /api/v1/alert-rules`, and ML API prediction routes `POST /predict` plus `POST /debug/predict/{window,source}`.
