@@ -54,12 +54,10 @@ describe("AppLayout facility selector", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(
-      <MemoryRouter
-        initialEntries={["/dashboard/facilities/fac_happy_nokyang/admin"]}
-      >
+      <MemoryRouter initialEntries={["/admin"]}>
         <Routes>
           <Route
-            path="/dashboard/facilities/:facilityId/admin"
+            path="/admin"
             element={<AppLayout />}
           >
             <Route index element={<div>Admin child</div>} />
@@ -74,6 +72,7 @@ describe("AppLayout facility selector", () => {
     }
 
     expect(Array.from(selector.options).map((option) => option.value)).toEqual([
+      "__global__",
       "fac_happy_nokyang",
       "fac_backend_only",
     ]);
@@ -81,10 +80,13 @@ describe("AppLayout facility selector", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/facilities",
       expect.objectContaining({
-        headers: expect.objectContaining({
+        headers: expect.not.objectContaining({
           "x-facility-id": "fac_happy_nokyang",
         }),
       })
     );
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull();
+    expect(screen.getAllByText("대시보드")).toHaveLength(1);
+    expect(screen.queryByText("원장님")).toBeNull();
   });
 });

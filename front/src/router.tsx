@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RouterBootstrap } from "@/components/RouterBootstrap";
-import { FacilityRouteScope } from "@/components/FacilityRouteScope";
+import { FacilityScope, LegacyFacilityRedirect } from "@/components/FacilityRouteScope";
 import { RoleRouteRedirect } from "@/components/RoleRouteRedirect";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
@@ -15,15 +16,25 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { EventsPage } from "@/pages/EventsPage";
 import { AdminEventDetailPage } from "@/pages/admin/AdminEventDetailPage";
 import { AdminFacilityPage } from "@/pages/admin/AdminFacilityPage";
-import { AdminFloorsPage } from "@/pages/admin/AdminFloorsPage";
 import { AdminSpacesPage } from "@/pages/admin/AdminSpacesPage";
-import { AdminAlertRulesPage } from "@/pages/admin/AdminAlertRulesPage";
 import { UsersPage } from "@/pages/admin/UsersPage";
 import { AdminMonitorSettingsPage } from "@/pages/admin/AdminMonitorSettingsPage";
-import { FocusResidentsPage } from "@/pages/admin/FocusResidentsPage";
-import { AdminAssignmentsPage } from "@/pages/admin/AdminAssignmentsPage";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
-import { UxTestResultPage } from "@/pages/admin/UxTestResultPage";
+import { useAuthStore } from "@/store/authStore";
+import { useFacilityStore } from "@/store/facilityStore";
+
+function DashboardGate() {
+  const user = useAuthStore((s) => s.user);
+  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
+  if (user?.role === "SUPER_ADMIN" && !currentFacilityId) return <SuperAdminDashboardPage />;
+  return <FloorMonitorPage allView />;
+}
+
+const auth = (children: ReactNode, minRole?: "STAFF" | "ADMIN" | "SUPER_ADMIN") => (
+  <RouterBootstrap>
+    <RequireAuth minRole={minRole}>{children}</RequireAuth>
+  </RouterBootstrap>
+);
 
 export const router = createBrowserRouter([
   {
@@ -58,79 +69,48 @@ export const router = createBrowserRouter([
       </RouterBootstrap>
     ),
   },
-
+  { path: "/", element: auth(<RoleRouteRedirect />) },
+  { path: "/dashboard", element: auth(<DashboardGate />) },
   {
-    path: "/",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <RoleRouteRedirect />
-        </RequireAuth>
-      </RouterBootstrap>
+    path: "/dashboard/floor/:floorId",
+    element: auth(
+      <FacilityScope>
+        <StaffLayout />
+      </FacilityScope>,
     ),
+    children: [{ index: true, element: <FloorMonitorPage /> }],
   },
   {
-    path: "/dashboard",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth minRole="SUPER_ADMIN">
-          <SuperAdminDashboardPage />
-        </RequireAuth>
-      </RouterBootstrap>
+    path: "/dashboard/alerts",
+    element: auth(
+      <FacilityScope>
+        <StaffLayout />
+      </FacilityScope>,
     ),
+    children: [{ index: true, element: <AlertsPage /> }],
   },
   {
-    path: "/dashboard/facilities/:facilityId/staff",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <FacilityRouteScope>
-            <StaffLayout />
-          </FacilityRouteScope>
-        </RequireAuth>
-      </RouterBootstrap>
-    ),
-    children: [
-      { index: true, element: <FloorMonitorPage allView /> },
-      { path: "floors/:floorId", element: <FloorMonitorPage /> },
-      { path: "alerts", element: <AlertsPage /> },
-    ],
-  },
-  {
-    path: "/dashboard/facilities/:facilityId/admin",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth minRole="ADMIN">
-          <FacilityRouteScope>
-            <AppLayout />
-          </FacilityRouteScope>
-        </RequireAuth>
-      </RouterBootstrap>
+    path: "/admin",
+    element: auth(
+      <FacilityScope>
+        <AppLayout />
+      </FacilityScope>,
+      "ADMIN",
     ),
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "events", element: <EventsPage /> },
       { path: "events/:eventId", element: <AdminEventDetailPage /> },
-      { path: "focus-residents", element: <FocusResidentsPage /> },
       { path: "facility", element: <AdminFacilityPage /> },
-      { path: "floors", element: <AdminFloorsPage /> },
       { path: "spaces", element: <AdminSpacesPage /> },
-      { path: "assignments", element: <AdminAssignmentsPage /> },
-      { path: "alert-rules", element: <AdminAlertRulesPage /> },
       { path: "monitor-settings", element: <AdminMonitorSettingsPage /> },
-      { path: "ux-test", element: <UxTestResultPage /> },
       { path: "users", element: <UsersPage /> },
+      // Re-enable after backend controllers exist by restoring these child routes:
+      // focus-residents -> FocusResidentsPage, assignments -> AdminAssignmentsPage,
+      // alert-rules -> AdminAlertRulesPage.
     ],
   },
-
-  {
-    path: "*",
-    element: (
-      <RouterBootstrap>
-        <RequireAuth>
-          <RoleRouteRedirect />
-        </RequireAuth>
-      </RouterBootstrap>
-    ),
-  },
+  { path: "/admin/*", element: auth(<RoleRouteRedirect />, "ADMIN") },
+  { path: "/dashboard/facilities/:facilityId/:view/*", element: auth(<LegacyFacilityRedirect />) },
+  { path: "*", element: auth(<RoleRouteRedirect />) },
 ]);
