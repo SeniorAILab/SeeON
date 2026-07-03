@@ -19,7 +19,7 @@ This is the single convention across all tables. New schema fields must not use 
 
 ### Facility
 
-Tenant/facility root. `Facility` owns cameras, alerts, floors, spaces, zones, users, Kakao identities, and server sessions. It is not itself an RLS tenant-domain list surface; app-layer membership determines which facility a user can act within.
+Tenant/facility root. `Facility` owns cameras, alerts, floors, spaces, users, Kakao identities, and server sessions. It is not itself an RLS tenant-domain list surface; app-layer membership determines which facility a user can act within.
 
 Important fields: `id`, `name`, `businessRegistrationNumber`, `code`, `address`, `phone`, `createdAt`.
 
@@ -47,15 +47,10 @@ Important fields: `id`, `facilityId`, `name`, `orderIndex`, `isActive`.
 
 ### Space
 
-Facility room or physical area. Space is the target canonical room anchor for cameras, zones, and alerts. Current schema still has transitional `cameraId`; target ownership is `Camera.spaceId`.
+Facility room or physical area. Space is the canonical room anchor for cameras and alerts. Camera ownership is `Camera.spaceId`.
 
 Important fields: `id`, `facilityId`, `floorId`, `name`, `type`, `capacity`, `isActive`, `assignedStaff`.
 
-### Zone
-
-Named sub-area inside a space, such as a bed or area.
-
-Important fields: `id`, `facilityId`, `spaceId`, `name`, `type`, `orderIndex`.
 
 ### Camera
 

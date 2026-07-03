@@ -19,7 +19,6 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 
 - `floors`
 - `spaces`
-- `zones`
 - `cameras`
 - `alerts`
 
@@ -29,11 +28,10 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 
 | Entity | Scope | Cardinality and FK direction | Notes |
 |---|---|---|---|
-| `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Zone`, `Camera`, `Alert`, `User`, `KakaoIdentity` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
+| `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Camera`, `Alert`, `User`, `KakaoIdentity` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
 | `Floor` | Tenant/RLS | `Floor(facilityId) -> Facility(id)`; `Facility` 1→N `Floor`; `Floor` 1→N `Space`. | Floor remains canonical because the frontend and operations model are floor-aware. |
-| `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1→N `Zone`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. |
+| `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. |
 | `Camera` | Tenant/RLS | `Camera(facilityId) -> Facility(id)` and `Camera(facilityId, spaceId) -> Space(facilityId, id)` with `UNIQUE(facilityId, spaceId)`. `Space` 1:1 `Camera`; `Camera` 1→N `Alert` and `Event` as source. | Camera belongs to a room/space, not a resident. |
-| `Zone` | Tenant/RLS | `Zone(facilityId) -> Facility(id)`; `Zone(facilityId, spaceId) -> Space(facilityId, id)`; `Space` 1→N `Zone`. | Optional refinement inside a space. |
 | `Alert` | Tenant/RLS | `Alert(facilityId) -> Facility(id)`; required `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, cameraId) -> Camera(facilityId, id)` as source. `Space` 1→N `Alert`; `Camera` 0/1→N `Alert`. | `spaceId` is NOT NULL and is the historical room anchor. `cameraId` records the source. |
 | `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | STAFF`, labeled 시스템 관리자 / 원장님 / 요양보호사. `SUPER_ADMIN`/`ADMIN` have facility administration capability; `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility. |
 | `KakaoIdentity` | Auth/root | `KakaoIdentity(userId) -> User(id)`; optional `KakaoIdentity(facilityId) -> Facility(id)`; `User` 1→0/1 `KakaoIdentity`. | OAuth/self-notification identity for a facility-bound user. |
@@ -51,7 +49,6 @@ Facility 1 -> N User
 
 Floor 1 -> N Space
 Space 1 -> 1 Camera          (Camera.spaceId unique FK)
-Space 1 -> N Zone
 Camera 0..1 -> N Alert       (Alert.cameraId source)
 AlertEvent 1 -> N DeliveryAttempt
 User 1 -> 0..1 KakaoIdentity
