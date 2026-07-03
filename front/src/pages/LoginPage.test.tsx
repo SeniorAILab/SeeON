@@ -31,6 +31,32 @@ function renderLogin(initialEntry = "/login") {
     </MemoryRouter>
   );
 }
+function fillValidSignupFields() {
+  fireEvent.change(screen.getByLabelText("이름"), {
+    target: { value: "홍원장" },
+  });
+  fireEvent.change(screen.getByPlaceholderText("name@facility.com"), {
+    target: { value: "owner@example.test" },
+  });
+  fireEvent.change(screen.getByLabelText("비밀번호"), {
+    target: { value: "care2026" },
+  });
+  fireEvent.change(screen.getByLabelText("비밀번호 확인"), {
+    target: { value: "care2026" },
+  });
+  fireEvent.change(screen.getByLabelText("전화번호"), {
+    target: { value: "010-1111-2222" },
+  });
+  fireEvent.change(screen.getByLabelText("요양원"), {
+    target: { value: "ULW 요양원" },
+  });
+}
+
+function agreeToSignupConsent() {
+  fireEvent.click(screen.getByRole("checkbox", { name: /서비스 이용약관/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /개인정보 수집 및 이용/ }));
+}
+
 
 describe("LoginPage", () => {
   it("백엔드 이메일 로그인과 카카오 OAuth를 함께 표시한다", () => {
@@ -150,24 +176,8 @@ describe("LoginPage", () => {
     renderLogin();
 
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
-    fireEvent.change(screen.getByLabelText("이름"), {
-      target: { value: "홍원장" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("name@facility.com"), {
-      target: { value: "owner@example.test" },
-    });
-    fireEvent.change(screen.getByLabelText("비밀번호"), {
-      target: { value: "care2026" },
-    });
-    fireEvent.change(screen.getByLabelText("비밀번호 확인"), {
-      target: { value: "care2026" },
-    });
-    fireEvent.change(screen.getByLabelText("전화번호"), {
-      target: { value: "010-1111-2222" },
-    });
-    fireEvent.change(screen.getByLabelText("요양원"), {
-      target: { value: "ULW 요양원" },
-    });
+    fillValidSignupFields();
+    agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
     await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
@@ -180,6 +190,54 @@ describe("LoginPage", () => {
     });
   });
 
+  it("회원가입 화면에서 이용약관과 개인정보 동의 전에는 제출하지 않는다", () => {
+    const register = vi.fn();
+    useAuthStore.setState({ register });
+    renderLogin();
+
+    fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
+    fillValidSignupFields();
+
+    const submitButton = screen.getByRole("button", { name: "회원가입" });
+    expect(submitButton).toHaveProperty("disabled", true);
+    fireEvent.click(submitButton);
+    expect(register).not.toHaveBeenCalled();
+    expect(screen.queryByText("ADMIN_DASHBOARD")).toBeNull();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /서비스 이용약관/ }));
+    expect(submitButton).toHaveProperty("disabled", true);
+    fireEvent.click(submitButton);
+    expect(register).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /개인정보 수집 및 이용/ }));
+    expect(submitButton).toHaveProperty("disabled", false);
+  });
+
+  it("회원가입 화면에서 이용약관과 개인정보 동의 후 기존 성공 흐름으로 이동한다", async () => {
+    const register = vi.fn().mockResolvedValue({
+      id: "user-1",
+      name: "홍원장",
+      email: "owner@example.test",
+      role: "ADMIN",
+      facilityId: "facility-1",
+    });
+    useAuthStore.setState({ register });
+    renderLogin();
+
+    fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
+    fillValidSignupFields();
+    agreeToSignupConsent();
+    fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
+
+    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    expect(register).toHaveBeenCalledWith({
+      name: "홍원장",
+      email: "owner@example.test",
+      password: "care2026",
+      phone: "010-1111-2222",
+      facilityName: "ULW 요양원",
+    });
+  });
   it("회원가입 화면에서 짧은 비밀번호를 서버 호출 전에 막는다", async () => {
     const register = vi.fn();
     useAuthStore.setState({ register });
@@ -204,6 +262,7 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByLabelText("비밀번호 확인"), {
       target: { value: "1234567" },
     });
+    agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
     expect(
@@ -236,6 +295,7 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByLabelText("비밀번호 확인"), {
       target: { value: "diff2026" },
     });
+    agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
     expect(await screen.findByText("비밀번호가 일치하지 않습니다.")).toBeTruthy();
