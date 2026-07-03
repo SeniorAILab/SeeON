@@ -45,7 +45,7 @@ httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/m
 
 ### 관리자 모드 (`/dashboard/facilities/:facilityId/admin/*`) — 설정·상세 데이터
 
-상세 대시보드, 이벤트, 시설/층/공간/구역/카메라/보호자/입소자 관리 화면이 여기 모여 있습니다. 라우트는 프론트 화면 경로이며, 백엔드 API 계약은 `docs/api/route-inventory.md`에 있는 실제 컨트롤러 경로만 사용합니다. 관리자 화면은 항상 라이트 모드.
+상세 대시보드, 이벤트, 시설/층/공간/구역/카메라/보호자/입소자 관리 화면이 여기 모여 있습니다. 라우트는 프론트 화면 경로이며, 백엔드 API 계약은 실제 컨트롤러(`backend/src/**/*.controller.ts`)와 생성된 OpenAPI(`/api/docs`)가 SSOT이며 그 경로만 사용합니다. 관리자 화면은 항상 라이트 모드.
 
 ---
 
@@ -91,7 +91,7 @@ src/
 
 ## 데이터 모델
 
-프론트 타입은 `src/types/index.ts`의 UI/domain view입니다. 실제 백엔드 영속 모델과 API 표면은 Prisma schema 및 `backend/src/**/*.controller.ts`가 소유하고, 현재 route SSOT는 `docs/api/route-inventory.md`입니다. `SpaceStatus`, `DetectionEvent`, `AlertRule`, `ResidentRiskSummary`, `VideoClip` 등 일부 프론트 타입은 아직 mock/화면 호환용이며, 동명의 백엔드 CRUD route가 존재한다는 뜻이 아닙니다.
+프론트 타입은 `src/types/index.ts`의 UI/domain view입니다. 실제 백엔드 영속 모델과 API 표면은 Prisma schema 및 `backend/src/**/*.controller.ts`가 소유하고, 현재 route SSOT는 `backend/src/**/*.controller.ts` + 생성된 OpenAPI(`/api/docs`)입니다. `SpaceStatus`, `DetectionEvent`, `AlertRule`, `ResidentRiskSummary`, `VideoClip` 등 일부 프론트 타입은 아직 mock/화면 호환용이며, 동명의 백엔드 CRUD route가 존재한다는 뜻이 아닙니다.
 
 ---
 
