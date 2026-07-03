@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Monitor, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Select } from "@/components/ui/primitives";
-import { adminService } from "@/services/adminService";
+import { listFloors } from "@/services/api/floors";
+import { listSpaces } from "@/services/api/spaces";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
-import { monitorHomePath } from "@/lib/routeAccess";
-import type { Floor, MonitorSettings, Space } from "@/types";
+import { dashboardPath } from "@/lib/routeAccess";
+import type { Floor, Space } from "@/types";
 
 export function AdminMonitorSettingsPage() {
   const navigate = useNavigate();
@@ -18,8 +19,8 @@ export function AdminMonitorSettingsPage() {
   const [spaces, setSpaces] = useState<Space[]>([]);
 
   useEffect(() => {
-    adminService.listFloors(facilityId).then(setFloors);
-    adminService.listSpaces(facilityId).then(setSpaces);
+    listFloors().then(setFloors);
+    listSpaces().then(setSpaces);
   }, [facilityId]);
 
   function toggleSpace(id: string) {
@@ -39,7 +40,7 @@ export function AdminMonitorSettingsPage() {
           <Button
             variant="secondary"
             disabled={!facilityId}
-            onClick={() => navigate(monitorHomePath(facilityId))}
+            onClick={() => navigate(dashboardPath())}
           >
             <ExternalLink className="h-4 w-4" />
             모니터 열기
@@ -75,19 +76,6 @@ export function AdminMonitorSettingsPage() {
             </Select>
           </Field>
 
-          <Field label="데모 모드 (시연용)" hint="실제 운영에서는 자동(AUTO)으로 둡니다.">
-            <Select
-              value={settings.demoMode}
-              onChange={(e) => settings.update({ demoMode: e.target.value as MonitorSettings["demoMode"] })}
-            >
-              <option value="AUTO">자동 (현재 시각 기준)</option>
-              <option value="NORMAL">평상시(휴식)</option>
-              <option value="MEAL">식사 시간</option>
-              <option value="PROGRAM">프로그램 시간</option>
-              <option value="NIGHT">야간</option>
-              <option value="RISK_DEMO">위험 이벤트 데모(자주 발생)</option>
-            </Select>
-          </Field>
 
           <Field label="카드 표시 크기">
             <Select

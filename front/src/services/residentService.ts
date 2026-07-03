@@ -1,5 +1,6 @@
-// 관심 어르신(Focus Resident) 서비스 (mock)
-// 실제: GET /api/facilities/:id/focus-residents, GET /api/residents/:id, POST /api/residents/:id/action
+// ⚠ 비활 fixture: 런타임 도달 불가(가역 숨김 페이지 전용).
+// 재활성 시 실백엔드로 배선하거나 페이지 영구 제거 시 함께 삭제.
+// 관심 어르신(Focus Resident) fixture 서비스.
 import { db } from "./db";
 import { delay, uid } from "@/lib/utils";
 import type {

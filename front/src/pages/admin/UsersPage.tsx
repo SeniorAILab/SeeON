@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/primitives";
-import { adminService } from "@/services/adminService";
 import { useAuthStore } from "@/store/authStore";
 import { roleLabel } from "@/lib/roles";
 import type { Role, User } from "@/types";
@@ -14,17 +12,11 @@ const roleChip: Record<Role, string> = {
 
 export function UsersPage() {
   const me = useAuthStore((s) => s.user);
-  const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    // SUPER_ADMIN 은 전체, 그 외엔 자기 시설만
-    const scope = me?.role === "SUPER_ADMIN" ? null : me?.facilityId ?? null;
-    adminService.listUsers(scope).then(setUsers);
-  }, [me]);
+  const users: User[] = me ? [me] : [];
 
   return (
     <div className="max-w-3xl space-y-5">
-      <PageHeader title="사용자" description="시설 계정과 권한을 확인합니다." />
+      <PageHeader title="사용자" description="현재 로그인한 계정 정보를 확인합니다." />
       <Card className="overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-gray-50 text-left text-xs text-gray-400">
@@ -57,7 +49,7 @@ export function UsersPage() {
         </table>
       </Card>
       <p className="text-xs text-gray-400">
-        MVP 데모에서는 사용자 조회만 제공합니다. 계정 생성/권한 변경은 후속 버전에서 추가됩니다.
+        사용자 목록 조회 API가 없어 현재 세션 사용자만 표시합니다. 계정 생성/권한 변경은 백엔드 지원 후 제공됩니다.
       </p>
     </div>
   );
