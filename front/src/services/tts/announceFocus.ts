@@ -1,6 +1,5 @@
-// 관심 어르신 음성 안내 (야간/위험 상승 시 또는 직원 요청 시 1회 재생)
-// 짧고 명확하게. 사전 생성 mp3 가 없으면 브라우저 음성으로 재생된다.
-import { playTTS, cancelTTS } from "./playTTS";
+// 보존 파일: 직원 모니터의 TTS 트리거는 FloorMonitorPage/useTTSAlerts 단일 경로만 사용한다.
+// announceFocus 호출부는 제거되었으며, 이 파일은 과거 import 호환 확인용으로만 남긴다.
 
 export interface FocusAnnounceItem {
   name: string;
@@ -8,16 +7,6 @@ export interface FocusAnnounceItem {
   reason: string;
 }
 
-export async function announceFocusResidents(items: FocusAnnounceItem[]) {
-  cancelTTS();
-  if (items.length === 0) return;
-  const lines = [`오늘 집중 관찰 대상은 ${items.length}분입니다.`];
-  for (const it of items.slice(0, 3)) {
-    lines.push(`${it.room} ${it.name} 어르신을 더 자주 확인해주세요.`);
-  }
-  // 순차 재생
-  for (const line of lines) {
-     
-    await playTTS(line);
-  }
+export async function announceFocusResidents(_items: FocusAnnounceItem[]) {
+  return;
 }
