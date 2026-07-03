@@ -1,43 +1,34 @@
 # Dashboard API
 
-The dashboard API is the authenticated backend read-model and admin CRUD surface consumed by the Vite + React frontend. All product `/api/v1/*` dashboard routes use camelCase JSON responses that match the frontend type mirror and are facility-scoped unless noted.
+The dashboard API is the authenticated backend read-model and admin CRUD surface consumed by the Vite + React frontend. Product `/api/v1/*` dashboard routes use camelCase JSON responses and are facility-scoped unless noted.
 
 ## Auth and onboarding flow
 
-1. The browser authenticates through either `POST /api/v1/auth/login` with email/password or `GET /api/v1/auth/kakao/login`.
-2. For email/password, the backend validates the password hash and sets the same session cookie used by OAuth.
-3. For Kakao, the backend sets the OAuth state cookie, redirects to Kakao with the env-driven scope from ADR (default `talk_message`), then receives `GET /api/v1/auth/kakao/callback?code=...&state=...`.
-4. Backend validates state, exchanges the code, stores/updates Kakao identity, sets the session cookie, then redirects:
-   - `/dashboard` for `SUPER_ADMIN`.
-   - `/dashboard/facilities/:facilityId/admin` for `ADMIN` users who already have a facility.
-   - `/dashboard/facilities/:facilityId/staff` for `STAFF` users who already have a facility.
-   - `/onboarding` when a facility-bound user needs to create one.
-5. Frontend/server rendering reads `GET /api/v1/auth/session` for the current user.
-6. Onboarding creates the facility through `POST /api/v1/facilities`.
-7. Super-admin facility selection uses `GET /api/v1/facilities`. After a facility route is selected, the frontend sends `X-Facility-Id: <facilityId>` on tenant-scoped requests; this request-scoped selector is accepted only for `SUPER_ADMIN`.
-8. Dashboard uses `/api/v1/facilities/current`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/status`, `/api/v1/cameras`, `/api/v1/guardians`, snapshots, and `/api/v1/dashboard/stream`.
+1. The browser authenticates through `POST /api/v1/auth/login` or `GET /api/v1/auth/kakao/login`.
+2. Email/password login verifies the scrypt password hash and sets the httpOnly `app_session` cookie.
+3. Kakao login sets an OAuth state cookie, completes `GET /api/v1/auth/kakao/callback?code=...&state=...`, links an existing local account, sets the same JWT cookie, and redirects by role/facility state.
+4. Frontend bootstrap reads `GET /api/v1/auth/me` with `credentials: "include"`.
+5. Onboarding creates the initial facility through `POST /api/v1/facilities` and rotates the cookie with the facility-bearing user claims.
+6. `SUPER_ADMIN` facility selection uses `GET /api/v1/facilities`; tenant-scoped requests then send `X-Facility-Id: <facilityId>`. Facility-bound users cannot switch tenant with this header.
+7. Dashboard uses `/api/v1/facilities`, `/api/v1/facilities/:id`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/events`, `/api/v1/cameras`, `/api/v1/guardians`, alert snapshots, and `/api/v1/dashboard/stream`.
 
-`POST /api/v1/auth/logout` revokes the session and clears the session cookie.
+`POST /api/v1/auth/logout` increments `sessionVersion`, clears the cookie, and returns `204`.
 
 ## Alerts read-model
 
 ### `GET /api/v1/alerts`
 
-Query parameters:
+Query parameters: `limit?`, `beforeSeq?`, `residentId?`, `status?`, and `afterSeq?`.
 
-- `limit?` — max rows to return.
-- `beforeSeq?` — page backward before a bigint alert sequence.
-- Current service also supports `residentId?`, `status?`, and `afterSeq?`; these remain allowed unless a later docs/api change removes them.
-
-Response: list of facility-scoped alerts. Alert SSE and pagination identity is `alertSeq` serialized as a string when crossing JSON/SSE boundaries.
+Response: facility-scoped alerts ordered by alert sequence. Alert SSE and pagination identity is `alertSeq` serialized as a string when crossing JSON/SSE boundaries.
 
 ### `GET /api/v1/alerts/:id`
 
 Returns one facility-scoped alert detail by alert id.
 
-### `PATCH /api/v1/alerts/:id/ack`
+### `PATCH /api/v1/alerts/:id/resolve`
 
-Acknowledges one facility-scoped alert. No request body. Response is the updated alert as returned by `AlertsService.ack`.
+Resolves one facility-scoped alert in a single step. The backend records `resolvedById` and `resolvedAt`, returns the updated alert, and emits `event: alert-updated`.
 
 ## Snapshot API
 
@@ -46,52 +37,20 @@ Snapshot paths are nested under the alert:
 - `GET /api/v1/alerts/:alertId/snapshot`
 - `PUT /api/v1/alerts/:alertId/snapshot`
 
-### `PUT /api/v1/alerts/:alertId/snapshot`
+`PUT` accepts raw snapshot bytes up to 2 MiB with `image/jpeg`, `image/png`, `application/octet-stream`, or `multipart/form-data`. The backend checks alert ownership, stores bytes under a server-derived key beneath `SNAPSHOT_DIR`, records `snapshotKey`, and never fetches edge-provided URLs.
 
-Request body: raw snapshot bytes, max 2 MiB.
-
-Supported content-types from current controller:
-
-- `image/jpeg` → `.jpg`
-- `image/png` → `.png`
-- `application/octet-stream` → `.bin`
-- `multipart/form-data` → `.bin`
-
-The backend checks that the alert belongs to the caller facility, stores bytes under a server-derived key beneath `SNAPSHOT_DIR`, and records `snapshotKey` on the alert. It never fetches edge-provided URLs.
-
-Response:
-
-```json
-{ "snapshotKey": "facility_id/alert_id.jpg" }
-```
-
-### `GET /api/v1/alerts/:alertId/snapshot`
-
-The backend checks alert ownership and streams the stored file. Response headers include private cache semantics. Missing snapshot or path escape is a facility-scoped not-found.
-
-## Resident status
-
-### `GET /api/v1/status`
-
-Returns current resident status rows for the caller facility. This is the dashboard's reload/read-model source for state such as fall/warning/normal and camera online state.
-
-### `GET /api/v1/status/:residentId`
-
-Returns current status for one facility-scoped resident.
+`GET` checks alert ownership and streams the stored file with private cache headers. Missing snapshot or path escape is a facility-scoped not-found.
 
 ## CRUD resources
 
-These routes are current. Product resource routes are facility-scoped via `SessionGuard`, `RequireFacilityGuard`, and, where controllers attach it, `FacilityContextInterceptor`.
-
-For facility-less `SUPER_ADMIN`, tenant resource routes require the selected facility in `X-Facility-Id`. Facility-bound `ADMIN`/`STAFF` accounts always use their session facility; a conflicting header cannot switch them to another tenant.
+These routes are current. Product resource routes use `JwtAuthGuard`; tenant-scoped routes also use `RequireFacilityGuard`, and most tenant-resource controllers attach `FacilityContextInterceptor`. Admin mutations use `RolesGuard` plus `@RequireCapability('facilityAdmin')`.
 
 ### Facility
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/api/v1/facilities` | none | role-aware facility selector list: `SUPER_ADMIN` receives all facilities; facility-bound users receive only their own facility |
-| GET | `/api/v1/facilities/current` | none | current facility |
-| PATCH | `/api/v1/facilities/current` | partial `{ name?: string, address?: string or null, phone?: string or null }` (`code` is immutable — ignored if sent) | updated facility |
+| GET | `/api/v1/facilities` | none | role-aware selector list: `SUPER_ADMIN` receives all facilities; facility-bound users receive only their own facility |
+| GET | `/api/v1/facilities/:id` | none | the requested facility when it matches the effective facility scope; another facility returns `404` |
 
 ### Floors
 
@@ -108,8 +67,8 @@ For facility-less `SUPER_ADMIN`, tenant resource routes require the selected fac
 |---|---|---|---|
 | GET | `/api/v1/spaces?floorId=&type=&isActive=` | none | space list, optionally filtered |
 | GET | `/api/v1/spaces/:spaceId` | none | one space |
-| POST | `/api/v1/spaces` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | created space; camera placement uses `Camera.spaceId` |
-| PATCH | `/api/v1/spaces/:spaceId` | partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | updated space; camera placement uses camera APIs |
+| POST | `/api/v1/spaces` | `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | created space |
+| PATCH | `/api/v1/spaces/:spaceId` | partial `{ floorId?: string, name?: string, type?: SpaceType, capacity?: number, isActive?: boolean, assignedStaff?: string or null }` | updated space |
 | DELETE | `/api/v1/spaces/:spaceId` | none | soft-deleted space body (`200`) |
 
 ### Zones
@@ -117,8 +76,8 @@ For facility-less `SUPER_ADMIN`, tenant resource routes require the selected fac
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/v1/spaces/:spaceId/zones?type=` | none | zone list for the space, optionally filtered by type |
-| POST | `/api/v1/spaces/:spaceId/zones` | `{ name?: string, type?: ZoneType, orderIndex?: number }` | created zone (spaceId from path) |
-| PATCH | `/api/v1/spaces/:spaceId/zones/:zoneId` | partial `{ name?: string, type?: ZoneType, orderIndex?: number }` | updated zone (stays in path space) |
+| POST | `/api/v1/spaces/:spaceId/zones` | `{ name?: string, type?: ZoneType, orderIndex?: number }` | created zone |
+| PATCH | `/api/v1/spaces/:spaceId/zones/:zoneId` | partial `{ name?: string, type?: ZoneType, orderIndex?: number }` | updated zone |
 | DELETE | `/api/v1/spaces/:spaceId/zones/:zoneId` | none | `204` empty |
 
 ### Residents and assignments
@@ -135,8 +94,6 @@ Resident create is also the initial placement action: `spaceId` is required. Res
 | GET | `/api/v1/residents/:id/assignment` | none | current assignment |
 | PUT | `/api/v1/residents/:id/assignment` | `{ spaceId: string, zoneId?: string or null }` | new active assignment for moved resident |
 | GET | `/api/v1/residents/assignments?residentId=&spaceId=&zoneId=&active=` | none | read-only assignment list |
-
-Assignment responses use `{ id, facilityId, residentId, spaceId, zoneId, active, startedAt, endedAt }`.
 
 ### Cameras
 
@@ -158,28 +115,25 @@ Assignment responses use `{ id, facilityId, residentId, spaceId, zoneId, active,
 | PATCH | `/api/v1/guardians/:id` | partial `{ name?: string, phone?: string, relation?: string }` | updated guardian |
 | DELETE | `/api/v1/guardians/:id` | none | delete result |
 
-## Deferred 501 skeletons
+## Events and stream
 
-These guarded product routes exist in controllers but intentionally return `501` until their read models or policy surfaces land:
-
-| Method | Path | Response |
-|---|---|---|
-| GET | `/api/v1/space-statuses` | `{ error: "not_implemented", message: "space-statuses is not implemented yet" }` |
-| GET | `/api/v1/resident-risk-summaries` | `{ error: "not_implemented", message: "resident-risk-summaries is not implemented yet" }` |
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/api/v1/events` | none | authenticated facility event history |
+| POST | `/api/v1/events` | `{ camera_id: string, type: string, detected_at: string, confidence?: number }` | `{ id, status: "created" | "duplicate" }` |
+| POST | `/api/v1/events/heartbeat` | `{ camera_id: string }` | `{ ok: true }` |
+| GET | `/api/v1/dashboard/stream` | `Last-Event-ID?` header | SSE stream with named `alert` and `alert-updated` frames |
 
 ## Facility creation
 
 ### `POST /api/v1/facilities`
 
-Current onboarding route. It uses `SessionGuard` but does not require an existing facility.
+Current onboarding route. It uses `JwtAuthGuard`, `RolesGuard`, and `@RequireCapability('facilityAdmin')`, but does not require an existing facility.
 
 Request:
 
 ```json
-{
-  "facilityName": "Happy Care Home",
-  "businessRegistrationNumber": "optional"
-}
+{ "facilityName": "Happy Care Home" }
 ```
 
 Response:
@@ -188,4 +142,4 @@ Response:
 { "user": { "id": "...", "facilityId": "..." } }
 ```
 
-The backend creates the facility for the authenticated user and rotates the session cookie so subsequent facility-protected dashboard routes pass `RequireFacilityGuard`.
+The backend creates the facility for the authenticated user and rotates the JWT cookie so subsequent facility-protected dashboard routes pass `RequireFacilityGuard`.

@@ -4,7 +4,7 @@ Kakao delivery is backend-owned outbox/delivery state, not a separate alert ingr
 
 ## Ownership
 
-- `/api/v1/events` creates the Event SSOT; backend alert policy derives dashboard alerts and delivery outbox rows from eligible events.
+- `/api/v1/events` creates the Event SSOT and the current source derives dashboard `Alert` rows only; Event API ingest does not create delivery outbox rows.
 - `AlertEvent` records the durable delivery-domain event keyed by `(sourceId, externalEventId)`.
 - `DeliveryAttempt` records per-channel, per-recipient delivery state.
 - `DeliveryChannel.KAKAO_SEND_TO_ME` is the current Kakao channel.
@@ -12,7 +12,7 @@ Kakao delivery is backend-owned outbox/delivery state, not a separate alert ingr
 
 ## Outbox creation
 
-For ingest-created alerts, `ensureOutboxForIngest` builds an `AlertEventRequestDto`:
+`ensureOutboxForIngest` is delivery infrastructure documentation, not a current `EventAlarmService` ingest side effect. When a future or repair path explicitly invokes it, it builds an `AlertEventRequestDto`:
 
 ```json
 {
