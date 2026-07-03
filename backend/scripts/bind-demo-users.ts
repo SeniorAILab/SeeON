@@ -91,7 +91,10 @@ function buildWhere(
     clauses.push({ kakaoId: { in: [...options.kakaoIds] } });
   }
   if (options.emails.length > 0) {
-    clauses.push({ email: { in: [...options.emails] }, kakaoId: { not: null } });
+    clauses.push({
+      email: { in: [...options.emails] },
+      kakaoId: { not: null },
+    });
   }
   return { OR: clauses };
 }
@@ -109,7 +112,9 @@ function assertAllTargetsFound(
   const missingKakaoIds = options.kakaoIds.filter(
     (kakaoId) => !foundKakaoIds.has(kakaoId),
   );
-  const missingEmails = options.emails.filter((email) => !foundEmails.has(email));
+  const missingEmails = options.emails.filter(
+    (email) => !foundEmails.has(email),
+  );
 
   if (missingKakaoIds.length > 0 || missingEmails.length > 0) {
     throw new CliInputError(
@@ -128,7 +133,9 @@ function assertAllTargetsFound(
   }
 }
 
-function uniqueUsers(users: readonly (FoundUser & { readonly kakaoId: string })[]) {
+function uniqueUsers(
+  users: readonly (FoundUser & { readonly kakaoId: string })[],
+) {
   const byId = new Map<string, FoundUser & { readonly kakaoId: string }>();
   for (const user of users) {
     byId.set(user.id, user);
@@ -140,7 +147,11 @@ export async function bindDemoUsers(
   prisma: BindPrisma,
   options: BindOptions,
   facilityId = DEMO_FACILITY_ID,
-): Promise<{ readonly boundCount: number; readonly changes: readonly BindChange[]; readonly dryRun: boolean }> {
+): Promise<{
+  readonly boundCount: number;
+  readonly changes: readonly BindChange[];
+  readonly dryRun: boolean;
+}> {
   if (options.kakaoIds.length === 0 && options.emails.length === 0) {
     throw new CliInputError(
       'Set SEED_BIND_DEMO_USERS=true with SEED_BIND_KAKAO_EMAIL or SEED_BIND_KAKAO_ID to bind Kakao demo users during prisma:seed.',
@@ -200,4 +211,3 @@ export async function bindDemoUsers(
 
   return { boundCount: targetUsers.length, changes, dryRun: options.dryRun };
 }
-
