@@ -10,8 +10,8 @@ describe('bind demo users script helpers', () => {
       parseBindArgs(
         ['--dry-run', '--email', ' rhqjatn310@kakao ', ' kakao-1 ', 'kakao-1'],
         {
-          DEMO_SUPER_ADMIN_KAKAO_ID: 'ignored',
-          DEMO_SUPER_ADMIN_KAKAO_EMAIL: 'ignored@example.com',
+          SEED_BIND_KAKAO_ID: 'ignored',
+          SEED_BIND_KAKAO_EMAIL: 'ignored@example.com',
         },
       ),
     ).toEqual({
@@ -22,8 +22,8 @@ describe('bind demo users script helpers', () => {
 
     expect(
       parseBindArgs([], {
-        DEMO_SUPER_ADMIN_KAKAO_ID: 'kakao-2,kakao-2',
-        DEMO_SUPER_ADMIN_KAKAO_EMAIL: 'rhqjatn310@kakao',
+        SEED_BIND_KAKAO_ID: 'kakao-2,kakao-2',
+        SEED_BIND_KAKAO_EMAIL: 'rhqjatn310@kakao',
       }),
     ).toEqual({
       dryRun: false,
@@ -31,7 +31,7 @@ describe('bind demo users script helpers', () => {
       kakaoIds: ['kakao-2'],
     });
 
-    expect(parseKakaoIds([], { DEMO_KAKAO_IDS: 'a, b,,a' })).toEqual([
+    expect(parseKakaoIds([], { SEED_BIND_KAKAO_IDS: 'a, b,,a' })).toEqual([
       'a',
       'b',
     ]);
