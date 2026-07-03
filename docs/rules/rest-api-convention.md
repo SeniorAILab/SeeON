@@ -5,7 +5,7 @@ This repo keeps product HTTP routes under `/api/v1/*`. Do not add another produc
 ## Namespaces
 
 - `/api/v1/*` is the product API used by the dashboard and other authenticated product clients.
-  - Current examples: `POST /api/v1/auth/login`, `GET /api/v1/auth/kakao/login`, `GET /api/v1/auth/session`, `GET /api/v1/alerts`, `PATCH /api/v1/alerts/:id/ack`, `GET /api/v1/cameras`, `GET /api/v1/residents`, `GET /api/v1/guardians`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/v1/facilities/current`, `POST /api/v1/facilities`, and the placement resources `GET/POST/PATCH/DELETE /api/v1/floors`, `/api/v1/spaces`, and `/api/v1/spaces/:spaceId/zones`.
+  - Current examples: `POST /api/v1/auth/login`, `GET /api/v1/auth/kakao/login`, `GET /api/v1/auth/me`, `GET /api/v1/alerts`, `PATCH /api/v1/alerts/:id/ack`, `GET /api/v1/cameras`, `GET /api/v1/dashboard/stream`, `GET`/`PATCH /api/v1/facilities/current`, `POST /api/v1/facilities`, and the placement resources `GET`/`POST`/`PATCH`/`DELETE /api/v1/floors`, `/api/v1/spaces`, and `/api/v1/spaces/:spaceId/zones`.
   - Product `/api/v1/*` responses are **camelCase** (matching `front/src/types/index.ts`), emitted via response DTO/presenter mappers — never raw Prisma models. snake_case JSON is used only for source-oriented Event API inputs, ML prediction inputs, and alert outbox DTOs — see `docs/rules/dto-convention.md`.
 - ML Event API ingress is under `/api/v1/events` and is no-HMAC.
   - Current canonical routes: `POST /api/v1/events` and `POST /api/v1/events/heartbeat` in `backend/src/events/events.controller.ts`.
@@ -13,10 +13,9 @@ This repo keeps product HTTP routes under `/api/v1/*`. Do not add another produc
 ## Path shape
 
 - No dotted path segments. `/api.alerts/events` is banned; it came from the legacy pilot controller and must not be reintroduced.
-- Use plural nouns for collections: `/api/v1/alerts`, `/api/v1/residents`, `/api/v1/cameras`, `/api/v1/guardians`, `/api/v1/facilities`, `/api/v1/floors`, `/api/v1/spaces`.
+- Use plural nouns for collections: `/api/v1/alerts`, `/api/v1/cameras`, `/api/v1/facilities`, `/api/v1/floors`, `/api/v1/spaces`.
 - Use nested singleton sub-resources when the resource exists only in the context of a parent.
   - Snapshot canonical path: `/api/v1/alerts/:id/snapshot`.
-  - Resident placement sub-resource: `GET`/`PUT /api/v1/residents/:id/assignment` (the resident's current placement); the cross-resident read-only list is `GET /api/v1/residents/assignments` (resident-namespaced, ADR).
   - Zones exist only inside a space: `GET`/`POST`/`PATCH`/`DELETE /api/v1/spaces/:spaceId/zones[/:zoneId]` (weak entity nested under its space, ADR).
   - Facility singleton: `GET`/`PATCH /api/v1/facilities/current` (the session's facility; never addressed by id from the client).
   - Do not add new top-level snapshot paths such as `/api/v1/snapshots/:alertId`.
@@ -53,6 +52,6 @@ Concrete refactor history:
 - Legacy `POST /api/orgs` is renamed to `POST /api/v1/facilities` (organizations→facilities tenant rename, #284); `/orgs` (no `/api` prefix) is removed.
 - Legacy `/api/snapshots/:alertId` is removed; use `GET`/`PUT /api/v1/alerts/:alertId/snapshot`.
 - `/api.alerts/events` is removed, not renamed; live ML ingress is the Event API.
-- Legacy `GET /api/resident-assignments` becomes `GET /api/v1/residents/assignments` (assignments folded into the residents aggregate, ADR).
+- Resident/guardian CRUD and resident assignment routes are removed from v1 room-centric backend. Reintroducing them is a v2 schema/API addition, not a route alias.
 - Legacy `/api/zones[/:zoneId]` becomes `/api/v1/spaces/:spaceId/zones[/:zoneId]` (zones nested under their owning space, ADR).
 - `/auth/*` moves to `/api/v1/auth/*`; no unversioned compatibility alias is retained.

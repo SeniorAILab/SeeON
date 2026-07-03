@@ -59,7 +59,7 @@ Important fields: `id`, `facilityId`, `spaceId`, `name`, `type`, `orderIndex`.
 
 ### Camera
 
-Event-capable edge source. Cameras are identified by `camera_id` in the no-HMAC Event API; backend resolves facility and space from the camera record. Target model assigns each camera to exactly one space through `spaceId`; legacy `Camera.residentId` is unrelated to the room-centric target.
+Event-capable edge source. Cameras are identified by `camera_id` in the no-HMAC Event API; backend resolves facility and space from the camera record. Each camera is assigned to exactly one space through `spaceId`.
 
 Important fields: target `id`, `facilityId`, `spaceId`, `label`, `lastSeenAt`, `online`.
 
