@@ -16,7 +16,7 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
 import { realtimeEngine } from "@/mocks/realtimeEngine";
-import type { ConnectionState, DashboardResponse, SpaceStatus } from "@/types";
+import type { ConnectionState, DashboardResponse, DashboardSummary, SpaceStatus } from "@/types";
 
 interface MonitorState {
   dashboard: DashboardResponse | null;
@@ -49,6 +49,37 @@ function closeLiveConnection(): void {
 function deriveMergedStatuses(statuses: Record<string, SpaceStatus>): Record<string, SpaceStatus> {
   if (!activeFacilityId) return statuses;
   return deriveStatusesFromAlerts(statuses, alertsForFacility(alertMergeState, activeFacilityId));
+}
+
+// Keep the header summary tallies in sync with the live per-room statuses so an SSE
+// alert/alert-updated frame updates the "위험 N건" headline/banner without a reload.
+function deriveSummaryFromStatuses(
+  base: DashboardSummary,
+  statuses: Record<string, SpaceStatus>,
+): DashboardSummary {
+  let danger = 0;
+  let caution = 0;
+  let checkNeeded = 0;
+  for (const s of Object.values(statuses)) {
+    if (s.status === "DANGER") danger += 1;
+    else if (s.status === "CAUTION") caution += 1;
+    else if (s.status === "CHECK_NEEDED") checkNeeded += 1;
+  }
+  return {
+    ...base,
+    danger,
+    caution,
+    checkNeeded,
+    stable: Math.max(0, base.totalSpaces - danger - caution - checkNeeded),
+  };
+}
+
+function dashboardWithStatuses(
+  dashboard: DashboardResponse | null,
+  statuses: Record<string, SpaceStatus>,
+): DashboardResponse | null {
+  if (!dashboard) return dashboard;
+  return { ...dashboard, statuses, summary: deriveSummaryFromStatuses(dashboard.summary, statuses) };
 }
 
 async function reconcileSnapshot(facilityId: string): Promise<void> {
@@ -97,7 +128,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       await reconcileSnapshot(facilityId);
       const statuses = deriveMergedStatuses(dashboard.statuses);
       set({
-        dashboard: { ...dashboard, statuses },
+        dashboard: dashboardWithStatuses(dashboard, statuses),
         loading: false,
         statuses,
         connection: "NORMAL",
@@ -110,7 +141,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
           set((state) => {
             const statuses = deriveMergedStatuses(state.statuses);
             return {
-              dashboard: state.dashboard ? { ...state.dashboard, statuses } : state.dashboard,
+              dashboard: dashboardWithStatuses(state.dashboard, statuses),
               statuses,
               connection: "NORMAL",
               lastUpdateAt: new Date().toISOString(),
@@ -128,7 +159,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       set((state) => {
         const statuses = deriveMergedStatuses(state.statuses);
         return {
-          dashboard: state.dashboard ? { ...state.dashboard, statuses } : state.dashboard,
+          dashboard: dashboardWithStatuses(state.dashboard, statuses),
           statuses,
           connection: "NORMAL",
           lastUpdateAt: alert.detectedAt,
@@ -142,7 +173,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       set((state) => {
         const statuses = deriveMergedStatuses(state.statuses);
         return {
-          dashboard: state.dashboard ? { ...state.dashboard, statuses } : state.dashboard,
+          dashboard: dashboardWithStatuses(state.dashboard, statuses),
           statuses,
           connection: "NORMAL",
           lastUpdateAt: update.resolvedAt ?? new Date().toISOString(),
@@ -156,7 +187,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
           set((state) => {
             const statuses = deriveMergedStatuses(state.statuses);
             return {
-              dashboard: state.dashboard ? { ...state.dashboard, statuses } : state.dashboard,
+              dashboard: dashboardWithStatuses(state.dashboard, statuses),
               statuses,
               connection: "NORMAL",
               lastUpdateAt: new Date().toISOString(),
@@ -188,7 +219,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     await reconcileSnapshot(facilityId);
     const statuses = deriveMergedStatuses(dashboard.statuses);
     useMonitorStore.setState({
-      dashboard: { ...dashboard, statuses },
+      dashboard: dashboardWithStatuses(dashboard, statuses),
       statuses,
       loading: false,
       connection: "NORMAL",
@@ -221,7 +252,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     set((state) => {
       const statuses = deriveMergedStatuses(state.statuses);
       return {
-        dashboard: state.dashboard ? { ...state.dashboard, statuses } : state.dashboard,
+        dashboard: dashboardWithStatuses(state.dashboard, statuses),
         statuses,
         lastUpdateAt: resolved.acknowledgedAt ?? resolved.detectedAt,
       };

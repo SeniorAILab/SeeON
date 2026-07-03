@@ -273,6 +273,26 @@ describe("monitorStore live alert merge", () => {
 
     useMonitorStore.getState().stop();
   });
+  it("recomputes the summary danger tally live from an SSE alert without a reload", async () => {
+    const sendMessage = stubEventSource();
+    vi.stubGlobal("fetch", dashboardFetch());
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(useMonitorStore.getState().dashboard?.summary.danger).toBe(0);
+
+    sendMessage(alertDto);
+
+    expect(useMonitorStore.getState().statuses.sp_201.status).toBe("DANGER");
+    expect(useMonitorStore.getState().dashboard?.summary.danger).toBe(1);
+
+    useMonitorStore.getState().stop();
+  });
+
 });
 describe("monitorStore resolve", () => {
   beforeEach(() => {
