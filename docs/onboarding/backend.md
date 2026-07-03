@@ -128,7 +128,7 @@ RTSP camera
 
 Dashboard는 `GET /api/v1/dashboard/stream`로 two-frame alert stream을 받는다. `DashboardStreamController`는 `JwtAuthGuard`와 `RequireFacilityGuard`를 사용하고, `Last-Event-ID`를 `bigint alertSeq` cursor로 해석해 `AlertsService.replay(facilityId, lastSeq)`로 backlog를 먼저 흘린다. live 준비가 끝나면 `AlertWriterService.subscribe()`와 `subscribeUpdates()`에서 오는 `event: alert` / `event: alert-updated` frames를 emit한다. stream 중에도 `AuthService.isSessionVersionCurrent()`로 session re-auth tick을 돌려 invalid session이면 `event: session-invalid` 후 종료한다.
 
-SSE frame shape, replay, and session invalid semantics는 wire contract 문서인 `../api/realtime-events.md`가 정본이고, 여기서는 backend 내부 연결만 설명한다.
+SSE frame shape, replay, and session invalid semantics는 `backend/src/dashboard/sse.controller.ts`, contract tests, and `../rules/realtime-sse-convention.md`가 정본이고, 여기서는 backend 내부 연결만 설명한다.
 
 ## References
 
@@ -137,13 +137,11 @@ SSE frame shape, replay, and session invalid semantics는 wire contract 문서�
 - [Edge device 아키텍처](./edge-device.md)
 - [Alert pipeline domain](../domain/alert-pipeline.md)
 - [Data model domain](../domain/data-model.md)
-- [Edge ingest API](../api/edge-ingest-api.md)
-- [Dashboard API](../api/dashboard-api.md)
-- [Realtime events API](../api/realtime-events.md)
-- [Kakao delivery API](../api/kakao-delivery-api.md)
-- [Backend layering rule](../rules/backend-layering.md)
 - [REST API convention](../rules/rest-api-convention.md)
+- [Realtime SSE convention](../rules/realtime-sse-convention.md)
 - [DTO convention](../rules/dto-convention.md)
+- [Wire contract SSOT decision](../decisions/common/adr-wire-contract-ssot-code-openapi.md)
+- [Backend layering rule](../rules/backend-layering.md)
 - [Backend architecture lint & guard](../rules/backend-architecture-lint-and-guard.md)
 - ADR
 - ADR

@@ -158,7 +158,7 @@ worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`�
 | `event_type` `fall`/`bed-exit`만 통과 | 그 외 event type은 무시 |
 | `probability` 또는 `confidence` | 0.0~1.0으로 clamp |
 | `detected_at` | event 값이 없으면 UTC timestamp 생성 |
-| camera identity | worker config의 `camera_id`, `facility_id`, optional `resident_id` 사용 |
+| camera identity | worker config의 `camera_id`, `facility_id` 사용 |
 | evidence | 원본 event dict 전체를 `evidence`에 포함 |
 
 여기서 `_RelayClient`가 `/api/v1/relay/alerts`로 HTTP POST를 시작하면 worker 내부 streaming 문서의 범위는 끝난다. token 검증, `API_CAMERA_INVENTORY` binding, backend `POST /api/v1/events`/`POST /api/v1/events/heartbeat` 호출은 `./edge-device.md`의 `ml-api` 책임이다.
@@ -167,8 +167,8 @@ worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`�
 
 - [../architecture.md](../architecture.md)
 - [./edge-device.md](./edge-device.md)
-- [../api/ml-serving-api.md](../api/ml-serving-api.md)
-- [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
+- [../rules/rest-api-convention.md](../rules/rest-api-convention.md)
+- [../domain/alert-pipeline.md](../domain/alert-pipeline.md)
 - ADR
 - ADR
 - ADR

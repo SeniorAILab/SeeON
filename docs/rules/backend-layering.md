@@ -42,7 +42,7 @@ Services own use-case orchestration:
 Examples:
 
 - Event services own `POST /api/v1/events` orchestration: camera resolution, tenant coherence, idempotency, Event persistence, and downstream alert/outbox creation.
-- `backend/src/alerts/alert-writer.service.ts` owns serialized alert writes, `ResidentStatus` updates, and post-commit SSE emission order.
+- `backend/src/alerts/alert-writer.service.ts` owns serialized alert writes and post-commit room-centric SSE alert/lifecycle emission order.
 - `backend/src/alerts/services/alert-events.service.ts` owns retained alert-event orchestration for the repository/ports/adapters contract: duplicate detection, alert policy evaluation, outbox creation, Kakao recipient fan-out, and delivery result recording.
 - `backend/src/alerts/services/alert-policy.service.ts` owns alert dispatch/suppression policy.
 
@@ -76,7 +76,7 @@ Presenter-mappers own entity-to-response and stream-frame formatting:
 - BigInt and Date serialization.
 - SSE frame shape, event name, `id`, and JSON payload.
 
-Current examples are helper functions in `backend/src/dashboard/sse.controller.ts`: `formatAlertEvent`, `formatStatusEvent`, and `formatSseEvent`. They define the dashboard stream contract and should remain presentation-only. REST endpoints such as `backend/src/alerts/alerts.controller.ts` should use response DTO/presenter helpers instead of returning raw Prisma query results.
+Current examples are helper functions in `backend/src/dashboard/sse.controller.ts`: `formatAlertEvent`, `formatAlertUpdateEvent`, and `formatSseEvent`. They define the dashboard stream contract and should remain presentation-only. REST endpoints such as `backend/src/alerts/alerts.controller.ts` should use response DTO/presenter helpers instead of returning raw Prisma query results.
 
 ## Retired contracts are removed deliberately
 

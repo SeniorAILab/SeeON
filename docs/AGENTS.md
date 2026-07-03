@@ -2,7 +2,7 @@
 
 ## Overview
 `docs/**` is the canonical knowledge surface. It separates facts found,
-decisions made, work plans, standing rules, and API/domain notes.
+decisions made, work plans, standing rules, domain notes, and wire-contract rules.
 
 ## Where to look
 
@@ -10,7 +10,7 @@ decisions made, work plans, standing rules, and API/domain notes.
 | --- | --- | --- |
 | Architecture map | `architecture.md`, `onboarding/` | System-level overview plus deep-dive onboarding set for edge/frontend/backend flows. |
 | Tooling notes | `Tools.md` | MCP and operator tooling notes. |
-| API contracts | `api/` | Backend, ML serving, Kakao, realtime, route inventory. |
+| Wire contracts | code + `/api/docs`, `rules/rest-api-convention.md`, `rules/realtime-sse-convention.md`, `rules/dto-convention.md`, `domain/alert-pipeline.md` | Backend/ML/frontend contract SSOT; no hand-maintained `api/` docs. |
 | Domain model | `domain/` | Alert pipeline and data dictionary. |
 | Work plans | `exec-plan/` | Active/archive lifecycle for specs and plans. |
 | Retired reference | `archive/` | 은퇴 참고문서 보관소 — preserved, non-normative historical docs; distinct from `exec-plan/archive/` work plans. |
