@@ -48,7 +48,7 @@ remain committed history; local reset replays them and does not squash them.
 
 ```text
 HTTP request
-  → SessionGuard / RequireFacilityGuard
+  → JwtAuthGuard / RequireFacilityGuard / RolesGuard capability checks
   → FacilityContextInterceptor
   → Controller     (HTTP boundary, DTO parse, response mapping)
   → Service        (use-case orchestration, policy, state transition)
@@ -65,7 +65,7 @@ HTTP request
 | Service | use-case orchestration, auth 이후 domain state 기반 검증, dedup/idempotency, alert policy, state transition, repository/adapters sequencing을 소유한다. | `backend/src/events/event-alarm.service.ts`, `backend/src/events/event-recorder.service.ts`, `backend/src/alerts/alert-writer.service.ts`, `backend/src/spaces/services/spaces.service.ts` |
 | Repository | Prisma query/update/create/upsert, persistence transaction, DB uniqueness race 처리를 소유한다. HTTP exception/transport/SSE/Kakao 정책은 소유하지 않는다. | `backend/src/spaces/repositories/spaces.repository.ts`, `backend/src/alerts/repositories/alert-events.repository.ts` |
 | Ports/adapters | 외부 시스템 호출과 failure translation을 소유한다. service는 concrete adapter가 아니라 port/token에 의존한다. | `backend/src/alerts/ports/channel.port.ts`, `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts` |
-| Presenter/mapper | entity/domain result를 REST/SSE response로 바꾸고, `BigInt`/`Date`를 JSON-safe 값으로 직렬화한다. | `backend/src/dashboard/sse.controller.ts`의 `formatAlertEvent`, `formatStatusEvent`, `formatSseEvent`; `backend/src/spaces/services/spaces.service.ts`의 `presentSpace` |
+| Presenter/mapper | entity/domain result를 REST/SSE response로 바꾸고, `BigInt`/`Date`를 JSON-safe 값으로 직렬화한다. | `backend/src/dashboard/sse.controller.ts`의 `formatAlertEvent`, `formatAlertUpdateEvent`, `formatSseEvent`; `backend/src/spaces/services/spaces.service.ts`의 `presentSpace` |
 
 `backend/src/spaces/`는 현재 계층 구조를 보기 좋은 예시다. `controllers/spaces.controller.ts`가 guard/interceptor와 HTTP parameter만 다루고, `services/spaces.service.ts`가 validation/use-case와 presenter를 맡으며, `repositories/spaces.repository.ts`가 `PrismaService.withFacilityContext`를 통해 DB 접근을 캡슐화한다.
 
@@ -75,20 +75,20 @@ HTTP request
 
 | Module | 주 책임 |
 | --- | --- |
-| `AuthModule` | Kakao/email auth, signed session cookie, `/api/v1/auth/*`, session validation/rotation/revocation |
-| `ResidentsModule`, `ResidentAssignmentsModule`, `ResidentRiskSummariesModule` | resident profile, placement, risk summary read/write |
+| `AuthModule` | Kakao/email auth, JWT `app_session` cookie, `/api/v1/auth/*`, sessionVersion revocation |
+| `ResidentsModule`, `ResidentAssignmentsModule` | resident profile and placement |
 | `GuardiansModule` | guardian domain |
-| `FacilitiesModule`, `FloorsModule`, `SpacesModule`, `ZonesModule`, `SpaceStatusesModule`, `CamerasModule` | facility topology와 camera ownership/placement |
+| `FacilitiesModule`, `FloorsModule`, `SpacesModule`, `ZonesModule`, `CamerasModule` | facility topology와 camera ownership/placement |
 | `EventsModule` | edge Event API ingress와 Event SSOT 기록 |
-| `AlertsModule` | alert policy, alert persistence, SSE emit source, retained alert-event/outbox/Kakao/ML-serving ports |
-| `DashboardModule`, `StatusModule` | dashboard read-side API와 SSE/status snapshot |
+| `AlertsModule` | alert policy, alert persistence, two-frame SSE emit source, retained alert-event/outbox/Kakao ports |
+| `DashboardModule` | dashboard SSE read-side stream |
 | `PrismaModule` | Prisma client lifecycle, RLS GUC binding, tenant access guard |
 
 `backend/src/main.ts`의 `app.setGlobalPrefix('api', { exclude: ['/'] })`와 URI versioning 때문에 `@Controller({ path: 'alerts', version: '1' })`는 `/api/v1/alerts`가 되고, `AuthController`의 `auth/*` route도 `/api/v1/auth/*`로 노출된다. `/auth/*` compatibility alias는 유지하지 않는다.
 
 ## 요청이 계층을 통과하는 방식
 
-인증된 product route는 대체로 `SessionGuard`와 `RequireFacilityGuard`를 통과한다. `SessionGuard`는 session cookie를 `SessionService.validateToken()`로 검증하고 `req.user`, `req.sessionId`, rotated token 정보를 채운다. `RequireFacilityGuard`는 facility가 있는 세션만 통과시킨다.
+인증된 product route는 `JwtAuthGuard`와, tenant scope가 필요한 경우 `RequireFacilityGuard`를 통과한다. `JwtAuthGuard`는 httpOnly `app_session` JWT를 검증하고 `req.user`에 `{ sub, role, facilityId, sessionVersion }` 기반 identity를 채운다. Admin mutation route는 추가로 `RolesGuard`와 `@RequireCapability('facilityAdmin')`를 붙인다.
 
 그 다음 `FacilityContextInterceptor`가 request identity로 facility context를 잡고 controller가 `requireFacilityId(req)`로 `facilityId`를 service에 넘긴다. 실제 tenant table 접근은 service/repository가 `PrismaService.withFacilityContext(facilityId, tx => ...)`를 호출할 때에만 허용된다. `withFacilityContext`는 interactive transaction을 열고 `SELECT set_config('app.facility_id', facilityId, true)`를 실행해 transaction-local GUC를 묶는다. `TenantContext.runBound()`로 표시된 scope가 없으면 `PrismaService.db`의 `$allOperations` guard가 `Resident`, `Camera`, `Alert`, `Event`, `Floor`, `Space`, `Zone` 등 tenant model 접근을 `MissingTenantContextError`로 막는다.
 
@@ -114,21 +114,21 @@ RTSP camera
                  └─ Event create in withFacilityContext (immutable Event SSOT)
              → AlertPolicyService.evaluateIngress
              → AlertWriterService.writeAlert
-                ├─ Alert create + optional ResidentStatus upsert
-                ├─ commit-ordered SSE emit
+                ├─ Alert create
+                ├─ commit-ordered SSE `event: alert`
                 └─ AlertEventsService.ensureOutboxForIngest → DeliveryAttempt outbox → Kakao channel adapter
-  → dashboard GET /api/v1/dashboard/stream receives alert/status frames
+  → dashboard GET /api/v1/dashboard/stream receives `alert` / `alert-updated` frames
 ```
 
 `EventRecorderService.buildEventDedupKey()`는 `cameraId.trim()|detectedAt.toISOString()|type.trim().toLowerCase()`를 SHA-256으로 해시한다. 새 Event insert가 `(facility_id, dedup_key)` unique conflict를 만나면 기존 Event를 같은 facility context에서 찾아 `{ duplicate: true }`로 반환하고, 새 Event일 때만 immutable Event SSOT row가 만들어진다.
 
-`EventAlarmService`는 기록된 Event를 `AlertPolicyService.evaluateIngress()`에 넘겨 cooldown/hourly cap 정책을 적용한다. dispatch면 `AlertWriterService.writeAlert()`가 `originEventId`와 Event dedup key를 idempotency key로 Alert를 쓴다. `AlertWriterService`는 in-process promise queue로 alert insert를 직렬화해 `alertSeq` 할당, transaction commit, SSE emit 순서를 맞춘다. resident가 있으면 `ResidentStatus`를 upsert하고 `event: status` SSE도 낸다. Kakao fan-out/outbox 계열은 `backend/src/alerts/services/alert-events.service.ts`의 `ensureOutboxForIngest()`, `backend/src/alerts/repositories/alert-events.repository.ts`, `backend/src/alerts/ports/channel.port.ts`, `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts`가 담당하며, `DeliveryAttempt` 상태와 delivery result를 저장한다.
+`EventAlarmService`는 기록된 Event를 `AlertPolicyService.evaluateIngress()`에 넘긴다. 현재 ingress 정책은 ML event type을 trim/lowercase 정규화한 뒤 allowlist에 없으면 4xx로 거절하고, confidence를 재임계처리하거나 cooldown/hourly cap으로 억제하지 않는다. dispatch면 `AlertWriterService.writeAlert()`가 `originEventId`와 Event dedup key를 idempotency key로 Alert를 쓴다. `AlertWriterService`는 in-process promise queue로 alert insert를 직렬화해 `alertSeq` 할당, transaction commit, SSE emit 순서를 맞춘다. Kakao fan-out/outbox 계열은 `backend/src/alerts/services/alert-events.service.ts`의 `ensureOutboxForIngest()`, `backend/src/alerts/repositories/alert-events.repository.ts`, `backend/src/alerts/ports/channel.port.ts`, `backend/src/alerts/adapters/kakao-send-to-me-channel.adapter.ts`가 담당하며, `DeliveryAttempt` 상태와 delivery result를 저장한다.
 
 ## SSE와 read-side 연결
 
-Dashboard는 `GET /api/v1/dashboard/stream`로 alert/status stream을 받는다. `DashboardStreamController`는 `SessionGuard`와 `RequireFacilityGuard`를 사용하고, `Last-Event-ID`를 `bigint alertSeq` cursor로 해석해 `AlertsService.replay(facilityId, lastSeq)`로 backlog를 먼저 흘린다. 이후 `StatusService.listByFacility()`로 `event: status-snapshot`을 보내고, live 준비가 끝나면 `AlertWriterService.subscribe()`와 `subscribeStatus()`에서 오는 alert/status event를 emit한다. stream 중에도 `SessionService.checkActive()`로 session re-auth tick을 돌려 invalid session이면 `event: session-invalid` 후 종료한다.
+Dashboard는 `GET /api/v1/dashboard/stream`로 two-frame alert stream을 받는다. `DashboardStreamController`는 `JwtAuthGuard`와 `RequireFacilityGuard`를 사용하고, `Last-Event-ID`를 `bigint alertSeq` cursor로 해석해 `AlertsService.replay(facilityId, lastSeq)`로 backlog를 먼저 흘린다. live 준비가 끝나면 `AlertWriterService.subscribe()`와 `subscribeUpdates()`에서 오는 `event: alert` / `event: alert-updated` frames를 emit한다. stream 중에도 `AuthService.isSessionVersionCurrent()`로 session re-auth tick을 돌려 invalid session이면 `event: session-invalid` 후 종료한다.
 
-SSE frame shape, replay/status snapshot/session invalid semantics는 wire contract 문서인 `../api/realtime-events.md`가 정본이고, 여기서는 backend 내부 연결만 설명한다.
+SSE frame shape, replay, and session invalid semantics는 wire contract 문서인 `../api/realtime-events.md`가 정본이고, 여기서는 backend 내부 연결만 설명한다.
 
 ## References
 

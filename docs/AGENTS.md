@@ -14,7 +14,7 @@ decisions made, work plans, standing rules, and API/domain notes.
 | Domain model | `domain/` | Alert pipeline and data dictionary. |
 | Work plans | `exec-plan/` | Active/archive lifecycle for specs and plans. |
 | Retired reference | `archive/` | 은퇴 참고문서 보관소 — preserved, non-normative historical docs; distinct from `exec-plan/archive/` work plans. |
-| Decisions | `decisions/README.md` | ADR home after reset; owning detail stays in rules, API, domain, onboarding, or script docs. |
+| Decisions | `decisions/` | ADR home after reset; current backend doctrine is in `decisions/backend/adr-post-mvp-auth-rbac-ml-ingest-seed.md`. |
 | Evidence | `research/` | Findings and source comparisons before decisions. |
 | Standing rules | `rules/` | Ongoing conventions that apply beyond one work item. |
 | Operations | `scripts/`, `research/` | DB backup/restore in `scripts/db-backup.sh`; deploy/bootstrap in `scripts/deploy/`; camera RTSP in `research/`. |
@@ -23,16 +23,15 @@ decisions made, work plans, standing rules, and API/domain notes.
 
 - Keep artifact responsibilities separate:
   - `research/` says what was found.
-  - `decisions/README.md` is the ADR home after reset.
+  - `decisions/` is the ADR home after reset; use `decisions/backend/adr-post-mvp-auth-rbac-ml-ingest-seed.md` for the post-MVP auth/RBAC/ML ingest/seed doctrine.
   - `exec-plan/` says how one work item is implemented.
   - `rules/` says what ongoing convention every future change must follow.
 - Plans live in `exec-plan/active/{slug}/` while work is active and move as a whole folder to `exec-plan/archive/{slug}/` when done, discarded, or superseded.
 - `docs/archive/` stores retired reference documents (preserved but non-normative); keep it distinct from `docs/exec-plan/archive/`, which stores completed or superseded work-plan folders.
 - Plan slug is authoritative from the folder name. Frontmatter `slug` must match it exactly.
-- `ADR-NNN-*.md` files are intentionally retired. Do not add new ones without an explicit ADR decision.
+- Cross-cutting, expensive-to-reverse decisions may be recorded as normal ADR files under `decisions/{backend,frontend,ml,common}/`.
 - Rules are the durable place for ongoing operational constraints. Keep each rule focused on what to do, and keep rationale short.
-- Do not make every remembered choice an ADR entry. Put the current rule where it is used: rules for conventions, API docs for wire contracts, domain docs for semantics, architecture/onboarding for topology and ownership, and the ADR README only as a compact cross-cutting pointer.
-- ADR-level notes should be short: current rule, why it exists, rejected alternatives, and where it is enforced. Leave historical detail in git history.
+- ADR-level notes should be short: current rule, why it exists, rejected alternatives, and where it is enforced. Leave historical detail in git history unless the ADR explicitly records a disposition.
 - Do not hard-wrap prose mid-sentence just to fit a terminal width. Use line breaks for semantic structure: headings, bullets, tables, code blocks, and paragraph breaks.
 - Operational procedures live with their scripts (`scripts/**` headers and `scripts/deploy/AGENTS.md`) and as findings in `research/`, not in a separate runbooks tree.
 - Screenshots are evidence artifacts, not design authority.

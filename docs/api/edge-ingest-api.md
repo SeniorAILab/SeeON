@@ -1,6 +1,6 @@
 # Edge Event API
 
-Backend Event API is the canonical ML-to-backend ingress. It accepts no-HMAC event facts from `ml-api`, resolves facility/space ownership from `camera_id`, and turns events into backend-owned read-model, status, SSE, and delivery state.
+Backend Event API is the canonical ML-to-backend ingress. It accepts no-HMAC event facts from `ml-api`, resolves facility/space ownership from `camera_id`, and turns events into backend-owned `Event` rows plus camera state and alert read-model state.
 
 Production live path: `RTSP -> ml-worker -> ml-api -> backend /api/v1/events` (ADR).
 
@@ -66,7 +66,7 @@ For duplicates:
 
 ### Backend effects
 
-`POST /api/v1/events` persists the immutable `Event` SSOT, then backend policy may derive an `Alert` linked by `Alert.originEventId`. Alert policy, dashboard read models, SSE, delivery outbox creation, and Kakao dispatch remain backend-owned.
+`POST /api/v1/events` persists the immutable `Event` SSOT. `EventAlarmService` then marks cameras offline for `detection_lost`; otherwise it writes an `Alert` linked by `Alert.originEventId`. Current ingest does not create `AlertEvent` outbox rows, `DeliveryAttempt` rows, or Kakao sends.
 
 ## `POST /api/v1/events/heartbeat`
 
