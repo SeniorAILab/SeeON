@@ -88,12 +88,10 @@ describe("authService backend session", () => {
       "fetch",
       vi.fn<typeof fetch>().mockResolvedValue(
         okJsonResponse({
-          user: {
-            id: "user-1",
-            nickname: "원장",
-            role: "ADMIN",
-            facilityId: "facility-1",
-          },
+          id: "user-1",
+          nickname: "원장",
+          role: "ADMIN",
+          facilityId: "facility-1",
         })
       )
     );
