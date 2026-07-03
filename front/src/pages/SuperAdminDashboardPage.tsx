@@ -1,19 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Building2,
-  LayoutDashboard,
-  LogOut,
-  MonitorPlay,
-  Smartphone,
-} from "lucide-react";
+import { Building2, LayoutDashboard, LogOut, MonitorPlay } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
-import {
-  dashboardAdminPath,
-  dashboardStaffPath,
-  monitorHomePath,
-} from "@/lib/routeAccess";
+import { adminPath, dashboardPath } from "@/lib/routeAccess";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
@@ -23,14 +13,14 @@ export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const setFacility = useFacilityStore((s) => s.setFacility);
+  const switchFacility = useFacilityStore((s) => s.switchFacility);
+  const setFacilitiesStore = useFacilityStore((s) => s.setFacilities);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-
     async function loadFacilities() {
       setLoading(true);
       setError(null);
@@ -38,31 +28,31 @@ export function SuperAdminDashboardPage() {
         const nextFacilities = await listFacilities();
         if (!active) return;
         setFacilities(nextFacilities);
+        setFacilitiesStore(nextFacilities);
       } catch (caught) {
         if (!active) return;
-        const message =
-          caught instanceof Error ? caught.message : "시설 목록을 불러오지 못했습니다.";
+        const message = caught instanceof Error ? caught.message : "시설 목록을 불러오지 못했습니다.";
         setError(message);
         setFacilities([]);
+        setFacilitiesStore([]);
       } finally {
         if (active) setLoading(false);
       }
     }
-
     void loadFacilities();
-
     return () => {
       active = false;
     };
-  }, []);
+  }, [setFacilitiesStore]);
 
   async function handleLogout() {
+    switchFacility(null);
     await logout();
     navigate("/login");
   }
 
   function enterFacility(facilityId: string, path: string) {
-    setFacility(facilityId);
+    switchFacility(facilityId);
     navigate(path);
   }
 
@@ -73,7 +63,7 @@ export function SuperAdminDashboardPage() {
           <LogoMark size={36} />
           <div className="shrink-0">
             <h1 className="whitespace-nowrap text-lg font-bold text-ink">Senior AI Lab</h1>
-            <p className="whitespace-nowrap text-xs text-ink-soft">통합 관리자 대시보드</p>
+            <p className="whitespace-nowrap text-xs text-ink-soft">전역 개요</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden text-sm text-ink-soft md:inline">{user?.email}</span>
@@ -92,7 +82,7 @@ export function SuperAdminDashboardPage() {
               <LayoutDashboard className="h-4 w-4" />
               시스템 전체
             </div>
-            <h2 className="mt-1 break-keep text-2xl font-extrabold text-ink">요양원을 선택하세요</h2>
+            <h2 className="mt-1 break-keep text-2xl font-extrabold text-ink">요양원 전역 개요</h2>
           </div>
           <div className="grid w-full grid-cols-3 gap-2 text-center md:w-auto">
             <Metric label="요양원" value={facilities.length} />
@@ -104,7 +94,7 @@ export function SuperAdminDashboardPage() {
         {loading ? (
           <Card className="p-5">
             <div className="text-sm font-semibold text-ink">시설 목록을 불러오는 중...</div>
-            <div className="mt-1 text-sm text-ink-soft">시드된 요양원 정보를 확인하고 있습니다.</div>
+            <div className="mt-1 text-sm text-ink-soft">등록된 요양원 정보를 확인하고 있습니다.</div>
           </Card>
         ) : error ? (
           <Card className="border-status-danger bg-status-dangerBg p-5">
@@ -114,12 +104,11 @@ export function SuperAdminDashboardPage() {
         ) : facilities.length === 0 ? (
           <Card className="p-5">
             <div className="text-sm font-semibold text-ink">등록된 요양원이 없습니다.</div>
-            <div className="mt-1 text-sm text-ink-soft">먼저 backend seed 또는 시설 등록을 확인하세요.</div>
+            <div className="mt-1 text-sm text-ink-soft">백엔드 시설 등록 상태를 확인하세요.</div>
           </Card>
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
-          {facilities.map((facility) => {
-            return (
+            {facilities.map((facility) => (
               <Card key={facility.id} className="p-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
@@ -139,59 +128,28 @@ export function SuperAdminDashboardPage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    onClick={() =>
-                      enterFacility(facility.id, dashboardAdminPath(facility.id))
-                    }
-                  >
+                  <Button type="button" onClick={() => enterFacility(facility.id, dashboardPath())}>
+                    <MonitorPlay className="h-4 w-4" />
+                    대시보드
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => enterFacility(facility.id, adminPath())}>
                     <LayoutDashboard className="h-4 w-4" />
                     관리자 화면
                   </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() =>
-                      enterFacility(facility.id, dashboardStaffPath(facility.id))
-                    }
-                  >
-                    <Smartphone className="h-4 w-4" />
-                    모니터
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => enterFacility(facility.id, monitorHomePath(facility.id))}
-                  >
-                    <MonitorPlay className="h-4 w-4" />
-                    모니터
-                  </Button>
                 </div>
               </Card>
-            );
-          })}
+            ))}
           </div>
         )}
-
       </main>
     </div>
   );
 }
 
-function Metric({
-  label,
-  value,
-  compact = false,
-}: {
-  label: string;
-  value: number | null;
-  compact?: boolean;
-}) {
+function Metric({ label, value, compact = false }: { label: string; value: number | null; compact?: boolean }) {
   return (
     <div className={compact ? "rounded-md bg-surface2 px-2 py-1.5" : "rounded-lg bg-surface px-3 py-2"}>
-      <div className={compact ? "text-base font-extrabold text-ink" : "text-xl font-extrabold text-ink"}>
-        {value ?? "-"}
-      </div>
+      <div className={compact ? "text-base font-extrabold text-ink" : "text-xl font-extrabold text-ink"}>{value ?? "-"}</div>
       <div className="text-[11px] text-ink-faint">{label}</div>
     </div>
   );

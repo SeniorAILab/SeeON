@@ -54,7 +54,6 @@ function dashboardResponse(): DashboardResponse {
 
 async function importHook() {
   vi.resetModules();
-  vi.stubEnv("VITE_USE_MOCK", "false");
   vi.stubEnv("VITE_API_BASE_URL", undefined);
   const [{ useAuthStore }, { useFacilityStore }, { useMonitorStore }, { useDashboard }] =
     await Promise.all([

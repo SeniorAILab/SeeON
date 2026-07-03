@@ -12,38 +12,30 @@ function segment(value: string): string {
   return encodeURIComponent(value);
 }
 
-function dashboardFacilityPath(facilityId: string): string {
-  return `${DASHBOARD_HOME_PATH}/facilities/${segment(facilityId)}`;
+export function dashboardPath(): string {
+  return DASHBOARD_HOME_PATH;
 }
 
-export function dashboardAdminPath(facilityId: string): string {
-  return `${dashboardFacilityPath(facilityId)}/admin`;
+export function floorPath(floorId: string): string {
+  return `${DASHBOARD_HOME_PATH}/floor/${segment(floorId)}`;
 }
 
-export function dashboardStaffPath(facilityId: string): string {
-  return `${dashboardFacilityPath(facilityId)}/staff`;
+export function alertsPath(): string {
+  return `${DASHBOARD_HOME_PATH}/alerts`;
 }
 
-export function dashboardStaffAlertsPath(facilityId: string): string {
-  return `${dashboardStaffPath(facilityId)}/alerts`;
+export function adminPath(path = ""): string {
+  const suffix = path.replace(/^\/+/, "");
+  return suffix ? `/admin/${suffix}` : "/admin";
 }
 
-export function monitorHomePath(facilityId: string): string {
-  return dashboardStaffPath(facilityId);
-}
-
-export function monitorFloorPath(facilityId: string, floorId: string): string {
-  return `${dashboardStaffPath(facilityId)}/floors/${segment(floorId)}`;
-}
 
 export function defaultPathForRole(role: Role): string {
   switch (role) {
     case "SUPER_ADMIN":
-      return DASHBOARD_HOME_PATH;
     case "ADMIN":
-      return ONBOARDING_PATH;
     case "STAFF":
-      return ACCESS_DENIED_PATH;
+      return DASHBOARD_HOME_PATH;
     default:
       return assertNever(role);
   }
@@ -54,13 +46,9 @@ export function defaultPathForUser(user: User): string {
     case "SUPER_ADMIN":
       return DASHBOARD_HOME_PATH;
     case "ADMIN":
-      return user.facilityId
-        ? dashboardAdminPath(user.facilityId)
-        : ONBOARDING_PATH;
+      return user.facilityId ? DASHBOARD_HOME_PATH : ONBOARDING_PATH;
     case "STAFF":
-      return user.facilityId
-        ? dashboardStaffPath(user.facilityId)
-        : ACCESS_DENIED_PATH;
+      return user.facilityId ? DASHBOARD_HOME_PATH : ACCESS_DENIED_PATH;
     default:
       return assertNever(user.role);
   }
