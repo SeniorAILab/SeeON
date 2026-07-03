@@ -18,7 +18,7 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
 
 ### `GET /api/v1/alerts`
 
-Query parameters: `limit?`, `beforeSeq?`, `residentId?`, `status?`, and `afterSeq?`.
+Query parameters: `limit?`, `beforeSeq?`, `status?`, and `afterSeq?`. Alerts are room-centric: responses key off `spaceId`/`cameraId` and carry no `residentId` or `resident` object (v1).
 
 Response: facility-scoped alerts ordered by alert sequence. Alert SSE and pagination identity is `alertSeq` serialized as a string when crossing JSON/SSE boundaries.
 
