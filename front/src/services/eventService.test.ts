@@ -26,7 +26,6 @@ describe("eventService real mode actions", () => {
     vi.resetModules();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    vi.stubEnv("VITE_USE_MOCK", "false");
   });
 
   it("routes staff confirm actions to backend alert resolve by alert id", async () => {
@@ -51,5 +50,17 @@ describe("eventService real mode actions", () => {
       kakaoAlertStatus: "ACKNOWLEDGED",
       acknowledgedBy: "Care Staff",
     });
+  });
+
+  it("rejects non-ack actions instead of returning unchanged fake success", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { eventService } = await import("./eventService");
+
+    await expect(eventService.addAction("alert_201", "MEMO", "keep this", "Care Staff")).rejects.toThrow(
+      "메모 저장 API가 없어 확인 완료 외 조치는 저장할 수 없습니다."
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
