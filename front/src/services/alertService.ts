@@ -1,5 +1,5 @@
 import type { AlertView } from "@/types";
-import { ackAlertEndpoint, listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertsApi";
+import { listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertsApi";
 
 export const alertService = {
   listOpen(): Promise<AlertView[]> {
@@ -22,8 +22,8 @@ export const alertService = {
     const acked = await listAlertsEndpoint({ status: "ACKED" });
     return acked.find((alert) => alert.spaceId === spaceId) ?? null;
   },
-  acknowledge(id: string): Promise<AlertView> {
-    return ackAlertEndpoint(id);
+  resolveNew(id: string): Promise<AlertView> {
+    return resolveAlertEndpoint(id);
   },
   resolve(id: string): Promise<AlertView> {
     return resolveAlertEndpoint(id);

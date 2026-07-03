@@ -55,10 +55,10 @@ describe("apiClient.requestJson", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { requestJson } = await import("./apiClient");
-    await requestJson("/protected-probe");
+    await requestJson("/cameras");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8080/api/v1/protected-probe",
+      "http://localhost:8080/api/v1/cameras",
       expect.objectContaining({ credentials: "include" })
     );
   });
@@ -79,7 +79,7 @@ describe("apiClient.requestJson", () => {
     );
   });
 
-  it("prefixes auth paths with the default /api/v1 base", async () => {
+  it("prefixes auth identity paths with the default /api/v1 base", async () => {
     vi.stubEnv("VITE_USE_MOCK", "false");
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -87,12 +87,27 @@ describe("apiClient.requestJson", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { requestJson } = await import("./apiClient");
-    await requestJson("/auth/session");
+    await requestJson("/auth/me");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/auth/session",
+      "/api/v1/auth/me",
       expect.objectContaining({ credentials: "include" })
     );
+  });
+
+  it("notifies the unauthorized handler on 401 responses", async () => {
+    vi.stubEnv("VITE_USE_MOCK", "false");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("Unauthorized", { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { requestJson, setUnauthorizedHandler } = await import("./apiClient");
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+
+    await expect(requestJson("/protected")).rejects.toMatchObject({ status: 401 });
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("sends the selected facility scope header with session-backed requests", async () => {

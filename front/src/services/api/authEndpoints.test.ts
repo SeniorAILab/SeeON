@@ -5,6 +5,7 @@ import {
   parseRole,
   parseAuthSessionResponse,
   registerEndpoint,
+  restoreSessionEndpoint,
 } from "./authEndpoints";
 
 function okJsonResponse(body: unknown): Response {
@@ -68,6 +69,32 @@ describe("auth endpoint mappers", () => {
     expect(parseRole("STAFF")).toBe("STAFF");
   });
 
+  it("restores identity through /auth/me with cookie credentials", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      okJsonResponse({
+        id: "user-1",
+        email: "admin@sen.ai",
+        nickname: "원장",
+        role: "ADMIN",
+        facilityId: "facility-1",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const session = await restoreSessionEndpoint();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/auth/me",
+      expect.objectContaining({ credentials: "include" })
+    );
+    expect(session?.user).toMatchObject({
+      id: "user-1",
+      email: "admin@sen.ai",
+      name: "원장",
+      role: "ADMIN",
+      facilityId: "facility-1",
+    });
+  });
   it("logs in through the backend password endpoint", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()

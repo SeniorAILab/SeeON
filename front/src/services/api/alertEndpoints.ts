@@ -24,6 +24,7 @@ export type FrontendAlert = DetectionEvent & {
   cameraId: string | null;
   room?: string;
   backendStatus: string;
+  backendType: string;
 };
 
 function asString(value: unknown, field: string): string {
@@ -43,6 +44,7 @@ function mapEventType(type: string): DetectionEventType {
 
 function mapStatus(status: string): KakaoAlertStatus {
   switch (status) {
+    case "RESOLVED":
     case "ACKED":
     case "ACKNOWLEDGED":
       return "ACKNOWLEDGED";
@@ -52,13 +54,14 @@ function mapStatus(status: string): KakaoAlertStatus {
       return "SENDING";
     case "SENT":
       return "SENT";
+    case "NEW":
     default:
       return "PENDING";
   }
 }
 
 function mapRisk(probability: number, type: string): Level {
-  if (type === "bed-exit") return "HIGH";
+  if (type === "fall" || type === "bed-exit") return "HIGH";
   if (probability >= 0.8) return "HIGH";
   if (probability >= 0.5) return "MEDIUM";
   return "LOW";
@@ -93,8 +96,9 @@ export function mapAlertDto(dto: BackendAlertDto): FrontendAlert {
     acknowledgedAt: kakaoAlertStatus === "ACKNOWLEDGED" ? new Date().toISOString() : undefined,
     actions: [],
     confidence: probability,
-    emergency: eventType === "BED_EXIT" || probability >= 0.8,
+    emergency: eventType === "BED_EXIT" || eventType === "FALL_RISK",
     backendStatus: dto.status,
+    backendType: type,
   };
 }
 
@@ -104,7 +108,15 @@ export async function listAlerts(): Promise<FrontendAlert[]> {
   return body.map((item) => mapAlertDto(item as BackendAlertDto));
 }
 
-export async function acknowledgeAlert(id: string): Promise<FrontendAlert> {
-  const body = await requestJson(`/alerts/${encodeURIComponent(id)}/ack`, { method: "PATCH" });
+export async function fetchActiveAlertSnapshot(): Promise<FrontendAlert[]> {
+  const body = await requestJson("/alerts?status=NEW");
+  if (!Array.isArray(body)) throw new Error("Invalid active alerts response");
+  return body.map((item) => mapAlertDto(item as BackendAlertDto));
+}
+
+export async function resolveAlert(id: string): Promise<FrontendAlert> {
+  const body = await requestJson(`/alerts/${encodeURIComponent(id)}/resolve`, { method: "PATCH" });
   return mapAlertDto(body as BackendAlertDto);
 }
+
+export const acknowledgeAlert = resolveAlert;

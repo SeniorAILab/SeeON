@@ -25,7 +25,7 @@ export function AdaptiveMonitorLayout({
   statuses: Record<string, SpaceStatus>;
   floorOf: (floorId: string) => Floor | undefined;
   onSelect: (space: Space) => void;
-  onAck: (spaceId: string) => void;
+  onAck: (space: Space) => void;
 }) {
   const { emergencies, dangers, cautions, mode } = useMemo(() => {
     const st = (s: Space) => statuses[s.id];
@@ -65,7 +65,7 @@ export function AdaptiveMonitorLayout({
               floor={floorOf(s.floorId)}
               status={statuses[s.id]}
               emphasis="caution"
-              onAck={() => onAck(s.id)}
+              onAck={() => onAck(s)}
               onDetail={() => onSelect(s)}
             />
           ))}
@@ -82,7 +82,7 @@ export function AdaptiveMonitorLayout({
               floor={floorOf(s.floorId)}
               status={statuses[s.id]}
               emphasis="danger"
-              onAck={() => onAck(s.id)}
+              onAck={() => onAck(s)}
               onDetail={() => onSelect(s)}
             />
           ))}
@@ -109,7 +109,7 @@ export function AdaptiveMonitorLayout({
           floor={floorOf(emergencies[0].floorId)}
           status={statuses[emergencies[0].id]}
           others={emergencies.length - 1 + dangers.length + cautions.length}
-          onAck={() => onAck(emergencies[0].id)}
+          onAck={() => onAck(emergencies[0])}
           onDetail={() => onSelect(emergencies[0])}
         />
       )}

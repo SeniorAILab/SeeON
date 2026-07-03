@@ -16,7 +16,7 @@ import { GuardiansService } from '../src/guardians/guardians.service';
  * provider — including the AuthModule-exported guards/interceptor that
  * ResidentsController/GuardiansController depend on via UseGuards — with no
  * dangling or unresolved injection tokens. ConfigModule.forRoot provides the
- * global ConfigService that AuthModule's KakaoClient/SessionService inject.
+ * global ConfigService that AuthModule's KakaoClient/JwtStrategy/JwtAuthGuard inject.
  */
 describe('provider graph — residents + guardians', () => {
   it('resolves controllers + services with Auth/Prisma deps closed', async () => {

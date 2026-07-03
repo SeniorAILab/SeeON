@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
-import { Bell, ListChecks, CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay } from "lucide-react";
+import { CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
 import { useAuthStore } from "@/store/authStore";
@@ -13,7 +13,6 @@ import {
   dashboardAdminPath,
   dashboardStaffAlertsPath,
   dashboardStaffPath,
-  dashboardStaffRoomsPath,
   monitorHomePath,
 } from "@/lib/routeAccess";
 
@@ -63,13 +62,12 @@ export function StaffLayout() {
   const activeFacilityId = facility?.id ?? workspaceFacilityId;
   const nav = activeFacilityId
     ? [
-        { to: dashboardStaffPath(activeFacilityId), label: "지금 확인할 곳", Icon: Bell },
-        { to: dashboardStaffRoomsPath(activeFacilityId), label: "전체 방 상태", Icon: ListChecks },
+        { to: dashboardStaffPath(activeFacilityId), label: "모니터", Icon: MonitorPlay },
         { to: dashboardStaffAlertsPath(activeFacilityId), label: "확인한 알림", Icon: CheckCheck },
       ]
     : [];
 
-  // 테마 클래스를 이 트리에만 적용 (직원 화면 다크모드)
+  // 테마 클래스를 이 트리에만 적용 (모니터 다크모드)
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);

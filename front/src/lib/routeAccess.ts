@@ -24,20 +24,16 @@ export function dashboardStaffPath(facilityId: string): string {
   return `${dashboardFacilityPath(facilityId)}/staff`;
 }
 
-export function dashboardStaffRoomsPath(facilityId: string): string {
-  return `${dashboardStaffPath(facilityId)}/rooms`;
-}
-
 export function dashboardStaffAlertsPath(facilityId: string): string {
   return `${dashboardStaffPath(facilityId)}/alerts`;
 }
 
 export function monitorHomePath(facilityId: string): string {
-  return `/monitor/${segment(facilityId)}`;
+  return dashboardStaffPath(facilityId);
 }
 
 export function monitorFloorPath(facilityId: string, floorId: string): string {
-  return `${monitorHomePath(facilityId)}/floors/${segment(floorId)}`;
+  return `${dashboardStaffPath(facilityId)}/floors/${segment(floorId)}`;
 }
 
 export function defaultPathForRole(role: Role): string {

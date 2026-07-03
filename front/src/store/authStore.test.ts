@@ -112,3 +112,34 @@ describe("authStore.createFacility", () => {
     expect(useAuthStore.getState().error).toBeNull();
   });
 });
+
+describe("authStore session invalidation", () => {
+  it("clears the local user when an API call returns 401", async () => {
+    window.history.replaceState(null, "", "/login");
+    useAuthStore.setState({
+      user: {
+        id: "user-1",
+        name: "관리자",
+        email: "admin@sen.ai",
+        role: "ADMIN",
+        facilityId: "facility-1",
+      },
+      initialized: true,
+      loading: true,
+      error: null,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(new Response("Unauthorized", { status: 401 }))
+    );
+
+    const { requestJson } = await import("@/services/apiClient");
+
+    await expect(requestJson("/protected")).rejects.toMatchObject({ status: 401 });
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      initialized: true,
+      loading: false,
+    });
+  });
+});
