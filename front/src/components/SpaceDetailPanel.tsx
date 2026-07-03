@@ -13,7 +13,9 @@ import { ActionLogForm } from "./ActionLogForm";
 import { Button } from "./ui/primitives";
 import { dashboardService } from "@/services/dashboardService";
 import { eventService } from "@/services/eventService";
+import { listCameras, type CameraStatus } from "@/services/api/cameras";
 import { useAuthStore } from "@/store/authStore";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { canAcknowledge, canAdmin } from "@/lib/roles";
 
 import { adminPath } from "@/lib/routeAccess";
@@ -30,8 +32,11 @@ interface Props {
 export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: Props) {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  const facilityId = useActiveFacilityId();
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [camera, setCamera] = useState<CameraStatus | null>(null);
+  const [cameraError, setCameraError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -45,6 +50,26 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
       active = false;
     };
   }, [space.id]);
+  useEffect(() => {
+    let active = true;
+    listCameras()
+      .then((list) => {
+        if (!active) return;
+        setCameraError(false);
+        setCamera(list.find((item) => item.spaceId === space.id) ?? null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCamera(null);
+        setCameraError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [space.id]);
+
+
+  const cameraLabel = cameraError ? "연결 상태 확인 불가" : camera ? (camera.online ? "온라인" : "오프라인") : "미등록";
 
   const openEvent = events.find(
     (e) => e.riskLevel !== "LOW" && e.kakaoAlertStatus !== "ACKNOWLEDGED"
@@ -100,7 +125,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
           {/* 관리자 전용: 이슈 상세·근거 영상 진입 */}
           {canAdmin(user) && openEvent && (
             <button
-              onClick={() => navigate(adminPath(`events/${openEvent.id}`))}
+              onClick={() => navigate(adminPath(facilityId, `events/${openEvent.id}`))}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand/30 bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand hover:bg-brand/10"
             >
               <Film className="h-4 w-4" />
@@ -140,6 +165,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
             <h3 className="mb-2 text-sm font-semibold text-ink">공간 정보</h3>
             <dl className="space-y-1.5 rounded-xl border border-border p-3 text-sm">
               <Row icon={Users} label="수용 인원" value={`${space.capacity}명`} />
+              <Row icon={Activity} label="CCTV 연결" value={cameraLabel} />
             </dl>
           </section>
 

@@ -24,7 +24,8 @@ function renderLogin(initialEntry = "/login") {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/dashboard" element={<div>DASHBOARD</div>} />
+        <Route path="/facilities" element={<div>DASHBOARD</div>} />
+        <Route path="/facilities/:facilityId/dashboard" element={<div>DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );

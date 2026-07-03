@@ -17,7 +17,7 @@ import { useAuthStore } from "@/store/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
-import { DASHBOARD_HOME_PATH, adminPath, dashboardPath } from "@/lib/routeAccess";
+import { FACILITIES_PICKER_PATH, adminPath, dashboardPath } from "@/lib/routeAccess";
 
 export function AppLayout() {
   const user = useAuthStore((s) => s.user);
@@ -72,20 +72,21 @@ export function AppLayout() {
   function handleFacilityChange(next: string) {
     if (next === "__global__") {
       switchFacility(null);
-      navigate(DASHBOARD_HOME_PATH);
+      navigate(FACILITIES_PICKER_PATH);
       return;
     }
     switchFacility(next);
-    navigate(adminPath());
+    navigate(adminPath(next));
   }
 
+  const routeFacilityId = activeFacilityId ?? "";
   const nav = [
-    { to: adminPath(), label: "상세 대시보드", Icon: LayoutGrid, show: true },
-    { to: adminPath("events"), label: "이벤트", Icon: Bell, show: true },
-    { to: adminPath("monitor-settings"), label: "모니터 설정", Icon: MonitorPlay, show: canAdmin(user) },
-    { to: adminPath("facility"), label: "시설 설정", Icon: Building2, show: canAdmin(user) },
-    { to: adminPath("spaces"), label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
-    { to: adminPath("users"), label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "상세 대시보드", Icon: LayoutGrid, show: true },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "events") : FACILITIES_PICKER_PATH, label: "이벤트", Icon: Bell, show: true },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "monitor-settings") : FACILITIES_PICKER_PATH, label: "모니터 설정", Icon: MonitorPlay, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "facility") : FACILITIES_PICKER_PATH, label: "시설 설정", Icon: Building2, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "spaces") : FACILITIES_PICKER_PATH, label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "users") : FACILITIES_PICKER_PATH, label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
     // Re-enable after backend controllers exist: 관심 어르신, 구역/침대 배정, 알림 규칙.
   ].filter((n) => n.show);
 
@@ -183,7 +184,7 @@ export function AppLayout() {
               {user ? roleLabel(user.role) : ""}
             </div>
             <button
-              onClick={() => navigate(dashboardPath())}
+              onClick={() => navigate(routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH)}
               className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
             >
               <MonitorPlay className="h-4 w-4" />

@@ -1,3 +1,4 @@
+import { listAlertNotes, createAlertNote } from "@/services/api/alertNotes";
 import { acknowledgeAlert, listAlerts } from "@/services/api/alertEndpoints";
 import type { ActionType, DetectionEvent } from "@/types";
 
@@ -9,7 +10,9 @@ function actionAcknowledges(type: ActionType): boolean {
 
 export const eventService = {
   async getById(eventId: string): Promise<DetectionEvent | undefined> {
-    return (await listAlerts()).find((e) => e.id === eventId);
+    const event = (await listAlerts()).find((e) => e.id === eventId);
+    if (!event) return undefined;
+    return { ...event, actions: await listAlertNotes(event.id) };
   },
 
   /** 공간의 현재 미확인 이벤트(최신) — 침대/사유 표시용 */
@@ -21,7 +24,12 @@ export const eventService = {
   },
 
   async listByFacility(facilityId: string): Promise<DetectionEvent[]> {
-    const events = await listAlerts();
+    const events = await Promise.all(
+      (await listAlerts()).map(async (event) => ({
+        ...event,
+        actions: await listAlertNotes(event.id).catch(() => []),
+      })),
+    );
     alertCache = events;
     return events
       .filter((e) => e.facilityId === facilityId)
@@ -40,10 +48,11 @@ export const eventService = {
     userName: string
   ): Promise<DetectionEvent> {
     if (actionAcknowledges(type)) return this.acknowledge(eventId, userName);
-    throw new Error(
-      note
-        ? "메모 저장 API가 없어 확인 완료 외 조치는 저장할 수 없습니다."
-        : "확인 완료 외 조치는 저장할 수 없습니다."
-    );
+    const action = await createAlertNote(eventId, note ?? "");
+    const current = (await this.getById(eventId)) ?? alertCache.find((event) => event.id === eventId);
+    if (!current) throw new Error("이벤트를 찾을 수 없습니다.");
+    const updated = { ...current, actions: [action, ...current.actions] };
+    alertCache = alertCache.map((item) => (item.id === eventId ? updated : item));
+    return updated;
   },
 };

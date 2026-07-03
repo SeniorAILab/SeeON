@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { createAlertNote, listAlertNotes, type AlertNote } from "@/services/api/alertNotes";
 import { resolveAlert } from "@/services/api/alertEndpoints";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import { eventTypeLabel } from "@/lib/labels";
@@ -49,10 +50,46 @@ export function InlineActionPanel({
   onResolved?: () => void;
 }) {
   const [note, setNote] = useState("");
-  const [savedNote, setSavedNote] = useState("");
   const [busy, setBusy] = useState(false);
   const groups = useMemo(() => eventGroupsFor(status, alerts), [status, alerts]);
   const canResolve = alerts.length > 0 || (Boolean(status?.id) && status?.status !== "STABLE");
+  // B4 alert-notes attach to a real Alert id. SpaceStatus.id is a synthetic
+  // `status-<spaceId>` key (see alertMerge), never a valid alert id, so notes
+  // target the current event's real alert id from `alerts`.
+  const targetAlertId = alerts[0]?.id;
+  const canWriteNote = Boolean(targetAlertId);
+  const [notes, setNotes] = useState<AlertNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!canWriteNote || !targetAlertId) {
+      setNotes([]);
+      setNotesLoading(false);
+      return;
+    }
+    setNotesLoading(true);
+    void listAlertNotes(targetAlertId)
+      .then((loadedNotes) => {
+        if (!ignore) setNotes(loadedNotes);
+      })
+      .finally(() => {
+        if (!ignore) setNotesLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [canWriteNote, targetAlertId]);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
 
   async function handleResolve(alertIds?: string[]) {
     const ids = alertIds ?? (alerts.length > 0 ? alerts.map((alert) => alert.id) : status?.id ? [status.id] : []);
@@ -66,14 +103,34 @@ export function InlineActionPanel({
     }
   }
 
+  async function handleSaveNote() {
+    const trimmed = note.trim();
+    if (!targetAlertId || !canWriteNote || !trimmed || noteSaving) return;
+    setNoteSaving(true);
+    try {
+      await createAlertNote(targetAlertId, trimmed);
+      setNotes(await listAlertNotes(targetAlertId));
+      setNote("");
+    } finally {
+      setNoteSaving(false);
+    }
+  }
+
   return (
-    <aside className="shrink-0 rounded-t-3xl border border-border bg-surface p-4 shadow-modal lg:rounded-3xl" aria-label={`${space.name} 조치 패널`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onMouseDown={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={space.name}
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-surface p-4 shadow-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="truncate text-2xl font-black text-ink 2xl:text-3xl">{space.name}</div>
           <div className="mt-1 text-lg font-bold text-ink-soft">{statusWord[status?.status ?? "STABLE"]}</div>
         </div>
-        <button type="button" onClick={onClose} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="조치 패널 닫기">
+        <button type="button" onClick={onClose} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="모달 닫기">
           <X className="h-7 w-7" />
         </button>
       </div>
@@ -113,14 +170,43 @@ export function InlineActionPanel({
       </div>
 
       <label className="mt-4 block text-base font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
-      <textarea id={`note-${space.id}`} value={note} onChange={(event) => setNote(event.target.value)} className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-bg p-3 text-base text-ink outline-none focus:border-brand" placeholder="조치 내용을 입력하세요" />
+      {!canWriteNote && <div className="mt-2 rounded-2xl bg-surface2 px-4 py-3 text-base font-bold text-ink-soft">현재 기록할 이벤트가 없습니다.</div>}
+      <textarea
+        id={`note-${space.id}`}
+        value={note}
+        disabled={!canWriteNote || noteSaving || notesLoading}
+        onChange={(event) => setNote(event.target.value)}
+        className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-bg p-3 text-base text-ink outline-none focus:border-brand disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-soft"
+        placeholder={canWriteNote ? "조치 내용을 입력하세요" : "현재 기록할 이벤트가 없습니다"}
+      />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={() => setSavedNote(note.trim())} className="h-14 rounded-2xl border border-border px-5 text-lg font-black text-ink hover:bg-surface2">메모 표시</button>
+        <button type="button" disabled={!canWriteNote || note.trim().length === 0 || noteSaving || notesLoading} onClick={() => void handleSaveNote()} className="h-14 rounded-2xl border border-border px-5 text-lg font-black text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:text-gray-300">
+          {noteSaving ? "저장 중" : "메모 저장"}
+        </button>
         <button type="button" disabled={!canResolve || busy} onClick={() => void handleResolve()} className="h-14 rounded-2xl bg-brand px-5 text-lg font-black text-white shadow-card disabled:cursor-not-allowed disabled:bg-gray-300">
           {busy ? "처리 중" : "확인완료"}
         </button>
       </div>
-      {savedNote && <div className="mt-3 rounded-2xl bg-brand/10 px-4 py-3 text-base font-bold text-ink">{savedNote}</div>}
-    </aside>
+      <div className="mt-4 rounded-2xl bg-bg px-4 py-3">
+        <div className="text-base font-black text-ink">메모 히스토리</div>
+        {notesLoading ? (
+          <div className="mt-2 text-sm font-bold text-ink-soft">메모를 불러오는 중입니다.</div>
+        ) : notes.length === 0 ? (
+          <div className="mt-2 text-sm font-bold text-ink-soft">저장된 메모가 없습니다.</div>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {notes.map((item) => (
+              <li key={item.id} className="rounded-xl bg-surface2 px-3 py-2">
+                <div className="text-sm font-black text-ink">{item.note}</div>
+                <div className="mt-1 text-xs font-bold text-ink-soft">
+                  {item.authorRole} · {new Date(item.createdAt).toLocaleString("ko-KR")}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      </div>
+    </div>
   );
 }

@@ -13,14 +13,17 @@ export function ActionLogForm({
   onSubmit: (type: ActionType, note: string) => void | Promise<void>;
   disabled?: boolean;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<"memo" | "ack" | null>(null);
 
-  async function handle() {
-    setBusy(true);
+  async function submit(type: ActionType) {
+    const trimmed = note.trim();
+    setBusy(type === ACK_ACTION_TYPE ? "ack" : "memo");
     try {
-      await onSubmit(ACK_ACTION_TYPE, "");
+      await onSubmit(type, trimmed);
+      setNote("");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -38,18 +41,23 @@ export function ActionLogForm({
         <p className="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm font-medium text-ink">
           {actionTypeLabel[ACK_ACTION_TYPE]}
         </p>
-        <p className="mt-1 text-xs text-ink-faint">
-          저장 가능한 조치는 백엔드 확인 완료 처리만 지원합니다.
-        </p>
       </Field>
       <Field label="메모">
-        <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-ink-faint">
-          메모·보호자 연락·병원 이송 기록은 저장 API가 없어 서버에 저장하지 않습니다.
-        </p>
+        <textarea
+          className="min-h-20 w-full rounded-lg border border-border px-3 py-2 text-sm"
+          value={note}
+          placeholder="메모를 입력하세요."
+          onChange={(event) => setNote(event.target.value)}
+        />
       </Field>
-      <Button onClick={handle} disabled={busy} className="w-full">
-        {busy ? "확인 처리 중..." : "확인 완료 처리"}
-      </Button>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button onClick={() => submit("MEMO")} disabled={busy !== null || note.trim().length === 0} variant="secondary">
+          {busy === "memo" ? "메모 저장 중..." : "메모 저장"}
+        </Button>
+        <Button onClick={() => submit(ACK_ACTION_TYPE)} disabled={busy !== null} className="w-full">
+          {busy === "ack" ? "확인 처리 중..." : "확인 완료 처리"}
+        </Button>
+      </div>
     </div>
   );
 }

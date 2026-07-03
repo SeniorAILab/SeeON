@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { InlineActionPanel } from "@/components/monitor/InlineActionPanel";
 import { RoomStatusTreemap } from "./RoomStatusTreemap";
-import type { ConnectionState, DetectionEvent, Space, SpaceStatus } from "@/types";
+import type { ConnectionState, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 
 const DEBOUNCE_MS = 2000;
 
@@ -13,23 +13,6 @@ export function connectionChipLabel(connection: ConnectionState, lastUpdateAt: s
   return `정상 연결 · ${seconds}초 전 갱신`;
 }
 
-export function useMeasuredSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const update = () => setSize({ width: Math.floor(node.clientWidth), height: Math.floor(node.clientHeight) });
-    update();
-    const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (rect) setSize({ width: Math.floor(rect.width), height: Math.floor(rect.height) });
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, size };
-}
 
 function signature(spaces: Space[], statuses: Record<string, SpaceStatus>): string {
   return spaces
@@ -51,10 +34,11 @@ export function useDebouncedStatuses(spaces: Space[], statuses: Record<string, S
 export function RoomStatusBoard({
   spaces,
   statuses,
+  floors,
   alertsBySpace = {},
   connection,
   lastUpdateAt,
-  variant = "staff",
+  variant: _variant = "staff",
   selectedSpace,
   onSelectSpace,
   onClosePanel,
@@ -62,6 +46,7 @@ export function RoomStatusBoard({
 }: {
   spaces: Space[];
   statuses: Record<string, SpaceStatus>;
+  floors: Floor[];
   alertsBySpace?: Record<string, DetectionEvent[]>;
   connection: ConnectionState;
   lastUpdateAt: string | null;
@@ -71,14 +56,12 @@ export function RoomStatusBoard({
   onClosePanel?: () => void;
   onResolved?: () => void;
 }) {
-  const { ref, size } = useMeasuredSize<HTMLDivElement>();
   const visibleStatuses = useDebouncedStatuses(spaces, statuses);
   const activeSpace = selectedSpace && spaces.some((space) => space.id === selectedSpace.id) ? selectedSpace : null;
-  const treemapHeight = activeSpace ? Math.max(220, size.height - (variant === "staff" ? 300 : 250)) : size.height;
   const activeAlerts = activeSpace ? (alertsBySpace[activeSpace.id] ?? []) : [];
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-surface p-3 shadow-card 2xl:p-4" aria-label="방 상태 보드">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-surface p-3 shadow-card 2xl:p-4" aria-label="방 상태 보드">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-sm font-black text-ink-soft 2xl:text-base">
           <span className="rounded-full bg-status-dangerBg px-3 py-1 text-status-danger">위험</span>
@@ -88,10 +71,8 @@ export function RoomStatusBoard({
         </div>
         <ConnectionChip connection={connection} lastUpdateAt={lastUpdateAt} />
       </div>
-      <div ref={ref} className="min-h-0 flex-1 overflow-hidden">
-        {size.width > 0 && treemapHeight > 0 && (
-          <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} width={size.width} height={treemapHeight} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} />
-        )}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} />
       </div>
       {activeSpace && (
         <InlineActionPanel space={activeSpace} status={visibleStatuses[activeSpace.id]} alerts={activeAlerts} onClose={onClosePanel ?? (() => undefined)} onResolved={onResolved} />

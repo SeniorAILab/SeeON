@@ -5,6 +5,7 @@ import { SpaceDetailPanel } from "./SpaceDetailPanel";
 import { dashboardService } from "@/services/dashboardService";
 import { eventService } from "@/services/eventService";
 import { useAuthStore } from "@/store/authStore";
+import { listCameras } from "@/services/api/cameras";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 
 vi.mock("@/services/dashboardService", () => ({
@@ -17,6 +18,10 @@ vi.mock("@/services/eventService", () => ({
   eventService: {
     addAction: vi.fn(),
   },
+}));
+
+vi.mock("@/services/api/cameras", () => ({
+  listCameras: vi.fn(),
 }));
 
 const space: Space = {
@@ -67,6 +72,7 @@ describe("SpaceDetailPanel", () => {
         facilityId: "facility-1",
       },
     });
+    vi.mocked(listCameras).mockResolvedValue([]);
   });
 
   it("shows the refreshed empty event state after an action without falling back to stale events", async () => {
@@ -101,5 +107,48 @@ describe("SpaceDetailPanel", () => {
     expect(screen.queryByText("침상 이탈 감지")).toBeNull();
     expect(screen.queryByText("확인 완료 처리")).toBeNull();
     expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders camera online, offline, unregistered, and error states distinctly", async () => {
+    vi.mocked(dashboardService.getSpaceEvents).mockResolvedValue([]);
+
+    vi.mocked(listCameras).mockResolvedValueOnce([
+      { id: "camera-1", facilityId: "facility-1", spaceId: space.id, online: true, lastSeenAt: null },
+    ]);
+    const { unmount } = render(
+      <MemoryRouter>
+        <SpaceDetailPanel space={space} status={status} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("온라인")).toBeTruthy();
+    unmount();
+
+    vi.mocked(listCameras).mockResolvedValueOnce([
+      { id: "camera-1", facilityId: "facility-1", spaceId: space.id, online: false, lastSeenAt: null },
+    ]);
+    const offline = render(
+      <MemoryRouter>
+        <SpaceDetailPanel space={space} status={status} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("오프라인")).toBeTruthy();
+    offline.unmount();
+
+    vi.mocked(listCameras).mockResolvedValueOnce([]);
+    const unregistered = render(
+      <MemoryRouter>
+        <SpaceDetailPanel space={space} status={status} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("미등록")).toBeTruthy();
+    unregistered.unmount();
+
+    vi.mocked(listCameras).mockRejectedValueOnce(new Error("network"));
+    render(
+      <MemoryRouter>
+        <SpaceDetailPanel space={space} status={status} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("연결 상태 확인 불가")).toBeTruthy();
   });
 });
