@@ -10,7 +10,7 @@ The dashboard API is the authenticated backend read-model and admin CRUD surface
 4. Frontend bootstrap reads `GET /api/v1/auth/me` with `credentials: "include"`.
 5. Onboarding creates the initial facility through `POST /api/v1/facilities` and rotates the cookie with the facility-bearing user claims.
 6. `SUPER_ADMIN` facility selection uses `GET /api/v1/facilities`; tenant-scoped requests then send `X-Facility-Id: <facilityId>`. Facility-bound users cannot switch tenant with this header.
-7. Dashboard uses `/api/v1/facilities`, `/api/v1/facilities/:id`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/residents`, `/api/v1/residents/assignments`, `/api/v1/alerts`, `/api/v1/events`, `/api/v1/cameras`, `/api/v1/guardians`, alert snapshots, and `/api/v1/dashboard/stream`.
+7. Dashboard uses `/api/v1/facilities`, `/api/v1/facilities/:id`, `/api/v1/floors`, `/api/v1/spaces`, `/api/v1/spaces/:spaceId/zones`, `/api/v1/alerts`, `/api/v1/events`, `/api/v1/cameras`, alert snapshots, and `/api/v1/dashboard/stream`.
 
 `POST /api/v1/auth/logout` increments `sessionVersion`, clears the cookie, and returns `204`.
 
@@ -80,21 +80,6 @@ These routes are current. Product resource routes use `JwtAuthGuard`; tenant-sco
 | PATCH | `/api/v1/spaces/:spaceId/zones/:zoneId` | partial `{ name?: string, type?: ZoneType, orderIndex?: number }` | updated zone |
 | DELETE | `/api/v1/spaces/:spaceId/zones/:zoneId` | none | `204` empty |
 
-### Residents and assignments
-
-Resident create is also the initial placement action: `spaceId` is required. Resident delete is soft and returns the updated resident body with `isActive: false`.
-
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/api/v1/residents?isFocusResident=&spaceId=&active=` | none | resident list, optionally filtered |
-| GET | `/api/v1/residents/:id` | none | one resident, including `currentAssignment` in detail responses |
-| POST | `/api/v1/residents` | `{ name: string, spaceId: string, room?: string or null, zoneId?: string or null, gender?: string or null, age?: number or null, diagnosisTags?: string[], fallRiskBaseline?: Level or null, isFocusResident?: boolean }` | created and placed resident |
-| PATCH | `/api/v1/residents/:id` | partial `{ name?: string, room?: string or null, gender?: string or null, age?: number or null, diagnosisTags?: string[], fallRiskBaseline?: Level or null, isFocusResident?: boolean, isActive?: boolean }` | updated resident |
-| DELETE | `/api/v1/residents/:id` | none | soft-deleted resident body (`200`) |
-| GET | `/api/v1/residents/:id/assignment` | none | current assignment |
-| PUT | `/api/v1/residents/:id/assignment` | `{ spaceId: string, zoneId?: string or null }` | new active assignment for moved resident |
-| GET | `/api/v1/residents/assignments?residentId=&spaceId=&zoneId=&active=` | none | read-only assignment list |
-
 ### Cameras
 
 | Method | Path | Body | Response |
@@ -104,16 +89,6 @@ Resident create is also the initial placement action: `spaceId` is required. Res
 | POST | `/api/v1/cameras` | `{ label: string, spaceId: string }` | created camera |
 | PATCH | `/api/v1/cameras/:id` | partial `{ label?: string, spaceId?: string }` | updated camera |
 | DELETE | `/api/v1/cameras/:id` | none | delete result |
-
-### Guardians
-
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/api/v1/guardians?residentId=` | none | guardian list, optionally resident-filtered |
-| GET | `/api/v1/guardians/:id` | none | one guardian |
-| POST | `/api/v1/guardians` | `{ residentId: string, name: string, phone: string, relation?: string }` | created guardian |
-| PATCH | `/api/v1/guardians/:id` | partial `{ name?: string, phone?: string, relation?: string }` | updated guardian |
-| DELETE | `/api/v1/guardians/:id` | none | delete result |
 
 ## Events and stream
 

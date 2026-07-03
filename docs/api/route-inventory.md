@@ -32,24 +32,11 @@ Current route inventory cross-checked against `backend/src/**/*.controller.ts` f
 | POST | `/api/v1/spaces/:spaceId/zones` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ name?: string, type?: ZoneType, orderIndex?: number }` | Created zone. |
 | PATCH | `/api/v1/spaces/:spaceId/zones/:zoneId` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Partial zone body | Updated zone. |
 | DELETE | `/api/v1/spaces/:spaceId/zones/:zoneId` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Path `spaceId`, `zoneId` | `204`. |
-| GET | `/api/v1/residents` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query `isFocusResident?`, `spaceId?`, `active?` | Resident list. |
-| GET | `/api/v1/residents/:id` | Same | Path `id` | One resident with `currentAssignment` when present. |
-| POST | `/api/v1/residents` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ name, spaceId, room?, zoneId?, gender?, age?, diagnosisTags?, fallRiskBaseline?, isFocusResident? }` | Created and placed resident. |
-| PATCH | `/api/v1/residents/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Partial resident body | Updated resident. |
-| DELETE | `/api/v1/residents/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Path `id` | Soft-deleted resident body. |
-| GET | `/api/v1/residents/:id/assignment` | Same | Path `id` | Current assignment. |
-| PUT | `/api/v1/residents/:id/assignment` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ spaceId: string, zoneId?: string or null }` | New active assignment for moved resident. |
-| GET | `/api/v1/residents/assignments` | Same | Query `residentId?`, `spaceId?`, `zoneId?`, `active?` | Read-only assignment list. |
 | GET | `/api/v1/cameras` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body | Camera list. |
 | GET | `/api/v1/cameras/:id` | Same | Path `id` | One camera. |
 | POST | `/api/v1/cameras` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label: string, spaceId: string }` | Created camera. |
 | PATCH | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label?: string, spaceId?: string }` | Updated camera. |
 | DELETE | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Path `id` | Removed camera result. |
-| GET | `/api/v1/guardians` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query `residentId?` | Guardian list. |
-| GET | `/api/v1/guardians/:id` | Same | Path `id` | One guardian. |
-| POST | `/api/v1/guardians` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ residentId, name, phone, relation? }` | Created guardian. |
-| PATCH | `/api/v1/guardians/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Partial guardian body | Updated guardian. |
-| DELETE | `/api/v1/guardians/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Path `id` | Removed guardian result. |
 | GET | `/api/v1/alerts` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query `limit?`, `beforeSeq?`, `residentId?`, `status?`, `afterSeq?` | Alert list ordered by alert sequence. |
 | GET | `/api/v1/alerts/:id` | Same | Path `id` | One alert. |
 | PATCH | `/api/v1/alerts/:id/resolve` | Same | Path `id` | Resolves alert in one step with `resolvedById`/`resolvedAt`; emits `alert-updated`. |
@@ -88,3 +75,5 @@ These routes are not part of the target contract and must not be kept as compati
 | Unversioned `/auth/*` | Versioned `/api/v1/auth/*` routes only. |
 | `GET/PATCH /api/v1/detection-events` | None. |
 | `GET/POST/PATCH/DELETE /api/v1/alert-rules` | None. |
+| `GET/POST/PATCH/DELETE /api/v1/residents`, `/api/v1/residents/:id/assignment`, `/api/v1/residents/assignments` | None — v1 is room-centric; no compatibility alias (v2 re-adds resident placement as a new schema/API). |
+| `GET/POST/PATCH/DELETE /api/v1/guardians` | None — v1 is room-centric; no compatibility alias (v2 re-adds guardians as a new schema/API). |
