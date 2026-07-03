@@ -6,7 +6,7 @@
 
 ## Overview
 
-Eldercare fall-prevention monorepo: NestJS/PostgreSQL backend, FastAPI/worker ML edge runtime, and Vite React monitoring dashboard. Root scripts orchestrate packages; domain ownership lives in scoped `AGENTS.md` files.
+Eldercare fall-prevention monorepo: NestJS/PostgreSQL backend, FastAPI/worker ML edge runtime, and Vite React monitoring dashboard. Root scripts orchestrate packages; implementation ownership lives in scoped `AGENTS.md` files.
 
 ## Structure
 
@@ -15,7 +15,7 @@ Eldercare fall-prevention monorepo: NestJS/PostgreSQL backend, FastAPI/worker ML
 ├── backend/        # NestJS API, auth/RBAC, Event API, alert policy, Prisma DB
 ├── ml/             # uv Python ML API, worker, training, demo, contracts
 ├── front/          # Vite React facility dashboard and operator UI
-├── docs/           # architecture, rules, domain docs, research, exec plans
+├── docs/           # architecture, decisions, rules, research, exec plans
 ├── scripts/        # git/backend/env/release/deploy guards and automation
 ├── .github/        # CI and PR gates
 └── AGENTS.md       # root router only; scoped rules override below their dirs
@@ -27,7 +27,7 @@ Eldercare fall-prevention monorepo: NestJS/PostgreSQL backend, FastAPI/worker ML
 
 | Task | Location | Notes |
 | --- | --- | --- |
-| System topology | `docs/architecture.md`, `docs/onboarding/` | Runtime split and edge/backend/frontend flow. |
+| System topology | `docs/architecture.md` | Runtime split and edge/backend/frontend flow. |
 | Docs governance | `docs/AGENTS.md`, `docs/exec-plan/README.md` | Artifact ownership, plans, decisions, and rules. |
 | Backend API / DB | `backend/AGENTS.md`, `backend/src/AGENTS.md`, `backend/prisma/AGENTS.md` | Controllers/services/repositories, Prisma schema, migrations. |
 | ML runtime | `ml/AGENTS.md`, `ml/worker/AGENTS.md`, `ml/api/AGENTS.md` | Import ladder, RTSP worker, relay API, model boundaries. |
@@ -94,7 +94,7 @@ sh scripts/backend-guard/check-schema-migration.sh auto
 - Do not let frontend components call backend APIs directly; use `front/src/services/**`.
 - Do not call mock/stub/fake harnesses E2E. Real E2E claims must pass production code paths; see `docs/architecture.md`, `docs/rules/code-stability.md`, and `ml/AGENTS.md` for the owning detail.
 - Do not duplicate guard logic across CI, package scripts, or hooks. `scripts/**` owns reusable automation.
-- Do not bury new standing rules in scratch notes or memory. Promote them to `docs/rules/**`, `docs/domain/**`, `docs/decisions/**`, or the scoped `AGENTS.md`.
+- Do not bury new standing rules in scratch notes or memory. Promote them to `docs/rules/**`, `docs/decisions/**`, or the scoped `AGENTS.md`.
 
 ## Notes
 

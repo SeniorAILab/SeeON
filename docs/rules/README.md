@@ -2,7 +2,7 @@
 
 Project rules are standing conventions every change must follow. Unlike a plan, which is scoped to one work item, a rule is an ongoing constraint on how we work in a given area.
 
-ADR remains the name for architectural decision records, but the ADR set has been reset. Expensive decisions now live in the [ADR README](../decisions/README.md) only when they truly need ADR-level rationale, or in the owning rule, API, domain, onboarding, or script document when they are operational rules. Do not recreate numbered ADR files for new work by default.
+ADR remains the name for architectural decision records, but the ADR set has been reset. Expensive decisions now live in the [ADR README](../decisions/README.md) only when they truly need ADR-level rationale, or in the owning rule, architecture, scoped AGENTS, or script document when they are operational rules. Do not recreate numbered ADR files for new work by default.
 
 | Rule | Scope | Summary |
 |------|-------|---------|
@@ -27,8 +27,8 @@ If a future change makes an expensive-to-reverse decision, put the durable curre
 
 - Workflow conventions go in the relevant `docs/rules/` facet.
 - Wire/HTTP/SSE/ingest contracts live in code + generated OpenAPI (`/api/docs`, `@nestjs/swagger`) + contract tests — not hand-maintained docs.
-- Domain semantics go in `docs/domain/`.
-- Runtime topology and high-level boundaries go in `docs/architecture.md` or the onboarding doc for that surface.
+- Domain semantics live in the owning code/schema/tests and, when a durable rule is needed, the relevant `docs/rules/` facet or scoped `AGENTS.md`.
+- Runtime topology and high-level boundaries go in `docs/architecture.md`.
 - Rare ADR-level summaries go in `docs/decisions/README.md`.
 - One-off implementation order stays in the work plan.
 - Evidence and comparisons stay in `docs/research/` until a decision is made.

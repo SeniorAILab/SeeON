@@ -6,7 +6,7 @@
 
 ## 시스템 토폴로지 (인스턴스 상호작용)
 
-각 인스턴스가 어디에 배치되고 서로 어떻게 호출하는지의 한눈 지도다. 실선은 요청/egress, 점선은 backend가 되돌려주는 실시간 push와 휴면(dormant) seam이다. 단계별 데이터 흐름은 아래 "End-to-end live data path" 섹션을, 각 런타임 내부는 "상세 아키텍처(deep dives)"의 문서를 본다.
+각 인스턴스가 어디에 배치되고 서로 어떻게 호출하는지의 한눈 지도다. 실선은 요청/egress, 점선은 backend가 되돌려주는 실시간 push와 휴면(dormant) seam이다. 단계별 데이터 흐름은 아래 "End-to-end live data path" 섹션을 본다.
 
 ```mermaid
 flowchart LR
@@ -103,8 +103,9 @@ eldercare-fall-ai/                  ← orchestration layer only (no app deps he
 │
 └── docs/
     ├── architecture.md             ← this file
-    ├── onboarding/                 ← onboarding deep dives: edge, frontend, backend flows
     ├── decisions/                   ← compact current ADR
+    ├── research/                    ← pre-decision evidence and comparisons
+    ├── exec-plan/                   ← work-scoped specs/plans
     └── rules/                       ← standing conventions (e.g. streamlit-demo.md)
 ```
 
@@ -195,21 +196,6 @@ The Streamlit demo (`ml/demo/app.py`) is a **developer tool**, not the product f
 | Model versioning | **ML** (`models/fall/<model_type>/`) | Single-root layout (ADR); backend does not own model artifacts |
 
 ML is intentionally edge-local and signal-only: `ml-worker` predicts and emits relay facts through `ml-api`; backend decides tenant ownership, persistence, event deduplication, camera online/offline state, and dashboard alert side effects. The backend does not re-threshold, cooldown, or hourly-cap Event API facts at ingest. The legacy backend-pull `ML_SERVING_URL` window-predict seam is dormant/removed from live topology by ADR and must not be described as the operating path.
-
----
-## 상세 아키텍처 (deep dives)
-
-신규 개발자는 이 overview로 전체 흐름을 잡은 뒤, 아래 deep-dive 문서에서 각 런타임의 책임과 실제 파일 위치를 확인한다.
-
-| 문서 | 읽는 이유 |
-| --- | --- |
-| [`onboarding/README.md`](onboarding/README.md) | 온보딩 읽기 순서와 문서 컬렉션 역할 |
-| [`onboarding/edge-device.md`](onboarding/edge-device.md) | edge device(`ml-api` + `ml-worker`) 구성과 배포/연결 |
-| [`onboarding/edge-worker-streaming.md`](onboarding/edge-worker-streaming.md) | `ml-worker` 내부 RTSP→pose→domain fact 스트리밍 절차 |
-| [`onboarding/frontend.md`](onboarding/frontend.md) | frontend SSE 수신, 서비스 seam, 컴포넌트 재사용성 |
-| [`onboarding/backend.md`](onboarding/backend.md) | backend layered 책임, RLS, Event API→SSE 흐름 |
-
----
 
 ## Dependency-management topology
 
@@ -303,16 +289,7 @@ Architecture-level consequences are:
 
 ## References
 
-### Deep dives
-
-- [`onboarding/README.md`](onboarding/README.md) — 아키텍처 온보딩 인덱스
-- [`onboarding/edge-device.md`](onboarding/edge-device.md) — Edge device(`ml-api` + `ml-worker`) 아키텍처
-- [`onboarding/edge-worker-streaming.md`](onboarding/edge-worker-streaming.md) — worker 내부 스트리밍 절차
-- [`onboarding/frontend.md`](onboarding/frontend.md) — frontend SSE 수신과 컴포넌트 구조
-- [`onboarding/backend.md`](onboarding/backend.md) — backend layered 책임과 Event API 흐름
-
 ### Hubs
 
 - [`decisions/common/adr-wire-contract-ssot-code-openapi.md`](decisions/common/adr-wire-contract-ssot-code-openapi.md), [`rules/rest-api-convention.md`](rules/rest-api-convention.md), [`rules/realtime-sse-convention.md`](rules/realtime-sse-convention.md), [`rules/dto-convention.md`](rules/dto-convention.md) — wire contract SSOT and conventions
 - [`decisions/`](decisions/) — ADR
-- [`domain/`](domain/) — 데이터 모델/도메인 문서

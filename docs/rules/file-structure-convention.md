@@ -56,8 +56,7 @@ Reference layout already present across `backend/src/events/` and `backend/src/a
 
 Do not create a root `contracts/` folder. Standing contracts and conventions live under `docs/`:
 
-- `docs/rules/` for coding and API conventions.
-- `docs/domain/` for domain contracts and glossary.
+- `docs/rules/` for coding, API, and durable workflow conventions.
 - `docs/decisions/` for decisions.
 - `docs/exec-plan/` for work-scoped plans/specs.
 

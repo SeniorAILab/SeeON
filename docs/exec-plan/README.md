@@ -66,7 +66,7 @@ modified. Enforcement is convention-level — no hook-based hard gate this cycle
 | Body | Immutable after finalize | Short ADR-level note in `docs/decisions/README.md`; operational detail in owning docs |
 | Author | omc-plan / omo / omx | humans / agents maintaining docs |
 
-When a plan contains a cross-cutting, expensive-to-reverse choice, promote that choice into `docs/decisions/README.md` or the owning rule/API/domain/onboarding or script document. The plan entry itself is not replaced.
+When a plan contains a cross-cutting, expensive-to-reverse choice, promote that choice into `docs/decisions/README.md` or the owning rule, architecture, scoped AGENTS, code/API contract, or script document. The plan entry itself is not replaced.
 
 ## Trivial exemptions (no plan needed)
 

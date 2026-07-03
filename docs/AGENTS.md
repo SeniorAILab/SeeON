@@ -2,16 +2,15 @@
 
 ## Overview
 `docs/**` is the canonical knowledge surface. It separates facts found,
-decisions made, work plans, standing rules, domain notes, and wire-contract rules.
+decisions made, work plans, standing rules, and wire-contract rules.
 
 ## Where to look
 
 | Task | Location | Notes |
 | --- | --- | --- |
-| Architecture map | `architecture.md`, `onboarding/` | System-level overview plus deep-dive onboarding set for edge/frontend/backend flows. |
+| Architecture map | `architecture.md` | System-level overview for edge/backend/frontend flow. |
 | Tooling notes | `Tools.md` | MCP and operator tooling notes. |
-| Wire contracts | code + `/api/docs`, `rules/rest-api-convention.md`, `rules/realtime-sse-convention.md`, `rules/dto-convention.md`, `domain/alert-pipeline.md` | Backend/ML/frontend contract SSOT; no hand-maintained `api/` docs. |
-| Domain model | `domain/` | Alert pipeline and data dictionary. |
+| Wire contracts | code + `/api/docs`, `rules/rest-api-convention.md`, `rules/realtime-sse-convention.md`, `rules/dto-convention.md` | Backend/ML/frontend contract SSOT; no hand-maintained `api/` or domain docs. |
 | Work plans | `exec-plan/` | Active/archive lifecycle for specs and plans. |
 | Retired reference | `archive/` | 은퇴 참고문서 보관소 — preserved, non-normative historical docs; distinct from `exec-plan/archive/` work plans. |
 | Decisions | `decisions/` | ADR home after reset; current backend doctrine is in `decisions/backend/adr-post-mvp-auth-rbac-ml-ingest-seed.md`. |
