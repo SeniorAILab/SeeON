@@ -57,7 +57,6 @@ describe("dashboardEndpoints", () => {
     vi.resetModules();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    vi.stubEnv("VITE_USE_MOCK", "false");
   });
 
   it("hydrates room statuses from spaces and overlays room-level alerts without mis-keying resident status", async () => {
