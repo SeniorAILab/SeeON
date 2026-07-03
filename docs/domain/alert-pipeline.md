@@ -1,67 +1,67 @@
 # Alert pipeline domain contract
 
-The fall-alert pipeline is one domain with two write concerns:
+The fall-alert pipeline is backend-owned and the delivered ingest path currently writes the dashboard alert/read concern only.
 
-1. Dashboard read state.
-2. Notification/outbox delivery state.
-
-Those concerns are stored separately, but they are not separate domains and they must not create separate live ingresses.
+Notification/outbox tables may exist as backend delivery infrastructure, but `EventAlarmService.record()` does not create outbox rows or dispatch Kakao on `POST /api/v1/events`.
 
 ## Canonical ingress
 
 `POST /api/v1/events` is the canonical ML event ingress.
 
 - Controller: `backend/src/events/events.controller.ts`.
-- Auth: no HMAC/session; backend resolves facility/space from `camera_id`.
-- Tenant coherence: camera facility must match payload `facility_id`; target relationships and FK directions are canonicalized in [data-model.md](./data-model.md).
-- Idempotency: backend derives a key from camera id, detected timestamp, and event type.
+- Auth: no HMAC/session; backend resolves facility and space from `camera_id`.
+- Event type: trim + lowercase at ingress, then require membership in the backend allowlist. Unknown types return `4xx`.
+- ML signal: backend accepts the canonical ML event type and `confidence` as provided after normalization. It does not re-threshold probability for acceptance, and it does not apply cooldown or hourly-cap suppression at ingest.
+- Tenant coherence: camera ownership determines facility/space; client-sent facility is not trusted.
+- Idempotency: backend derives a key from camera id, detected timestamp, and normalized event type.
 - Edge `snapshot_url` is ignored for SSRF safety; snapshots are server-owned uploads/keys.
 
-The legacy `/api.alerts/events` pilot path is not a second domain ingress. It exists only as refactor debt and must be removed rather than promoted.
+The legacy pilot path is not a second domain ingress. Removed compatibility routes remain removed rather than being promoted.
 
-## One idempotent event, two write concerns
+## One idempotent event and the current ingest writes
 
-A valid Event API request persists the Event SSOT, and backend alert policy performs the downstream alert write concerns for eligible events.
+A valid Event API request persists the Event SSOT. `EventAlarmService` then performs these downstream writes:
 
-### Concern 1: dashboard read model
+- `detection_lost`: `CamerasService.recordOffline()` marks the resolved camera offline/degraded and no red fall alert is written.
+- Other allowed event types: `AlertWriterService.writeAlert()` writes one dashboard `Alert` linked by `originEventId`.
 
-`AlertWriterService.writeAlert()` writes:
+### Concern 1: dashboard alert read model
 
-- `Alert` read-model row.
-- `ResidentStatus` current state (`NORMAL`, `WARNING`, or `FALL`) derived from probability thresholds.
-- SSE emissions after commit: unnamed alert event and named `event: status` update.
+`AlertWriterService.writeAlert()` writes the `Alert` read-model row and emits the space-keyed dashboard frame after commit.
 
-`Alert` is the dashboard-facing read model. It is facility-scoped/RLS-protected and provides `alertSeq`, the SSE `Last-Event-ID` replay cursor. Relationship cardinality and room anchoring are canonicalized in [data-model.md](./data-model.md).
+`Alert` is the dashboard-facing read model. It is facility-scoped/RLS-protected, aggregates by `spaceId`, and provides `alertSeq`, the SSE `Last-Event-ID` replay cursor. Relationship cardinality and room anchoring are canonicalized in [data-model.md](./data-model.md).
 
-### Concern 2: notification outbox
+SSE emits exactly two normal named frames on `GET /api/v1/dashboard/stream`:
 
-`AlertEventsService.ensureOutboxForIngest()` writes/repairs:
+- `event: alert` for created alerts. It includes SSE `id: <alertSeq>` and payload fields `id`, `alertSeq`, `spaceId`, `cameraId`, `type`, `status`, `probability`, and `detectedAt`.
+- `event: alert-updated` for lifecycle updates. It has no SSE `id:` line and includes `id`, `alertSeq`, `spaceId`, `status`, `resolvedById`, and `resolvedAt`.
 
-- `AlertEvent` outbox row keyed by `(sourceId, externalEventId)`.
-- One `DeliveryAttempt` per Kakao recipient in the facility.
-- Kakao send-to-me fan-out for pending attempts only.
+Detection-lost/heartbeat absence means camera offline/degraded state. It is not a red fall alert.
 
-`AlertEvent` and `DeliveryAttempt` are backend-owned outbox tables, not tenant list/read models. They are non-RLS because they are delivery infrastructure keyed by ingest source and external event id.
+### Resolve lifecycle
 
-## Alert vs AlertEvent
+Resolve is a one-step audited mutation: `PATCH /api/v1/alerts/:id/resolve` marks the alert resolved by the current user, sets `resolvedById` and `resolvedAt`, returns the updated alert, and emits `event: alert-updated`.
 
-`Alert` and `AlertEvent` are the same alert domain, separated by write concern:
+### Notification/outbox state
+
+The current Event API ingest path does not call `AlertEventsService.ensureOutboxForIngest()`, does not create `AlertEvent` rows, does not upsert `DeliveryAttempt` rows, and does not dispatch Kakao. Any future outbox repair or fan-out path must be documented as separate from the delivered `EventAlarmService` side effects.
+
+## Alert vs delivery outbox
+
+`Alert` is the delivered dashboard read model for Event API ingest. Delivery outbox tables are separate backend infrastructure, not a required side effect of ingest in the current source:
 
 | Table | Concern | External surface | Idempotency/order key |
 |---|---|---|---|
-| `Alert` | Dashboard read model + SSE | `/api/alerts`, `/api/v1/dashboard/stream` | `idempotencyKey`, `alertSeq` |
+| `Alert` | Dashboard read model + SSE | `/api/v1/alerts`, `/api/v1/dashboard/stream` | `idempotencyKey`, `alertSeq` |
 | `AlertEvent` | Backend delivery/outbox audit | internal service/repository | `(sourceId, externalEventId)` |
 | `DeliveryAttempt` | Per-channel/per-recipient delivery record | internal service/repository | `(alertEventId, recipientUserId)` |
 
-Do not model these as two separate alert domains. A live ingest that updates only `Alert` without `AlertEvent`, or only `AlertEvent` without `Alert`, is incomplete unless a documented repair/migration is intentionally running.
-
 ## Kakao fan-out
 
-Kakao self-notification is backend-owned delivery policy. The ingest path calls `ensureOutboxForIngest`, which finds Kakao recipients for the facility and dispatches one send-to-me attempt per recipient. The Kakao adapter may report sent, transient failure, or terminal operator-action failure; it must never fake success.
+Kakao self-notification is backend-owned delivery policy, but it is not triggered by the current Event API ingest path. The Kakao adapter may report sent, transient failure, or terminal operator-action failure when a delivery path explicitly invokes it; it must never fake success.
 
 ## ML signal contract
 
-The old backend-pull prediction contract is retired, not a second alert ingress.
-`backend/src/alerts/adapters/ml-serving-prediction.adapter.ts` and the `PredictionAlertRequestDto` path were removed with the dormant seam. Live ML classification happens in `ml-worker`; its probability is relayed through `ml-api` and enters backend `POST /api/v1/events` as `confidence`.
+The old backend-pull prediction contract is retired, not a second alert ingress. Live ML classification happens in `ml-worker`; its confidence is relayed through `ml-api` and enters backend `POST /api/v1/events` as `confidence`.
 
-Backend owns alert policy, persistence, deduplication, SSE, and delivery. ML output must enter the same one-domain pipeline and produce the same two write concerns. It must not add a second alert ingress beside `POST /api/v1/events`.
+Backend owns alert policy, persistence, deduplication, SSE, and any delivery path. ML output must enter the same canonical `POST /api/v1/events` ingress and must not add a second alert ingress.
