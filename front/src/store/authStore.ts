@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authService } from "@/services/authService";
+import { setUnauthorizedHandler } from "@/services/apiClient";
 import type {
   CreateFacilityInput,
   LoginInput,
@@ -87,3 +88,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null });
   },
 }));
+
+setUnauthorizedHandler(() => {
+  useAuthStore.setState({ user: null, initialized: true, loading: false });
+  if (window.location.pathname !== "/login") {
+    window.location.assign("/login?reason=session-invalid");
+  }
+});

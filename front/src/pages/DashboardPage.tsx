@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Filter, RefreshCw, AlertTriangle } from "lucide-react";
 import { StatsBar } from "@/components/StatsBar";
 import { FloorTabs } from "@/components/FloorTabs";
 import { StatusCard } from "@/components/StatusCard";
 import { SpaceDetailPanel } from "@/components/SpaceDetailPanel";
 import { Select } from "@/components/ui/primitives";
-import { dashboardService } from "@/services/dashboardService";
-import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
+import { useDashboard } from "@/hooks/useDashboard";
 import { spaceTypeLabel } from "@/lib/labels";
-import type { DashboardResponse, Space, SpaceType } from "@/types";
+import type { Space, SpaceType } from "@/types";
 
 const SPACE_TYPES: SpaceType[] = [
   "ROOM",
@@ -21,34 +20,11 @@ const SPACE_TYPES: SpaceType[] = [
 ];
 
 export function DashboardPage() {
-  const facilityId = useActiveFacilityId();
-
-  const [data, setData] = useState<DashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, reload } = useDashboard();
   const [floorFilter, setFloorFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [selected, setSelected] = useState<Space | null>(null);
-
-  async function load() {
-    if (!facilityId) {
-      setData(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const res = await dashboardService.getDashboard(facilityId);
-    setData(res);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-    // 실시간 반영 시뮬레이션: 20초마다 폴링 (실제는 WebSocket/SSE 권장)
-    const t = setInterval(load, 20_000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facilityId]);
 
   const visibleSpaces = useMemo(() => {
     if (!data) return [];
@@ -85,7 +61,7 @@ export function DashboardPage() {
           <p className="mt-0.5 text-sm text-gray-400">{data.facility.address}</p>
         </div>
         <button
-          onClick={load}
+          onClick={reload}
           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-ink-soft hover:bg-gray-50"
         >
           <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
@@ -152,7 +128,7 @@ export function DashboardPage() {
           floor={floorOf(selected.floorId)}
           status={data.statuses[selected.id]}
           onClose={() => setSelected(null)}
-          onChanged={load}
+          onChanged={reload}
         />
       )}
     </div>

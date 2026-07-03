@@ -13,7 +13,7 @@ This document is the backend relationship reference derived from the PRD/API con
 
 ## RLS enrollment and facility scope
 
-`Facility` is the root tenant table and is not an RLS list/query surface. Auth/root tables (`User`, `KakaoIdentity`, `ServerSession`) are gated by authenticated user/session logic and app-layer facility membership.
+`Facility` is the root tenant table and is not an RLS list/query surface. Auth/root tables (`User`, `KakaoIdentity`) are gated by authenticated user/session logic and app-layer facility membership.
 
 Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`, must be queried under the `app.facility_id` GUC, and must use `facility_id` in relationship constraints:
 
@@ -33,7 +33,7 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 
 | Entity | Scope | Cardinality and FK direction | Notes |
 |---|---|---|---|
-| `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Zone`, `Resident`, `ResidentAssignment`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`, `User`, `KakaoIdentity`, `ServerSession` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
+| `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Zone`, `Resident`, `ResidentAssignment`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`, `User`, `KakaoIdentity` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
 | `Floor` | Tenant/RLS | `Floor(facilityId) -> Facility(id)`; `Facility` 1→N `Floor`; `Floor` 1→N `Space`. | Floor remains canonical because the frontend and operations model are floor-aware. |
 | `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1→N `Zone`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `ResidentAssignment`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. `Space.cameraId` is transitional legacy only and is removed by the remodel. |
 | `Camera` | Tenant/RLS | Target: `Camera(facilityId) -> Facility(id)` and `Camera(facilityId, spaceId) -> Space(facilityId, id)` with `UNIQUE(facilityId, spaceId)`. `Space` 1:1 `Camera`; `Camera` 1→N `Alert` as source. | Camera belongs to a room/space, not a resident. `Camera.residentId` is legacy and removed by the remodel. |
@@ -43,9 +43,8 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 | `Guardian` | Tenant/RLS | `Guardian(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; `Resident` 1→N `Guardian`. | Emergency-contact data linked to one resident within the same facility. |
 | `Alert` | Tenant/RLS | Target: `Alert(facilityId) -> Facility(id)`; required `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, cameraId) -> Camera(facilityId, id)` as source; optional `(facilityId, residentId) -> Resident(facilityId, id)` when known. `Space` 1→N `Alert`; `Camera` 0/1→N `Alert`; `Resident` 0/1→N `Alert`. | `spaceId` is NOT NULL and is the historical room anchor. `cameraId` records the source. `residentId` is nullable for empty-room/unknown-person alerts. |
 | `ResidentStatus` | Tenant/RLS | `ResidentStatus(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; optional `(facilityId, sourceId) -> Camera(facilityId, id)`. `Resident` 1→0/1 `ResidentStatus`. | Resident-centric current-state read model. Empty-room alerts skip resident status updates. |
-| `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `ServerSession`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | STAFF`, labeled 시스템 관리자 / 원장님 / 요양보호사. `SUPER_ADMIN`/`ADMIN` have facility administration capability; `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility. |
+| `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | STAFF`, labeled 시스템 관리자 / 원장님 / 요양보호사. `SUPER_ADMIN`/`ADMIN` have facility administration capability; `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility. |
 | `KakaoIdentity` | Auth/root | `KakaoIdentity(userId) -> User(id)`; optional `KakaoIdentity(facilityId) -> Facility(id)`; `User` 1→0/1 `KakaoIdentity`. | OAuth/self-notification identity for a facility-bound user. |
-| `ServerSession` | Auth/root | `ServerSession(userId) -> User(id)`; optional `ServerSession(facilityId) -> Facility(id)`; `User` 1→N `ServerSession`. | Server-side session/revocation root. Tenant-domain access starts only after authenticated facility binding. |
 | `AlertEvent` | Backend outbox, non-RLS | No tenant-domain FK. `AlertEvent` 1→N `DeliveryAttempt`; idempotency key is `(sourceId, externalEventId)`. | Delivery/outbox audit row keyed by ingest/source identity. Keep separate from dashboard `Alert` read model. |
 | `DeliveryAttempt` | Backend outbox, non-RLS | `DeliveryAttempt(alertEventId) -> AlertEvent(id)`; optional `DeliveryAttempt(recipientUserId) -> User(id)`; `AlertEvent` 1→N `DeliveryAttempt`; `User` 0/1→N `DeliveryAttempt`. | Per-channel/per-recipient delivery state. It is non-RLS delivery infrastructure, not a tenant list surface. |
 
@@ -70,7 +69,6 @@ Resident 1 -> 0..1 ResidentStatus
 Resident 0..1 -> N Alert     (Alert.residentId nullable)
 Camera 0..1 -> N Alert       (Alert.cameraId source)
 AlertEvent 1 -> N DeliveryAttempt
-User 1 -> N ServerSession
 User 1 -> 0..1 KakaoIdentity
 User 0..1 -> N DeliveryAttempt
 ```

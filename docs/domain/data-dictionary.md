@@ -11,7 +11,7 @@ Examples:
 - `User.facilityId` maps to `facility_id`.
 - `Alert.alertSeq` maps to `alert_seq`.
 - `AlertEvent.externalEventId` maps to `external_event_id`.
-- Tables use `@@map`, such as `facilities`, `server_sessions`, `resident_statuses`, `alert_events`, and `delivery_attempts`.
+- Tables use `@@map`, such as `facilities`, `resident_statuses`, `alert_events`, and `delivery_attempts`.
 
 This is the single convention across all tables. New schema fields must not use camelCase database columns.
 
@@ -35,11 +35,9 @@ Encrypted Kakao OAuth identity/token record used for self-notification. `accessT
 
 Important fields: `userId`, `facilityId`, `kakaoId`, `accessTokenCipher`, `tokenScope`, `tokenExpiresAt`.
 
-### ServerSession
+### Auth (stateless JWT cookie)
 
-Server-side session root for JWT/cookie validation, revocation, and SSE re-auth. The browser carries `app_session`; backend validates it against `ServerSession` and `User.sessionVersion`.
-
-Important fields: `id`, `userId`, `facilityId`, `expiresAt`, `revokedAt`.
+Auth is a stateless JWT carried in the `app_session` httpOnly cookie; there is no server-session table. Revocation is enforced by comparing the JWT `sessionVersion` claim against `User.sessionVersion` (bumped on logout/role change), checked per request and on the SSE re-auth tick.
 
 ### Floor
 

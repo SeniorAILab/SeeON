@@ -79,10 +79,11 @@ export async function registerEndpoint(
 }
 
 export async function restoreSessionEndpoint(): Promise<AuthSession | null> {
-  const body = await requestJson("/auth/session", {
+  const body = await requestJson("/auth/me", {
     credentials: "include",
   });
-  return parseAuthSessionResponse(body);
+  const user = parseAuthUserResponse(body);
+  return user ? { user } : null;
 }
 
 export async function createFacilityEndpoint(
@@ -108,6 +109,10 @@ export function parseAuthSessionResponse(body: unknown): AuthSession | null {
   }
   const user = mapAuthUser(body.user);
   return user ? { user } : null;
+}
+
+export function parseAuthUserResponse(body: unknown): User | null {
+  return isAuthUserResponseDto(body) ? mapAuthUser(body) : null;
 }
 
 function mapAuthUser(dto: AuthUserResponseDto): User | null {

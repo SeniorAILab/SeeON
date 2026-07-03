@@ -1,4 +1,6 @@
+import { parseAuthUserResponse } from "@/services/api/authEndpoints";
 import { requestJson } from "@/services/apiClient";
+import { useAuthStore } from "@/store/authStore";
 import { listAlerts } from "@/services/api/alertEndpoints";
 import { mergeAlertsIntoDashboard } from "@/services/alertMerge";
 import type { DashboardResponse, DashboardSummary, Facility, Floor, Space, SpaceStatus } from "@/types";
@@ -20,8 +22,23 @@ function buildSummary(statuses: Record<string, SpaceStatus>, unacknowledged: num
   };
 }
 
+function pathSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+async function resolveCurrentFacilityId(): Promise<string> {
+  const storeFacilityId = useAuthStore.getState().user?.facilityId;
+  if (storeFacilityId) return storeFacilityId;
+
+  const user = parseAuthUserResponse(await requestJson("/auth/me"));
+  if (user?.facilityId) return user.facilityId;
+
+  throw new Error("현재 시설 정보를 찾을 수 없습니다.");
+}
+
 export async function getCurrentFacility(): Promise<Facility> {
-  return (await requestJson("/facilities/current")) as Facility;
+  const facilityId = await resolveCurrentFacilityId();
+  return (await requestJson(`/facilities/${pathSegment(facilityId)}`)) as Facility;
 }
 
 export async function listFacilities(): Promise<Facility[]> {
@@ -55,9 +72,6 @@ function buildStatusesFromSpaces(spaces: Space[]): Record<string, SpaceStatus> {
   return Object.fromEntries(spaces.map((space) => [space.id, statusFromSpace(space)]));
 }
 
-function pathSegment(value: string): string {
-  return encodeURIComponent(value);
-}
 
 export const dashboardReadModelPath = {
   superAdmin: () => "/dashboards/super-admin",

@@ -27,7 +27,7 @@ state, mocks, and tests for the Vite React app.
 - Real backend mode is default. Mock mode (`VITE_USE_MOCK=true`, the
   frontend-alone "demo" path) is for automated tests only, not dev/prod runtime
   — see `../../docs/architecture.md`.
-- Auth is backend-owned. Restore session through `/api/v1/auth/session`; do not add
+- Auth is backend-owned. Restore identity through `/api/v1/auth/me`; do not add
   frontend mock users or localStorage auth sessions.
 - Use the `@/*` alias for source imports where it improves readability.
 - `_`-prefixed variables are the intentional-unused convention.

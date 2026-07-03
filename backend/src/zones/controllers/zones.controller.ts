@@ -13,12 +13,14 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiCookieAuth } from '@nestjs/swagger';
 import { FacilityContextInterceptor } from '../../auth/facility-context.interceptor.js';
 import {
   RequireFacilityGuard,
-  SessionGuard,
-} from '../../auth/session.guard.js';
-import type { RequestWithAuth } from '../../auth/session.guard.js';
+  JwtAuthGuard,
+} from '../../auth/jwt-auth.guard.js';
+import { RequireCapability, RolesGuard } from '../../auth/roles.guard.js';
+import type { RequestWithAuth } from '../../auth/jwt-auth.guard.js';
 import type {
   CreateZoneRequestDto,
   UpdateZoneRequestDto,
@@ -27,7 +29,8 @@ import type {
 import { ZonesService } from '../services/zones.service.js';
 
 @Controller({ path: 'spaces/:spaceId/zones', version: '1' })
-@UseGuards(SessionGuard, RequireFacilityGuard)
+@ApiCookieAuth()
+@UseGuards(JwtAuthGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class ZonesController {
   constructor(private readonly service: ZonesService) {}
@@ -38,14 +41,20 @@ export class ZonesController {
   ) {
     return this.service.list(requireFacilityId(req), { spaceId, type });
   }
-  @Post() create(
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
+  @Post()
+  create(
     @Req() req: RequestWithAuth,
     @Param('spaceId') spaceId: string,
     @Body() body: CreateZoneRequestDto,
   ) {
     return this.service.create(requireFacilityId(req), { ...body, spaceId });
   }
-  @Patch(':zoneId') update(
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
+  @Patch(':zoneId')
+  update(
     @Req() req: RequestWithAuth,
     @Param('spaceId') spaceId: string,
     @Param('zoneId') zoneId: string,
@@ -56,6 +65,8 @@ export class ZonesController {
       spaceId,
     });
   }
+  @UseGuards(RolesGuard)
+  @RequireCapability('facilityAdmin')
   @Delete(':zoneId')
   @HttpCode(204)
   async remove(
