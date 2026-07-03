@@ -98,7 +98,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           onToggleSound={() => setSound(!soundEnabled)}
           onRefresh={() => void reload()}
           fullscreenRef={rootRef}
-          floorSelectorPath={allView ? undefined : dashboardPath()}
+          floorSelectorPath={allView || !facilityId ? undefined : dashboardPath(facilityId)}
           floorSelectorLabel="전체 보기"
         />
 
@@ -106,6 +106,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           <RoomStatusBoard
             spaces={sortedSpaces}
             statuses={statuses}
+            floors={floors}
             alertsBySpace={alertsBySpace}
             connection={connection}
             lastUpdateAt={lastUpdateAt}

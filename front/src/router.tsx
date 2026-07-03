@@ -4,7 +4,14 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { StaffLayout } from "@/components/layout/StaffLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RouterBootstrap } from "@/components/RouterBootstrap";
-import { FacilityScope, LegacyFacilityRedirect } from "@/components/FacilityRouteScope";
+import {
+  FacilityScope,
+  LegacyAdminRedirect,
+  LegacyAlertsRedirect,
+  LegacyDashboardRedirect,
+  LegacyFacilityRedirect,
+  LegacyFloorRedirect,
+} from "@/components/FacilityRouteScope";
 import { RoleRouteRedirect } from "@/components/RoleRouteRedirect";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
@@ -20,15 +27,6 @@ import { AdminSpacesPage } from "@/pages/admin/AdminSpacesPage";
 import { UsersPage } from "@/pages/admin/UsersPage";
 import { AdminMonitorSettingsPage } from "@/pages/admin/AdminMonitorSettingsPage";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
-
-function DashboardGate() {
-  const user = useAuthStore((s) => s.user);
-  const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
-  if (user?.role === "SUPER_ADMIN" && !currentFacilityId) return <SuperAdminDashboardPage />;
-  return <FloorMonitorPage allView />;
-}
 
 const auth = (children: ReactNode, minRole?: "STAFF" | "ADMIN" | "SUPER_ADMIN") => (
   <RouterBootstrap>
@@ -70,9 +68,18 @@ export const router = createBrowserRouter([
     ),
   },
   { path: "/", element: auth(<RoleRouteRedirect />) },
-  { path: "/dashboard", element: auth(<DashboardGate />) },
+  { path: "/facilities", element: auth(<SuperAdminDashboardPage />, "SUPER_ADMIN") },
   {
-    path: "/dashboard/floor/:floorId",
+    path: "/facilities/:facilityId/dashboard",
+    element: auth(
+      <FacilityScope>
+        <StaffLayout />
+      </FacilityScope>,
+    ),
+    children: [{ index: true, element: <FloorMonitorPage allView /> }],
+  },
+  {
+    path: "/facilities/:facilityId/floor/:floorId",
     element: auth(
       <FacilityScope>
         <StaffLayout />
@@ -81,7 +88,7 @@ export const router = createBrowserRouter([
     children: [{ index: true, element: <FloorMonitorPage /> }],
   },
   {
-    path: "/dashboard/alerts",
+    path: "/facilities/:facilityId/alerts",
     element: auth(
       <FacilityScope>
         <StaffLayout />
@@ -90,7 +97,7 @@ export const router = createBrowserRouter([
     children: [{ index: true, element: <AlertsPage /> }],
   },
   {
-    path: "/admin",
+    path: "/facilities/:facilityId/admin",
     element: auth(
       <FacilityScope>
         <AppLayout />
@@ -105,12 +112,12 @@ export const router = createBrowserRouter([
       { path: "spaces", element: <AdminSpacesPage /> },
       { path: "monitor-settings", element: <AdminMonitorSettingsPage /> },
       { path: "users", element: <UsersPage /> },
-      // Re-enable after backend controllers exist by restoring these child routes:
-      // focus-residents -> FocusResidentsPage, assignments -> AdminAssignmentsPage,
-      // alert-rules -> AdminAlertRulesPage.
     ],
   },
-  { path: "/admin/*", element: auth(<RoleRouteRedirect />, "ADMIN") },
+  { path: "/dashboard", element: auth(<LegacyDashboardRedirect />) },
+  { path: "/dashboard/floor/:floorId", element: auth(<LegacyFloorRedirect />) },
+  { path: "/dashboard/alerts", element: auth(<LegacyAlertsRedirect />) },
+  { path: "/admin/*", element: auth(<LegacyAdminRedirect />, "ADMIN") },
   { path: "/dashboard/facilities/:facilityId/:view/*", element: auth(<LegacyFacilityRedirect />) },
   { path: "*", element: auth(<RoleRouteRedirect />) },
 ]);

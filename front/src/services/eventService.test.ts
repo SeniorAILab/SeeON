@@ -21,6 +21,14 @@ const alertDto = {
   status: "RESOLVED",
 };
 
+const noteDto = {
+  id: "note-1",
+  note: "keep this",
+  createdBy: "Care Staff",
+  authorRole: "STAFF",
+  createdAt: "2026-06-22T01:02:00.000Z",
+};
+
 describe("eventService real mode actions", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -52,15 +60,24 @@ describe("eventService real mode actions", () => {
     });
   });
 
-  it("rejects non-ack actions instead of returning unchanged fake success", async () => {
-    const fetchMock = vi.fn<typeof fetch>();
+  it("posts non-ack action notes and returns note history", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/alerts/alert_201/notes") && init?.method === "POST") return okJsonResponse(noteDto);
+      if (url.endsWith("/alerts")) return okJsonResponse([alertDto]);
+      if (url.endsWith("/alerts/alert_201")) return okJsonResponse({ ...alertDto, notes: [noteDto] });
+      throw new Error(`Unexpected request ${url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const { eventService } = await import("./eventService");
 
-    await expect(eventService.addAction("alert_201", "MEMO", "keep this", "Care Staff")).rejects.toThrow(
-      "메모 저장 API가 없어 확인 완료 외 조치는 저장할 수 없습니다."
+    const event = await eventService.addAction("alert_201", "MEMO", "keep this", "Care Staff");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/alerts/alert_201/notes",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ note: "keep this" }) })
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(event.actions[0]).toMatchObject({ note: "keep this", createdBy: "Care Staff" });
   });
 });

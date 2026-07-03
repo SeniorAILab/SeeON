@@ -8,7 +8,7 @@ import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
 import { useUiStore } from "@/store/uiStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
-import { adminPath, alertsPath, dashboardPath } from "@/lib/routeAccess";
+import { FACILITIES_PICKER_PATH, adminPath, alertsPath, dashboardPath } from "@/lib/routeAccess";
 
 export function StaffLayout() {
   const user = useAuthStore((s) => s.user);
@@ -52,9 +52,10 @@ export function StaffLayout() {
   const activeFacilityId = userRole === "SUPER_ADMIN" ? currentFacilityId : userFacilityId;
   const facility = myFacilities.find((f) => f.id === activeFacilityId) ?? null;
   const facilityLabel = facility?.name ?? activeFacilityId ?? "전역 개요";
+  const routeFacilityId = activeFacilityId ?? "";
   const nav = [
-    { to: dashboardPath(), label: "대시보드", Icon: MonitorPlay },
-    { to: alertsPath(), label: "확인한 알림", Icon: CheckCheck },
+    { to: routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "대시보드", Icon: MonitorPlay },
+    { to: routeFacilityId ? alertsPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "확인한 알림", Icon: CheckCheck },
   ];
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export function StaffLayout() {
               {theme === "dark" ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
             </IconBtn>
             <button
-              onClick={() => navigate(dashboardPath())}
+              onClick={() => navigate(routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH)}
               className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
             >
               <MonitorPlay className="h-5 w-5" />
@@ -96,7 +97,7 @@ export function StaffLayout() {
             </button>
             {canAdmin(user) && (
               <button
-                onClick={() => navigate(adminPath())}
+                onClick={() => navigate(routeFacilityId ? adminPath(routeFacilityId) : FACILITIES_PICKER_PATH)}
                 className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
               >
                 <Settings className="h-5 w-5" />

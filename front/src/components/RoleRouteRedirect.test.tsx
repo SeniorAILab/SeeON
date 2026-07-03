@@ -13,21 +13,27 @@ beforeEach(() => {
 
 describe("RoleRouteRedirect", () => {
   it.each([
-    ["SUPER_ADMIN", null],
-    ["ADMIN", "fac_happy_nokyang"],
-    ["STAFF", "fac_happy_nokyang"],
-  ] as const)("routes %s to /dashboard", async (role, facilityId) => {
+    ["SUPER_ADMIN", null, "/facilities", "picker"],
+    ["SUPER_ADMIN", "fac_happy_nokyang", "/facilities", "picker"],
+    ["ADMIN", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/dashboard", "dashboard"],
+    ["STAFF", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/dashboard", "dashboard"],
+    ["ADMIN", null, "/onboarding", "onboarding"],
+    ["STAFF", null, "/access-denied", "denied"],
+  ] as const)("routes %s with facility %s to %s", async (role, facilityId, _path, label) => {
     setUser(role, facilityId);
     render(
       <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route path="/" element={<RoleRouteRedirect />} />
-          <Route path="/dashboard" element={<div>dashboard</div>} />
+          <Route path="/facilities" element={<div>picker</div>} />
+          <Route path="/facilities/:facilityId/dashboard" element={<div>dashboard</div>} />
+          <Route path="/onboarding" element={<div>onboarding</div>} />
+          <Route path="/access-denied" element={<div>denied</div>} />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("dashboard")).toBeTruthy();
+    expect(await screen.findByText(label)).toBeTruthy();
   });
 });
 

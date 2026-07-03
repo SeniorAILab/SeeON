@@ -110,13 +110,13 @@ describe("admin role route reuse", () => {
   });
 
   const activeAdminRouteCases = [
-    ["/admin", "ADMIN_DASHBOARD_PAGE"],
-    ["/admin/events", "ADMIN_EVENTS_PAGE"],
-    ["/admin/events/event-1", "ADMIN_EVENT_DETAIL_PAGE"],
-    ["/admin/facility", "ADMIN_FACILITY_PAGE"],
-    ["/admin/spaces", "ADMIN_SPACES_PAGE"],
-    ["/admin/monitor-settings", "ADMIN_MONITOR_SETTINGS_PAGE"],
-    ["/admin/users", "ADMIN_USERS_PAGE"],
+    ["/facilities/fac-1/admin", "ADMIN_DASHBOARD_PAGE"],
+    ["/facilities/fac-1/admin/events", "ADMIN_EVENTS_PAGE"],
+    ["/facilities/fac-1/admin/events/event-1", "ADMIN_EVENT_DETAIL_PAGE"],
+    ["/facilities/fac-1/admin/facility", "ADMIN_FACILITY_PAGE"],
+    ["/facilities/fac-1/admin/spaces", "ADMIN_SPACES_PAGE"],
+    ["/facilities/fac-1/admin/monitor-settings", "ADMIN_MONITOR_SETTINGS_PAGE"],
+    ["/facilities/fac-1/admin/users", "ADMIN_USERS_PAGE"],
   ] as const;
 
   it.each(activeAdminRouteCases)("SUPER_ADMIN passes %s through the shared admin route shell", async (entry, pageText) => {
@@ -138,14 +138,14 @@ describe("admin role route reuse", () => {
     expect(memoryRouter.state.location.pathname).toBe("/access-denied");
   });
 
-  it("redirects SUPER_ADMIN without a selected facility from /admin to /dashboard without selecting a silent default", async () => {
+  it("redirects SUPER_ADMIN without a selected facility from legacy /admin to the picker without selecting a silent default", async () => {
     setFacility(null);
 
     const setFacilitySpy = vi.spyOn(useFacilityStore.getState(), "setFacility");
     const memoryRouter = renderActualRoutes("/admin");
 
     expect(await screen.findByText("SUPER_ADMIN_DASHBOARD_PAGE")).toBeTruthy();
-    await waitFor(() => expect(memoryRouter.state.location.pathname).toBe("/dashboard"));
+    await waitFor(() => expect(memoryRouter.state.location.pathname).toBe("/facilities"));
     expect(setFacilitySpy).not.toHaveBeenCalled();
     expect(useFacilityStore.getState().currentFacilityId).toBeNull();
   });

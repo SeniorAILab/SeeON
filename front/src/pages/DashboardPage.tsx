@@ -111,6 +111,7 @@ export function DashboardPage() {
           <RoomStatusBoard
             spaces={visibleSpaces}
             statuses={data.statuses}
+            floors={data.floors}
             alertsBySpace={alertsBySpace}
             connection={connection}
             lastUpdateAt={lastUpdateAt}

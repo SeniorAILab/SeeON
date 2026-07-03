@@ -21,6 +21,8 @@ const FACILITY_SCOPED_PATTERNS = [
   /^\/alerts(?:\/|\?|$)/,
   /^\/spaces(?:\/|\?|$)/,
   /^\/floors(?:\/|\?|$)/,
+  /^\/users(?:\/|\?|$)/,
+  /^\/cameras(?:\/|\?|$)/,
 ];
 
 export function buildApiUrl(path: string): string {

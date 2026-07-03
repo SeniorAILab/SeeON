@@ -2,19 +2,37 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InlineActionPanel, eventGroupsFor } from "@/components/monitor/InlineActionPanel";
 import { connectionChipLabel, useDebouncedStatuses } from "./RoomStatusBoard";
-import { buildRoomTreemapLayout } from "./RoomStatusTreemap";
+import { groupRoomsByFloor } from "./RoomStatusTreemap";
 import { textFor } from "@/services/tts/audioMap";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
-import type { DetectionEvent, Space, SpaceStatus } from "@/types";
+import type { DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
+import type { AlertNote } from "@/services/api/alertNotes";
 
 vi.mock("@/services/api/alertEndpoints", () => ({
   resolveAlert: vi.fn(async () => ({})),
 }));
+vi.mock("@/services/api/alertNotes", () => ({
+  createAlertNote: vi.fn(async () => ({
+    id: "note-new",
+    type: "MEMO",
+    note: "저장한 메모",
+    createdBy: "staff-1",
+    authorRole: "STAFF",
+    createdAt: "2026-07-03T00:01:00.000Z",
+  })),
+  listAlertNotes: vi.fn(async () => []),
+}));
+
 
 const spaces: Space[] = [
   { id: "b", facilityId: "fac", floorId: "2", name: "202호", type: "ROOM", capacity: 2, isActive: true },
   { id: "a", facilityId: "fac", floorId: "2", name: "201호", type: "ROOM", capacity: 2, isActive: true },
   { id: "c", facilityId: "fac", floorId: "3", name: "301호", type: "ROOM", capacity: 2, isActive: true },
+];
+
+const floors: Floor[] = [
+  { id: "2", facilityId: "fac", name: "2F", orderIndex: 2 },
+  { id: "3", facilityId: "fac", name: "3F", orderIndex: 3 },
 ];
 
 function status(id: string, level: SpaceStatus["status"]): SpaceStatus {
@@ -48,22 +66,39 @@ function alert(overrides: Partial<DetectionEvent> = {}): DetectionEvent {
 }
 
 
-describe("RoomStatusBoard treemap helpers", () => {
-  it("keeps tile index order stable by floor and room name", () => {
-    const rects = buildRoomTreemapLayout(spaces, { a: status("a", "DANGER"), b: status("b", "STABLE"), c: status("c", "CAUTION") }, 300, 200);
-    expect(rects.map((rect) => rect.id)).toEqual(["a", "b", "c"]);
+describe("RoomStatusBoard floor grid helpers", () => {
+  it("groups by floor order and sorts rooms by severity then numeric name", () => {
+    const mixedSpaces: Space[] = [
+      ...spaces,
+      { id: "d", facilityId: "fac", floorId: "2", name: "203호", type: "ROOM", capacity: 2, isActive: true },
+      { id: "e", facilityId: "fac", floorId: "2", name: "101호", type: "ROOM", capacity: 2, isActive: true },
+    ];
+    const groups = groupRoomsByFloor(mixedSpaces, { a: status("a", "DANGER"), b: status("b", "STABLE"), c: status("c", "CAUTION"), d: status("d", "CHECK_NEEDED"), e: status("e", "DANGER") }, floors);
+
+    expect(groups.map((group) => group.floorName)).toEqual(["2F", "3F"]);
+    expect(groups[0].rooms.map((room) => room.id)).toEqual(["e", "a", "d", "b"]);
+    expect(groups[1].rooms.map((room) => room.id)).toEqual(["c"]);
   });
 
-  it("uses equal areas when every room has the same rank and preserves container area", () => {
-    const rects = buildRoomTreemapLayout(spaces, Object.fromEntries(spaces.map((space) => [space.id, status(space.id, "STABLE")])), 300, 200);
-    const areas = rects.map((rect) => Math.round(rect.width * rect.height));
-    expect(new Set(areas).size).toBe(1);
-    expect(Math.round(areas.reduce((sum, area) => sum + area, 0))).toBe(60_000);
+  it("counts danger and check-needed rooms as floor events", () => {
+    const groups = groupRoomsByFloor(spaces, { a: status("a", "DANGER"), b: status("b", "CHECK_NEEDED"), c: status("c", "CAUTION") }, floors);
+
+    expect(groups.map((group) => [group.floorName, group.alertCount])).toEqual([
+      ["2F", 2],
+      ["3F", 0],
+    ]);
   });
 
-  it("does not define geometry transitions", () => {
-    const source = String.raw`${buildRoomTreemapLayout}`;
-    expect(source).not.toContain("transition");
+  it("places spaces with missing floor metadata after known floors", () => {
+    const unknownFloorSpace = { id: "x", facilityId: "fac", floorId: "9", name: "901호", type: "ROOM" as const, capacity: 1, isActive: true };
+    const groups = groupRoomsByFloor([...spaces, unknownFloorSpace], { x: status("x", "DANGER") }, floors);
+
+    expect(groups.map((group) => [group.floorName, group.floor?.id ?? null])).toEqual([
+      ["2F", "2"],
+      ["3F", "3"],
+      ["9", null],
+    ]);
+    expect(groups[2].rooms.map((room) => room.id)).toEqual(["x"]);
   });
 
   it("formats connection chip from real values", () => {
@@ -75,8 +110,25 @@ describe("RoomStatusBoard treemap helpers", () => {
 
 beforeEach(async () => {
   const { resolveAlert } = await import("@/services/api/alertEndpoints");
+  const { createAlertNote, listAlertNotes } = await import("@/services/api/alertNotes");
   vi.mocked(resolveAlert).mockClear();
+  vi.mocked(createAlertNote).mockClear();
+  vi.mocked(listAlertNotes).mockReset();
+  vi.mocked(listAlertNotes).mockResolvedValue([]);
 });
+
+function note(overrides: Partial<AlertNote> = {}): AlertNote {
+  return {
+    id: "note-1",
+    type: "MEMO",
+    note: "기존 메모",
+    createdBy: "staff-1",
+    authorRole: "STAFF",
+    createdAt: "2026-07-03T00:00:30.000Z",
+    ...overrides,
+  };
+}
+
 
 describe("InlineActionPanel", () => {
   it("groups real room alerts by event type and resolves individual alerts", async () => {
@@ -118,6 +170,62 @@ describe("InlineActionPanel", () => {
   it("keeps collapsed status fallback but does not require it for real alert grouping", () => {
     const alertStatus = { ...status("a", "DANGER"), bedsideActivity: true, soloMovementAttempt: true };
     expect(eventGroupsFor(alertStatus).map((group) => group.label)).toEqual(["낙상 위험", "침대 주변 활동", "단독 이동 시도"]);
+  });
+  it("renders as a modal dialog and closes from Escape, backdrop, and close button", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<InlineActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={onClose} />);
+
+    expect(screen.getByRole("dialog", { name: "201호" }).getAttribute("aria-modal")).toBe("true");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    rerender(<InlineActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "모달 닫기" }));
+    expect(onClose).toHaveBeenCalledTimes(2);
+
+    rerender(<InlineActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={onClose} />);
+    fireEvent.mouseDown(screen.getByRole("dialog", { name: "201호" }).parentElement!);
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  it("targets the real alert id (not the synthetic status id) and reloads note history", async () => {
+    const { createAlertNote, listAlertNotes } = await import("@/services/api/alertNotes");
+    vi.mocked(listAlertNotes)
+      .mockResolvedValueOnce([note({ note: "기존 메모" })])
+      .mockResolvedValueOnce([note({ note: "기존 메모" }), note({ id: "note-2", note: "저장한 메모", authorRole: "ADMIN", createdAt: "2026-07-03T00:02:00.000Z" })]);
+
+    render(<InlineActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />);
+
+    expect(await screen.findByText("기존 메모")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("메모"), { target: { value: "저장한 메모" } });
+    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
+
+    await waitFor(() => expect(createAlertNote).toHaveBeenCalledWith("event-1", "저장한 메모"));
+    await waitFor(() => expect(listAlertNotes).toHaveBeenLastCalledWith("event-1"));
+    expect(await screen.findByText("저장한 메모")).toBeTruthy();
+    expect(screen.getByText(/ADMIN/)).toBeTruthy();
+  });
+
+  it("uses the first alert id for notes when status id is absent", async () => {
+    const { createAlertNote, listAlertNotes } = await import("@/services/api/alertNotes");
+    render(<InlineActionPanel space={spaces[1]} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />);
+
+    await waitFor(() => expect(listAlertNotes).toHaveBeenCalledWith("event-1"));
+    fireEvent.change(screen.getByLabelText("메모"), { target: { value: "알림 메모" } });
+    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
+
+    await waitFor(() => expect(createAlertNote).toHaveBeenCalledWith("event-1", "알림 메모"));
+  });
+
+  it("disables note writing when the room has no current alert event", async () => {
+    const { createAlertNote, listAlertNotes } = await import("@/services/api/alertNotes");
+    render(<InlineActionPanel space={spaces[1]} alerts={[]} onClose={vi.fn()} />);
+
+    expect(screen.getByText("현재 기록할 이벤트가 없습니다.")).toBeTruthy();
+    expect((screen.getByLabelText("메모") as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "메모 저장" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(createAlertNote).not.toHaveBeenCalled();
+    expect(listAlertNotes).not.toHaveBeenCalled();
   });
 });
 

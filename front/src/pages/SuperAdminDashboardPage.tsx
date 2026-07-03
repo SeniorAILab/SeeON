@@ -128,11 +128,11 @@ export function SuperAdminDashboardPage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => enterFacility(facility.id, dashboardPath())}>
+                  <Button type="button" onClick={() => enterFacility(facility.id, dashboardPath(facility.id))}>
                     <MonitorPlay className="h-4 w-4" />
                     대시보드
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => enterFacility(facility.id, adminPath())}>
+                  <Button type="button" variant="secondary" onClick={() => enterFacility(facility.id, adminPath(facility.id))}>
                     <LayoutDashboard className="h-4 w-4" />
                     관리자 화면
                   </Button>

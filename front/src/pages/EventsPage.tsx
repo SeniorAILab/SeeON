@@ -96,7 +96,7 @@ export function EventsPage() {
             return (
               <Card
                 key={ev.id}
-                onClick={() => navigate(adminPath(`events/${ev.id}`))}
+                onClick={() => navigate(adminPath(facilityId, `events/${ev.id}`))}
                 className="flex cursor-pointer flex-wrap items-center gap-3 p-4 transition-colors hover:border-brand/40"
               >
                 <div className="min-w-0 flex-1">

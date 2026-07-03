@@ -3,7 +3,6 @@ import type {
   DetectionEventType,
   KakaoAlertStatus,
   Level,
-  ResidentActionType,
   SpaceStatusLevel,
   SpaceType,
 } from "@/types";
@@ -85,10 +84,4 @@ export const actionTypeLabel: Record<ActionType, string> = {
   GUARDIAN_CONTACT: "보호자 연락",
   HOSPITAL_TRANSFER: "병원 이송",
   MEMO: "기타 메모",
-};
-
-export const residentActionLabel: Record<ResidentActionType, string> = {
-  CHECKED: "확인함",
-  STAFF_VISIT: "직원 방문 중",
-  HELP_REQUEST: "도움 요청",
 };

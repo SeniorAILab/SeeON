@@ -47,6 +47,7 @@ export function AdminEventDetailPage() {
   const [floor, setFloor] = useState<Floor | null>(null);
   const [clipChecked, setClipChecked] = useState(false);
   const [memo, setMemo] = useState("");
+  const [memoSaving, setMemoSaving] = useState(false);
   const [logKey, setLogKey] = useState(0);
 
   async function loadEvent() {
@@ -99,8 +100,23 @@ export function AdminEventDetailPage() {
   async function handleAction(type: ActionType, note: string) {
     if (!user || !event) return;
     await eventService.addAction(event.id, type, note || undefined, user.name);
-    loadEvent();
+    await loadEvent();
   }
+
+  async function handleMemoSave() {
+    if (!event || memo.trim().length === 0) return;
+    setMemoSaving(true);
+    try {
+      await eventService.addAction(event.id, "MEMO", memo.trim(), user?.name ?? "관리자");
+      setMemo("");
+      await loadEvent();
+    } finally {
+      setMemoSaving(false);
+    }
+  }
+
+  const adminNotes = event.actions.filter((action) => "authorRole" in action && action.authorRole === "ADMIN");
+  const staffNotes = event.actions.filter((action) => !("authorRole" in action) || action.authorRole === "STAFF");
 
 
   return (
@@ -190,21 +206,29 @@ export function AdminEventDetailPage() {
           onChange={(e) => setMemo(e.target.value)}
         />
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <Button size="sm" disabled>
-            메모 저장 비활성
+          <Button size="sm" onClick={handleMemoSave} disabled={memoSaving || memo.trim().length === 0}>
+            {memoSaving ? "저장 중..." : "메모 저장"}
           </Button>
-          <span className="text-sm text-ink-faint">
-            메모 저장 API가 없어 입력 내용은 현재 화면에서만 유지됩니다.
-          </span>
         </div>
+        {adminNotes.length > 0 && (
+          <ul className="mt-4 space-y-2">
+            {adminNotes.map((a) => (
+              <li key={a.id} className="rounded-lg bg-surface2 px-3 py-2 text-sm">
+                <span className="font-medium text-ink">{a.createdBy}</span>
+                <span className="text-ink-faint"> · {formatDateTime(a.createdAt)}</span>
+                {a.note && <p className="mt-0.5 text-ink-soft">{a.note}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       {/* 요양보호사 메모 */}
       <Card className="p-5">
         <h2 className="mb-3 text-base font-semibold text-ink">요양보호사 메모</h2>
-        {event.actions.length > 0 ? (
+        {staffNotes.length > 0 ? (
           <ul className="mb-4 space-y-2">
-            {event.actions.map((a) => (
+            {staffNotes.map((a) => (
               <li key={a.id} className="rounded-lg bg-surface2 px-3 py-2 text-sm">
                 <span className="font-medium text-ink">{a.createdBy}</span>
                 <span className="text-ink-faint"> · {formatDateTime(a.createdAt)}</span>

@@ -1,24 +1,17 @@
 import { AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck } from "lucide-react";
-import type { Space, SpaceStatus, SpaceStatusLevel } from "@/types";
+import type { Floor, Space, SpaceStatus, SpaceStatusLevel } from "@/types";
 
-export interface RoomStatusTile {
-  space: Space;
-  status?: SpaceStatus;
-  rect: TreemapRect;
-}
-
-export interface TreemapRect {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+export interface RoomFloorGroup {
+  floor: Floor | null;
+  floorName: string;
+  rooms: Space[];
+  alertCount: number;
 }
 
 const STATUS_WEIGHT: Record<SpaceStatusLevel, number> = {
   DANGER: 4,
-  CHECK_NEEDED: 3.5,
-  CAUTION: 3,
+  CHECK_NEEDED: 3,
+  CAUTION: 2,
   STABLE: 1,
 };
 
@@ -33,153 +26,128 @@ function statusOf(status?: SpaceStatus): SpaceStatusLevel {
   return status?.status ?? "STABLE";
 }
 
-function stableRoomOrder(a: Space, b: Space): number {
-  const floor = a.floorId.localeCompare(b.floorId, "ko");
-  if (floor !== 0) return floor;
-  return a.name.localeCompare(b.name, "ko", { numeric: true, sensitivity: "base" });
-}
-
 function worstStatus(status?: SpaceStatus): SpaceStatusLevel {
   if (status?.emergency) return "DANGER";
   return statusOf(status);
 }
 
-function weightFor(status?: SpaceStatus): number {
-  return STATUS_WEIGHT[worstStatus(status)];
+function compareRoomsByRisk(statuses: Record<string, SpaceStatus>) {
+  return (a: Space, b: Space) => {
+    const severity = STATUS_WEIGHT[worstStatus(statuses[b.id])] - STATUS_WEIGHT[worstStatus(statuses[a.id])];
+    if (severity !== 0) return severity;
+    return a.name.localeCompare(b.name, "ko", { numeric: true, sensitivity: "base" });
+  };
 }
 
-interface WeightedItem {
-  id: string;
-  weight: number;
+function floorNameFor(floorId: string): string {
+  return floorId ? floorId : "미지정";
 }
 
-export function buildRoomTreemapLayout(
-  spaces: Space[],
-  statuses: Record<string, SpaceStatus>,
-  width: number,
-  height: number,
-): TreemapRect[] {
-  if (width <= 0 || height <= 0 || spaces.length === 0) return [];
-  const ordered = [...spaces].sort(stableRoomOrder);
-  const weights = ordered.map((space) => weightFor(statuses[space.id]));
-  const allEqual = weights.every((weight) => weight === weights[0]);
-  const items = ordered.map((space, index) => ({ id: space.id, weight: allEqual ? 1 : weights[index] }));
-  return squarify(items, width, height);
-}
+export function groupRoomsByFloor(spaces: Space[], statuses: Record<string, SpaceStatus>, floors: Floor[] = []): RoomFloorGroup[] {
+  const floorById = new Map(floors.map((floor) => [floor.id, floor]));
+  const knownGroups = new Map<string, Space[]>();
+  const unknownGroups = new Map<string, Space[]>();
 
-function squarify(items: WeightedItem[], width: number, height: number): TreemapRect[] {
-  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0) || 1;
-  const scale = (width * height) / totalWeight;
-  const scaled = items.map((item) => ({ ...item, area: item.weight * scale }));
-  const rects: TreemapRect[] = [];
-  layoutRows(scaled, { x: 0, y: 0, width, height }, rects);
-  return rects;
-}
-
-interface AreaItem extends WeightedItem {
-  area: number;
-}
-
-function layoutRows(items: AreaItem[], box: Omit<TreemapRect, "id">, rects: TreemapRect[]): void {
-  const remaining = [...items];
-  let current = { ...box };
-  while (remaining.length > 0) {
-    const row: AreaItem[] = [];
-    const side = Math.min(current.width, current.height);
-    while (remaining.length > 0) {
-      const next = remaining[0];
-      if (row.length === 0 || improves(row, next, side)) row.push(remaining.shift()!);
-      else break;
-    }
-    const rowArea = row.reduce((sum, item) => sum + item.area, 0);
-    if (current.width >= current.height) {
-      const rowHeight = rowArea / current.width;
-      let x = current.x;
-      row.forEach((item, index) => {
-        const itemWidth = index === row.length - 1 ? current.x + current.width - x : item.area / rowHeight;
-        rects.push({ id: item.id, x, y: current.y, width: itemWidth, height: rowHeight });
-        x += itemWidth;
-      });
-      current = { ...current, y: current.y + rowHeight, height: Math.max(0, current.height - rowHeight) };
-    } else {
-      const rowWidth = rowArea / current.height;
-      let y = current.y;
-      row.forEach((item, index) => {
-        const itemHeight = index === row.length - 1 ? current.y + current.height - y : item.area / rowWidth;
-        rects.push({ id: item.id, x: current.x, y, width: rowWidth, height: itemHeight });
-        y += itemHeight;
-      });
-      current = { ...current, x: current.x + rowWidth, width: Math.max(0, current.width - rowWidth) };
-    }
+  for (const space of spaces) {
+    const target = floorById.has(space.floorId) ? knownGroups : unknownGroups;
+    target.set(space.floorId, [...(target.get(space.floorId) ?? []), space]);
   }
-}
 
-function improves(row: AreaItem[], next: AreaItem, side: number): boolean {
-  return worst(row, side) >= worst([...row, next], side);
-}
+  const toGroup = (floorId: string, rooms: Space[], floor: Floor | null): RoomFloorGroup => {
+    const orderedRooms = [...rooms].sort(compareRoomsByRisk(statuses));
+    return {
+      floor,
+      floorName: floor?.name ?? floorNameFor(floorId),
+      rooms: orderedRooms,
+      alertCount: orderedRooms.filter((space) => {
+        const status = worstStatus(statuses[space.id]);
+        return status === "DANGER" || status === "CHECK_NEEDED";
+      }).length,
+    };
+  };
 
-function worst(row: AreaItem[], side: number): number {
-  const areas = row.map((item) => item.area);
-  const sum = areas.reduce((acc, area) => acc + area, 0);
-  const min = Math.min(...areas);
-  const max = Math.max(...areas);
-  const sideSquared = side * side;
-  return Math.max((sideSquared * max) / (sum * sum), (sum * sum) / (sideSquared * min));
+  const groups = floors
+    .filter((floor) => knownGroups.has(floor.id))
+    .map((floor) => toGroup(floor.id, knownGroups.get(floor.id)!, floor));
+
+  const unknown = [...unknownGroups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, "ko", { numeric: true, sensitivity: "base" }))
+    .map(([floorId, rooms]) => toGroup(floorId, rooms, null));
+
+  return [...groups, ...unknown];
 }
 
 export function RoomStatusTreemap({
   spaces,
   statuses,
-  width,
-  height,
+  floors = [],
   selectedSpaceId,
   onSelect,
 }: {
   spaces: Space[];
   statuses: Record<string, SpaceStatus>;
-  width: number;
-  height: number;
+  floors?: Floor[];
   selectedSpaceId?: string | null;
   onSelect?: (space: Space) => void;
 }) {
-  const rects = buildRoomTreemapLayout(spaces, statuses, width, height);
-  const byId = new Map(spaces.map((space) => [space.id, space]));
+  const groups = groupRoomsByFloor(spaces, statuses, floors);
+
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block h-full w-full" role="list" aria-label="방 상태 트리맵">
-      {rects.map((rect) => {
-        const space = byId.get(rect.id)!;
-        const status = worstStatus(statuses[space.id]);
-        const selected = selectedSpaceId === space.id;
-        const Icon = iconFor(status);
-        const pad = Math.max(8, Math.min(18, rect.width, rect.height) * 0.08);
-        return (
-          <g key={space.id} role="listitem" aria-label={`${space.name} ${STATUS_WORD[status]}`} onClick={() => onSelect?.(space)} className="cursor-pointer focus:outline-none">
-            <rect x={rect.x + 3} y={rect.y + 3} width={Math.max(0, rect.width - 6)} height={Math.max(0, rect.height - 6)} rx="18" className={fillFor(status)} />
-            {selected && <rect x={rect.x + 8} y={rect.y + 8} width={Math.max(0, rect.width - 16)} height={Math.max(0, rect.height - 16)} rx="16" fill="none" stroke="currentColor" strokeWidth="4" className="text-brand drop-shadow motion-reduce:drop-shadow-none" />}
-            <foreignObject x={rect.x + pad} y={rect.y + pad} width={Math.max(1, rect.width - pad * 2)} height={Math.max(1, rect.height - pad * 2)}>
-              <div className={`flex h-full flex-col justify-between overflow-hidden ${textFor(status)}`}>
-                <div className="flex items-center gap-2 text-[15px] font-black 2xl:text-xl">
-                  <Icon className="h-5 w-5 shrink-0 2xl:h-7 2xl:w-7" aria-hidden />
-                  <span className="truncate">{STATUS_WORD[status]}</span>
-                </div>
-                <div>
-                  <div className="truncate text-xl font-black tracking-tight 2xl:text-4xl">{space.name}</div>
-                  {statuses[space.id]?.aiSummary && <div className="mt-1 line-clamp-2 text-xs font-bold opacity-90 2xl:text-base">{statuses[space.id]?.aiSummary}</div>}
-                </div>
-              </div>
-            </foreignObject>
-          </g>
-        );
-      })}
-    </svg>
+    <div className="flex h-full w-full flex-col gap-4 overflow-auto pr-1" role="list" aria-label="방 상태 히트맵">
+      {groups.map((group) => (
+        <section key={group.floor?.id ?? `unknown-${group.floorName}`} aria-label={`${group.floorName} 층`} className="rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-base font-black text-ink 2xl:text-xl">{group.floorName}</h3>
+            <span className={group.alertCount > 0 ? "rounded-full bg-status-dangerBg px-3 py-1 text-xs font-black text-status-danger 2xl:text-sm" : "rounded-full bg-surface2 px-3 py-1 text-xs font-black text-ink-soft 2xl:text-sm"}>
+              이벤트 {group.alertCount}건
+            </span>
+          </div>
+          <div className="grid auto-rows-[minmax(96px,auto)] grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2" role="list">
+            {group.rooms.map((space) => (
+              <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function RoomTile({ space, status, selected, onSelect }: { space: Space; status?: SpaceStatus; selected: boolean; onSelect?: (space: Space) => void }) {
+  const level = worstStatus(status);
+  const Icon = iconFor(level);
+  const isLarge = level === "DANGER" || level === "CHECK_NEEDED";
+  const isDanger = level === "DANGER" || status?.emergency;
+  const isCheck = level === "CHECK_NEEDED";
+
+  return (
+    <button
+      type="button"
+      aria-label={`${space.name} ${STATUS_WORD[level]}`}
+      onClick={() => onSelect?.(space)}
+      className={`relative flex min-h-24 flex-col justify-between overflow-hidden rounded-2xl p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+        isLarge ? "col-span-2 row-span-2 min-h-48" : ""
+      } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${isDanger ? "animate-pulse-danger motion-reduce:animate-none" : ""} ${isCheck ? "animate-pulse-danger motion-reduce:animate-none" : ""}`}
+    >
+      {isDanger && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-status-danger opacity-45 animate-ping motion-reduce:hidden" />}
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-white/20 blur-2xl" />
+      <span className="relative flex items-center gap-2 text-sm font-black 2xl:text-lg">
+        <Icon className="h-5 w-5 shrink-0 2xl:h-7 2xl:w-7" aria-hidden />
+        <span className="truncate">{STATUS_WORD[level]}</span>
+      </span>
+      <span className="relative mt-4 block">
+        <span className={`${isLarge ? "text-3xl 2xl:text-5xl" : "text-xl 2xl:text-3xl"} block truncate font-black tracking-tight`}>{space.name}</span>
+        {status?.aiSummary && <span className="mt-1 line-clamp-2 block text-xs font-bold opacity-90 2xl:text-base">{status.aiSummary}</span>}
+      </span>
+    </button>
   );
 }
 
 function fillFor(status: SpaceStatusLevel): string {
-  if (status === "DANGER") return "fill-status-dangerBg [filter:drop-shadow(0_14px_28px_rgba(239,68,68,0.24))]";
-  if (status === "CHECK_NEEDED") return "fill-status-checkBg [filter:drop-shadow(0_14px_28px_rgba(234,179,8,0.22))]";
-  if (status === "CAUTION") return "fill-status-cautionBg [filter:drop-shadow(0_14px_28px_rgba(245,158,11,0.2))]";
-  return "fill-surface2";
+  if (status === "DANGER") return "bg-status-dangerBg";
+  if (status === "CHECK_NEEDED") return "bg-status-checkBg";
+  if (status === "CAUTION") return "bg-status-cautionBg";
+  return "bg-surface2";
 }
 
 function textFor(status: SpaceStatusLevel): string {

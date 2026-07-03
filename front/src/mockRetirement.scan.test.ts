@@ -6,19 +6,20 @@ import { fileURLToPath } from "node:url";
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 const testFile = "mockRetirement.scan.test.ts";
 
-const inactiveFixtureIsland = new Set([
-  "data/mockData.ts",
-  "services/db.ts",
-  "services/adminService.ts",
-  "services/residentService.ts",
-  "services/zoneService.ts",
-  "pages/admin/FocusResidentsPage.tsx",
-  "pages/admin/FocusResidentsPage.test.tsx",
-  "pages/admin/AdminAssignmentsPage.tsx",
-  "pages/admin/AdminAssignmentsPage.test.tsx",
-  "pages/admin/AdminAlertRulesPage.tsx",
-  "pages/admin/AdminAlertRulesPage.test.tsx",
-]);
+const removedFixtureFiles = new Set(
+  [
+    ["services", "resident" + "Service.ts"],
+    ["services", "zone" + "Service.ts"],
+    ["pages/admin", "Focus" + "ResidentsPage.tsx"],
+    ["pages/admin", "Focus" + "ResidentsPage.test.tsx"],
+    ["pages/admin", "Admin" + "AssignmentsPage.tsx"],
+    ["pages/admin", "Admin" + "AssignmentsPage.test.tsx"],
+    ["pages/admin", "Admin" + "AlertRulesPage.tsx"],
+    ["pages/admin", "Admin" + "AlertRulesPage.test.tsx"],
+  ].map((parts) => parts.join("/")),
+);
+
+const inactiveFixtureIsland = new Set(["data/mockData.ts", "services/db.ts", "services/adminService.ts"]);
 
 async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -74,8 +75,7 @@ function findMatches(files: Record<string, string>, predicate: (relativePath: st
     .sort();
 }
 
-const retiredFixtureModulePattern =
-  /^(?:data\/mockData|services\/db|services\/(?:adminService|residentService|zoneService))$/;
+const retiredFixtureModulePattern = /^(?:data\/mockData|services\/db|services\/adminService)$/;
 
 describe("retired frontend mock regressions", () => {
   it("keeps runtime mock switches and demo copy out of front/src", async () => {
@@ -129,6 +129,8 @@ describe("retired frontend mock regressions", () => {
       importSources(relativePath, source).some((specifier) => retiredFixtureModulePattern.test(specifier))
     );
     expect(fixtureImporters.filter((relativePath) => !inactiveFixtureIsland.has(relativePath))).toEqual([]);
+
+    expect([...removedFixtureFiles].filter((relativePath) => relativePath in files)).toEqual([]);
 
     const mockDataImporters = findMatches(files, (relativePath, source) =>
       importSources(relativePath, source).includes("data/mockData")

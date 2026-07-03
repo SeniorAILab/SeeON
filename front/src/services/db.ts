@@ -12,26 +12,17 @@ import {
   spaceStatuses as seedStatuses,
   users as seedUsers,
   videoClips as seedVideoClips,
-  residents as seedResidents,
-  residentRiskSummaries as seedResidentSummaries,
-  zones as seedZones,
-  residentAssignments as seedAssignments,
 } from "@/data/mockData";
 import type {
   AlertRule,
   DetectionEvent,
   Facility,
   Floor,
-  Resident,
-  ResidentAction,
-  ResidentAssignment,
-  ResidentRiskSummary,
   Space,
   SpaceStatus,
   User,
   VideoAccessLog,
   VideoClip,
-  Zone,
 } from "@/types";
 
 // 깊은 복제로 seed 보존(HMR/리셋 대비)
@@ -47,11 +38,6 @@ export const db = {
   alertRules: clone(seedAlertRules) as AlertRule[],
   videoClips: clone(seedVideoClips) as VideoClip[],
   videoAccessLogs: [] as VideoAccessLog[],
-  residents: clone(seedResidents) as Resident[],
-  residentSummaries: clone(seedResidentSummaries) as ResidentRiskSummary[],
-  residentActions: [] as ResidentAction[],
-  zones: clone(seedZones) as Zone[],
-  assignments: clone(seedAssignments) as ResidentAssignment[],
 };
 
 export type MockDb = typeof db;
