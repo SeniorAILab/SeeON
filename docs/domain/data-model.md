@@ -1,6 +1,6 @@
 # Backend relationship data model
 
-Status: v1 backend schema is room-centric. The resident/guardian domain (`residents`, `resident_assignments`, `guardians`, `resident_statuses` tables and Prisma models, `Alert.residentId`, and the `ResidentState` + `Level` enums) has been dropped, not kept as transitional state; resident/guardian capabilities return in v2 as a new schema/API. `backend/prisma/schema.prisma` still contains unrelated transitional legacy fields such as `Camera.residentId`, `Space.cameraId`, and `Role = OWNER | ADMIN`.
+Status: v1 backend schema is room-centric. The resident/guardian domain (`residents`, `resident_assignments`, `guardians`, `resident_statuses` tables and Prisma models, `Alert.residentId`, and the `ResidentState` + `Level` enums) has been dropped, not kept as transitional state; resident/guardian capabilities return in v2 as a new schema/API. `backend/prisma/schema.prisma` now uses room-centric `Camera.spaceId`, required `Alert.spaceId`, and `Role = SUPER_ADMIN | ADMIN | STAFF`.
 
 This document is the backend relationship reference derived from the PRD/API contract. Field names below use product/API camelCase unless explicitly marked as database or ingest fields.
 
@@ -31,8 +31,8 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 |---|---|---|---|
 | `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Zone`, `Camera`, `Alert`, `User`, `KakaoIdentity` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
 | `Floor` | Tenant/RLS | `Floor(facilityId) -> Facility(id)`; `Facility` 1→N `Floor`; `Floor` 1→N `Space`. | Floor remains canonical because the frontend and operations model are floor-aware. |
-| `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1→N `Zone`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. `Space.cameraId` is transitional legacy only and is removed by the remodel. |
-| `Camera` | Tenant/RLS | Target: `Camera(facilityId) -> Facility(id)` and `Camera(facilityId, spaceId) -> Space(facilityId, id)` with `UNIQUE(facilityId, spaceId)`. `Space` 1:1 `Camera`; `Camera` 1→N `Alert` as source. | Camera belongs to a room/space, not a resident. `Camera.residentId` is legacy and removed by the remodel. |
+| `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1→N `Zone`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. |
+| `Camera` | Tenant/RLS | `Camera(facilityId) -> Facility(id)` and `Camera(facilityId, spaceId) -> Space(facilityId, id)` with `UNIQUE(facilityId, spaceId)`. `Space` 1:1 `Camera`; `Camera` 1→N `Alert` and `Event` as source. | Camera belongs to a room/space, not a resident. |
 | `Zone` | Tenant/RLS | `Zone(facilityId) -> Facility(id)`; `Zone(facilityId, spaceId) -> Space(facilityId, id)`; `Space` 1→N `Zone`. | Optional refinement inside a space. |
 | `Alert` | Tenant/RLS | `Alert(facilityId) -> Facility(id)`; required `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, cameraId) -> Camera(facilityId, id)` as source. `Space` 1→N `Alert`; `Camera` 0/1→N `Alert`. | `spaceId` is NOT NULL and is the historical room anchor. `cameraId` records the source. |
 | `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | STAFF`, labeled 시스템 관리자 / 원장님 / 요양보호사. `SUPER_ADMIN`/`ADMIN` have facility administration capability; `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility. |
@@ -58,10 +58,10 @@ User 1 -> 0..1 KakaoIdentity
 User 0..1 -> N DeliveryAttempt
 ```
 
-## Transitional differences from current schema
+## Current schema notes
 
-Current `backend/prisma/schema.prisma` is not yet the final target. During the remodel:
+Current `backend/prisma/schema.prisma` is the v1 room-centric baseline:
 
-- `Camera.residentId` remains only as legacy compatibility until camera runtime no longer depends on resident placement.
-- `Space.cameraId` is a transitional claim used for strict backfill; final ownership is `Camera.spaceId`.
-- `Role = OWNER | ADMIN` is legacy; target RBAC is `SUPER_ADMIN | ADMIN | STAFF`.
+- Cameras are assigned to spaces through `Camera.spaceId`.
+- Alerts are anchored to spaces through required `Alert.spaceId`; `Alert.cameraId` is optional source metadata.
+- User roles are `SUPER_ADMIN | ADMIN | STAFF`.
