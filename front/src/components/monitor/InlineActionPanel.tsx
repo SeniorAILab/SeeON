@@ -1,0 +1,126 @@
+import { useMemo, useState } from "react";
+import { X } from "lucide-react";
+import { resolveAlert } from "@/services/api/alertEndpoints";
+import type { DetectionEvent, Space, SpaceStatus } from "@/types";
+import { eventTypeLabel } from "@/lib/labels";
+
+interface EventGroup {
+  key: string;
+  label: string;
+  count: number;
+  alerts: DetectionEvent[];
+}
+
+export function eventGroupsFor(status?: SpaceStatus, alerts: DetectionEvent[] = []): EventGroup[] {
+  if (alerts.length > 0) {
+    const byType = new Map<string, DetectionEvent[]>();
+    for (const alert of alerts) byType.set(alert.eventType, [...(byType.get(alert.eventType) ?? []), alert]);
+    return [...byType.entries()].map(([key, events]) => ({
+      key,
+      label: eventTypeLabel[key],
+      count: events.length,
+      alerts: events,
+    }));
+  }
+  if (!status) return [];
+  const groups: EventGroup[] = [];
+  if (status.emergency) groups.push({ key: "emergency", label: "응급", count: 1, alerts: [] });
+  if (status.fallRiskLevel === "HIGH" || status.status === "DANGER") groups.push({ key: "fall", label: "낙상 위험", count: 1, alerts: [] });
+  if (status.bedsideActivity) groups.push({ key: "bedside", label: "침대 주변 활동", count: 1, alerts: [] });
+  if (status.soloMovementAttempt) groups.push({ key: "solo", label: "단독 이동 시도", count: 1, alerts: [] });
+  if (status.prolongedInactivity) groups.push({ key: "inactivity", label: "장시간 미움직임", count: 1, alerts: [] });
+  if (groups.length === 0 && status.status !== "STABLE") groups.push({ key: "status", label: status.aiSummary || "상태 확인", count: 1, alerts: [] });
+  return groups;
+}
+
+const statusWord = { STABLE: "안정", CAUTION: "주의", DANGER: "위험", CHECK_NEEDED: "확인 필요" } as const;
+
+export function InlineActionPanel({
+  space,
+  status,
+  alerts = [],
+  onClose,
+  onResolved,
+}: {
+  space: Space;
+  status?: SpaceStatus;
+  alerts?: DetectionEvent[];
+  onClose: () => void;
+  onResolved?: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [savedNote, setSavedNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const groups = useMemo(() => eventGroupsFor(status, alerts), [status, alerts]);
+  const canResolve = alerts.length > 0 || (Boolean(status?.id) && status?.status !== "STABLE");
+
+  async function handleResolve(alertIds?: string[]) {
+    const ids = alertIds ?? (alerts.length > 0 ? alerts.map((alert) => alert.id) : status?.id ? [status.id] : []);
+    if (ids.length === 0 || busy) return;
+    setBusy(true);
+    try {
+      await Promise.all(ids.map((id) => resolveAlert(id)));
+      onResolved?.();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <aside className="shrink-0 rounded-t-3xl border border-border bg-surface p-4 shadow-modal lg:rounded-3xl" aria-label={`${space.name} 조치 패널`}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-2xl font-black text-ink 2xl:text-3xl">{space.name}</div>
+          <div className="mt-1 text-lg font-bold text-ink-soft">{statusWord[status?.status ?? "STABLE"]}</div>
+        </div>
+        <button type="button" onClick={onClose} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="조치 패널 닫기">
+          <X className="h-7 w-7" />
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
+        {groups.length === 0 ? (
+          <div className="rounded-2xl bg-surface2 px-4 py-3 text-base font-bold text-ink-soft">현재 조치가 필요한 이벤트가 없습니다.</div>
+        ) : (
+          groups.map((group) => (
+            <div key={group.key} className="rounded-2xl border border-border bg-bg px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-base font-black text-ink">{group.label}</div>
+                  <div className="mt-1 text-sm font-bold text-ink-soft">{group.count}건</div>
+                </div>
+                {group.alerts.length > 0 && (
+                  <button type="button" disabled={busy} onClick={() => void handleResolve(group.alerts.map((alert) => alert.id))} className="rounded-xl bg-brand px-3 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-gray-300">
+                    그룹 확인
+                  </button>
+                )}
+              </div>
+              {group.alerts.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {group.alerts.map((alert) => (
+                    <li key={alert.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface2 px-3 py-2">
+                      <span className="min-w-0 truncate text-sm font-bold text-ink-soft">{alert.aiSummary || alert.message}</span>
+                      <button type="button" disabled={busy} onClick={() => void handleResolve([alert.id])} className="shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-black text-ink disabled:cursor-not-allowed disabled:text-gray-300">
+                        개별 확인
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <label className="mt-4 block text-base font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
+      <textarea id={`note-${space.id}`} value={note} onChange={(event) => setNote(event.target.value)} className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-bg p-3 text-base text-ink outline-none focus:border-brand" placeholder="조치 내용을 입력하세요" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" onClick={() => setSavedNote(note.trim())} className="h-14 rounded-2xl border border-border px-5 text-lg font-black text-ink hover:bg-surface2">메모 표시</button>
+        <button type="button" disabled={!canResolve || busy} onClick={() => void handleResolve()} className="h-14 rounded-2xl bg-brand px-5 text-lg font-black text-white shadow-card disabled:cursor-not-allowed disabled:bg-gray-300">
+          {busy ? "처리 중" : "확인완료"}
+        </button>
+      </div>
+      {savedNote && <div className="mt-3 rounded-2xl bg-brand/10 px-4 py-3 text-base font-bold text-ink">{savedNote}</div>}
+    </aside>
+  );
+}

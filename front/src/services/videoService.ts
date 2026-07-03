@@ -12,8 +12,7 @@
 //  - logAccess      → POST /api/videos/:id/access-log
 //  서버 측에서도 동일 권한 검증을 반드시 수행해야 한다(프론트 가드는 보조).
 // =============================================================
-import { db } from "./db";
-import { delay, uid } from "@/lib/utils";
+import { uid } from "@/lib/utils";
 import { canAdmin } from "@/lib/roles";
 import type {
   SignedVideoUrl,
@@ -34,33 +33,19 @@ function assertAdmin(user: User | null): asserts user is User {
   if (!canAdmin(user)) throw new VideoPermissionError();
 }
 
+const videoAccessLogs: VideoAccessLog[] = [];
+
 export const videoService = {
-  /** 이벤트에 연결된 클립 메타 조회(관리자 전용) + VIEW 로그 */
-  async getEventVideo(eventId: string, user: User | null): Promise<VideoClip | null> {
+  /** 이벤트에 연결된 클립 메타 조회(관리자 전용). 영상 전용 백엔드 API 연동 전까지 없음으로 처리. */
+  async getEventVideo(_eventId: string, user: User | null): Promise<VideoClip | null> {
     assertAdmin(user);
-    const clip = db.videoClips.find((c) => c.eventId === eventId);
-    if (!clip) return delay(null);
-    // 같은 시설만 접근 가능(멀티테넌트 격리)
-    if (user.facilityId && clip.facilityId !== user.facilityId) throw new VideoPermissionError();
-    await this.logAccess(clip.id, user, "VIEW");
-    return delay(clip);
+    return null;
   },
 
   /** 임시 접근 URL 발급(관리자 권한 확인 후). 실제로는 S3/NAS presign. */
   async getSignedUrl(videoClipId: string, user: User | null): Promise<SignedVideoUrl> {
     assertAdmin(user);
-    const clip = db.videoClips.find((c) => c.id === videoClipId);
-    if (!clip) throw new Error("클립을 찾을 수 없습니다.");
-    if (clip.storageStatus !== "AVAILABLE") {
-      throw new Error("현재 재생할 수 없는 클립입니다.");
-    }
-    const exp = Date.now() + 5 * 60_000; // 5분 만료
-    const token = `${uid("tok")}.${exp}`;
-    await this.logAccess(clip.id, user, "PLAY");
-    return delay({
-      url: `https://media.senai.example/clip/${clip.id}?token=${token}&exp=${exp}`,
-      expiresAt: new Date(exp).toISOString(),
-    });
+    throw new Error(`영상 전용 백엔드 API가 아직 연결되지 않았습니다: ${videoClipId}`);
   },
 
   /** 접근 로그 기록(감사 추적) */
@@ -77,16 +62,16 @@ export const videoService = {
       facilityId: user.facilityId ?? "",
       action,
       accessedAt: new Date().toISOString(),
-      // 실제로는 서버에서 채움 — mock 에서는 표시용 더미
-      ipAddress: "10.0.0.1",
-      userAgent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 60) : "mock",
+      // 실제로는 서버에서 채움 — 현재는 세션 내 UI 표시용
+      ipAddress: "",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 60) : "",
     };
-    db.videoAccessLogs.unshift(log);
+    videoAccessLogs.unshift(log);
     return log;
   },
 
   async listAccessLogs(videoClipId: string, user: User | null): Promise<VideoAccessLog[]> {
     assertAdmin(user);
-    return delay(db.videoAccessLogs.filter((l) => l.videoClipId === videoClipId));
+    return videoAccessLogs.filter((log) => log.videoClipId === videoClipId);
   },
 };

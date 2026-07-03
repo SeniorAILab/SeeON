@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RoleRouteRedirect } from "./RoleRouteRedirect";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
@@ -12,56 +12,24 @@ beforeEach(() => {
 });
 
 describe("RoleRouteRedirect", () => {
-  it("routes super admin to the system dashboard", async () => {
+  it.each([
+    ["SUPER_ADMIN", null],
+    ["ADMIN", "fac_happy_nokyang"],
+    ["STAFF", "fac_happy_nokyang"],
+  ] as const)("routes %s to /dashboard", async (role, facilityId) => {
+    setUser(role, facilityId);
     render(
       <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route path="/" element={<RoleRouteRedirect />} />
-          <Route path="/dashboard" element={<div>system-dashboard</div>} />
+          <Route path="/dashboard" element={<div>dashboard</div>} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
-    expect(await screen.findByText("system-dashboard")).toBeTruthy();
-  });
-
-  it("routes facility admin to the facility dashboard workbench", async () => {
-    setUser("ADMIN", "fac_happy_nokyang");
-
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <Routes>
-          <Route path="/" element={<RoleRouteRedirect />} />
-          <Route path="/dashboard/facilities/:facilityId/admin" element={<RouteProbe />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByText("fac_happy_nokyang:admin")).toBeTruthy();
-  });
-
-  it("routes staff to the facility staff workbench", async () => {
-    setUser("STAFF", "fac_happy_nokyang");
-
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <Routes>
-          <Route path="/" element={<RoleRouteRedirect />} />
-          <Route path="/dashboard/facilities/:facilityId/staff" element={<RouteProbe />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByText("fac_happy_nokyang:staff")).toBeTruthy();
+    expect(await screen.findByText("dashboard")).toBeTruthy();
   });
 });
-
-function RouteProbe() {
-  const { facilityId } = useParams();
-  const location = useLocation();
-  const suffix = location.pathname.endsWith("/admin") ? "admin" : "staff";
-  return <div>{facilityId}:{suffix}</div>;
-}
 
 function setUser(role: User["role"], facilityId: string | null): void {
   useAuthStore.setState({

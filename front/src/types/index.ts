@@ -326,15 +326,6 @@ export type ConnectionState =
 
 export type MonitorCardSize = "lg" | "xl";
 
-/** 데모/시연용 시간대 강제 모드 (AUTO = 실제 시각 기반) */
-export type DemoMode =
-  | "AUTO"
-  | "NORMAL" // 평상시(휴식)
-  | "MEAL" // 식사 시간
-  | "PROGRAM" // 프로그램 시간
-  | "BEDTIME" // 취침 준비
-  | "NIGHT" // 야간
-  | "RISK_DEMO"; // 위험 이벤트 데모(자주 발생)
 
 export interface MonitorSettings {
   defaultFloorId: string; // floorId 또는 "all"
@@ -344,7 +335,6 @@ export interface MonitorSettings {
   cardSize: MonitorCardSize; // 카드 표시 크기
   visibleSpaceIds: string[] | null; // null = 전체 표시
   allowAllView: boolean; // 전체 보기 허용
-  demoMode: DemoMode; // 시연용 시간대 강제
 }
 export type AlertStatus = "NEW" | "ACKED" | "RESOLVED";
 

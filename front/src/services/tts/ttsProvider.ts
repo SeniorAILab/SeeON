@@ -64,27 +64,9 @@ export class BrowserTTSProvider implements TTSProvider {
   }
 }
 
-/**
- * 상용화용 자리 표시자 — 실제 연동 시 fetch 로 음성 합성 후 재생.
- * 예) CLOVA Voice: POST https://naveropenapi.../tts (speaker=vyuna 등)
- */
-export class ClovaVoiceProviderStub implements TTSProvider {
-  readonly name = "clova-voice";
-  isSupported() {
-    return false; // 키/엔드포인트 연결 후 true 로
-  }
-  async speak(): Promise<void> {
-    throw new Error("CLOVA Voice 연동이 필요합니다.");
-  }
-  cancel() {}
-}
 
 let provider: TTSProvider | null = null;
 export function getTTSProvider(): TTSProvider {
   if (!provider) provider = new BrowserTTSProvider();
   return provider;
 }
-
-// 사전 생성(빌드 타임)용 Synthesizer 인터페이스는 Node 전용 모듈로 분리:
-//   src/services/tts/synthesizer.ts  (CLOVA / Google / Mock)
-// 클라이언트 번들에 Node 의존성이 섞이지 않도록 하기 위함.

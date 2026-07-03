@@ -14,8 +14,7 @@ describe("apiClient.requestJson", () => {
     vi.unstubAllGlobals();
   });
 
-  it("defaults to backend session cookie mode when VITE_USE_MOCK is unset", async () => {
-    vi.stubEnv("VITE_USE_MOCK", undefined);
+  it("defaults to backend session cookie mode", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValue(okJsonResponse({ ok: true }));
@@ -30,24 +29,22 @@ describe("apiClient.requestJson", () => {
     );
   });
 
-  it("uses mock mode only when VITE_USE_MOCK is explicitly true", async () => {
-    vi.stubEnv("VITE_USE_MOCK", "true");
+  it("defaults requestNoContent to backend session cookie mode", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(okJsonResponse({ ok: true }));
+      .mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { requestJson } = await import("./apiClient");
-    await requestJson("/mock-probe");
+    const { requestNoContent } = await import("./apiClient");
+    await requestNoContent("/no-content-probe");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/mock-probe",
-      expect.not.objectContaining({ credentials: "include" })
+      "/api/v1/no-content-probe",
+      expect.objectContaining({ credentials: "include" })
     );
   });
 
-  it("sends the backend session cookie in real Kakao login mode", async () => {
-    vi.stubEnv("VITE_USE_MOCK", "false");
+  it("sends the backend session cookie in Kakao login mode", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "http://localhost:8080/api/v1");
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -64,7 +61,6 @@ describe("apiClient.requestJson", () => {
   });
 
   it("keeps explicit caller credential overrides intact", async () => {
-    vi.stubEnv("VITE_USE_MOCK", "false");
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValue(okJsonResponse({ ok: true }));
@@ -80,7 +76,6 @@ describe("apiClient.requestJson", () => {
   });
 
   it("prefixes auth identity paths with the default /api/v1 base", async () => {
-    vi.stubEnv("VITE_USE_MOCK", "false");
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValue(okJsonResponse({ ok: true }));
@@ -96,7 +91,6 @@ describe("apiClient.requestJson", () => {
   });
 
   it("notifies the unauthorized handler on 401 responses", async () => {
-    vi.stubEnv("VITE_USE_MOCK", "false");
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response("Unauthorized", { status: 401 }));
@@ -110,28 +104,37 @@ describe("apiClient.requestJson", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it("sends the selected facility scope header with session-backed requests", async () => {
-    vi.stubEnv("VITE_USE_MOCK", "false");
+  it("applies endpoint-specific facility scope headers", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(okJsonResponse({ ok: true }));
+      .mockImplementation(() => Promise.resolve(okJsonResponse({ ok: true })));
     vi.stubGlobal("fetch", fetchMock);
 
     const { useFacilityStore } = await import("@/store/facilityStore");
     const { requestJson } = await import("./apiClient");
     useFacilityStore.getState().setFacility("fac_happy_nokyang");
 
+    await requestJson("/auth/me");
+    await requestJson("/facilities");
+    await requestJson("/dashboard");
+    await requestJson("/alerts");
+    await requestJson("/spaces");
     await requestJson("/floors");
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/floors",
-      expect.objectContaining({
-        credentials: "include",
-        headers: expect.objectContaining({
-          "x-facility-id": "fac_happy_nokyang",
-        }),
-      })
-    );
+    const calls = fetchMock.mock.calls.map(([url, init]) => ({
+      url: String(url),
+      headers: new Headers(init?.headers),
+    }));
+    expect(calls.find((call) => call.url.endsWith("/auth/me"))?.headers.has("x-facility-id")).toBe(false);
+    expect(calls.find((call) => call.url.endsWith("/facilities"))?.headers.has("x-facility-id")).toBe(false);
+    for (const path of ["/dashboard", "/alerts", "/spaces", "/floors"]) {
+      expect(calls.find((call) => call.url.endsWith(path))?.headers.get("x-facility-id")).toBe("fac_happy_nokyang");
+    }
+
+    useFacilityStore.getState().clearFacility();
+    await requestJson("/dashboard");
+    const clearCall = fetchMock.mock.calls.at(-1)?.[1];
+    expect(new Headers(clearCall?.headers).has("x-facility-id")).toBe(false);
   });
 
   it("test_build_sse_url_uses_dashboard_stream_path", async () => {

@@ -1,9 +1,11 @@
+// 가역 숨김 상태, 백엔드 컨트롤러 부활 시 재배선.
 import { useEffect, useMemo, useState } from "react";
 import { BedDouble, Plus, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Select } from "@/components/ui/primitives";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
-import { adminService } from "@/services/adminService";
+import { listFloors } from "@/services/api/floors";
+import { listSpaces } from "@/services/api/spaces";
 import { zoneService, type ZoneWithResident } from "@/services/zoneService";
 import { residentService } from "@/services/residentService";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
@@ -19,8 +21,8 @@ export function AdminAssignmentsPage() {
 
   async function loadBase() {
     const [fl, sp, rs] = await Promise.all([
-      adminService.listFloors(facilityId),
-      adminService.listSpaces(facilityId),
+      listFloors(),
+      listSpaces(),
       residentService.listResidents(facilityId),
     ]);
     setFloors(fl);
