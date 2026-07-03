@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, ChevronRight, Film } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, Button } from "@/components/ui/primitives";
-import { videoClips } from "@/data/mockData";
 import { RiskBadge } from "@/components/RiskBadge";
 import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
 import { eventService } from "@/services/eventService";
+import { dashboardService } from "@/services/dashboardService";
 import { useAuthStore } from "@/store/authStore";
 import { canAcknowledge } from "@/lib/roles";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
-import { spaces } from "@/data/mockData";
 import { formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/labels";
-import { dashboardAdminPath } from "@/lib/routeAccess";
+import { adminPath } from "@/lib/routeAccess";
 import type { DetectionEvent } from "@/types";
 
 const FILTERS = [
@@ -27,12 +26,18 @@ export function EventsPage() {
   const facilityId = useActiveFacilityId();
 
   const [events, setEvents] = useState<DetectionEvent[]>([]);
+  const [spaceNames, setSpaceNames] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    setEvents(await eventService.listByFacility(facilityId));
+    const [eventList, dashboard] = await Promise.all([
+      eventService.listByFacility(facilityId),
+      dashboardService.getDashboard(facilityId),
+    ]);
+    setEvents(eventList);
+    setSpaceNames(Object.fromEntries(dashboard.spaces.map((space) => [space.id, space.name])));
     setLoading(false);
   }
   useEffect(() => {
@@ -46,7 +51,7 @@ export function EventsPage() {
     load();
   }
 
-  const spaceName = (id: string) => spaces.find((s) => s.id === id)?.name ?? id;
+  const spaceName = (id: string) => spaceNames[id] ?? id;
 
   const filtered = events.filter((e) => {
     if (filter === "OPEN") return e.kakaoAlertStatus !== "ACKNOWLEDGED";
@@ -88,11 +93,10 @@ export function EventsPage() {
         <div className="space-y-2.5">
           {filtered.map((ev) => {
             const acked = ev.kakaoAlertStatus === "ACKNOWLEDGED";
-            const hasClip = videoClips.some((c) => c.eventId === ev.id);
             return (
               <Card
                 key={ev.id}
-                onClick={() => navigate(`${dashboardAdminPath(facilityId)}/events/${ev.id}`)}
+                onClick={() => navigate(adminPath(`events/${ev.id}`))}
                 className="flex cursor-pointer flex-wrap items-center gap-3 p-4 transition-colors hover:border-brand/40"
               >
                 <div className="min-w-0 flex-1">
@@ -101,12 +105,6 @@ export function EventsPage() {
                     <span className="text-sm text-ink-soft">{eventTypeLabel[ev.eventType]}</span>
                     <RiskBadge level={ev.riskLevel} />
                     <KakaoAlertStatusBadge status={ev.kakaoAlertStatus} />
-                    {hasClip && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-brand-soft px-1.5 py-0.5 text-[11px] font-medium text-brand">
-                        <Film className="h-3 w-3" />
-                        영상
-                      </span>
-                    )}
                   </div>
                   <p className="mt-1 text-sm text-ink-soft">{ev.aiSummary}</p>
                   <p className="mt-1 text-xs text-gray-400">

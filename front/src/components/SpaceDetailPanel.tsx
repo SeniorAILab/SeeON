@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, UserCog, Users, Activity, AlertTriangle, Film } from "lucide-react";
+import { X, Users, Activity, AlertTriangle, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime, timeAgo } from "@/lib/format";
 import { levelLabel, spaceTypeLabel } from "@/lib/labels";
@@ -13,13 +13,10 @@ import { ActionLogForm } from "./ActionLogForm";
 import { Button } from "./ui/primitives";
 import { dashboardService } from "@/services/dashboardService";
 import { eventService } from "@/services/eventService";
-import { zoneService, type ZoneWithResident } from "@/services/zoneService";
-import { BedDouble } from "lucide-react";
-import { sampleTimeline } from "@/data/mockData";
 import { useAuthStore } from "@/store/authStore";
 import { canAcknowledge, canAdmin } from "@/lib/roles";
-import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
-import { dashboardAdminPath } from "@/lib/routeAccess";
+
+import { adminPath } from "@/lib/routeAccess";
 import type { ActionType, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 
 interface Props {
@@ -33,21 +30,16 @@ interface Props {
 export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: Props) {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const facilityId = useActiveFacilityId();
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [zones, setZones] = useState<ZoneWithResident[]>([]);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     dashboardService.getSpaceEvents(space.id).then((list) => {
       if (!active) return;
-      setEvents(list.length ? list : sampleTimeline.filter((e) => e.spaceId === space.id));
+      setEvents(list);
       setLoading(false);
-    });
-    zoneService.listZonesWithResidents(space.id).then((z) => {
-      if (active) setZones(z);
     });
     return () => {
       active = false;
@@ -64,7 +56,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
       await eventService.addAction(openEvent.id, type, note || undefined, user.name);
     }
     const refreshed = await dashboardService.getSpaceEvents(space.id);
-    setEvents(refreshed.length ? refreshed : events);
+    setEvents(refreshed);
     onChanged?.();
   }
 
@@ -108,7 +100,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
           {/* 관리자 전용: 이슈 상세·근거 영상 진입 */}
           {canAdmin(user) && openEvent && (
             <button
-              onClick={() => navigate(`${dashboardAdminPath(facilityId)}/events/${openEvent.id}`)}
+              onClick={() => navigate(adminPath(`events/${openEvent.id}`))}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand/30 bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand hover:bg-brand/10"
             >
               <Film className="h-4 w-4" />
@@ -148,29 +140,9 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
             <h3 className="mb-2 text-sm font-semibold text-ink">공간 정보</h3>
             <dl className="space-y-1.5 rounded-xl border border-border p-3 text-sm">
               <Row icon={Users} label="수용 인원" value={`${space.capacity}명`} />
-              <Row icon={UserCog} label="담당 직원" value={space.assignedStaff ?? "미지정"} />
             </dl>
           </section>
 
-          {/* 구역/침대 배정 (얼굴 인식 없이 침대 단위 매핑) */}
-          {zones.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-ink">구역 / 침대 배정</h3>
-              <ul className="space-y-1.5 rounded-xl border border-border p-3 text-sm">
-                {zones.map((z) => (
-                  <li key={z.id} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-gray-400">
-                      <BedDouble className="h-3.5 w-3.5" />
-                      {z.name}
-                    </span>
-                    <span className={z.resident ? "font-medium text-ink" : "text-gray-400"}>
-                      {z.resident ? z.resident.name : "미배정"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
 
           {/* 알림 상태 */}
           {status && status.kakaoAlertStatus !== "NONE" && (

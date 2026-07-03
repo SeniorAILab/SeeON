@@ -1,3 +1,4 @@
+// 가역 숨김 상태, 백엔드 컨트롤러 부활 시 재배선.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, Film, TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -9,7 +10,7 @@ import { residentService } from "@/services/residentService";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { formatDateTime } from "@/lib/format";
 import { residentActionLabel } from "@/lib/labels";
-import { dashboardAdminPath } from "@/lib/routeAccess";
+import { adminPath } from "@/lib/routeAccess";
 import type { DetectionEvent, FocusResidentView, ResidentAction, VideoClip } from "@/types";
 
 type Detail = FocusResidentView & {
@@ -36,7 +37,7 @@ export function FocusResidentsPage() {
         <p className="text-sm text-ink-soft">오늘 집중 관찰 대상이 없습니다.</p>
       ) : (
         ids.map((id) => (
-          <ResidentDetailCard key={id} facilityId={facilityId} residentId={id} />
+          <ResidentDetailCard key={id} residentId={id} />
         ))
       )}
     </div>
@@ -63,13 +64,7 @@ function Delta({ value }: { value: number }) {
   );
 }
 
-function ResidentDetailCard({
-  facilityId,
-  residentId,
-}: {
-  facilityId: string;
-  residentId: string;
-}) {
+function ResidentDetailCard({ residentId }: { residentId: string }) {
   const navigate = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
   const [actions, setActions] = useState<ResidentAction[]>([]);
@@ -129,9 +124,7 @@ function ResidentDetailCard({
       {/* 관련 영상 클립 */}
       {d.clip && d.recentEvents[0] && (
         <button
-          onClick={() =>
-            navigate(`${dashboardAdminPath(facilityId)}/events/${d.clip!.eventId}`)
-          }
+          onClick={() => navigate(adminPath(`events/${d.clip!.eventId}`))}
           className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand-soft px-3 py-2 text-sm font-semibold text-brand hover:bg-brand/10"
         >
           <Film className="h-4 w-4" />

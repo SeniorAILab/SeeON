@@ -32,7 +32,7 @@ httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/m
 
 실제 주 사용자는 60대 이상 요양보호사·간호조무사·사회복지사·야간 근무자입니다. 그래서 "멋진 대시보드"가 아니라 **3초 안에 위험을 이해하고 바로 행동하는 안전 확인 도구**로 설계했습니다.
 
-### 직원 모드 (`/dashboard/facilities/:facilityId/staff`) — 메뉴 3개만
+### 직원 모드 (`/dashboard`, `/dashboard/floor/:floorId`, `/dashboard/alerts`) — 메뉴 3개만
 
 - **지금 확인할 곳**: 로그인 후 첫 화면. 전체 대시보드가 아니라 위험/주의/확인필요 공간만, 위험 우선으로 큰 카드로 보여줍니다. 모두 안정이면 "지금은 모든 곳이 안정적입니다" 안내.
 - **전체 방 상태**: 큰 층 탭 + 큰 카드.
@@ -43,7 +43,7 @@ httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/m
 - **다크모드**: 야간(19~07시) 자동 다크 + 토글. 토큰(CSS 변수) 기반이라 모든 화면이 함께 전환됩니다.
 - **소리·진동**: 새 위험 발생 시에만 부드러운 알림음 + 진동(토글 가능, `lib/alert.ts`).
 
-### 관리자 모드 (`/dashboard/facilities/:facilityId/admin/*`) — 설정·상세 데이터
+### 관리자 모드 (`/admin/*`) — 설정·상세 데이터
 
 상세 대시보드, 이벤트, 시설/층/공간/구역/카메라/보호자/입소자 관리 화면이 여기 모여 있습니다. 라우트는 프론트 화면 경로이며, 백엔드 API 계약은 실제 컨트롤러(`backend/src/**/*.controller.ts`)와 생성된 OpenAPI(`/api/docs`)가 SSOT이며 그 경로만 사용합니다. 관리자 화면은 항상 라이트 모드.
 
@@ -53,7 +53,7 @@ httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/m
 
 이 기능은 **"실시간 CCTV 관제"가 아니라 "AI 위험 감지 근거 영상 확인"**입니다. AI가 위험으로 감지한 **이벤트 구간(감지 10초 전 ~ 10초 후, 약 20초)** 클립만 관리자에게 제공합니다.
 
-- **권한 분리**: STAFF는 영상 영역 자체가 없고 "영상은 관리자만 확인할 수 있습니다" 안내만 표시. ADMIN/SUPER_ADMIN만 이벤트 상세(`/dashboard/facilities/:facilityId/admin/events/:eventId`)에서 근거 UI를 볼 수 있습니다.
+- **권한 분리**: STAFF는 영상 영역 자체가 없고 "영상은 관리자만 확인할 수 있습니다" 안내만 표시. ADMIN/SUPER_ADMIN만 이벤트 상세(`/admin/events/:eventId`)에서 근거 UI를 볼 수 있습니다.
 - **현재 백엔드 계약**: 영상 presign/access-log 전용 API는 아직 없습니다. 스냅샷은 실제 컨트롤러가 제공하는 `GET /api/v1/alerts/:alertId/snapshot` 및 `PUT /api/v1/alerts/:alertId/snapshot`만 문서화된 계약입니다.
 - **프론트 보안 경계**: 프론트 라우트 가드는 UX 목적입니다. 최종 권한은 백엔드의 `JwtAuthGuard`, `RequireFacilityGuard`, `RolesGuard`, capability RBAC가 강제합니다.
 
@@ -70,7 +70,7 @@ React 18 · TypeScript(strict) · Vite · Tailwind CSS · Zustand · React Route
 ```
 src/
 ├── types/index.ts          프론트 UI/domain 타입
-├── data/mockData.ts        frontend-alone 테스트/데모용 더미 데이터
+├── data/mockData.ts        가역 숨김 페이지 전용 비활 fixture(실제 런타임 미사용)
 ├── lib/                    utils · labels(도메인 라벨) · roles(역할 호칭/권한/라우팅) · format(시간)
 ├── services/               API/서비스 레이어
 │   ├── apiClient.ts        fetch 래퍼 (`/api/v1`, cookie credentials, X-Facility-Id)
@@ -78,13 +78,13 @@ src/
 │   ├── authService.ts      로그인/세션 복원
 │   ├── dashboardService.ts 대시보드/공간 상태
 │   ├── eventService.ts     이벤트 확인/조치
-│   └── adminService.ts     시설/층/공간/구역/카메라/보호자/입소자 호출
+│   └── adminService.ts     가역 숨김 관리자 페이지 전용 비활 fixture
 ├── store/                  authStore(권한) · facilityStore(시설 선택)
 ├── components/             StatusCard, RiskBadge, StatusBadge, EventTimeline,
 │                           AIInsightBox, KakaoAlertStatusBadge, ActionLogForm,
 │                           FloorTabs, StatsBar, SpaceDetailPanel, layout/AppLayout ...
 └── pages/                  LoginPage, DashboardPage, EventsPage,
-                            admin/{Facility,Floors,Spaces,Assignments,FocusResidents,Users}Page
+                            admin/{Facility,Spaces,MonitorSettings,Users,EventDetail}Page
 ```
 
 ---
@@ -97,7 +97,7 @@ src/
 
 ## 실제 백엔드 연동 계약
 
-기본 개발 런타임은 실제 백엔드 모드입니다. `VITE_USE_MOCK`이 unset/`false`이면 `src/services/apiClient.ts`가 `VITE_API_BASE_URL`(기본 `/api/v1`)로 요청하고 `credentials: "include"`를 붙입니다.
+기본 개발 런타임은 실제 백엔드 경로입니다. `src/services/apiClient.ts`가 `VITE_API_BASE_URL`(기본 `/api/v1`)로 요청하고 `credentials: "include"`를 붙입니다.
 
 ### 인증·시설 스코프
 
@@ -125,22 +125,22 @@ src/
 
 각 층 간호사실·복도·야간 스테이션의 큰 모니터/TV에 **상시 띄워두는** 화면입니다. 실제 CCTV 영상은 없지만 인원·움직임·위험도·메시지·감지시각이 자동으로 갱신되어 "상태가 살아 움직이는" 현황판처럼 보입니다. 관제센터가 아니라 병동 현황판/관제판의 명확함을 지향합니다.
 
-- **경로**: `/dashboard/facilities/:facilityId/staff`(전체 보기) → `/dashboard/facilities/:facilityId/staff/floors/:floorId`(층별). 진입 버튼은 직원/관리자 헤더에 있습니다.
+- **경로**: `/dashboard`(전체 보기) → `/dashboard/floor/:floorId`(층별), `/dashboard/alerts`(확인한 알림). 진입 버튼은 직원/관리자 헤더에 있습니다.
 - **멀리서도 보이는 대형 타이포**: 공간명 42px+, 인원 56px+, 상태 36px+, 설명 28px+. 위험 우선 정렬 + 큰 카드 그리드(공간 수에 따라 2×2/3열 자동).
-- **마우스 없이 자동 갱신**: `mockRealtimeEngine`이 2~5초마다 일부 공간 상태를 바꿉니다. 안정이 대부분, 주의는 가끔, **위험은 드물게 발생하고 12~20초 유지**(확인 전까지 계속 강조). 위험/주의 카드는 부드러운 pulse(사이렌 느낌은 배제).
+- **마우스 없이 자동 갱신**: 백엔드 dashboard SSE와 알림 REST read-model이 공간 상태를 갱신합니다. 안정/주의/위험 상태는 백엔드 이벤트와 스냅샷을 기준으로 반영되고, 위험은 확인 전까지 계속 강조됩니다.
 - **상단 정보**: 시설명 · 층 제목 · 실시간 시계 · "N초 전 갱신" 인디케이터 · 연결 상태(정상/지연/재연결/끊김) · 층 요약(안정·주의·위험) · 위험 배너.
 - **조작 최소화**: 층 선택 / 전체 화면(Fullscreen API, ESC 해제) / 알림음 켜기·끄기(기본 꺼짐, 야간엔 시각 강조 우선) / 카드 클릭 시 오른쪽 슬라이드 상세. 관리자 메뉴·복잡한 설정은 노출하지 않습니다.
-- **권한별 상세**: 카드 클릭 시 직원은 요약+조치 버튼만, 관리자는 관리자 이벤트 상세 화면(`/dashboard/facilities/:facilityId/admin/events/:eventId`)에서 추가 정보를 확인합니다. 프론트 가드는 UX 목적이고 백엔드 capability RBAC가 최종 방어선입니다.
-- **관리자 설정**(`/dashboard/facilities/:facilityId/admin/monitor-settings`): 기본 표시 층, 갱신 간격, 알림음, 야간 모드, 카드 크기, 표시할 공간 선택, 전체 보기 허용. 이 모니터(브라우저)에 저장됩니다.
+- **권한별 상세**: 카드 클릭 시 직원은 요약+조치 버튼만, 관리자는 관리자 이벤트 상세 화면(`/admin/events/:eventId`)에서 추가 정보를 확인합니다. 프론트 가드는 UX 목적이고 백엔드 capability RBAC가 최종 방어선입니다.
+- **관리자 설정**(`/admin/monitor-settings`): 기본 표시 층, 갱신 간격, 알림음, 야간 모드, 카드 크기, 표시할 공간 선택, 전체 보기 허용. 이 모니터(브라우저)에 저장됩니다.
 - **반응형**: 55인치 TV(아주 큰 카드 2×2/3열) · 태블릿(2열) · 모바일(세로 리스트로 전환).
 
-**실제 연동**: 운영 모드는 `stores/monitorStore.ts`가 `GET /api/v1/dashboard/stream` SSE와 알림 REST read-model을 합쳐 화면 상태를 갱신합니다. `src/mocks/realtimeEngine.ts`는 `VITE_USE_MOCK=true`인 frontend-alone 테스트/데모 경로입니다.
+**실제 연동**: `stores/monitorStore.ts`가 `GET /api/v1/dashboard/stream` SSE와 알림 REST read-model을 합쳐 화면 상태를 갱신합니다.
 
 ### 실제 시설 구조 · 현실형 실시간 변화
 
 시설은 실제 구조(B1·1F·2F·3F·4F, 총 54공간)로 구성됩니다. 2~4F는 각 호실 10 + 중앙/좌측/우측 복도 + 프로그램실 = **14공간**이 한 화면에 들어갑니다(55인치 TV 기준 최대 5열). 상단에 "전체 14 · 안정 11 · 주의 2 · 위험 1 · 총 감지 인원 24명" 요약을 표시합니다.
 
-엔진은 무작위가 아니라 **시간대 생활 패턴 + 공간 유형**을 반영합니다. 기상(06–08:30)·식사·프로그램·휴식·취침(19–22)·야간(22–06)마다 호실/복도/식당/프로그램실의 인원과 상태가 다르게 생성되고, 인원은 목표치를 향해 ±1씩 점진 변화(0→8 급변 없음)합니다. 프로그램실·식당·물리치료실의 활발한 움직임은 위험으로 오인하지 않습니다. 위험은 드물게(데모 약 2~3분 1회) 발생하고 **확인 전까지 유지**됩니다. 관리자 설정의 **데모 모드**(평상/식사/프로그램/야간/위험 데모)로 시간대를 강제 시연할 수 있습니다.
+공간 상태와 요약은 백엔드 dashboard 스냅샷과 알림 이벤트를 기준으로 갱신됩니다. 프론트는 선택한 시설 스코프를 fetch/XHR에서는 `X-Facility-Id`, SSE에서는 `facilityId` query param으로 전달합니다.
 
 ### 적응형 레이아웃 (평상시 압축 → 상황 시 확대)
 
@@ -185,15 +185,15 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 
 행복한요양원 녹양역점에서 바로 검증할 **PoC**가 1차 목표이되, 구조는 처음부터 **SaaS Ready**로 설계합니다.
 
-- **SaaS Ready**: 핵심 백엔드 엔티티는 `facilityId`를 통해 시설 스코프를 가집니다(Facility·Floor·Space·Zone·Resident·ResidentAssignment·Guardian·Camera·Alert 등). 프론트 경로는 `/dashboard/facilities/:facilityId/...` 구조이고, API 요청은 cookie JWT + `X-Facility-Id`/SSE query selector 계약을 따릅니다.
+- **SaaS Ready**: 핵심 백엔드 엔티티는 `facilityId`를 통해 시설 스코프를 가집니다(Facility·Floor·Space·Zone·Resident·ResidentAssignment·Guardian·Camera·Alert 등). 프론트 경로는 역할 다형 진입점(`/dashboard`, `/admin/*`)을 사용하고, API 요청은 cookie JWT + `X-Facility-Id`/SSE query selector 계약을 따릅니다.
 - **Privacy First — 얼굴 인식 미사용**: 로그인·층 선택·모니터 헤더·배정 화면에 "얼굴 인식을 사용하지 않습니다" 안내를 명시했습니다(`PrivacyNotice`). AI는 "어느 공간/구역에서 어떤 행동인지"만 알고, "그 사람이 누구인지"는 모릅니다. 개인 매핑(202호 침대A → 김○○)은 요양원 DB(`ResidentAssignment`)에서만 관리합니다.
 
 ### 구역/침대(Zone) + 어르신 배정(ResidentAssignment)
 
 공간 아래 **침대/구역 단위**로 이벤트를 다룹니다. 모든 호실에 침대A·침대B가 있고, 어르신을 침대에 배정하면 이벤트가 "**202호 침대A** 침상 이탈"처럼 표기됩니다(얼굴 인식 없이 침대 위치만).
 
-- **관리자 · 구역/침대 배정**(`/dashboard/facilities/:facilityId/admin/assignments`): 층 선택 → 호실별 침대에 어르신 배정/해제, 침대 추가/삭제.
-- mock 실시간 엔진의 호실 위험 이벤트는 배정된 침대(없으면 임의 침대)를 포함해 생성됩니다. 실제 백엔드 이벤트는 현재 camera/space/alert 중심이며 resident-risk-summary route는 없습니다.
+- **관리자 · 구역/침대 배정**: `assignments` 관리자 화면은 가역 숨김 상태입니다. 재활성 시 `/admin/assignments` 아래에서 실백엔드로 배선합니다.
+- 실제 백엔드 이벤트는 현재 camera/space/alert 중심이며 resident-risk-summary route는 없습니다. 구역/침대 배정 화면은 가역 숨김 상태이고, `services/zoneService.ts`는 해당 숨김 페이지 전용 비활 fixture입니다.
 - 공간 상세 패널에 "구역/침대 배정" 표시, 관심 어르신 화면에 침대 위치 표기, 이벤트 타임라인에 구역 칩 표시.
 - 서비스: `services/zoneService.ts`. 엔티티: `Zone`, `ResidentAssignment`.
 
@@ -201,7 +201,7 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 
 ### UX 검증 결과
 
-현장 검증 결과는 관리자 workbench의 `/dashboard/facilities/:facilityId/admin/ux-test`에서 확인합니다. 별도 PoC route는 제품 라우팅에서 제거했고, 발생 이벤트·확인 완료·평균 확인 시간·TTS 재생·도움 요청 + 이벤트별 확인 소요시간·누른 버튼을 관리자 화면 안에서 다룹니다.
+현장 검증 결과는 별도 UX 테스트 라우트 없이 실제 관리자/직원 화면과 테스트에서 확인합니다. 발생 이벤트·확인 완료·평균 확인 시간·TTS 재생·도움 요청 + 이벤트별 확인 소요시간·누른 버튼은 제품 화면과 백엔드 이벤트/알림 계약 안에서 다룹니다.
 
 ---
 
@@ -209,10 +209,10 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 
 AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다. "감시 대상"이 아니라 "집중 관찰 지원" 톤으로 표현합니다(위험 인물·문제 행동 같은 표현 배제).
 
-- **직원 화면**: "지금 확인할 곳"(`/dashboard/facilities/:facilityId/staff`) 상단에 "오늘 집중 관찰 필요 N명" 섹션. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"만 보여주고 **확인함 / 직원 방문 중 / 도움 요청** 3버튼을 제공합니다. "음성으로 듣기" 버튼으로 TTS 안내를 들을 수 있습니다.
-- **관리자 화면**(`/dashboard/facilities/:facilityId/admin/focus-residents`): 프론트 화면은 남아 있지만 현재 백엔드에는 `/api/v1/resident-risk-summaries` route가 없습니다. 실제 연동 전까지 mock/UI 호환 데이터로 취급합니다.
+- **직원 화면**: "지금 확인할 곳"(`/dashboard`) 상단에 "오늘 집중 관찰 필요 N명" 섹션. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"만 보여주고 **확인함 / 직원 방문 중 / 도움 요청** 3버튼을 제공합니다. "음성으로 듣기" 버튼으로 TTS 안내를 들을 수 있습니다.
+- **관리자 화면**: `focus-residents` 관리자 화면은 남아 있지만 가역 숨김 상태이며 현재 백엔드에는 `/api/v1/resident-risk-summaries` route가 없습니다. `services/residentService.ts`와 fixture 데이터는 재활성 전까지 비활 fixture로만 보존합니다.
 - **TTS 안내**: "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 짧고 명확하게 안내(`services/tts/announceFocus.ts`).
-- **데이터 모델**: `Resident`와 배정 정보는 실제 백엔드 route가 있고, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI/mock 타입입니다.
+- **데이터 모델**: `Resident`와 배정 정보는 실제 백엔드 route가 있고, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI 호환 타입입니다.
 
 ---
 
@@ -237,6 +237,6 @@ AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다.
 
 ---
 
-## 알려진 제약 (MVP)
+## 알려진 제약
 
-실제 백엔드 모드가 기본입니다. `VITE_USE_MOCK=true`의 frontend-alone 데이터는 새로고침 시 일부 변경(층/공간 추가 등)이 seed로 리셋됩니다. 사용자 계정 생성/권한 변경 UI, 영상 전용 API, resident-risk-summary 연동, alert-rule 백엔드 연동은 후속 범위입니다.
+실제 백엔드 경로가 단일 런타임입니다. 사용자 계정 생성/권한 변경 UI, 영상 전용 API, resident-risk-summary 연동, alert-rule 백엔드 연동은 후속 범위입니다.
