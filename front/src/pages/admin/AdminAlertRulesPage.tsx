@@ -1,7 +1,9 @@
+// 가역 숨김 상태, 백엔드 컨트롤러 부활 시 재배선.
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Bell } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Input, Select } from "@/components/ui/primitives";
+import { listSpaces } from "@/services/api/spaces";
 import { adminService } from "@/services/adminService";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { levelLabel } from "@/lib/labels";
@@ -18,7 +20,7 @@ export function AdminAlertRulesPage() {
   async function load() {
     const [r, s] = await Promise.all([
       adminService.listAlertRules(facilityId),
-      adminService.listSpaces(facilityId),
+      listSpaces(),
     ]);
     setRules(r);
     setSpaces(s);
