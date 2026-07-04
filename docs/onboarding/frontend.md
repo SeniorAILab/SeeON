@@ -30,13 +30,13 @@ user action / page effect
 | --- | --- | --- |
 | API client seam | `front/src/services/apiClient.ts` | `VITE_API_BASE_URL`, `/dashboard/stream` SSE URL 생성, `fetch` wrapper, cookie credentials, `ApiError` 표준화 |
 | Endpoint mapper | `front/src/services/api/authEndpoints.ts` | backend DTO 검증·frontend type mirror 생성. 예: `loginEndpoint()`, `restoreSessionEndpoint()`, `parseRole()` |
-| Workflow service | `front/src/services/authService.ts`, `dashboardService.ts`, `eventService.ts`, `adminService.ts`, `videoService.ts`, `zoneService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
+| Workflow service | `front/src/services/authService.ts`, `dashboardService.ts`, `eventService.ts`, `adminService.ts`, `videoService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
 | TTS side effect | `front/src/services/tts/*`, `front/src/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
 
 현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/api/v1/auth/login`, `restoreSessionEndpoint()`는 `/api/v1/auth/me`, `logoutEndpoint()`는 `/api/v1/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/store/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
 
-대시보드/관리/이벤트/영상/구역 service는 같은 seam을 향하도록 분리되어 있다. `dashboardService.ts`는 dashboard read-model shape(`DashboardResponse`)를 페이지에 제공하고, `eventService.ts`는 이벤트 확인·조치 유스케이스, `adminService.ts`는 시설/층/공간/알림규칙/사용자 관리 유스케이스, `videoService.ts`는 관리자 전용 event clip 권한·signed URL·access log 정책, `zoneService.ts`는 공간 내 구역과 어르신 배정을 담당한다.
+대시보드/관리/이벤트/영상 service는 같은 seam을 향하도록 분리되어 있다. `dashboardService.ts`는 dashboard read-model shape(`DashboardResponse`)를 페이지에 제공하고, `eventService.ts`는 이벤트 확인·조치 유스케이스, `adminService.ts`는 시설/층/공간/알림규칙/사용자 관리 유스케이스, `videoService.ts`는 관리자 전용 event clip 권한·signed URL·access log 정책을 담당한다.
 
 ## 3. Backend 수신 방식: SSE 중심 갱신
 
@@ -137,7 +137,7 @@ button/form/page effect
 page or component handler
   │
   ▼
-service (`authService`, `eventService`, `adminService`, `videoService`, `zoneService`)
+service (`authService`, `eventService`, `adminService`, `videoService`)
   │
   ▼
 endpoint mapper when wired (`front/src/services/api/*`)

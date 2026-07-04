@@ -76,9 +76,7 @@ HTTP request
 | Module | 주 책임 |
 | --- | --- |
 | `AuthModule` | Kakao/email auth, JWT `app_session` cookie, `/api/v1/auth/*`, sessionVersion revocation |
-| `ResidentsModule`, `ResidentAssignmentsModule` | resident profile and placement |
-| `GuardiansModule` | guardian domain |
-| `FacilitiesModule`, `FloorsModule`, `SpacesModule`, `ZonesModule`, `CamerasModule` | facility topology와 camera ownership/placement |
+| `FacilitiesModule`, `FloorsModule`, `SpacesModule`, `CamerasModule` | facility topology와 camera ownership/placement |
 | `EventsModule` | edge Event API ingress와 Event SSOT 기록 |
 | `AlertsModule` | alert policy, alert persistence, two-frame SSE emit source, retained alert-event/outbox/Kakao ports |
 | `DashboardModule` | dashboard SSE read-side stream |
@@ -90,7 +88,7 @@ HTTP request
 
 인증된 product route는 `JwtAuthGuard`와, tenant scope가 필요한 경우 `RequireFacilityGuard`를 통과한다. `JwtAuthGuard`는 httpOnly `app_session` JWT를 검증하고 `req.user`에 `{ sub, role, facilityId, sessionVersion }` 기반 identity를 채운다. Admin mutation route는 추가로 `RolesGuard`와 `@RequireCapability('facilityAdmin')`를 붙인다.
 
-그 다음 `FacilityContextInterceptor`가 request identity로 facility context를 잡고 controller가 `requireFacilityId(req)`로 `facilityId`를 service에 넘긴다. 실제 tenant table 접근은 service/repository가 `PrismaService.withFacilityContext(facilityId, tx => ...)`를 호출할 때에만 허용된다. `withFacilityContext`는 interactive transaction을 열고 `SELECT set_config('app.facility_id', facilityId, true)`를 실행해 transaction-local GUC를 묶는다. `TenantContext.runBound()`로 표시된 scope가 없으면 `PrismaService.db`의 `$allOperations` guard가 `Resident`, `Camera`, `Alert`, `Event`, `Floor`, `Space`, `Zone` 등 tenant model 접근을 `MissingTenantContextError`로 막는다.
+그 다음 `FacilityContextInterceptor`가 request identity로 facility context를 잡고 controller가 `requireFacilityId(req)`로 `facilityId`를 service에 넘긴다. 실제 tenant table 접근은 service/repository가 `PrismaService.withFacilityContext(facilityId, tx => ...)`를 호출할 때에만 허용된다. `withFacilityContext`는 interactive transaction을 열고 `SELECT set_config('app.facility_id', facilityId, true)`를 실행해 transaction-local GUC를 묶는다. `TenantContext.runBound()`로 표시된 scope가 없으면 `PrismaService.db`의 `$allOperations` guard가 `Camera`, `Alert`, `Event`, `Floor`, `Space` 등 tenant model 접근을 `MissingTenantContextError`로 막는다.
 
 응답은 Prisma model을 그대로 contract로 삼지 않고 presenter/DTO에서 `camelCase`로 골라 낸다. 예를 들어 `AlertsService`는 `alertSeq`를 string으로, `SpacesService.presentSpace()`는 `createdAt`을 ISO string으로 변환한다. `app.module.ts`에는 SSE/alert read API의 `BigInt` JSON serialization을 위한 `BigInt.prototype.toJSON` shim도 있다.
 
