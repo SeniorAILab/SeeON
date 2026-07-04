@@ -79,7 +79,7 @@ src/
 │   ├── dashboardService.ts 대시보드/공간 상태
 │   ├── eventService.ts     이벤트 확인/조치
 │   └── adminService.ts     가역 숨김 관리자 페이지 전용 비활 fixture
-├── store/                  authStore(권한) · facilityStore(시설 선택)
+├── stores/                 zustand state containers: authStore(권한) · facilityStore(시설 선택)
 ├── components/             StatusCard, RiskBadge, StatusBadge, EventTimeline,
 │                           AIInsightBox, KakaoAlertStatusBadge, ActionLogForm,
 │                           FloorTabs, StatsBar, SpaceDetailPanel, layout/AppLayout ...

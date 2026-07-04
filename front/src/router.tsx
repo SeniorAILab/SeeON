@@ -27,6 +27,7 @@ import { AdminSpacesPage } from "@/pages/admin/AdminSpacesPage";
 import { UsersPage } from "@/pages/admin/UsersPage";
 import { AdminMonitorSettingsPage } from "@/pages/admin/AdminMonitorSettingsPage";
 import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
+import { FloorSelectLandingPage } from "@/pages/monitor/FloorSelectLandingPage";
 
 const auth = (children: ReactNode, minRole?: "STAFF" | "ADMIN" | "SUPER_ADMIN") => (
   <RouterBootstrap>
@@ -69,6 +70,15 @@ export const router = createBrowserRouter([
   },
   { path: "/", element: auth(<RoleRouteRedirect />) },
   { path: "/facilities", element: auth(<SuperAdminDashboardPage />, "SUPER_ADMIN") },
+  {
+    path: "/facilities/:facilityId/floors",
+    element: auth(
+      <FacilityScope>
+        <StaffLayout />
+      </FacilityScope>,
+    ),
+    children: [{ index: true, element: <FloorSelectLandingPage /> }],
+  },
   {
     path: "/facilities/:facilityId/dashboard",
     element: auth(

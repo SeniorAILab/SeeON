@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SpaceDetailPanel } from "./SpaceDetailPanel";
 import { dashboardService } from "@/services/dashboardService";
 import { eventService } from "@/services/eventService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { listCameras } from "@/services/api/cameras";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 

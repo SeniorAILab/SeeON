@@ -14,7 +14,7 @@ import { Button } from "./ui/primitives";
 import { dashboardService } from "@/services/dashboardService";
 import { eventService } from "@/services/eventService";
 import { listCameras, type CameraStatus } from "@/services/api/cameras";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { canAcknowledge, canAdmin } from "@/lib/roles";
 
@@ -116,7 +116,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
           {/* AI 설명 */}
           {status && (
             <AIInsightBox
-              summary={status.aiSummary}
+              summary={status.aiSummary ?? ""}
               status={status.status}
               confidence={openEvent?.confidence}
             />

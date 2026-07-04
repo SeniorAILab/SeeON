@@ -3,12 +3,12 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
-import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
-import { useUiStore } from "@/store/uiStore";
+import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
-import { FACILITIES_PICKER_PATH, adminPath, alertsPath, dashboardPath } from "@/lib/routeAccess";
+import { FACILITIES_PICKER_PATH, adminPath, alertsPath, floorSelectPath } from "@/lib/routeAccess";
 
 export function StaffLayout() {
   const user = useAuthStore((s) => s.user);
@@ -54,7 +54,7 @@ export function StaffLayout() {
   const facilityLabel = facility?.name ?? activeFacilityId ?? "전역 개요";
   const routeFacilityId = activeFacilityId ?? "";
   const nav = [
-    { to: routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "대시보드", Icon: MonitorPlay },
+    { to: routeFacilityId ? floorSelectPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "층 선택", Icon: MonitorPlay },
     { to: routeFacilityId ? alertsPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "확인한 알림", Icon: CheckCheck },
   ];
 
@@ -88,13 +88,6 @@ export function StaffLayout() {
             <IconBtn onClick={toggleTheme} label={theme === "dark" ? "밝게" : "어둡게"}>
               {theme === "dark" ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
             </IconBtn>
-            <button
-              onClick={() => navigate(routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH)}
-              className="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-surface2 sm:text-base"
-            >
-              <MonitorPlay className="h-5 w-5" />
-              대시보드
-            </button>
             {canAdmin(user) && (
               <button
                 onClick={() => navigate(routeFacilityId ? adminPath(routeFacilityId) : FACILITIES_PICKER_PATH)}

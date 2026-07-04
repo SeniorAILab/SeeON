@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
-import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
+import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { FACILITIES_PICKER_PATH, adminPath, dashboardPath } from "@/lib/routeAccess";
 

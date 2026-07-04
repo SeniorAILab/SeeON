@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 
 export function RouterBootstrap({ children }: { children: ReactNode }) {
   const init = useAuthStore((s) => s.init);

@@ -1,4 +1,4 @@
-import { getCurrentFacilityId } from "@/store/facilityStore";
+import { getCurrentFacilityId } from "@/stores/facilityStore";
 
 type UnauthorizedHandler = () => void;
 

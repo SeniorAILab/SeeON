@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { InlineActionPanel } from "@/components/monitor/InlineActionPanel";
+import { RoomActionPanel } from "./RoomActionPanel";
 import { RoomStatusTreemap } from "./RoomStatusTreemap";
 import type { ConnectionState, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 
 const DEBOUNCE_MS = 2000;
+type RoomStatusLayout = "overview" | "focus";
+
 
 export function connectionChipLabel(connection: ConnectionState, lastUpdateAt: string | null, now = Date.now()): string {
   if (connection === "RECONNECTING") return "재연결 중";
@@ -43,6 +45,7 @@ export function RoomStatusBoard({
   onSelectSpace,
   onClosePanel,
   onResolved,
+  layout = "overview",
 }: {
   spaces: Space[];
   statuses: Record<string, SpaceStatus>;
@@ -55,6 +58,7 @@ export function RoomStatusBoard({
   onSelectSpace?: (space: Space) => void;
   onClosePanel?: () => void;
   onResolved?: () => void;
+  layout?: RoomStatusLayout;
 }) {
   const visibleStatuses = useDebouncedStatuses(spaces, statuses);
   const activeSpace = selectedSpace && spaces.some((space) => space.id === selectedSpace.id) ? selectedSpace : null;
@@ -63,7 +67,7 @@ export function RoomStatusBoard({
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-surface p-3 shadow-card 2xl:p-4" aria-label="방 상태 보드">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 text-sm font-black text-ink-soft 2xl:text-base">
+        <div className="flex flex-wrap items-center gap-2 text-base font-black text-ink-soft 2xl:text-lg">
           <span className="rounded-full bg-status-dangerBg px-3 py-1 text-status-danger">위험</span>
           <span className="rounded-full bg-status-checkBg px-3 py-1 text-status-check">확인 필요</span>
           <span className="rounded-full bg-status-cautionBg px-3 py-1 text-status-caution">주의</span>
@@ -72,10 +76,10 @@ export function RoomStatusBoard({
         <ConnectionChip connection={connection} lastUpdateAt={lastUpdateAt} />
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} />
+        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} layout={layout} />
       </div>
       {activeSpace && (
-        <InlineActionPanel space={activeSpace} status={visibleStatuses[activeSpace.id]} alerts={activeAlerts} onClose={onClosePanel ?? (() => undefined)} onResolved={onResolved} />
+        <RoomActionPanel space={activeSpace} status={visibleStatuses[activeSpace.id]} alerts={activeAlerts} onClose={onClosePanel ?? (() => undefined)} onResolved={onResolved} />
       )}
     </section>
   );
@@ -83,5 +87,5 @@ export function RoomStatusBoard({
 
 function ConnectionChip({ connection, lastUpdateAt }: { connection: ConnectionState; lastUpdateAt: string | null }) {
   const label = connectionChipLabel(connection, lastUpdateAt);
-  return <span className="rounded-full bg-surface2 px-3 py-1 text-sm font-black tabular-nums text-ink-soft 2xl:text-base">{label}</span>;
+  return <span className="rounded-full bg-surface2 px-3 py-1 text-base font-black tabular-nums text-ink-soft 2xl:text-lg">{label}</span>;
 }
