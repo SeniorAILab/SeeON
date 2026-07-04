@@ -137,6 +137,13 @@ export function RoomStatusTreemap({
   );
 }
 
+export function heroTileStyle(isFirstHero: boolean, span: 1 | 2): CSSProperties {
+  if (isFirstHero) {
+    return { gridColumn: `1 / span ${span}`, gridRow: `1 / span ${span}` };
+  }
+  return { gridColumn: `span ${span}`, gridRow: `span ${span}` };
+}
+
 function FocusRoomGrid({
   rooms,
   statuses,
@@ -190,11 +197,6 @@ function FocusRoomGrid({
         const span = isHero ? spec.heroSpan : 1;
         const isFirstHero = isHero && !firstHeroSeen;
         if (isFirstHero) firstHeroSeen = true;
-        const tileStyle: CSSProperties = { gridColumn: `span ${span}`, gridRow: `span ${span}` };
-        if (isFirstHero) {
-          tileStyle.gridColumnStart = 1;
-          tileStyle.gridRowStart = 1;
-        }
         return (
           <RoomTile
             key={space.id}
@@ -203,7 +205,7 @@ function FocusRoomGrid({
             selected={selectedSpaceId === space.id}
             onSelect={onSelect}
             layout="focus"
-            style={tileStyle}
+            style={heroTileStyle(isFirstHero, span)}
             flipKey={space.id}
           />
         );

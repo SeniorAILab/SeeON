@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { RoomStatusTreemap } from "./RoomStatusTreemap";
+import { RoomStatusTreemap, heroTileStyle } from "./RoomStatusTreemap";
 import type { Floor, Space, SpaceStatus } from "@/types";
 
 const floors: Floor[] = [{ id: "2", facilityId: "fac", name: "2F", orderIndex: 2 }];
@@ -129,8 +129,8 @@ describe("RoomStatusTreemap layout grid behavior", () => {
     const { container } = render(<RoomStatusTreemap spaces={spaces} floors={floors} statuses={statuses} layout="focus" />);
 
     const dangerTile = container.querySelector('button[aria-label="202호 위험"]') as HTMLElement | null;
-    expect(dangerTile?.style.gridColumn).toBe("span 2");
-    expect(dangerTile?.style.gridRow).toBe("span 2");
+    expect(dangerTile?.style.gridColumn).toBe("1 / span 2");
+    expect(dangerTile?.style.gridRow).toBe("1 / span 2");
     expect(screen.getByText(/최근 감지/)).toBeTruthy();
     expect(tileOrder(container)).toEqual(["202호 위험", "201호 안정", "203호 안정"]);
   });
@@ -138,9 +138,10 @@ describe("RoomStatusTreemap layout grid behavior", () => {
   it("anchors the sole hero tile to the grid origin so dense packing can never place it after a non-hero", () => {
     const { container } = render(<RoomStatusTreemap spaces={spaces} floors={floors} statuses={statuses} layout="focus" />);
 
+    // jsdom doesn't expand the grid-column/-row shorthand into start/end longhands, so assert the shorthand itself.
     const dangerTile = container.querySelector('button[aria-label="202호 위험"]') as HTMLElement | null;
-    expect(dangerTile?.style.gridColumnStart).toBe("1");
-    expect(dangerTile?.style.gridRowStart).toBe("1");
+    expect(dangerTile?.style.gridColumn).toMatch(/^1 \/ span \d+$/);
+    expect(dangerTile?.style.gridRow).toMatch(/^1 \/ span \d+$/);
   });
 
   it("never applies a fixed min-height to focus tiles (structural no-overlap guarantee)", () => {
@@ -159,5 +160,19 @@ describe("RoomStatusTreemap layout grid behavior", () => {
     expect(dangerTile?.className).toContain("bg-status-dangerBg");
     expect(dangerTile?.className).toContain("text-status-danger");
     expect(container.querySelector('button[aria-label="202호 위험"] .animate-ping')).toBeTruthy();
+  });
+});
+
+describe("heroTileStyle", () => {
+  it("pins the first hero to the origin while keeping its span", () => {
+    expect(heroTileStyle(true, 2)).toEqual({ gridColumn: "1 / span 2", gridRow: "1 / span 2" });
+  });
+
+  it("pins the first hero to the origin even at span 1", () => {
+    expect(heroTileStyle(true, 1)).toEqual({ gridColumn: "1 / span 1", gridRow: "1 / span 1" });
+  });
+
+  it("leaves non-first tiles unpinned, spanning in place", () => {
+    expect(heroTileStyle(false, 2)).toEqual({ gridColumn: "span 2", gridRow: "span 2" });
   });
 });
