@@ -55,7 +55,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-[#eef2fb] to-bg p-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-bg p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark size={56} className="mb-3" />
