@@ -5,7 +5,7 @@ import { EventClipTimeline } from "./EventClipTimeline";
 import { VideoAccessNotice } from "./VideoAccessNotice";
 import { VideoUnavailableState } from "./VideoUnavailableState";
 import { videoService } from "@/services/videoService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import type { VideoClip } from "@/types";
 
 // 실제 스토리지가 없는 MVP — 클립을 시뮬레이션 재생(플레이스홀더 + 진행바).

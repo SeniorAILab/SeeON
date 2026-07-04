@@ -110,7 +110,7 @@ describe("apiClient.requestJson", () => {
       .mockImplementation(() => Promise.resolve(okJsonResponse({ ok: true })));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { useFacilityStore } = await import("@/store/facilityStore");
+    const { useFacilityStore } = await import("@/stores/facilityStore");
     const { requestJson } = await import("./apiClient");
     useFacilityStore.getState().setFacility("fac_happy_nokyang");
 
@@ -150,7 +150,7 @@ describe("apiClient.requestJson", () => {
   it("adds the selected facility scope to the dashboard stream URL", async () => {
     vi.stubEnv("VITE_API_BASE_URL", undefined);
 
-    const { useFacilityStore } = await import("@/store/facilityStore");
+    const { useFacilityStore } = await import("@/stores/facilityStore");
     const { buildSseUrl } = await import("./apiClient");
     useFacilityStore.getState().setFacility("fac_happy_nokyang");
 

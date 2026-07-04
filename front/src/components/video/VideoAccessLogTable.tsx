@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatDateTime } from "@/lib/format";
 import { videoService } from "@/services/videoService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import type { VideoAccessAction, VideoAccessLog } from "@/types";
 
 const actionLabel: Record<VideoAccessAction, string> = {

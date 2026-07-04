@@ -15,7 +15,7 @@ import { VideoAccessLogTable } from "@/components/video/VideoAccessLogTable";
 import { eventService } from "@/services/eventService";
 import { dashboardService } from "@/services/dashboardService";
 import { videoService } from "@/services/videoService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAcknowledge } from "@/lib/roles";
 import { formatDateTime } from "@/lib/format";
 import { displayEventTypeLabel, kakaoLabel } from "@/lib/labels";

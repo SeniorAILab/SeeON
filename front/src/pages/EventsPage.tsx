@@ -6,7 +6,7 @@ import { RiskBadge } from "@/components/RiskBadge";
 import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
 import { eventService } from "@/services/eventService";
 import { dashboardService } from "@/services/dashboardService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAcknowledge } from "@/lib/roles";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { formatDateTime } from "@/lib/format";

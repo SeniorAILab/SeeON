@@ -13,8 +13,8 @@ import {
   type AlertMergeState,
   type AlertUpdateDelta,
 } from "@/services/alertMerge";
-import { useAuthStore } from "@/store/authStore";
-import { registerFacilityMonitorController, useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { registerFacilityMonitorController, useFacilityStore } from "@/stores/facilityStore";
 import type { ConnectionState, DashboardResponse, DashboardSummary, SpaceStatus } from "@/types";
 
 interface MonitorState {

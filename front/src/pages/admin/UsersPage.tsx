@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { roleLabel } from "@/lib/roles";
 import { createUser, listUsers, updateUserRole } from "@/services/api/users";
 import type { Role, User } from "@/types";
