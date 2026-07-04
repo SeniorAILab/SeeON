@@ -75,6 +75,23 @@ describe("alerts API seam", () => {
     expect(alert.status).toBe("RESOLVED");
     expect(alert.kakaoAlertStatus).toBe("ACKNOWLEDGED");
   });
+  it("accepts a room-level alert without resident fields and omits residentId query", async () => {
+    requestJsonMock.mockResolvedValue([
+      {
+        id: "a-room",
+        facilityId: "f1",
+        spaceId: "s1",
+        detectedAt: "2026-06-27T01:00:00.000Z",
+        probability: 0.82,
+      },
+    ]);
+
+    const [alert] = await listAlertsEndpoint({ residentId: "r1", limit: 10 });
+
+    expect(requestJsonMock).toHaveBeenCalledWith("/alerts?limit=10");
+    expect(alert.residentId).toBeNull();
+    expect(alert.residentName).toBeNull();
+  });
 
 
   it("resolves an alert through the PATCH endpoint", async () => {

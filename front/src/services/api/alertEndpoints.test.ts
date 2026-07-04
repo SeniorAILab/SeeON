@@ -92,4 +92,23 @@ describe("alertEndpoints", () => {
     expect(mapped.backendStatus).toBe("RESOLVED");
     expect(mapped.kakaoAlertStatus).toBe("ACKNOWLEDGED");
   });
+
+  it("keeps the backend event type string when the frontend domain maps it to OTHER", () => {
+    const mapped = mapAlertDto({
+      alertSeq: "14",
+      id: "a-unknown",
+      facilityId: "fac_happy_nokyang",
+      residentId: null,
+      cameraId: "cam_sp_201",
+      spaceId: "sp_201",
+      room: "201호",
+      type: "door-open-too-long",
+      probability: 0.7,
+      detectedAt: "2026-06-22T00:00:04.000Z",
+      status: "NEW",
+    });
+
+    expect(mapped.eventType).toBe("OTHER");
+    expect(mapped.backendType).toBe("door-open-too-long");
+  });
 });

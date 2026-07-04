@@ -243,9 +243,8 @@ describe("alertMerge", () => {
     expect(alertsForFacility(reconciled, "fac_happy_nokyang")).toHaveLength(0);
     expect(statuses.sp_201.status).toBe("STABLE");
   });
-  it("test_real_mode_uses_backend_rest_and_dashboard_stream_not_realtime_engine", async () => {
+  it("test_real_mode_uses_backend_rest_and_dashboard_stream", async () => {
     vi.resetModules();
-    vi.stubEnv("VITE_USE_MOCK", "false");
     const { buildSseUrl } = await import("./apiClient");
     expect(buildSseUrl()).toBe("/api/v1/dashboard/stream");
   });
