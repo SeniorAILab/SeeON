@@ -1,7 +1,7 @@
 import { parseAuthUserResponse } from "@/services/api/authEndpoints";
 import { requestJson } from "@/services/apiClient";
-import { useAuthStore } from "@/store/authStore";
-import { getCurrentFacilityId } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { getCurrentFacilityId } from "@/stores/facilityStore";
 import { listAlerts } from "@/services/api/alertEndpoints";
 import { mergeAlertsIntoDashboard } from "@/services/alertMerge";
 import type { DashboardResponse, DashboardSummary, Facility, Floor, Space, SpaceStatus } from "@/types";

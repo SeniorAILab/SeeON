@@ -8,8 +8,8 @@ import { useRealtimeSpaceStatus } from "@/hooks/useRealtimeSpaceStatus";
 import { useTTSAlerts, buildTTSAlerts } from "@/hooks/useTTSAlerts";
 import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 import { ACCESS_DENIED_PATH } from "@/lib/routeAccess";
 import type { Facility, Floor, Space } from "@/types";
 

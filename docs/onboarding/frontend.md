@@ -34,7 +34,7 @@ user action / page effect
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
 | TTS side effect | `front/src/services/tts/*`, `front/src/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
 
-현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/api/v1/auth/login`, `restoreSessionEndpoint()`는 `/api/v1/auth/me`, `logoutEndpoint()`는 `/api/v1/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/store/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
+현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/api/v1/auth/login`, `restoreSessionEndpoint()`는 `/api/v1/auth/me`, `logoutEndpoint()`는 `/api/v1/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/stores/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
 
 대시보드/관리/이벤트/영상 service는 같은 seam을 향하도록 분리되어 있다. `dashboardService.ts`는 dashboard read-model shape(`DashboardResponse`)를 페이지에 제공하고, `eventService.ts`는 이벤트 확인·조치 유스케이스, `adminService.ts`는 시설/층/공간/알림규칙/사용자 관리 유스케이스, `videoService.ts`는 관리자 전용 event clip 권한·signed URL·access log 정책을 담당한다.
 
@@ -44,12 +44,12 @@ user action / page effect
 
 ### 실제 EventSource 구현 위치
 
-실제 `EventSource` 생성은 `front/src/hooks/useDashboard.ts`에 있다. 이 파일은 `buildSseUrl()`로 `/api/v1/dashboard/stream`을 만들고, URL이 absolute일 때만 `new EventSource(url, { withCredentials: true })`를 사용한다. same-origin 상대 URL(`/api/v1/dashboard/stream`)에서는 browser cookie가 자동 포함된다.
+실제 `EventSource` 생성은 `front/src/stores/monitorStore.ts`에 있다. 이 store의 `start(facilityId, intervalMs)`가 `buildSseUrl()`로 `/api/v1/dashboard/stream`을 만들고, URL이 absolute일 때만 `new EventSource(url, { withCredentials: true })`를 사용한다. same-origin 상대 URL(`/api/v1/dashboard/stream`)에서는 browser cookie가 자동 포함된다. `front/src/hooks/useDashboard.ts`·`useRealtimeSpaceStatus.ts`는 이 store를 `start`하고 상태만 구독한다.
 
 ```text
 backend alert stream
   → `GET /api/v1/dashboard/stream` (`EventSource`, cookie auth, Last-Event-ID replay)
-  → `front/src/hooks/useDashboard.ts`
+  → `front/src/stores/monitorStore.ts` (`start`/`reload`, EventSource + polling fallback)
       - `event: alert` / `event: alert-updated` → `reload()`
       - `event: session-invalid` → close stream → `useAuthStore.logout()`
       - `onerror` → native reconnect 유지, polling fallback 유지
@@ -58,7 +58,7 @@ backend alert stream
   → `DashboardPage`, staff/monitor components render
 ```
 
-`front/src/services/apiClient.ts`의 `buildSseUrl()`은 `SSE_PATH = "/dashboard/stream"`를 `API_BASE_URL`에 붙이므로 기본 real backend 모드에서 `/api/v1/dashboard/stream`가 된다. `front/src/hooks/useDashboard.ts`는 `USE_MOCK`이거나 `EventSource`가 없으면 SSE를 열지 않고, 초기 load와 `setInterval(reload, pollMs)` polling을 유지한다. 이 fallback은 SSE reconnect 중에도 read-model을 다시 가져올 수 있게 하는 안전장치다.
+`front/src/services/apiClient.ts`의 `buildSseUrl()`은 `SSE_PATH = "/dashboard/stream"`를 `API_BASE_URL`에 붙이므로 기본 real backend 모드에서 `/api/v1/dashboard/stream`가 된다. `front/src/stores/monitorStore.ts`는 `USE_MOCK`이거나 `EventSource`가 없으면 SSE를 열지 않고, 초기 load와 `setInterval(reload, pollMs)` polling을 유지한다. `front/src/hooks/useDashboard.ts`는 이 store의 `start`/`reload`/`dashboard`를 소비할 뿐 자체 stream을 열지 않는다. 이 fallback은 SSE reconnect 중에도 read-model을 다시 가져올 수 있게 하는 안전장치다.
 
 ### SSE frame별 frontend 처리
 
@@ -66,12 +66,12 @@ backend alert stream
 | --- | --- | --- |
 | `event: alert` | `id:`는 `alertSeq`, `data.alertSeq`는 stringified bigint | `addEventListener("alert", reload)`가 dashboard read-model을 다시 로드한다 |
 | `event: alert-updated` | resolve lifecycle delta; SSE `id:` 없음 | `addEventListener("alert-updated", reload)`가 REST read-model reload로 누락 상태를 복구한다 |
-| `event: session-invalid` | backend가 연결 시점 session을 재검증하다 만료·폐기·회전 등을 감지 | `useDashboard.ts`가 stream을 닫고 `handleSessionInvalid()`에서 `useAuthStore.getState().logout()`을 호출해 강제 로그아웃 상태로 전환한다 |
+| `event: session-invalid` | backend가 연결 시점 session을 재검증하다 만료·폐기·회전 등을 감지 | `monitorStore`가 stream을 닫고 `useAuthStore.getState().logout()`을 호출해 강제 로그아웃 상태로 전환한다 |
 | `replay-error` | live 진입 전 진단용 오류 후 stream close | 전용 UI 분기는 없다. `onerror`에서 native reconnect와 polling fallback에 맡긴다 |
 
 중요한 점은 프론트가 SSE payload를 직접 누적해 자체 SSOT를 만들지 않는다는 것이다. 이벤트를 “무언가 바뀌었다”는 invalidation signal로 보고 `dashboardService.getDashboard(facilityId)`를 다시 호출해 dashboard read-model을 seed/reload한다. reload 시드는 `GET /api/v1/alerts`와 시설/공간/거주자 read-model 계약에 맞물리며, 상세 wire 계약은 backend controller/DTO code, generated OpenAPI(`/api/docs`), endpoint mapper tests, `../rules/rest-api-convention.md`, and `../rules/dto-convention.md`가 소유한다.
 
-`front/src/hooks/useRealtimeSpaceStatus.ts`는 monitor 화면의 상태 소비 hook이다. 이 hook은 `useMonitorStore.start(facilityId, refreshMs)`를 호출하고 `statuses`, `connection`, `lastUpdateAt`을 읽어 정렬된 공간 목록과 요약을 만든다. `front/src/stores/monitorStore.ts`는 `realtimeEngine.subscribe()` 결과를 `statuses`, `connection`, `lastUpdateAt`으로 반영하고, `FloorMonitorPage.tsx`는 이 hook 결과를 `MonitorHeader`, `AlertBanner`, `AdaptiveMonitorLayout`, `MonitorStatusCard`, `MonitorDetailDrawer`에 전달한다. 즉 monitor UI도 page가 직접 stream/protocol을 다루지 않고 hook/store seam을 통해 상태만 소비한다.
+`front/src/hooks/useRealtimeSpaceStatus.ts`는 monitor 화면의 상태 소비 hook이다. 이 hook은 `useMonitorStore.start(facilityId, refreshMs)`를 호출하고 `statuses`, `connection`, `lastUpdateAt`을 읽어 정렬된 공간 목록과 요약을 만든다. `front/src/stores/monitorStore.ts`는 EventSource(및 polling fallback)로 받은 `alert`/`alert-updated` frame을 `alertMerge`로 반영해 `statuses`, `connection`, `lastUpdateAt`을 갱신한다. `FloorMonitorPage.tsx`는 이 hook 결과를 `MonitorHeader`와 `RoomStatusBoard`(status widget)들에 전달한다. 즉 monitor UI도 page가 직접 stream/protocol을 다루지 않고 hook/store seam을 통해 상태만 소비한다.
 
 `front/src/hooks/useTTSAlerts.ts`는 `SpaceStatus`를 TTS 입력으로 변환하는 별도 side-effect seam이다. `FloorMonitorPage.tsx`에서 `buildTTSAlerts(shownSpaces, statuses, floors)`로 주의/위험/응급 공간을 만들고 `useTTSAlerts(ttsAlerts, soundEnabled)`가 `front/src/services/tts/ttsManager.ts`에 동기화한다. 이 구조 덕분에 SSE/read-model 갱신, 화면 렌더링, 음성 알림 side effect가 서로 직접 결합하지 않는다.
 

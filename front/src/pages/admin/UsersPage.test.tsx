@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UsersPage } from "./UsersPage";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { createUser, listUsers, updateUserRole } from "@/services/api/users";
 
 vi.mock("@/services/api/users", () => ({

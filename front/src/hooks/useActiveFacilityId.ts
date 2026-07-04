@@ -1,5 +1,5 @@
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 
 export function useActiveFacilityId(): string {
   const user = useAuthStore((s) => s.user);

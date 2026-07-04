@@ -5,9 +5,9 @@ import { LogoMark } from "@/components/Logo";
 import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
 import { defaultPathForUser } from "@/lib/routeAccess";
-import { useFacilityStore } from "@/store/facilityStore";
-import { useUiStore } from "@/store/uiStore";
-import { useAuthStore } from "@/store/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 
 function KakaoSymbol({ className }: { className?: string }) {
   return (

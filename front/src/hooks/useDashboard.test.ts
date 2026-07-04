@@ -57,8 +57,8 @@ async function importHook() {
   vi.stubEnv("VITE_API_BASE_URL", undefined);
   const [{ useAuthStore }, { useFacilityStore }, { useMonitorStore }, { useDashboard }] =
     await Promise.all([
-      import("@/store/authStore"),
-      import("@/store/facilityStore"),
+      import("@/stores/authStore"),
+      import("@/stores/facilityStore"),
       import("@/stores/monitorStore"),
       import("./useDashboard"),
     ]);

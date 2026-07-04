@@ -1,5 +1,5 @@
 import { requestJson } from "@/services/apiClient";
-import { getCurrentFacilityId } from "@/store/facilityStore";
+import { getCurrentFacilityId } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
 
 function expectArray<T>(value: unknown, field: string): T[] {

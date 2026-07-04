@@ -3,10 +3,10 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { CheckCheck, Moon, Sun, Volume2, VolumeX, LogOut, Settings, MonitorPlay, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
-import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
-import { useUiStore } from "@/store/uiStore";
+import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { FACILITIES_PICKER_PATH, adminPath, alertsPath, dashboardPath } from "@/lib/routeAccess";
 

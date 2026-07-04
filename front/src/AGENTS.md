@@ -14,10 +14,12 @@ inactive fixtures for reversibly hidden pages, and tests for the Vite React app.
 | Domain types | `types/index.ts` | Frontend type mirror of the PRD/API contract. |
 | Pages | `pages/` | Route-level UI surfaces. |
 | Reusable UI | `components/` | Dashboard widgets, monitor UI, layout, video. |
-| State | `store/`, `stores/`, `hooks/` | Client state and shared hooks. |
+| State containers | `stores/` | Zustand state containers; single owner for frontend shared state. |
+| Reusable hooks | `hooks/` | Reusable React hooks over services, state, and route context. |
 | Roles | `lib/roles.ts` | Frontend mirror for PRD role labels, permission helpers, and default routes. |
 | Tests | `test/`, `*.test.tsx`, `*.test.ts` | Vitest/jsdom setup and colocated specs. |
 
+Terminology: dashboard = route/read-model/API, monitor = physical kiosk device/settings, status = reusable board widgets.
 ## Conventions
 
 - Components never call backend endpoints directly. Use `services/*`.

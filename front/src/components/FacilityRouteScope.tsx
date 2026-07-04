@@ -8,8 +8,8 @@ import {
   dashboardPath,
   floorPath,
 } from "@/lib/routeAccess";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 
 export function FacilityScope({ children }: { children: ReactNode }) {
   const { facilityId } = useParams<{ facilityId: string }>();
