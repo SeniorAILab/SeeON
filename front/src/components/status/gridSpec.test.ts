@@ -63,9 +63,25 @@ describe("computeGridSpec invariants", () => {
   });
 
   it("degrades heroSpan to 1 when the geometric precondition (cols>=2 && rows>=2) fails", () => {
-    // hero 1개 + 일반 0개인 극소 케이스: heroSpan=2 후보가 cols<2 또는 rows<2가 되면 강등되어야 한다.
-    const spec = expectStructurallySound(1, 1);
+    // 극단적으로 좁고 긴 컨테이너: heroSpan=2 후보의 열이 1로 떨어져 기하 전제조건만 단독으로 실패해야 한다
+    // (hero 비율·최소 높이 규칙은 통과하도록 hero 비율<50%, 실제 셀 높이는 충분히 크게 잡음).
+    const spec = expectStructurallySound(6, 1, 100, 2000);
     expect(spec.heroSpan).toBe(1);
+  });
+
+  it("N=4~8 (low room-count floor): grid fills the container tightly, at most one cell of waste", () => {
+    // 사용자 피드백: 방 수가 적은 층(예: fl_3f)에서 타일이 "바둑알"처럼 작게 뭉치면 안 된다.
+    // rows*cols는 실제 셀 수를 바짝 따라가야 한다 — 낭비 칸은 최대 1개(마지막 행 일부만 비는 정도).
+    for (const n of [4, 5, 6, 7, 8]) {
+      const spec = expectStructurallySound(n, 0);
+      const waste = spec.cols * spec.rows - n;
+      expect(waste).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("N=6, hero=0: matches the reported low-count case exactly (cols*rows <= N + cols)", () => {
+    const spec = expectStructurallySound(6, 0);
+    expect(spec.cols * spec.rows).toBeLessThanOrEqual(6 + spec.cols);
   });
 
   it("is idempotent for a given input (no randomness, no observable side effects)", () => {
