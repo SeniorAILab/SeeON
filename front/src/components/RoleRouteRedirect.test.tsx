@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RoleRouteRedirect } from "./RoleRouteRedirect";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 import type { User } from "@/types";
 
 beforeEach(() => {
@@ -16,7 +16,7 @@ describe("RoleRouteRedirect", () => {
     ["SUPER_ADMIN", null, "/facilities", "picker"],
     ["SUPER_ADMIN", "fac_happy_nokyang", "/facilities", "picker"],
     ["ADMIN", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/dashboard", "dashboard"],
-    ["STAFF", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/dashboard", "dashboard"],
+    ["STAFF", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/floors", "floors"],
     ["ADMIN", null, "/onboarding", "onboarding"],
     ["STAFF", null, "/access-denied", "denied"],
   ] as const)("routes %s with facility %s to %s", async (role, facilityId, _path, label) => {
@@ -27,6 +27,7 @@ describe("RoleRouteRedirect", () => {
           <Route path="/" element={<RoleRouteRedirect />} />
           <Route path="/facilities" element={<div>picker</div>} />
           <Route path="/facilities/:facilityId/dashboard" element={<div>dashboard</div>} />
+          <Route path="/facilities/:facilityId/floors" element={<div>floors</div>} />
           <Route path="/onboarding" element={<div>onboarding</div>} />
           <Route path="/access-denied" element={<div>denied</div>} />
         </Routes>
