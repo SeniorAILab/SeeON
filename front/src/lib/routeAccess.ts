@@ -19,6 +19,9 @@ export function facilityRootPath(facilityId: string): string {
 export function dashboardPath(facilityId: string): string {
   return `${facilityRootPath(facilityId)}/dashboard`;
 }
+export function floorSelectPath(facilityId: string): string {
+  return `${facilityRootPath(facilityId)}/floors`;
+}
 
 export function floorPath(facilityId: string, floorId: string): string {
   return `${facilityRootPath(facilityId)}/floor/${segment(floorId)}`;
@@ -38,8 +41,9 @@ export function defaultPathForRole(role: Role, facilityId?: string | null): stri
     case "SUPER_ADMIN":
       return facilityId ? dashboardPath(facilityId) : FACILITIES_PICKER_PATH;
     case "ADMIN":
-    case "STAFF":
       return facilityId ? dashboardPath(facilityId) : FACILITIES_PICKER_PATH;
+    case "STAFF":
+      return facilityId ? floorSelectPath(facilityId) : ACCESS_DENIED_PATH;
     default:
       return assertNever(role);
   }
@@ -52,7 +56,7 @@ export function defaultPathForUser(user: User): string {
     case "ADMIN":
       return user.facilityId ? dashboardPath(user.facilityId) : ONBOARDING_PATH;
     case "STAFF":
-      return user.facilityId ? dashboardPath(user.facilityId) : ACCESS_DENIED_PATH;
+      return user.facilityId ? floorSelectPath(user.facilityId) : ACCESS_DENIED_PATH;
     default:
       return assertNever(user.role);
   }

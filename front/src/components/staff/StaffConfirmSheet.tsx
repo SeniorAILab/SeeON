@@ -3,7 +3,7 @@ import { X, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StaffStatusBadge } from "./StaffStatusBadge";
 import { peoplePhrase, plainDescription } from "@/lib/staffCopy";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAcknowledge } from "@/lib/roles";
 import type { Floor, Space, SpaceStatus } from "@/types";
 

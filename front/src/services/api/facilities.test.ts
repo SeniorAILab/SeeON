@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getFacility, listFacilities } from "./facilities";
 import { requestJson } from "@/services/apiClient";
-import { getCurrentFacilityId } from "@/store/facilityStore";
+import { getCurrentFacilityId } from "@/stores/facilityStore";
 
 vi.mock("@/services/apiClient", () => ({
   requestJson: vi.fn(),
 }));
 
-vi.mock("@/store/facilityStore", () => ({
+vi.mock("@/stores/facilityStore", () => ({
   getCurrentFacilityId: vi.fn(),
 }));
 

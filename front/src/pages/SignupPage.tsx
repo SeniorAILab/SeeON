@@ -12,9 +12,9 @@ import {
   SIGNUP_PASSWORD_MAX_LENGTH,
   SIGNUP_PASSWORD_MIN_LENGTH,
 } from "@/lib/signupPassword";
-import { useFacilityStore } from "@/store/facilityStore";
-import { useUiStore } from "@/store/uiStore";
-import { useAuthStore } from "@/store/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function SignupPage() {
   const navigate = useNavigate();

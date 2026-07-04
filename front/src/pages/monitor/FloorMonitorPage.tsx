@@ -8,12 +8,9 @@ import { useRealtimeSpaceStatus } from "@/hooks/useRealtimeSpaceStatus";
 import { useTTSAlerts, buildTTSAlerts } from "@/hooks/useTTSAlerts";
 import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
-import {
-  ACCESS_DENIED_PATH,
-  dashboardPath,
-} from "@/lib/routeAccess";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
+import { ACCESS_DENIED_PATH } from "@/lib/routeAccess";
 import type { Facility, Floor, Space } from "@/types";
 
 
@@ -86,7 +83,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
 
   return (
     <div ref={rootRef} className={nightMode ? "dark" : ""}>
-      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-bg p-5 2xl:p-8">
+      <div className="relative left-1/2 flex h-dvh w-screen -translate-x-1/2 flex-col overflow-hidden bg-bg p-5 2xl:p-8">
         <MonitorHeader
           facilityName={facility.name}
           floorTitle={floorTitle}
@@ -98,8 +95,9 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           onToggleSound={() => setSound(!soundEnabled)}
           onRefresh={() => void reload()}
           fullscreenRef={rootRef}
-          floorSelectorPath={allView || !facilityId ? undefined : dashboardPath(facilityId)}
-          floorSelectorLabel="전체 보기"
+          floors={floors}
+          currentFloorId={allView ? null : (floorId ?? null)}
+          facilityId={facilityId}
         />
 
         <div className="mt-4 flex min-h-0 flex-1">
@@ -111,6 +109,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
             connection={connection}
             lastUpdateAt={lastUpdateAt}
             variant="staff"
+            layout={allView ? "overview" : "focus"}
             selectedSpace={selected}
             onSelectSpace={setSelected}
             onClosePanel={() => setSelected(null)}

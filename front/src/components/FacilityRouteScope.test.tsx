@@ -9,8 +9,8 @@ import {
   LegacyFacilityRedirect,
   LegacyFloorRedirect,
 } from "@/components/FacilityRouteScope";
-import { useAuthStore } from "@/store/authStore";
-import { getCurrentFacilityId, useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { getCurrentFacilityId, useFacilityStore } from "@/stores/facilityStore";
 
 function LocationProbe() {
   const location = useLocation();

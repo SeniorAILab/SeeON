@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { createAlertNote, listAlertNotes, type AlertNote } from "@/services/api/alertNotes";
-import { resolveAlert } from "@/services/api/alertEndpoints";
+import { alertService, type AlertNote } from "@/services/alertService";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import { eventTypeLabel } from "@/lib/labels";
 
@@ -36,7 +35,7 @@ export function eventGroupsFor(status?: SpaceStatus, alerts: DetectionEvent[] = 
 
 const statusWord = { STABLE: "안정", CAUTION: "주의", DANGER: "위험", CHECK_NEEDED: "확인 필요" } as const;
 
-export function InlineActionPanel({
+export function RoomActionPanel({
   space,
   status,
   alerts = [],
@@ -70,7 +69,7 @@ export function InlineActionPanel({
       return;
     }
     setNotesLoading(true);
-    void listAlertNotes(targetAlertId)
+    void alertService.listNotes(targetAlertId)
       .then((loadedNotes) => {
         if (!ignore) setNotes(loadedNotes);
       })
@@ -96,7 +95,7 @@ export function InlineActionPanel({
     if (ids.length === 0 || busy) return;
     setBusy(true);
     try {
-      await Promise.all(ids.map((id) => resolveAlert(id)));
+      await Promise.all(ids.map((id) => alertService.resolveAlertById(id)));
       onResolved?.();
     } finally {
       setBusy(false);
@@ -108,8 +107,8 @@ export function InlineActionPanel({
     if (!targetAlertId || !canWriteNote || !trimmed || noteSaving) return;
     setNoteSaving(true);
     try {
-      await createAlertNote(targetAlertId, trimmed);
-      setNotes(await listAlertNotes(targetAlertId));
+      await alertService.createNote(targetAlertId, trimmed);
+      setNotes(await alertService.listNotes(targetAlertId));
       setNote("");
     } finally {
       setNoteSaving(false);
@@ -122,12 +121,12 @@ export function InlineActionPanel({
         role="dialog"
         aria-modal="true"
         aria-label={space.name}
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-surface p-4 shadow-modal"
+        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-border bg-surface p-4 shadow-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-2xl font-black text-ink 2xl:text-3xl">{space.name}</div>
+          <div className="break-keep text-2xl font-black leading-tight text-ink 2xl:text-3xl">{space.name}</div>
           <div className="mt-1 text-lg font-bold text-ink-soft">{statusWord[status?.status ?? "STABLE"]}</div>
         </div>
         <button type="button" onClick={onClose} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="모달 닫기">
@@ -137,17 +136,17 @@ export function InlineActionPanel({
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
         {groups.length === 0 ? (
-          <div className="rounded-2xl bg-surface2 px-4 py-3 text-base font-bold text-ink-soft">현재 조치가 필요한 이벤트가 없습니다.</div>
+          <div className="rounded-2xl bg-surface2 px-4 py-3 text-staff-body font-bold text-ink-soft">현재 조치가 필요한 이벤트가 없습니다.</div>
         ) : (
           groups.map((group) => (
             <div key={group.key} className="rounded-2xl border border-border bg-bg px-4 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-base font-black text-ink">{group.label}</div>
-                  <div className="mt-1 text-sm font-bold text-ink-soft">{group.count}건</div>
+                  <div className="text-staff-body font-black text-ink">{group.label}</div>
+                  <div className="mt-1 text-staff-body font-bold text-ink-soft">{group.count}건</div>
                 </div>
                 {group.alerts.length > 0 && (
-                  <button type="button" disabled={busy} onClick={() => void handleResolve(group.alerts.map((alert) => alert.id))} className="rounded-xl bg-brand px-3 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-gray-300">
+                  <button type="button" disabled={busy} onClick={() => void handleResolve(group.alerts.map((alert) => alert.id))} className="min-h-12 rounded-xl bg-brand px-3 py-2 text-staff-btn text-white disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-faint">
                     그룹 확인
                   </button>
                 )}
@@ -157,7 +156,7 @@ export function InlineActionPanel({
                   {group.alerts.map((alert) => (
                     <li key={alert.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface2 px-3 py-2">
                       <span className="min-w-0 truncate text-sm font-bold text-ink-soft">{alert.aiSummary || alert.message}</span>
-                      <button type="button" disabled={busy} onClick={() => void handleResolve([alert.id])} className="shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-black text-ink disabled:cursor-not-allowed disabled:text-gray-300">
+                      <button type="button" disabled={busy} onClick={() => void handleResolve([alert.id])} className="min-h-12 shrink-0 rounded-lg border border-border px-2 py-1 text-staff-btn text-ink disabled:cursor-not-allowed disabled:text-ink-faint">
                         개별 확인
                       </button>
                     </li>
@@ -169,36 +168,36 @@ export function InlineActionPanel({
         )}
       </div>
 
-      <label className="mt-4 block text-base font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
-      {!canWriteNote && <div className="mt-2 rounded-2xl bg-surface2 px-4 py-3 text-base font-bold text-ink-soft">현재 기록할 이벤트가 없습니다.</div>}
+      <label className="mt-4 block text-staff-body font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
+      {!canWriteNote && <div className="mt-2 rounded-2xl bg-surface2 px-4 py-3 text-staff-body font-bold text-ink-soft">현재 기록할 이벤트가 없습니다.</div>}
       <textarea
         id={`note-${space.id}`}
         value={note}
         disabled={!canWriteNote || noteSaving || notesLoading}
         onChange={(event) => setNote(event.target.value)}
-        className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-bg p-3 text-base text-ink outline-none focus:border-brand disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-soft"
+        className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-bg p-3 text-staff-body text-ink outline-none focus:border-brand disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-soft"
         placeholder={canWriteNote ? "조치 내용을 입력하세요" : "현재 기록할 이벤트가 없습니다"}
       />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={!canWriteNote || note.trim().length === 0 || noteSaving || notesLoading} onClick={() => void handleSaveNote()} className="h-14 rounded-2xl border border-border px-5 text-lg font-black text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:text-gray-300">
+        <button type="button" disabled={!canWriteNote || note.trim().length === 0 || noteSaving || notesLoading} onClick={() => void handleSaveNote()} className="h-14 rounded-2xl border border-border px-5 text-staff-btn text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:text-ink-faint">
           {noteSaving ? "저장 중" : "메모 저장"}
         </button>
-        <button type="button" disabled={!canResolve || busy} onClick={() => void handleResolve()} className="h-14 rounded-2xl bg-brand px-5 text-lg font-black text-white shadow-card disabled:cursor-not-allowed disabled:bg-gray-300">
+        <button type="button" disabled={!canResolve || busy} onClick={() => void handleResolve()} className="h-14 rounded-2xl bg-brand px-5 text-staff-btn text-white shadow-card disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-faint">
           {busy ? "처리 중" : "확인완료"}
         </button>
       </div>
       <div className="mt-4 rounded-2xl bg-bg px-4 py-3">
-        <div className="text-base font-black text-ink">메모 히스토리</div>
+        <div className="text-staff-body font-black text-ink">메모 히스토리</div>
         {notesLoading ? (
-          <div className="mt-2 text-sm font-bold text-ink-soft">메모를 불러오는 중입니다.</div>
+          <div className="mt-2 text-staff-body font-bold text-ink-soft">메모를 불러오는 중입니다.</div>
         ) : notes.length === 0 ? (
-          <div className="mt-2 text-sm font-bold text-ink-soft">저장된 메모가 없습니다.</div>
+          <div className="mt-2 text-staff-body font-bold text-ink-soft">저장된 메모가 없습니다.</div>
         ) : (
           <ul className="mt-3 space-y-2">
             {notes.map((item) => (
               <li key={item.id} className="rounded-xl bg-surface2 px-3 py-2">
-                <div className="text-sm font-black text-ink">{item.note}</div>
-                <div className="mt-1 text-xs font-bold text-ink-soft">
+                <div className="text-staff-body font-black text-ink">{item.note}</div>
+                <div className="mt-1 text-base font-bold text-ink-soft">
                   {item.authorRole} · {new Date(item.createdAt).toLocaleString("ko-KR")}
                 </div>
               </li>

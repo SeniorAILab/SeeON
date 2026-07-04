@@ -16,7 +16,7 @@ export function buildTTSAlerts(
     const common = {
       spaceId: s.id,
       name: s.name,
-      reason: st.aiSummary,
+      reason: st.aiSummary ?? "",
       floorName: floorName(s.floorId),
     };
     if (st.emergency) out.push({ ...common, level: "EMERGENCY" });

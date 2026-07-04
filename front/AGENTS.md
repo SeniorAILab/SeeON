@@ -9,7 +9,7 @@ front/src/
 │   └── *.ts             # service workflows
 ├── types/               # index.ts = frontend type mirror of PRD/API contract
 ├── pages/ components/   # views
-├── hooks/ store/ stores/ # state
+├── hooks/ stores/       # reusable hooks and zustand state
 ├── lib/                 # utilities
 ├── data/                # inactive fixtures for reversibly hidden pages only
 ├── router.tsx main.tsx  # entry

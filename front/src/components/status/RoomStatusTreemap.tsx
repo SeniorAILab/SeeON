@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck } from "lucide-react";
+import { timeAgo } from "@/lib/format";
 import type { Floor, Space, SpaceStatus, SpaceStatusLevel } from "@/types";
 
 export interface RoomFloorGroup {
@@ -21,6 +22,8 @@ const STATUS_WORD: Record<SpaceStatusLevel, string> = {
   CAUTION: "주의",
   STABLE: "안정",
 };
+type RoomStatusLayout = "overview" | "focus";
+
 
 function statusOf(status?: SpaceStatus): SpaceStatusLevel {
   return status?.status ?? "STABLE";
@@ -83,28 +86,35 @@ export function RoomStatusTreemap({
   floors = [],
   selectedSpaceId,
   onSelect,
+  layout = "overview",
 }: {
   spaces: Space[];
   statuses: Record<string, SpaceStatus>;
   floors?: Floor[];
   selectedSpaceId?: string | null;
   onSelect?: (space: Space) => void;
+  layout?: RoomStatusLayout;
 }) {
   const groups = groupRoomsByFloor(spaces, statuses, floors);
+
+  const gridClassName =
+    layout === "focus"
+      ? "grid min-h-0 flex-1 auto-rows-fr grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4"
+      : "grid auto-rows-[minmax(160px,auto)] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3";
 
   return (
     <div className="flex h-full w-full flex-col gap-4 overflow-auto pr-1" role="list" aria-label="방 상태 히트맵">
       {groups.map((group) => (
-        <section key={group.floor?.id ?? `unknown-${group.floorName}`} aria-label={`${group.floorName} 층`} className="rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4">
+        <section key={group.floor?.id ?? `unknown-${group.floorName}`} aria-label={`${group.floorName} 층`} className={layout === "focus" ? "flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4" : "rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4"}>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-base font-black text-ink 2xl:text-xl">{group.floorName}</h3>
-            <span className={group.alertCount > 0 ? "rounded-full bg-status-dangerBg px-3 py-1 text-xs font-black text-status-danger 2xl:text-sm" : "rounded-full bg-surface2 px-3 py-1 text-xs font-black text-ink-soft 2xl:text-sm"}>
+            <h3 className="text-lg font-black text-ink 2xl:text-xl">{group.floorName}</h3>
+            <span className={group.alertCount > 0 ? "rounded-full bg-status-dangerBg px-3 py-1 text-lg font-black text-status-danger" : "rounded-full bg-surface2 px-3 py-1 text-lg font-black text-ink-soft"}>
               이벤트 {group.alertCount}건
             </span>
           </div>
-          <div className="grid auto-rows-[minmax(96px,auto)] grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2" role="list">
+          <div className={gridClassName} role="list">
             {group.rooms.map((space) => (
-              <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} />
+              <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout={layout} />
             ))}
           </div>
         </section>
@@ -113,35 +123,53 @@ export function RoomStatusTreemap({
   );
 }
 
-function RoomTile({ space, status, selected, onSelect }: { space: Space; status?: SpaceStatus; selected: boolean; onSelect?: (space: Space) => void }) {
+function RoomTile({
+  space,
+  status,
+  selected,
+  onSelect,
+  layout,
+}: {
+  space: Space;
+  status?: SpaceStatus;
+  selected: boolean;
+  onSelect?: (space: Space) => void;
+  layout: RoomStatusLayout;
+}) {
   const level = worstStatus(status);
   const Icon = iconFor(level);
-  const isLarge = level === "DANGER" || level === "CHECK_NEEDED";
+  const hero = layout === "focus" && (level === "DANGER" || level === "CHECK_NEEDED");
   const isDanger = level === "DANGER" || status?.emergency;
   const isCheck = level === "CHECK_NEEDED";
+  const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
 
   return (
     <button
       type="button"
       aria-label={`${space.name} ${STATUS_WORD[level]}`}
       onClick={() => onSelect?.(space)}
-      className={`relative flex min-h-24 flex-col justify-between overflow-hidden rounded-2xl p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-        isLarge ? "col-span-2 row-span-2 min-h-48" : ""
+      className={`relative flex min-h-[150px] flex-col justify-between overflow-hidden rounded-2xl p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+        hero ? "md:col-span-2 md:row-span-2 md:min-h-[320px]" : ""
+      } ${layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""} ${
+        layout === "overview" && isCheck ? "border-l-8 border-status-check" : ""
       } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${isDanger ? "animate-pulse-danger motion-reduce:animate-none" : ""} ${isCheck ? "animate-pulse-danger motion-reduce:animate-none" : ""}`}
     >
       {isDanger && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-status-danger opacity-45 animate-ping motion-reduce:hidden" />}
       <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-white/20 blur-2xl" />
-      <span className="relative flex items-center gap-2 text-sm font-black 2xl:text-lg">
-        <Icon className="h-5 w-5 shrink-0 2xl:h-7 2xl:w-7" aria-hidden />
-        <span className="truncate">{STATUS_WORD[level]}</span>
+      <span className="relative flex items-center gap-2 text-staff-status">
+        <Icon className="h-7 w-7 shrink-0 2xl:h-9 2xl:w-9" aria-hidden />
+        <span>{STATUS_WORD[level]}</span>
       </span>
-      <span className="relative mt-4 block">
-        <span className={`${isLarge ? "text-3xl 2xl:text-5xl" : "text-xl 2xl:text-3xl"} block truncate font-black tracking-tight`}>{space.name}</span>
-        {status?.aiSummary && <span className="mt-1 line-clamp-2 block text-xs font-bold opacity-90 2xl:text-base">{status.aiSummary}</span>}
+      <span className={`${hero ? "flex flex-1 flex-col items-center justify-center text-center" : "block"} relative mt-4`}>
+        <span className={`${hero ? "text-5xl 2xl:text-6xl" : "text-3xl 2xl:text-4xl"} block break-keep line-clamp-2 font-black tracking-tight`}>{space.name}</span>
+        {hero && <span className="mt-3 text-staff-status font-black">{STATUS_WORD[level]}</span>}
+        {level !== "STABLE" && status?.aiSummary && <span className={`${hero ? "mt-3" : "mt-1.5"} line-clamp-2 block text-staff-body font-bold opacity-90 2xl:text-xl`}>{status.aiSummary}</span>}
+        {recentDetectedAt && <span className="mt-3 block text-sm font-black opacity-75 2xl:text-base">최근 감지 {recentDetectedAt}</span>}
       </span>
     </button>
   );
 }
+
 
 function fillFor(status: SpaceStatusLevel): string {
   if (status === "DANGER") return "bg-status-dangerBg";

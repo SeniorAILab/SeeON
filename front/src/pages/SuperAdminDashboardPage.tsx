@@ -5,8 +5,8 @@ import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { adminPath, dashboardPath } from "@/lib/routeAccess";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
 
 export function SuperAdminDashboardPage() {

@@ -8,6 +8,7 @@ import {
   mergeAlerts,
   reconcileActiveAlertSnapshot,
   mergeAlertsIntoDashboard,
+  mergeAlertUpdatesIntoDashboard,
 } from "./alertMerge";
 import type { FrontendAlert } from "./api/alertEndpoints";
 import type { DashboardResponse } from "@/types";
@@ -93,6 +94,14 @@ describe("alertMerge", () => {
     expect(statuses.sp_201.kakaoAlertStatus).toBe("PENDING");
     expect(statuses.sp_201.bedsideActivity).toBe(true);
   });
+  it("preserves_ai_summary_for_active_danger_alert", () => {
+    const active = alert({ aiSummary: "활성 위험 이벤트입니다." });
+    const statuses = deriveStatusesFromAlerts({}, [active]);
+
+    expect(statuses.sp_201.status).toBe("DANGER");
+    expect(statuses.sp_201.aiSummary).toBe(active.aiSummary);
+  });
+
 
   it("test_resolve_by_id_merge_clears_active_room_card_danger", () => {
     const active = deriveStatusesFromAlerts({}, [alert({ kakaoAlertStatus: "SENT" })]);
@@ -105,6 +114,7 @@ describe("alertMerge", () => {
     expect(cleared.sp_201.kakaoAlertStatus).toBe("ACKNOWLEDGED");
     expect(cleared.sp_201.emergency).toBe(false);
     expect(cleared.sp_201.bedsideActivity).toBe(false);
+    expect(cleared.sp_201.aiSummary).toBeUndefined();
   });
 
   it("keeps_room_danger_when_older_resolved_alert_arrives_after_newer_unacknowledged_alert", () => {
@@ -159,6 +169,33 @@ describe("alertMerge", () => {
     expect(status.kakaoAlertStatus).toBe("ACKNOWLEDGED");
     expect(status.emergency).toBe(false);
     expect(status.bedsideActivity).toBe(false);
+    expect(status.aiSummary).toBeUndefined();
+  });
+  it("clears_room_card_when_sse_alert_updated_resolves_active_alert", () => {
+    const active = alert({
+      id: "sse-resolve",
+      alertSeq: "20",
+      spaceId: "sp_201",
+      kakaoAlertStatus: "PENDING",
+      backendStatus: "NEW",
+      emergency: true,
+      aiSummary: "SSE 활성 위험 이벤트입니다.",
+    });
+    const seeded = mergeAlertsIntoDashboard(dashboard(), [active]);
+
+    const resolved = mergeAlertUpdatesIntoDashboard(seeded, [
+      {
+        id: active.id,
+        alertSeq: "21",
+        spaceId: "sp_201",
+        status: "RESOLVED",
+        resolvedAt: "2026-06-22T00:02:00.000Z",
+      },
+    ]);
+
+    expect(resolved.statuses.sp_201.status).toBe("STABLE");
+    expect(resolved.statuses.sp_201.emergency).toBe(false);
+    expect(resolved.statuses.sp_201.aiSummary).toBeUndefined();
   });
 
   it("keeps_room_danger_from_newer_unacknowledged_alert_when_older_unacknowledged_alert_is_resolved", () => {
@@ -236,12 +273,23 @@ describe("alertMerge", () => {
 
   it("reconciles_empty_active_snapshot_by_clearing_room_danger", () => {
     const active = alert({ id: "active", alertSeq: "20", backendStatus: "NEW" });
-    const base = deriveStatusesFromAlerts({}, [active]);
+    const activeBase = deriveStatusesFromAlerts({}, [active]);
+    const base = {
+      ...activeBase,
+      sp_201: {
+        ...activeBase.sp_201,
+        prolongedInactivity: true,
+        soloMovementAttempt: true,
+      },
+    };
     const reconciled = reconcileActiveAlertSnapshot(createAlertMergeState([active]), "fac_happy_nokyang", []);
     const statuses = deriveStatusesFromAlerts(base, alertsForFacility(reconciled, "fac_happy_nokyang"));
 
     expect(alertsForFacility(reconciled, "fac_happy_nokyang")).toHaveLength(0);
     expect(statuses.sp_201.status).toBe("STABLE");
+    expect(statuses.sp_201.aiSummary).toBeUndefined();
+    expect(statuses.sp_201.prolongedInactivity).toBeUndefined();
+    expect(statuses.sp_201.soloMovementAttempt).toBeUndefined();
   });
   it("test_real_mode_uses_backend_rest_and_dashboard_stream", async () => {
     vi.resetModules();

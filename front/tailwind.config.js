@@ -52,6 +52,8 @@ export default {
         card: "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)",
         cardDark: "0 1px 2px rgba(0,0,0,0.3)",
         panel: "0 -8px 24px rgba(16,24,40,0.12)",
+        modal:
+          "0 24px 48px -12px rgba(16,24,40,0.28), 0 8px 24px rgba(16,24,40,0.16)",
       },
     },
   },
