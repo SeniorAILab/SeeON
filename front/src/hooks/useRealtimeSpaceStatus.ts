@@ -1,6 +1,4 @@
 import { useEffect, useMemo } from "react";
-import { USE_MOCK } from "@/services/apiClient";
-import { realtimeEngine } from "@/mocks/realtimeEngine";
 import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
 import { attentionRank } from "@/lib/staffCopy";
@@ -17,7 +15,6 @@ export function useRealtimeSpaceStatus(facilityId: string, spaces: Space[]) {
   const connection = useMonitorStore((s) => s.connection);
   const lastUpdateAt = useMonitorStore((s) => s.lastUpdateAt);
   const refreshMs = useMonitorSettingsStore((s) => s.refreshMs);
-  const demoMode = useMonitorSettingsStore((s) => s.demoMode);
 
   useEffect(() => {
     if (!facilityId) return;
@@ -25,13 +22,6 @@ export function useRealtimeSpaceStatus(facilityId: string, spaces: Space[]) {
     return () => stop();
   }, [facilityId, refreshMs, start, stop]);
 
-  // 데모 모드/갱신 간격 변경을 엔진에 반영
-  useEffect(() => {
-    if (USE_MOCK) realtimeEngine.setDemoMode(demoMode);
-  }, [demoMode]);
-  useEffect(() => {
-    if (USE_MOCK) realtimeEngine.setInterval(refreshMs);
-  }, [refreshMs]);
 
   const sortedSpaces = useMemo(
     () =>

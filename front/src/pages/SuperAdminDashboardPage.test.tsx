@@ -53,7 +53,7 @@ describe("SuperAdminDashboardPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "요양원을 선택하세요" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "요양원 전역 개요" })).toBeTruthy();
     expect(await screen.findByText("행복한요양원 녹양역점")).toBeTruthy();
     expect(screen.queryByText("대시보드 연결 실패")).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
