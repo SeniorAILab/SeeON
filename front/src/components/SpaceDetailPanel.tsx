@@ -116,7 +116,7 @@ export function SpaceDetailPanel({ space, floor, status, onClose, onChanged }: P
           {/* AI 설명 */}
           {status && (
             <AIInsightBox
-              summary={status.aiSummary}
+              summary={status.aiSummary ?? ""}
               status={status.status}
               confidence={openEvent?.confidence}
             />

@@ -87,7 +87,7 @@ export interface SpaceStatus {
   movementLevel: Level;
   fallRiskLevel: Level;
   status: SpaceStatusLevel;
-  aiSummary: string;
+  aiSummary?: string;
   lastDetectedAt: string; // ISO8601
   kakaoAlertStatus: KakaoAlertStatus;
   // 상세 패널용 부가 신호
