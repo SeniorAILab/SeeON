@@ -32,6 +32,12 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const [allSpaces, setAllSpaces] = useState<Space[]>([]);
   const [selected, setSelected] = useState<Space | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
   const reload = useMonitorStore((s) => s.reload);
   const dashboard = useMonitorStore((s) => s.dashboard);
   const effectiveFacilityId = facilityId ?? "";
@@ -83,7 +89,10 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
 
   return (
     <div ref={rootRef} className={nightMode ? "dark" : ""}>
-      <div className="relative left-1/2 flex h-dvh w-screen -translate-x-1/2 flex-col overflow-hidden bg-bg p-5 2xl:p-8">
+      <div
+        style={{ height: isFullscreen ? "100dvh" : "calc(100dvh - 11rem)" }}
+        className="relative left-1/2 flex w-screen -translate-x-1/2 flex-col overflow-hidden bg-bg p-5 2xl:p-8"
+      >
         <MonitorHeader
           facilityName={facility.name}
           floorTitle={floorTitle}
