@@ -12,8 +12,8 @@ frontend mock used during PoC, while keeping real backend auth/session flows.
 ## Decisions
 - `seniorsailab@gmail.com` is the Senior AI Lab platform account. It has role
   `SUPER_ADMIN` and is not bound to a facility.
-- `nokyang-admin@example.com` is the 녹양역점 backend `ADMIN` bound to
-  `fac_happy_nokyang`.
+- `nokyang-admin@example.com` is the 녹양역점 backend `ADMIN` bound to the
+  녹양역점 facility (code `happy-nokyang`; the facility id is an auto-generated cuid).
 - Facility-less `SUPER_ADMIN` users enter tenant dashboards through an explicit
   request-scoped `X-Facility-Id` selected from the backend facility list.
 - The Kakao account labelled `rhqjatn310@kakao` becomes `SUPER_ADMIN` only

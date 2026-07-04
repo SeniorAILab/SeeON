@@ -9,7 +9,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/ml-worker-real-rtsp-bedexit-e2e.sh
 
-Runs the real RTSP bed-exit worker proof for fac_happy_nokyang/cam_sp_202.
+Runs the real RTSP bed-exit worker proof for the happy-nokyang demo facility/cam_sp_202.
 
 Options:
   -h, --help  Show this help and exit.
@@ -20,7 +20,7 @@ Environment:
   BACKEND_BASE_URL        Backend URL, default: http://127.0.0.1:8080.
   RELAY_URL               ML API relay URL, default: http://127.0.0.1:8000.
   RELAY_TOKEN             Relay bearer token.
-  E2E_FACILITY_ID         Facility id, default: fac_happy_nokyang.
+  E2E_FACILITY_ID         Facility id, optional; resolved by code happy-nokyang when unset.
   E2E_CAMERA_ID           Camera id, default: cam_sp_202.
   E2E_RESIDENT_ID         Resident id, default: res_kim.
   MAX_FRAMES_PER_CAMERA   Worker frame limit, default: 3200.
@@ -38,7 +38,7 @@ relay_base_url="${RELAY_URL:-http://127.0.0.1:8000}"
 relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
 rtsp_url="${BED_EXIT_RTSP_URL:-rtsp://127.0.0.1:8554/s1/trackID-1/streamID-2}"
 models_dir="${ML_MODELS_DIR:-$repo_root/ml/models}"
-facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
+facility_id="${E2E_FACILITY_ID:-}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
 camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
 frames="${MAX_FRAMES_PER_CAMERA:-3200}"
@@ -47,6 +47,13 @@ policy_cooldown_sec="${ALERT_COOLDOWN_SEC:-60}"
 db_container="${E2E_DB_CONTAINER:-eldercare-fall-db}"
 postgres_user="${POSTGRES_USER:-fall}"
 postgres_db="${POSTGRES_DB:-fall_dev}"
+if [ -z "$facility_id" ]; then
+  facility_id="$(docker exec "$db_container" psql -U "$postgres_user" -d "$postgres_db" -tAc "SELECT id FROM facilities WHERE code='happy-nokyang'" | tr -d '[:space:]')"
+fi
+if [ -z "$facility_id" ]; then
+  echo "ERROR: could not resolve demo facility id (code=happy-nokyang). Seed the DB first: pnpm --filter backend run prisma:reset:local" >&2
+  exit 1
+fi
 evidence_dir="${EVIDENCE_DIR:-$repo_root/.omo/evidence/ml-event-alert-e2e-nokyang/worker-real-rtsp}"
 tmp_root="${ML_EDGE_E2E_TMP_ROOT:-$repo_root/.omo/tmp}"
 
