@@ -10,10 +10,7 @@ import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
 import { useAuthStore } from "@/store/authStore";
 import { useFacilityStore } from "@/store/facilityStore";
-import {
-  ACCESS_DENIED_PATH,
-  dashboardPath,
-} from "@/lib/routeAccess";
+import { ACCESS_DENIED_PATH } from "@/lib/routeAccess";
 import type { Facility, Floor, Space } from "@/types";
 
 
@@ -98,8 +95,9 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           onToggleSound={() => setSound(!soundEnabled)}
           onRefresh={() => void reload()}
           fullscreenRef={rootRef}
-          floorSelectorPath={allView || !facilityId ? undefined : dashboardPath(facilityId)}
-          floorSelectorLabel="전체 보기"
+          floors={floors}
+          currentFloorId={allView ? null : (floorId ?? null)}
+          facilityId={facilityId}
         />
 
         <div className="mt-4 flex min-h-0 flex-1">
