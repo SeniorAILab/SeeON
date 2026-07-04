@@ -9,47 +9,52 @@
    ============================================================= */
 :root {
   color-scheme: light;
-  --c-bg: #f4f6f9;
+  /* Threads 방향 무채색 톤: 네이비 틴트 제거, 순백 계열 표면 */
+  --c-bg: #fafafa;
   --c-surface: #ffffff;
-  --c-surface-2: #f8fafc;
-  --c-border: #e2e6ec;
-  --c-ink: #15233b;
-  --c-ink-soft: #51607a;
-  --c-ink-faint: #8593a8;
+  --c-surface-2: #f0f0f0;
+  --c-border: #e0e0e0;
+  --c-ink: #0f0f0f;
+  --c-ink-soft: #595959;
+  --c-ink-faint: #8a8a8a;
+  /* 브랜드 블루: 상호작용 요소(주요 버튼/활성 탭/포커스) 전용 — 장식 사용 금지 */
   --c-brand: #2f6fb0;
   --c-brand-soft: #eaf2fb;
   --c-teal: #2bb6a3;
 
-  --c-stable: #10693a;
+  /* 상태색 4종: 무채색 배경 위 4.5:1(본문 텍스트) 충족을 위해 어두운 방향으로 미세 보정 */
+  --c-stable: #166e3d;
   --c-stable-bg: #e7f7ee;
-  --c-caution: #8a4f00;
+  --c-caution: #884e07;
   --c-caution-bg: #fdf2df;
-  --c-danger: #991b1b;
+  --c-danger: #b8261b;
   --c-danger-bg: #fdeceb;
-  --c-check: #164899;
+  --c-check: #1554e0;
   --c-check-bg: #e8f0fe;
 }
 
 .dark {
   color-scheme: dark;
-  --c-bg: #0e1620;
-  --c-surface: #18222f;
-  --c-surface-2: #202c3b;
-  --c-border: #2b3a4d;
-  --c-ink: #f1f5fa;
-  --c-ink-soft: #aab8cc;
-  --c-ink-faint: #7488a0;
+  /* Threads 방향 순수 다크 계열 */
+  --c-bg: #101010;
+  --c-surface: #1a1a1a;
+  --c-surface-2: #242424;
+  --c-border: #333333;
+  --c-ink: #f5f5f5;
+  --c-ink-soft: #b3b3b3;
+  --c-ink-faint: #808080;
+  /* 브랜드 블루: 상호작용 요소 전용 — 장식 사용 금지 */
   --c-brand: #4d97e0;
   --c-brand-soft: #1d2c40;
   --c-teal: #3fd3bd;
 
-  --c-stable: #62e39a;
+  --c-stable: #45d07f;
   --c-stable-bg: #14301f;
-  --c-caution: #ffd166;
+  --c-caution: #f7b733;
   --c-caution-bg: #3a2b0b;
-  --c-danger: #ff9b91;
+  --c-danger: #ff6b5e;
   --c-danger-bg: #3c1714;
-  --c-check: #8ec5ff;
+  --c-check: #5fa3f7;
   --c-check-bg: #15243b;
 }
 
