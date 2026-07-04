@@ -27,6 +27,13 @@ describe("facilityStore", () => {
     expect(sessionStorage.getItem("eldercare.currentFacilityId")).toBeNull();
   });
 
+  it("resolveForUser(null) leaves a super admin on no facility instead of silently selecting one", async () => {
+    const { useFacilityStore } = await import("./facilityStore");
+    const resolved = useFacilityStore.getState().resolveForUser(null);
+    expect(resolved).toBeNull();
+    expect(useFacilityStore.getState().currentFacilityId).toBeNull();
+  });
+
   it("prefers STAFF/ADMIN token facility over stale persisted facility", async () => {
     sessionStorage.setItem("eldercare.currentFacilityId", "fac-stale");
     const { useFacilityStore } = await import("./facilityStore");
