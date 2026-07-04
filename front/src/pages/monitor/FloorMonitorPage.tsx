@@ -83,7 +83,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
 
   return (
     <div ref={rootRef} className={nightMode ? "dark" : ""}>
-      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-bg p-5 2xl:p-8">
+      <div className="relative left-1/2 flex h-dvh w-screen -translate-x-1/2 flex-col overflow-hidden bg-bg p-5 2xl:p-8">
         <MonitorHeader
           facilityName={facility.name}
           floorTitle={floorTitle}
@@ -109,6 +109,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
             connection={connection}
             lastUpdateAt={lastUpdateAt}
             variant="staff"
+            layout={allView ? "overview" : "focus"}
             selectedSpace={selected}
             onSelectSpace={setSelected}
             onClosePanel={() => setSelected(null)}
