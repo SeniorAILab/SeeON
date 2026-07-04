@@ -17,13 +17,27 @@ function occupiedUnits(cellCount: number, heroCount: number, heroSpan: 1 | 2): n
   return normalCount * 1 + heroCount * heroSpan * heroSpan;
 }
 
-// 컨테이너 종횡비와 총 유닛 수로부터 근사 정사각 셀이 되는 열/행 수를 계산한다.
+// 컨테이너 종횡비와 총 유닛 수로부터 열/행 수를 계산한다. 이상적인(근사 정사각) 열 수
+// 주변의 정수 두 개만 후보로 비교해 빈 칸(waste)이 더 적은 쪽을 우선 채택하고,
+// waste가 같으면 더 정사각에 가까운 쪽을 고른다 — 그래야 방 수가 적은 층에서도
+// 그리드 마지막 행에 큰 빈 공간이 남지 않고 화면을 실제로 채운다.
 function squareish(units: number, aspect: number): { cols: number; rows: number } {
-  const safeUnits = Math.max(1, units);
+  const safeUnits = Math.max(1, Math.round(units));
   const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
-  const cols = Math.max(1, Math.round(Math.sqrt(safeUnits * safeAspect)));
-  const rows = Math.max(1, Math.ceil(safeUnits / cols));
-  return { cols, rows };
+  const idealCols = Math.sqrt(safeUnits * safeAspect);
+  const clampCols = (n: number) => Math.max(1, Math.min(safeUnits, n));
+  const candidateCols = new Set([clampCols(Math.floor(idealCols)), clampCols(Math.ceil(idealCols))]);
+
+  let best = { cols: 1, rows: safeUnits, waste: Infinity, distance: Infinity };
+  for (const cols of candidateCols) {
+    const rows = Math.ceil(safeUnits / cols);
+    const waste = cols * rows - safeUnits;
+    const distance = Math.abs(cols - idealCols);
+    if (waste < best.waste || (waste === best.waste && distance < best.distance)) {
+      best = { cols, rows, waste, distance };
+    }
+  }
+  return { cols: best.cols, rows: best.rows };
 }
 
 /**
