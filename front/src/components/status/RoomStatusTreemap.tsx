@@ -1,5 +1,8 @@
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck } from "lucide-react";
 import { timeAgo } from "@/lib/format";
+import { computeGridSpec } from "./gridSpec";
+import { useFlipAnimation } from "./useFlipAnimation";
 import type { Floor, Space, SpaceStatus, SpaceStatusLevel } from "@/types";
 
 export interface RoomFloorGroup {
@@ -32,6 +35,10 @@ function statusOf(status?: SpaceStatus): SpaceStatusLevel {
 function worstStatus(status?: SpaceStatus): SpaceStatusLevel {
   if (status?.emergency) return "DANGER";
   return statusOf(status);
+}
+
+function isEmergencyLevel(level: SpaceStatusLevel): boolean {
+  return level === "DANGER" || level === "CHECK_NEEDED";
 }
 
 function compareRoomsByRisk(statuses: Record<string, SpaceStatus>) {
@@ -97,28 +104,110 @@ export function RoomStatusTreemap({
 }) {
   const groups = groupRoomsByFloor(spaces, statuses, floors);
 
-  const gridClassName =
-    layout === "focus"
-      ? "grid min-h-0 flex-1 auto-rows-fr grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4"
-      : "grid auto-rows-[minmax(160px,auto)] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3";
-
   return (
-    <div className="flex h-full w-full flex-col gap-4 overflow-auto pr-1" role="list" aria-label="방 상태 히트맵">
+    <div
+      className={layout === "focus" ? "flex h-full w-full flex-col gap-4 overflow-hidden" : "flex h-full w-full flex-col gap-4 overflow-auto pr-1"}
+      role="list"
+      aria-label="방 상태 히트맵"
+    >
       {groups.map((group) => (
-        <section key={group.floor?.id ?? `unknown-${group.floorName}`} aria-label={`${group.floorName} 층`} className={layout === "focus" ? "flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4" : "rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4"}>
+        <section
+          key={group.floor?.id ?? `unknown-${group.floorName}`}
+          aria-label={`${group.floorName} 층`}
+          className={layout === "focus" ? "flex min-h-0 min-w-0 flex-1 flex-col rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4" : "rounded-3xl border border-border bg-bg/45 p-3 2xl:p-4"}
+        >
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-lg font-black text-ink 2xl:text-xl">{group.floorName}</h3>
             <span className={group.alertCount > 0 ? "rounded-full bg-status-dangerBg px-3 py-1 text-lg font-black text-status-danger" : "rounded-full bg-surface2 px-3 py-1 text-lg font-black text-ink-soft"}>
               이벤트 {group.alertCount}건
             </span>
           </div>
-          <div className={gridClassName} role="list">
-            {group.rooms.map((space) => (
-              <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout={layout} />
-            ))}
-          </div>
+          {layout === "focus" ? (
+            <FocusRoomGrid rooms={group.rooms} statuses={statuses} selectedSpaceId={selectedSpaceId} onSelect={onSelect} />
+          ) : (
+            <div className="grid auto-rows-[minmax(160px,auto)] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="list">
+              {group.rooms.map((space) => (
+                <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout="overview" />
+              ))}
+            </div>
+          )}
         </section>
       ))}
+    </div>
+  );
+}
+
+function FocusRoomGrid({
+  rooms,
+  statuses,
+  selectedSpaceId,
+  onSelect,
+}: {
+  rooms: Space[];
+  statuses: Record<string, SpaceStatus>;
+  selectedSpaceId?: string | null;
+  onSelect?: (space: Space) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setSize({ width: el.clientWidth, height: el.clientHeight });
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => update());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const heroIds = useMemo(
+    () => new Set(rooms.filter((space) => isEmergencyLevel(worstStatus(statuses[space.id]))).map((space) => space.id)),
+    [rooms, statuses],
+  );
+
+  const spec = computeGridSpec(rooms.length, heroIds.size, size.width, size.height);
+
+  const flipSignature = [rooms.map((room) => room.id).join(","), spec.cols, spec.rows, spec.heroSpan].join("|");
+  useFlipAnimation(containerRef, flipSignature);
+
+  let firstHeroSeen = false;
+
+  return (
+    <div
+      ref={containerRef}
+      role="list"
+      className="grid min-h-0 min-w-0 flex-1 gap-4"
+      style={{
+        gridTemplateColumns: `repeat(${spec.cols}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${spec.rows}, minmax(0, 1fr))`,
+        gridAutoFlow: "dense",
+      }}
+    >
+      {rooms.map((space) => {
+        const isHero = heroIds.has(space.id);
+        const span = isHero ? spec.heroSpan : 1;
+        const isFirstHero = isHero && !firstHeroSeen;
+        if (isFirstHero) firstHeroSeen = true;
+        const tileStyle: CSSProperties = { gridColumn: `span ${span}`, gridRow: `span ${span}` };
+        if (isFirstHero) {
+          tileStyle.gridColumnStart = 1;
+          tileStyle.gridRowStart = 1;
+        }
+        return (
+          <RoomTile
+            key={space.id}
+            space={space}
+            status={statuses[space.id]}
+            selected={selectedSpaceId === space.id}
+            onSelect={onSelect}
+            layout="focus"
+            style={tileStyle}
+            flipKey={space.id}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -129,16 +218,20 @@ function RoomTile({
   selected,
   onSelect,
   layout,
+  style,
+  flipKey,
 }: {
   space: Space;
   status?: SpaceStatus;
   selected: boolean;
   onSelect?: (space: Space) => void;
   layout: RoomStatusLayout;
+  style?: CSSProperties;
+  flipKey?: string;
 }) {
   const level = worstStatus(status);
   const Icon = iconFor(level);
-  const hero = layout === "focus" && (level === "DANGER" || level === "CHECK_NEEDED");
+  const hero = layout === "focus" && isEmergencyLevel(level);
   const isDanger = level === "DANGER" || status?.emergency;
   const isCheck = level === "CHECK_NEEDED";
   const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
@@ -148,9 +241,11 @@ function RoomTile({
       type="button"
       aria-label={`${space.name} ${STATUS_WORD[level]}`}
       onClick={() => onSelect?.(space)}
-      className={`relative flex min-h-[150px] flex-col justify-between overflow-hidden rounded-2xl p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-        hero ? "md:col-span-2 md:row-span-2 md:min-h-[320px]" : ""
-      } ${layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""} ${
+      style={style}
+      data-flip-key={flipKey}
+      className={`relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+        layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""
+      } ${
         layout === "overview" && isCheck ? "border-l-8 border-status-check" : ""
       } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${isDanger ? "animate-pulse-danger motion-reduce:animate-none" : ""} ${isCheck ? "animate-pulse-danger motion-reduce:animate-none" : ""}`}
     >
