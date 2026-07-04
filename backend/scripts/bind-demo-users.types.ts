@@ -34,8 +34,8 @@ export type UserWhereClause =
 export type BindPrisma = {
   readonly facility: {
     readonly findUnique: (args: {
-      readonly where: { readonly id: string };
-    }) => Promise<unknown>;
+      readonly where: { readonly code: string };
+    }) => Promise<{ readonly id: string } | null>;
   };
   readonly user: {
     readonly findMany: (args: {
