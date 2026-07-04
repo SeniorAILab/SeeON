@@ -101,7 +101,7 @@ export function MonitorHeader({
         <div className="flex items-center gap-2">
           <button
             onClick={onRefresh}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+            className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-lg font-semibold text-ink-soft hover:bg-surface2"
           >
             <RefreshCw className="h-5 w-5" />
             새로고침
@@ -109,13 +109,15 @@ export function MonitorHeader({
           {exitPath && (
             <button
               onClick={() => navigate(exitPath)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+              className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-lg font-semibold text-ink-soft hover:bg-surface2"
             >
               <DoorOpen className="h-5 w-5" />
               나가기
             </button>
           )}
-          <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+          <div className="flex min-h-12 items-center">
+            <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+          </div>
           <FullscreenButton targetRef={fullscreenRef} />
         </div>
       </div>
