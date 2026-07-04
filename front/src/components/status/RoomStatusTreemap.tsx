@@ -102,7 +102,7 @@ export function RoomStatusTreemap({
               이벤트 {group.alertCount}건
             </span>
           </div>
-          <div className="grid auto-rows-[minmax(96px,auto)] grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2" role="list">
+          <div className="grid auto-rows-[minmax(150px,auto)] grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3" role="list">
             {group.rooms.map((space) => (
               <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} />
             ))}
@@ -125,19 +125,19 @@ function RoomTile({ space, status, selected, onSelect }: { space: Space; status?
       type="button"
       aria-label={`${space.name} ${STATUS_WORD[level]}`}
       onClick={() => onSelect?.(space)}
-      className={`relative flex min-h-24 flex-col justify-between overflow-hidden rounded-2xl p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-        isLarge ? "col-span-2 row-span-2 min-h-48" : ""
+      className={`relative flex min-h-[150px] flex-col justify-between overflow-hidden rounded-2xl p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+        isLarge ? "col-span-2 row-span-2 min-h-[320px]" : ""
       } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${isDanger ? "animate-pulse-danger motion-reduce:animate-none" : ""} ${isCheck ? "animate-pulse-danger motion-reduce:animate-none" : ""}`}
     >
       {isDanger && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-status-danger opacity-45 animate-ping motion-reduce:hidden" />}
       <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-white/20 blur-2xl" />
-      <span className="relative flex items-center gap-2 text-sm font-black 2xl:text-lg">
-        <Icon className="h-5 w-5 shrink-0 2xl:h-7 2xl:w-7" aria-hidden />
+      <span className="relative flex items-center gap-2 text-lg font-black 2xl:text-2xl">
+        <Icon className="h-7 w-7 shrink-0 2xl:h-9 2xl:w-9" aria-hidden />
         <span className="truncate">{STATUS_WORD[level]}</span>
       </span>
       <span className="relative mt-4 block">
-        <span className={`${isLarge ? "text-3xl 2xl:text-5xl" : "text-xl 2xl:text-3xl"} block truncate font-black tracking-tight`}>{space.name}</span>
-        {status?.aiSummary && <span className="mt-1 line-clamp-2 block text-xs font-bold opacity-90 2xl:text-base">{status.aiSummary}</span>}
+        <span className={`${isLarge ? "text-5xl 2xl:text-6xl" : "text-3xl 2xl:text-4xl"} block truncate font-black tracking-tight`}>{space.name}</span>
+        {status?.aiSummary && <span className="mt-1.5 line-clamp-2 block text-base font-bold opacity-90 2xl:text-xl">{status.aiSummary}</span>}
       </span>
     </button>
   );
