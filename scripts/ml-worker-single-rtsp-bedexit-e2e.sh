@@ -5,7 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 backend_base_url="${BACKEND_BASE_URL:-http://127.0.0.1:8080}"
 relay_base_url="${RELAY_URL:-http://127.0.0.1:8000}"
 relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
-facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
+facility_id="${E2E_FACILITY_ID:-}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
 camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
 night_now="${BED_EXIT_NIGHT_NOW:-2026-06-25T22:00:00+09:00}"
@@ -19,6 +19,13 @@ compose_project="${COMPOSE_PROJECT_NAME:-ml-worker-single-rtsp-bedexit-e2e}"
 db_container="${E2E_DB_CONTAINER:-eldercare-fall-db}"
 postgres_user="${POSTGRES_USER:-fall}"
 postgres_db="${POSTGRES_DB:-fall_dev}"
+if [ -z "$facility_id" ]; then
+  facility_id="$(docker exec "$db_container" psql -U "$postgres_user" -d "$postgres_db" -tAc "SELECT id FROM facilities WHERE code='happy-nokyang'" | tr -d '[:space:]')"
+fi
+if [ -z "$facility_id" ]; then
+  echo "ERROR: could not resolve demo facility id (code=happy-nokyang). Seed the DB first: pnpm --filter backend run prisma:reset:local" >&2
+  exit 1
+fi
 tmp_root="${ML_EDGE_E2E_TMP_ROOT:-$repo_root/.gjc/tmp}"
 mkdir -p "$tmp_root"
 tmpdir="$(mktemp -d "$tmp_root/ml-worker-single-bedexit.XXXXXX")"
