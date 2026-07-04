@@ -20,13 +20,13 @@
   --c-brand-soft: #eaf2fb;
   --c-teal: #2bb6a3;
 
-  --c-stable: #1f9d57;
+  --c-stable: #10693a;
   --c-stable-bg: #e7f7ee;
-  --c-caution: #c2700a;
+  --c-caution: #8a4f00;
   --c-caution-bg: #fdf2df;
-  --c-danger: #d92d20;
+  --c-danger: #991b1b;
   --c-danger-bg: #fdeceb;
-  --c-check: #2563eb;
+  --c-check: #164899;
   --c-check-bg: #e8f0fe;
 }
 
@@ -43,13 +43,13 @@
   --c-brand-soft: #1d2c40;
   --c-teal: #3fd3bd;
 
-  --c-stable: #45d07f;
+  --c-stable: #62e39a;
   --c-stable-bg: #14301f;
-  --c-caution: #f7b733;
+  --c-caution: #ffd166;
   --c-caution-bg: #3a2b0b;
-  --c-danger: #ff6b5e;
+  --c-danger: #ff9b91;
   --c-danger-bg: #3c1714;
-  --c-check: #5fa3f7;
+  --c-check: #8ec5ff;
   --c-check-bg: #15243b;
 }
 
@@ -63,6 +63,7 @@ body {
   margin: 0;
   background-color: var(--c-bg);
   color: var(--c-ink);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
