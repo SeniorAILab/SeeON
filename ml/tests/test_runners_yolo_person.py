@@ -56,5 +56,6 @@ def test_yolo_person_runner_is_lazy_and_predicts_runner_protocol_shape() -> None
 
     output = runner.predict(np.zeros((2, 2, 3), dtype=np.uint8))
 
-    assert output == ((10, 20, 110, 220, 0.83),)
+    assert output.kind == "person"
+    assert output.boxes == ((10, 20, 110, 220, 0.83),)
     assert model.calls == 1

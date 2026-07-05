@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+
 from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
@@ -128,3 +130,30 @@ def test_relay_alert_rejects_raw_frame_payloads() -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_relay_alert_forwards_audit_and_snapshot_when_present() -> None:
+    fake = FakeBackendIngestClient()
+    response = _client(fake).post(
+        "/api/v1/relay/alerts",
+        json=_alert_payload(
+            audit={
+                "config_version": 7,
+                "model_version": "rf-2026",
+                "clock_source": "edge_wall_clock",
+            },
+            snapshot_jpeg_base64=base64.b64encode(b"jpeg-bytes").decode("ascii"),
+        ),
+        headers={"X-Edge-Relay-Token": "relay-token"},
+    )
+
+    assert response.status_code == 202
+    assert len(fake.alerts) == 1
+    forwarded = fake.alerts[0]
+    assert forwarded["event_type"] == "bed-exit"
+    assert forwarded["audit"] == {
+        "config_version": 7,
+        "model_version": "rf-2026",
+        "clock_source": "edge_wall_clock",
+    }
+    assert forwarded["snapshot_bytes"] == b"jpeg-bytes"

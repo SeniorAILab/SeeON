@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from contracts.frame import Frame
+from contracts.runner import pose_result
 from worker.camera_worker import CameraWorker
 from worker.domains.fall.detector import FallEventLatch
 from worker.fall_window_classifier import FallWindowClassifier
@@ -29,15 +30,10 @@ class _FallModel:
 
 @dataclass(slots=True)
 class _PoseRunner:
-    def predict_full(
-        self, image: np.ndarray
-    ) -> tuple[
-        tuple[tuple[tuple[int, int, float], ...], ...],
-        tuple[tuple[int, int, int, int, float], ...],
-    ]:
+    def run(self, image: np.ndarray):
         del image
         keypoints = tuple((20, 20, 0.9) for _ in range(17))
-        return (keypoints,), ((10, 10, 40, 60, 0.95),)
+        return pose_result((keypoints,), ((10, 10, 40, 60, 0.95),))
 
 
 @dataclass(slots=True)
