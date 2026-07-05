@@ -18,6 +18,7 @@ class RTSPCapture(Protocol):
 
 @runtime_checkable
 class RTSPBackend(Protocol):
+    """Decode RTSP streams into RGB uint8 frames."""
     def open(
         self,
         url: str,
@@ -25,6 +26,7 @@ class RTSPBackend(Protocol):
         read_timeout_ms: int,
     ) -> RTSPCapture: ...
 
+    # Returns (ok, frame) where frame is RGB NDArray[np.uint8] when ok is True.
     def read(self, capture: RTSPCapture) -> tuple[bool, NDArray[np.uint8] | None]: ...
 
     def release(self, capture: RTSPCapture) -> None: ...
@@ -55,7 +57,10 @@ class OpenCVRTSPBackend:
         return capture
 
     def read(self, capture: RTSPCapture) -> tuple[bool, NDArray[np.uint8] | None]:
-        return capture.read()
+        read_ok, frame_bgr = capture.read()
+        if not read_ok or frame_bgr is None:
+            return read_ok, None
+        return True, cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
 
     def release(self, capture: RTSPCapture) -> None:
         capture.release()
