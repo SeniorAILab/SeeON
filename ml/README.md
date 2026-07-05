@@ -41,12 +41,12 @@ The artifact layout is path-addressed under `ml/models/` per ADR. Pose weights c
 
 ```bash
 pnpm dev:ml          # FastAPI api on :8000
-pnpm dev:ml:worker   # python -m worker; reads gitignored config/ml-worker.local.yaml
+pnpm dev:ml:worker   # python -m worker; reads gitignored worker/ml-worker.local.yaml
 pnpm dev:ml:demo     # Streamlit demo
 ```
 
-> `config/ml-worker.local.yaml` is gitignored (per-camera RTSP URL + relay token). Copy it once with
-> `cp config/ml-worker.example.yaml config/ml-worker.local.yaml`, then set `artifact_dir: ./models/fall/lstm`
+> `worker/ml-worker.local.yaml` is gitignored (per-camera RTSP URL + relay token). Copy it once with
+> `cp worker/ml-worker.example.yaml worker/ml-worker.local.yaml`, then set `artifact_dir: ./models/fall/lstm`
 > (paths are relative to `ml/` for `uv run --directory ml`) and a real/external `rtsp_url`. `python -m worker`
 > and `python -m worker.edge_worker` are equivalent entry points; validate with `pnpm dev:ml:worker --check-config`.
 
@@ -57,7 +57,7 @@ uv sync                                      # install slim api gateway deps
 uv sync --group demo                         # add Streamlit demo deps
 uv sync --group training                     # add offline training deps
 uv run uvicorn api.main:app --reload --port 8000
-uv run python -m worker --config config/ml-worker.local.yaml --heartbeat-on-start   # or: python -m worker.edge_worker
+uv run python -m worker --config worker/ml-worker.local.yaml --heartbeat-on-start   # or: python -m worker.edge_worker
 uv run --group demo streamlit run demo/app.py
 ```
 
@@ -66,7 +66,7 @@ Pose-window classification is a live `ml-worker` responsibility; the Streamlit d
 Edge Compose uses the production service split:
 
 ```bash
-EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
+EDGE_CAMERA_CONFIG=./ml/worker/ml-worker.local.yaml \
   docker compose -f compose.edge.yaml up -d --build
 ```
 
