@@ -252,7 +252,6 @@ function RoomTile({
       } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${isDanger ? "animate-pulse-danger motion-reduce:animate-none" : ""} ${isCheck ? "animate-pulse-danger motion-reduce:animate-none" : ""}`}
     >
       {isDanger && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-status-danger opacity-45 animate-ping motion-reduce:hidden" />}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-white/20 blur-2xl" />
       <span className="relative flex items-center gap-2 text-staff-status">
         <Icon className="h-7 w-7 shrink-0 2xl:h-9 2xl:w-9" aria-hidden />
         <span>{STATUS_WORD[level]}</span>
@@ -272,14 +271,14 @@ function fillFor(status: SpaceStatusLevel): string {
   if (status === "DANGER") return "bg-status-dangerBg";
   if (status === "CHECK_NEEDED") return "bg-status-checkBg";
   if (status === "CAUTION") return "bg-status-cautionBg";
-  return "bg-surface2";
+  return "bg-surface border border-border";
 }
 
 function textFor(status: SpaceStatusLevel): string {
   if (status === "DANGER") return "text-status-danger";
   if (status === "CHECK_NEEDED") return "text-status-check";
   if (status === "CAUTION") return "text-status-caution";
-  return "text-ink-soft";
+  return "text-ink";
 }
 
 function iconFor(status: SpaceStatusLevel) {
