@@ -1,17 +1,15 @@
+// ⚠ 비활 fixture: 런타임 도달 불가(가역 숨김 페이지 전용).
+// 재활성 시 실백엔드로 배선하거나 페이지 영구 제거 시 함께 삭제.
 import type {
   AlertRule,
   DetectionEvent,
   Facility,
   Floor,
-  Resident,
-  ResidentAssignment,
-  ResidentRiskSummary,
   Space,
   SpaceStatus,
   SpaceType,
   User,
   VideoClip,
-  Zone,
 } from "@/types";
 
 // =============================================================
@@ -164,13 +162,13 @@ export const spaceStatuses: SpaceStatus[] = spaces.map((s) => {
 // ---------- 감지 이벤트 ----------
 export const detectionEvents: DetectionEvent[] = [
   {
-    id: "ev_203_fall", facilityId: FAC, spaceId: "sp_203", zoneId: "zone_sp_203_a", zoneName: "침대A", eventType: "FALL_RISK", riskLevel: "HIGH",
+    id: "ev_203_fall", facilityId: FAC, spaceId: "sp_203", eventType: "FALL_RISK", riskLevel: "HIGH",
     message: "혼자 이동 시도 가능성",
     aiSummary: "203호 침대A에서 어르신이 혼자 일어나 이동을 시도하며 비틀거림 가능성이 감지되었습니다. 직원 확인이 필요합니다.",
     detectedAt: secsAgo(8), kakaoAlertStatus: "SENT", confidence: 0.91, actions: [],
   },
   {
-    id: "ev_202_stand", facilityId: FAC, spaceId: "sp_202", zoneId: "zone_sp_202_a", zoneName: "침대A", eventType: "REPEATED_STANDING_ATTEMPT", riskLevel: "MEDIUM",
+    id: "ev_202_stand", facilityId: FAC, spaceId: "sp_202", eventType: "REPEATED_STANDING_ATTEMPT", riskLevel: "MEDIUM",
     message: "침대 주변 반복 기립 시도",
     aiSummary: "202호 침대A 주변에서 반복적인 기립 시도가 감지되었습니다. 직원 확인이 권장됩니다.",
     detectedAt: minsAgo(0), kakaoAlertStatus: "SENT", confidence: 0.87, actions: [],
@@ -229,77 +227,6 @@ export const videoClips: VideoClip[] = [
   clip("clip_203", "ev_203_fall", "sp_203", "CAM-2F-203", secsAgo(8)),
   clip("clip_202", "ev_202_stand", "sp_202", "CAM-2F-202", minsAgo(0)),
   clip("clip_302", "ev_302_inactive", "sp_302", "CAM-3F-302", minsAgo(5), "PROCESSING"),
-];
-
-// ---------- 구역/침대 (Zone) ----------
-// 모든 호실(ROOM)에 침대A·침대B 2개를 둔다. (PoC 기본 구성)
-export const zones: Zone[] = spaces
-  .filter((s) => s.type === "ROOM")
-  .flatMap((s) => [
-    { id: `zone_${s.id}_a`, facilityId: FAC, spaceId: s.id, name: "침대A", type: "BED" as const, orderIndex: 0 },
-    { id: `zone_${s.id}_b`, facilityId: FAC, spaceId: s.id, name: "침대B", type: "BED" as const, orderIndex: 1 },
-  ]);
-
-// ---------- 어르신 배정 (ResidentAssignment) ----------
-function assign(residentId: string, spaceId: string, bed: "a" | "b"): ResidentAssignment {
-  return {
-    id: `asg_${residentId}`,
-    facilityId: FAC,
-    residentId,
-    spaceId,
-    zoneId: `zone_${spaceId}_${bed}`,
-    active: true,
-    startedAt: "2026-01-02T09:00:00+09:00",
-  };
-}
-export const residentAssignments: ResidentAssignment[] = [
-  assign("res_kim", "sp_202", "a"),
-  assign("res_lee", "sp_203", "a"),
-  assign("res_park", "sp_401", "a"),
-  assign("res_choi", "sp_301", "a"),
-  assign("res_jung", "sp_305", "a"),
-];
-
-// ---------- 관심 어르신 (Focus Resident) ----------
-const TODAY = "2026-06-18";
-const YESTERDAY = "2026-06-17";
-
-export const residents: Resident[] = [
-  { id: "res_kim", facilityId: FAC, roomId: "sp_202", name: "김○○", gender: "F", age: 82, diagnosisTags: ["파킨슨", "치매"], fallRiskBaseline: "HIGH", isFocusResident: true },
-  { id: "res_lee", facilityId: FAC, roomId: "sp_203", name: "이○○", gender: "F", age: 79, diagnosisTags: ["치매"], fallRiskBaseline: "MEDIUM", isFocusResident: true },
-  { id: "res_park", facilityId: FAC, roomId: "sp_401", name: "박○○", gender: "M", age: 85, diagnosisTags: ["보행 불안정"], fallRiskBaseline: "MEDIUM", isFocusResident: true },
-  // 비대상(평상시) 어르신 예시
-  { id: "res_choi", facilityId: FAC, roomId: "sp_301", name: "최○○", gender: "F", age: 77, diagnosisTags: ["고혈압"], fallRiskBaseline: "LOW", isFocusResident: false },
-  { id: "res_jung", facilityId: FAC, roomId: "sp_305", name: "정○○", gender: "M", age: 81, diagnosisTags: ["당뇨"], fallRiskBaseline: "LOW", isFocusResident: false },
-];
-
-function summary(
-  residentId: string,
-  date: string,
-  d: Partial<ResidentRiskSummary> & { fallRiskScore: number; riskLevel: ResidentRiskSummary["riskLevel"]; aiSummary: string; recommendedAction: string }
-): ResidentRiskSummary {
-  return {
-    id: `rrs_${residentId}_${date}`,
-    residentId,
-    date,
-    bedExitCount: 0,
-    wanderingCount: 0,
-    standingAttemptCount: 0,
-    hallwayMoveCount: 0,
-    longInactivityCount: 0,
-    ...d,
-  };
-}
-
-export const residentRiskSummaries: ResidentRiskSummary[] = [
-  // 오늘
-  summary("res_kim", TODAY, { bedExitCount: 3, standingAttemptCount: 2, hallwayMoveCount: 1, fallRiskScore: 82, riskLevel: "HIGH", aiSummary: "야간 침상 이탈이 반복되고 움직임이 늘었습니다.", recommendedAction: "취침 시간대에 더 자주 확인해주세요." }),
-  summary("res_lee", TODAY, { wanderingCount: 2, hallwayMoveCount: 1, fallRiskScore: 58, riskLevel: "MEDIUM", aiSummary: "배회가 늘고 복도 단독 이동이 있었습니다.", recommendedAction: "복도 이동 시 동행을 권장합니다." }),
-  summary("res_park", TODAY, { standingAttemptCount: 4, fallRiskScore: 61, riskLevel: "MEDIUM", aiSummary: "반복적인 기립 시도와 침대 주변 움직임이 늘었습니다.", recommendedAction: "기립 시 도움이 필요할 수 있습니다." }),
-  // 전일(증감 비교용)
-  summary("res_kim", YESTERDAY, { bedExitCount: 1, standingAttemptCount: 1, fallRiskScore: 64, riskLevel: "MEDIUM", aiSummary: "야간 움직임이 다소 있었습니다.", recommendedAction: "경과 관찰" }),
-  summary("res_lee", YESTERDAY, { wanderingCount: 1, fallRiskScore: 50, riskLevel: "MEDIUM", aiSummary: "가벼운 배회가 있었습니다.", recommendedAction: "경과 관찰" }),
-  summary("res_park", YESTERDAY, { standingAttemptCount: 2, fallRiskScore: 55, riskLevel: "MEDIUM", aiSummary: "기립 시도가 있었습니다.", recommendedAction: "경과 관찰" }),
 ];
 
 // ---------- 알림 규칙 ----------

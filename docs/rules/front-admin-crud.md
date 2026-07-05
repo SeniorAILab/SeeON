@@ -5,8 +5,8 @@
 > `front/src/lib/useCrud.ts` hook. The frontend is now **Vite + React** (ADR).
 > Admin pages live under `front/src/pages/admin/`, and there is **no `useCrud.ts`** —
 > the Vite front talks to the backend through the typed service layer in
-> `front/src/services/*` (e.g. `adminService.ts`, `residentService.ts`,
-> `zoneService.ts`) via the shared `apiClient.ts` (`request()` wrapper, `VITE_USE_MOCK`).
+> `front/src/services/*` (e.g. `adminService.ts`, `residentService.ts`) via the
+> shared `apiClient.ts` (`request()` wrapper, `VITE_USE_MOCK`).
 > The original Next.js body is recoverable from git history.
 
 ## Current (Vite) guidance

@@ -2,7 +2,7 @@ import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card } from "@/components/ui/primitives";
 import { defaultPathForUser } from "@/lib/routeAccess";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function AccessDeniedPage() {
   const navigate = useNavigate();
