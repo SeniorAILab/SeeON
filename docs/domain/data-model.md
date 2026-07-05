@@ -1,13 +1,13 @@
 # Backend relationship data model
 
-Status: 타겟 모델(합의됨); 스키마 remodel은 room-centric remodel PR들(PR3~8)로 진행 중. Until those PRs land, `backend/prisma/schema.prisma` still contains transitional legacy fields such as `Camera.residentId`, `Space.cameraId`, required `Alert.residentId`, `Resident.room`, and `Role = OWNER | ADMIN`.
+Status: v1 backend schema is room-centric. The resident/guardian domain (`residents`, `resident_assignments`, `guardians`, `resident_statuses` tables and Prisma models, `Alert.residentId`, and the `ResidentState` + `Level` enums) has been dropped, not kept as transitional state; resident/guardian capabilities return in v2 as a new schema/API. `backend/prisma/schema.prisma` now uses room-centric `Camera.spaceId`, required `Alert.spaceId`, and `Role = SUPER_ADMIN | ADMIN | STAFF`.
 
 This document is the backend relationship reference derived from the PRD/API contract. Field names below use product/API camelCase unless explicitly marked as database or ingest fields.
 
 ## Naming and API relation rules
 
-- Prisma and product `/api/*` DTO fields use camelCase: `facilityId`, `spaceId`, `residentId`, `cameraId`, `alertSeq`.
-- Database columns and ML Event API payload fields use snake_case: `facility_id`, `space_id`, `resident_id`, `camera_id`, `alert_seq`.
+- Prisma and product `/api/*` DTO fields use camelCase: `facilityId`, `spaceId`, `cameraId`, `alertSeq`.
+- Database columns and ML Event API payload fields use snake_case: `facility_id`, `space_id`, `camera_id`, `alert_seq`.
 - Tenant-domain foreign keys must include `facilityId` and use composite references such as `(facilityId, spaceId) -> Space(facilityId, id)` so cross-facility references are impossible at the database layer.
 - Product `/api/*` responses may include nested relation labels, but must not expose raw Prisma models. The Event API remains source-oriented and snake_case.
 
@@ -19,13 +19,8 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 
 - `floors`
 - `spaces`
-- `zones`
-- `residents`
-- `resident_assignments`
-- `guardians`
 - `cameras`
 - `alerts`
-- `resident_statuses`
 
 `AlertEvent` and `DeliveryAttempt` are backend-owned outbox tables, not tenant list/read models. They are intentionally non-RLS and are keyed through `sourceId`/`externalEventId` and `alertEventId` rather than tenant query surfaces.
 
@@ -33,16 +28,11 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 
 | Entity | Scope | Cardinality and FK direction | Notes |
 |---|---|---|---|
-| `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Zone`, `Resident`, `ResidentAssignment`, `Guardian`, `Camera`, `Alert`, `ResidentStatus`, `User`, `KakaoIdentity` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
+| `Facility` | Root tenant | `Facility` 1→N `Floor`, `Space`, `Camera`, `Alert`, `User`, `KakaoIdentity` through each child's `facilityId` where present. | Root of facility ownership. Facility itself is not tenant-RLS. |
 | `Floor` | Tenant/RLS | `Floor(facilityId) -> Facility(id)`; `Facility` 1→N `Floor`; `Floor` 1→N `Space`. | Floor remains canonical because the frontend and operations model are floor-aware. |
-| `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1→N `Zone`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `ResidentAssignment`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. `Space.cameraId` is transitional legacy only and is removed by the remodel. |
-| `Camera` | Tenant/RLS | Target: `Camera(facilityId) -> Facility(id)` and `Camera(facilityId, spaceId) -> Space(facilityId, id)` with `UNIQUE(facilityId, spaceId)`. `Space` 1:1 `Camera`; `Camera` 1→N `Alert` as source. | Camera belongs to a room/space, not a resident. `Camera.residentId` is legacy and removed by the remodel. |
-| `Zone` | Tenant/RLS | `Zone(facilityId) -> Facility(id)`; `Zone(facilityId, spaceId) -> Space(facilityId, id)`; `Space` 1→N `Zone`; `Zone` 1→N `ResidentAssignment` when a resident is placed in a sub-area. | Optional placement refinement inside a space. |
-| `Resident` | Tenant/RLS | `Resident(facilityId) -> Facility(id)`; `Facility` 1→N `Resident`; `Resident` 1→N `ResidentAssignment`; `Resident` 1→N `Guardian`; `Resident` 0/1→1 `ResidentStatus`; `Resident` 0→N `Alert` only when the person is known. | Canonical placement is not `Resident.room`; placement is assignment history. |
-| `ResidentAssignment` | Tenant/RLS | `ResidentAssignment(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, zoneId) -> Zone(facilityId, id)`. | Represents resident placement and movement history. Active placement is `startedAt <= now` and `endedAt IS NULL`; historical lookup uses the event timestamp. |
-| `Guardian` | Tenant/RLS | `Guardian(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; `Resident` 1→N `Guardian`. | Emergency-contact data linked to one resident within the same facility. |
-| `Alert` | Tenant/RLS | Target: `Alert(facilityId) -> Facility(id)`; required `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, cameraId) -> Camera(facilityId, id)` as source; optional `(facilityId, residentId) -> Resident(facilityId, id)` when known. `Space` 1→N `Alert`; `Camera` 0/1→N `Alert`; `Resident` 0/1→N `Alert`. | `spaceId` is NOT NULL and is the historical room anchor. `cameraId` records the source. `residentId` is nullable for empty-room/unknown-person alerts. |
-| `ResidentStatus` | Tenant/RLS | `ResidentStatus(facilityId) -> Facility(id)`; `(facilityId, residentId) -> Resident(facilityId, id)`; optional `(facilityId, sourceId) -> Camera(facilityId, id)`. `Resident` 1→0/1 `ResidentStatus`. | Resident-centric current-state read model. Empty-room alerts skip resident status updates. |
+| `Space` | Tenant/RLS | `Space(facilityId) -> Facility(id)`; `Space(facilityId, floorId) -> Floor(facilityId, id)`; `Floor` 1→N `Space`; `Space` 1:1 `Camera` via `Camera.spaceId`; `Space` 1→N `Alert`. | Canonical room/physical-place anchor. |
+| `Camera` | Tenant/RLS | `Camera(facilityId) -> Facility(id)` and `Camera(facilityId, spaceId) -> Space(facilityId, id)` with `UNIQUE(facilityId, spaceId)`. `Space` 1:1 `Camera`; `Camera` 1→N `Alert` and `Event` as source. | Camera belongs to a room/space, not a resident. |
+| `Alert` | Tenant/RLS | `Alert(facilityId) -> Facility(id)`; required `(facilityId, spaceId) -> Space(facilityId, id)`; optional `(facilityId, cameraId) -> Camera(facilityId, id)` as source. `Space` 1→N `Alert`; `Camera` 0/1→N `Alert`. | `spaceId` is NOT NULL and is the historical room anchor. `cameraId` records the source. |
 | `User` | Auth/root | Optional `User(facilityId) -> Facility(id)`; `Facility` 1→N `User`. `User` 1→0/1 `KakaoIdentity`; `User` 1→N `DeliveryAttempt` as recipient. | RBAC target role set is `SUPER_ADMIN | ADMIN | STAFF`, labeled 시스템 관리자 / 원장님 / 요양보호사. `SUPER_ADMIN`/`ADMIN` have facility administration capability; `STAFF` can create personal sessions and view the monitor dashboard but cannot administer the facility. |
 | `KakaoIdentity` | Auth/root | `KakaoIdentity(userId) -> User(id)`; optional `KakaoIdentity(facilityId) -> Facility(id)`; `User` 1→0/1 `KakaoIdentity`. | OAuth/self-notification identity for a facility-bound user. |
 | `AlertEvent` | Backend outbox, non-RLS | No tenant-domain FK. `AlertEvent` 1→N `DeliveryAttempt`; idempotency key is `(sourceId, externalEventId)`. | Delivery/outbox audit row keyed by ingest/source identity. Keep separate from dashboard `Alert` read model. |
@@ -54,31 +44,21 @@ Tenant-domain tables must have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL 
 Facility 1 -> N Floor
 Facility 1 -> N Space
 Facility 1 -> N Camera
-Facility 1 -> N Resident
 Facility 1 -> N Alert
 Facility 1 -> N User
 
 Floor 1 -> N Space
 Space 1 -> 1 Camera          (Camera.spaceId unique FK)
-Space 1 -> N Zone
-Space 1 -> N Resident        (through ResidentAssignment history)
-Space 1 -> N Alert           (Alert.spaceId NOT NULL)
-Resident 1 -> N ResidentAssignment
-Resident 1 -> N Guardian
-Resident 1 -> 0..1 ResidentStatus
-Resident 0..1 -> N Alert     (Alert.residentId nullable)
 Camera 0..1 -> N Alert       (Alert.cameraId source)
 AlertEvent 1 -> N DeliveryAttempt
 User 1 -> 0..1 KakaoIdentity
 User 0..1 -> N DeliveryAttempt
 ```
 
-## Transitional differences from current schema
+## Current schema notes
 
-Current `backend/prisma/schema.prisma` is not yet the final target. During the remodel:
+Current `backend/prisma/schema.prisma` is the v1 room-centric baseline:
 
-- `Camera.residentId` remains only as legacy compatibility until camera runtime no longer depends on resident placement.
-- `Space.cameraId` is a transitional claim used for strict backfill; final ownership is `Camera.spaceId`.
-- `Alert.residentId` is currently required; target is nullable after `Alert.spaceId` is established.
-- `Resident.room` is legacy free text; target placement is `ResidentAssignment` only.
-- `Role = OWNER | ADMIN` is legacy; target RBAC is `SUPER_ADMIN | ADMIN | STAFF`.
+- Cameras are assigned to spaces through `Camera.spaceId`.
+- Alerts are anchored to spaces through required `Alert.spaceId`; `Alert.cameraId` is optional source metadata.
+- User roles are `SUPER_ADMIN | ADMIN | STAFF`.

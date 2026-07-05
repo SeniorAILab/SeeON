@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   vi.resetModules();
-  vi.stubEnv("VITE_USE_MOCK", undefined);
   localStorage.clear();
 });
 
@@ -21,7 +20,7 @@ async function renderRealModeLogin() {
 }
 
 describe("LoginPage real backend default", () => {
-  it("shows backend email login and Kakao login when VITE_USE_MOCK is unset", async () => {
+  it("shows backend email login and Kakao login", async () => {
     await renderRealModeLogin();
 
     expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeTruthy();
