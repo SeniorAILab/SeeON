@@ -3,7 +3,6 @@ import type {
   DetectionEventType,
   KakaoAlertStatus,
   Level,
-  ResidentActionType,
   SpaceStatusLevel,
   SpaceType,
 } from "@/types";
@@ -47,7 +46,7 @@ export const kakaoLabel: Record<KakaoAlertStatus, string> = {
   FAILED: "발송 실패",
 };
 
-export const eventTypeLabel: Record<DetectionEventType, string> = {
+const eventTypeLabelRegistry: Record<DetectionEventType, string> = {
   STABLE: "안정 상태",
   MOVEMENT_INCREASE: "움직임 증가",
   REPEATED_STANDING_ATTEMPT: "반복 기립 시도",
@@ -59,6 +58,24 @@ export const eventTypeLabel: Record<DetectionEventType, string> = {
   OTHER: "기타 감지",
 };
 
+function unknownEventTypeLabel(type: string): string {
+  return type.trim() ? `알 수 없는 이벤트(${type})` : "알 수 없는 이벤트";
+}
+
+export const eventTypeLabel = new Proxy(eventTypeLabelRegistry as Record<string, string>, {
+  get(target, property) {
+    if (typeof property !== "string") return undefined;
+    return Object.prototype.hasOwnProperty.call(target, property) ? target[property] : unknownEventTypeLabel(property);
+  },
+}) as Record<DetectionEventType, string> & Record<string, string>;
+export function displayEventTypeLabel(event: {
+  eventType: DetectionEventType;
+  backendType?: string | null;
+}): string {
+  if (event.eventType !== "OTHER") return eventTypeLabel[event.eventType];
+  return event.backendType ? eventTypeLabel[event.backendType] : eventTypeLabel[event.eventType];
+}
+
 export const actionTypeLabel: Record<ActionType, string> = {
   ACKNOWLEDGED: "확인 완료",
   STAFF_VISIT: "직원 방문 중",
@@ -67,10 +84,4 @@ export const actionTypeLabel: Record<ActionType, string> = {
   GUARDIAN_CONTACT: "보호자 연락",
   HOSPITAL_TRANSFER: "병원 이송",
   MEMO: "기타 메모",
-};
-
-export const residentActionLabel: Record<ResidentActionType, string> = {
-  CHECKED: "확인함",
-  STAFF_VISIT: "직원 방문 중",
-  HELP_REQUEST: "도움 요청",
 };

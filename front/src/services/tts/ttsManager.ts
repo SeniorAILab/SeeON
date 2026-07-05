@@ -1,14 +1,13 @@
 // =============================================================
 // TTS 알림 관리자 — 우선순위 큐 + 재안내 스케줄
 //   · 우선순위: 응급 > 위험 > 주의
-//   · 동시 다발 시 먼저 요약 안내 후 개별 안내
-//   · 동일 이벤트 중복 재생 금지, 재안내 30초 → 2분 → 5분
+//   · 동시 다발 시에도 요약 없이 고정 템플릿 개별 안내
 //   · 확인 완료(목록 제거) 시 해당 안내 중단
-//   · 재생은 playTTS(사전 생성 mp3 우선, 없으면 브라우저 음성)
+//   · 재생은 playTTS(브라우저 음성)
 // =============================================================
 import { playTTS, cancelTTS } from "./playTTS";
-import { audioPathFor, summaryPath, summaryMessage, textFor } from "./audioMap";
-import type { AudioLevel, SpaceCategory } from "./ttsConfig";
+import { textFor } from "./audioMap";
+import type { AudioLevel } from "./ttsConfig";
 
 export type TTSLevel = "EMERGENCY" | "DANGER" | "CAUTION";
 
@@ -18,7 +17,6 @@ export interface TTSAlertInput {
   level: TTSLevel;
   reason: string;
   floorName: string;
-  category: SpaceCategory;
 }
 
 const PRIORITY: Record<TTSLevel, number> = { EMERGENCY: 0, DANGER: 1, CAUTION: 2 };
@@ -36,7 +34,6 @@ interface Item extends TTSAlertInput {
 interface Utterance {
   priority: number;
   text: string;
-  path?: string;
 }
 
 class TTSManager {
@@ -68,28 +65,17 @@ class TTSManager {
     }
 
     // 추가/격상
-    let newCount = 0;
     for (const a of alerts) {
       const cur = this.items.get(a.spaceId);
       if (!cur) {
         this.items.set(a.spaceId, { ...a, announces: 0, nextAt: now });
-        newCount++;
       } else if (PRIORITY[a.level] < PRIORITY[cur.level]) {
         Object.assign(cur, a, { announces: 0, nextAt: now }); // 격상 → 즉시 재안내
-        newCount++;
       } else {
         cur.reason = a.reason;
       }
     }
 
-    // 동시 다발: 먼저 요약 안내
-    if (newCount > 1) {
-      this.queue.push({
-        priority: -1,
-        text: summaryMessage(this.items.size),
-        path: summaryPath,
-      });
-    }
   }
 
   private tick() {
@@ -103,8 +89,7 @@ class TTSManager {
       const level = AUDIO_LEVEL[it.level];
       this.queue.push({
         priority: PRIORITY[it.level],
-        text: textFor(it.category, level, it.name),
-        path: audioPathFor({ category: it.category, level, name: it.name, floorName: it.floorName }),
+        text: textFor(it.name, level),
       });
       const delay = REANNOUNCE_MS[Math.min(it.announces, REANNOUNCE_MS.length - 1)];
       it.announces += 1;
@@ -118,7 +103,7 @@ class TTSManager {
     this.queue.sort((a, b) => a.priority - b.priority);
     const next = this.queue.shift()!;
     this.speaking = true;
-    playTTS(next.text, next.path).finally(() => {
+    playTTS(next.text).finally(() => {
       this.speaking = false;
       this.drain();
     });

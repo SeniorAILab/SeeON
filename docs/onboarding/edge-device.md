@@ -39,8 +39,8 @@ ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리
 | 프로세스 | 책임 | 실제 코드 |
 | --- | --- | --- |
 | `ml-worker` | RTSP capture, pose/person/bed runner 실행, `FrameObservation` 조립, fall/bed-exit domain fact 생성, heartbeat 생성, local relay 호출 | `ml/worker/edge_worker.py`, `ml/worker/camera_worker.py`, `ml/worker/edge_worker_supervisor.py`, `ml/worker/edge_worker_config.py` |
-| `ml-api` | `/api/v1/relay/*` 수신, `X-Edge-Relay-Token` 검증, backend `GET /api/v1/ml-config/:facilityId` primary config pull, fallback `API_CAMERA_INVENTORY` 기반 camera binding, backend Event API egress, health/status/models route, heartbeat store, lifespan readiness | `ml/api/main.py`, `ml/api/lifespan.py`, `ml/api/routes/ingest_relay.py`, `ml/api/routes/health.py`, `ml/api/routes/status.py`, `ml/api/routes/models.py` |
-| backend | Event API ingress 이후 정책, dedup, 불변 Event 저장, Alert 파생, SSE/Kakao side effect | `../api/edge-ingest-api.md` 참조 |
+| `ml-api` | `/api/v1/relay/*` 수신, `X-Edge-Relay-Token` 검증, backend `GET /api/v1/ml-config/:facilityId` primary config pull + fallback `API_CAMERA_INVENTORY` 기반 camera binding, backend Event API egress, health/status/models/debug route, source registry, heartbeat store, lifespan readiness | `ml/api/main.py`, `ml/api/lifespan.py`, `ml/api/routes/ingest_relay.py`, `ml/api/routes/health.py`, `ml/api/routes/status.py`, `ml/api/routes/models.py`, `ml/api/routes/debug.py` |
+| backend | Event API ingress 이후 정책, dedup, 불변 Event 저장, Alert 파생, SSE/Kakao side effect | `backend/src/events/events.controller.ts`, `../domain/alert-pipeline.md`, `../rules/rest-api-convention.md` |
 
 ## 프로세스 경계와 연결
 
@@ -123,14 +123,15 @@ last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge�
 | `GET /api/v1/relay/config` | `ml/api/routes/ingest_relay.py` | worker config pull; backend config unavailable and no pulled config returns `503` |
 | `POST /api/v1/relay/restart` | `ml/api/routes/ingest_relay.py` | Plane-O restart directive; bumps `restart_epoch` for workers to observe |
 
-와이어 계약의 필드와 응답 형식은 `../api/ml-serving-api.md`와 `../api/edge-ingest-api.md`를 기준으로 본다. 이 문서는 흐름과 책임만 요약한다.
+와이어 계약의 필드와 응답 형식은 `ml/api/routes/*`, backend controller/DTO code, generated OpenAPI(`/api/docs`), contract tests, `../rules/rest-api-convention.md`, and `../domain/alert-pipeline.md`를 기준으로 본다. 이 문서는 흐름과 책임만 요약한다.
 
 ## References
 
 - [../architecture.md](../architecture.md)
 - [./edge-worker-streaming.md](./edge-worker-streaming.md)
-- [../api/ml-serving-api.md](../api/ml-serving-api.md)
-- [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
+- [../rules/rest-api-convention.md](../rules/rest-api-convention.md)
+- [../rules/dto-convention.md](../rules/dto-convention.md)
+- [../domain/alert-pipeline.md](../domain/alert-pipeline.md)
 - ADR
 - ADR
 - ADR

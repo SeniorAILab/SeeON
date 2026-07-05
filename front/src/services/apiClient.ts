@@ -1,4 +1,4 @@
-import { getCurrentFacilityId } from "@/store/facilityStore";
+import { getCurrentFacilityId } from "@/stores/facilityStore";
 
 type UnauthorizedHandler = () => void;
 
@@ -8,14 +8,22 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
   unauthorizedHandler = handler;
 }
 
-export const USE_MOCK =
-  import.meta.env.VITE_USE_MOCK?.toString() === "true";
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
 const SSE_PATH = "/dashboard/stream";
 const FACILITY_SCOPE_HEADER = "X-Facility-Id";
 const FACILITY_SCOPE_QUERY = "facilityId";
+
+const GLOBAL_ENDPOINT_PATTERNS = [/^\/auth\/me(?:\?|$)/, /^\/facilities(?:\?|$)/];
+const FACILITY_SCOPED_PATTERNS = [
+  /^\/dashboard(?:\/|\?|$)/,
+  /^\/dashboards(?:\/|\?|$)/,
+  /^\/alerts(?:\/|\?|$)/,
+  /^\/spaces(?:\/|\?|$)/,
+  /^\/floors(?:\/|\?|$)/,
+  /^\/users(?:\/|\?|$)/,
+  /^\/cameras(?:\/|\?|$)/,
+];
 
 export function buildApiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
@@ -40,11 +48,11 @@ export async function requestJson(
   options: RequestInit = {}
 ): Promise<unknown> {
   const credentials: RequestCredentials | undefined =
-    options.credentials ?? (!USE_MOCK ? "include" : undefined);
+    options.credentials ?? "include";
   const res = await fetch(buildApiUrl(path), {
     ...options,
     ...(credentials ? { credentials } : {}),
-    headers: requestHeaders({ "Content-Type": "application/json" }, options.headers, credentials),
+    headers: requestHeaders(path, { "Content-Type": "application/json" }, options.headers, credentials),
   });
   handleUnauthorized(res.status);
   if (!res.ok) {
@@ -59,11 +67,11 @@ export async function requestNoContent(
   options: RequestInit = {}
 ): Promise<void> {
   const credentials: RequestCredentials | undefined =
-    options.credentials ?? (!USE_MOCK ? "include" : undefined);
+    options.credentials ?? "include";
   const res = await fetch(buildApiUrl(path), {
     ...options,
     ...(credentials ? { credentials } : {}),
-    headers: requestHeaders({}, options.headers, credentials),
+    headers: requestHeaders(path, {}, options.headers, credentials),
   });
   handleUnauthorized(res.status);
   if (!res.ok) {
@@ -73,6 +81,7 @@ export async function requestNoContent(
 }
 
 function requestHeaders(
+  path: string,
   defaults: Record<string, string>,
   headers: HeadersInit | undefined,
   credentials: RequestCredentials | undefined,
@@ -80,12 +89,17 @@ function requestHeaders(
   const merged = new Headers(defaults);
   new Headers(headers).forEach((value, key) => merged.set(key, value));
 
-  const facilityId = getCurrentFacilityId();
-  if (facilityId && credentials !== "omit" && !merged.has(FACILITY_SCOPE_HEADER)) {
-    merged.set(FACILITY_SCOPE_HEADER, facilityId);
+  if (credentials !== "omit" && shouldAttachFacilityScope(path) && !merged.has(FACILITY_SCOPE_HEADER)) {
+    const facilityId = getCurrentFacilityId();
+    if (facilityId) merged.set(FACILITY_SCOPE_HEADER, facilityId);
   }
 
   return Object.fromEntries(merged.entries());
+}
+
+function shouldAttachFacilityScope(path: string): boolean {
+  if (GLOBAL_ENDPOINT_PATTERNS.some((pattern) => pattern.test(path))) return false;
+  return FACILITY_SCOPED_PATTERNS.some((pattern) => pattern.test(path));
 }
 
 function handleUnauthorized(status: number): void {

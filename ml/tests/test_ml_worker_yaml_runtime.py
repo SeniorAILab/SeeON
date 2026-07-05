@@ -10,6 +10,7 @@ import torch
 import yaml
 
 from contracts.frame import Frame
+from contracts.runner import bed_result, pose_result
 from worker import edge_worker
 from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 from worker.sources.video_file import VideoFileSource
@@ -24,27 +25,18 @@ class _Sink:
 
 
 class _PoseRunner:
-    def predict_full(
-        self, image: np.ndarray
-    ) -> tuple[
-        tuple[tuple[tuple[float, float, float], ...], ...],
-        tuple[tuple[int, int, int, int, float], ...],
-    ]:
+    def run(self, image: np.ndarray):
         del image
         keypoints = tuple((20.0, 20.0, 0.9) for _ in range(17))
-        return (keypoints,), ((10, 10, 40, 60, 0.95),)
+        return pose_result((keypoints,), ((10, 10, 40, 60, 0.95),))
 
 
-class _PersonRunner:
-    def run(self, image: np.ndarray) -> tuple[tuple[int, int, int, int, float], ...]:
-        del image
-        return ((10, 10, 40, 60, 0.95),)
 
 
 class _BedRunner:
-    def detect_beds(self, image: np.ndarray) -> tuple[()]:
+    def run(self, image: np.ndarray):
         del image
-        return ()
+        return bed_result(())
 
 
 class _SlowFrameSource:
@@ -142,8 +134,6 @@ def test_video_file_source_is_still_available_for_rtsp_harness_input() -> None:
 def _create_runner(task: str, **kwargs: object) -> object:
     if task == "pose":
         return _PoseRunner()
-    if task == "person":
-        return _PersonRunner()
     if task == "bed":
         return _BedRunner()
     return edge_worker.DEFAULT_REGISTRY.get_factory(task)(**kwargs)

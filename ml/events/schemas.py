@@ -7,12 +7,13 @@ ML runtime incident management owns only idempotency and cooldown.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Any, Final, Literal, TypeAlias
 
 from contracts.event import DetectionEventType, Level, Severity, front_event_type
 from contracts.relay import AlertEventType, EventApiPayload
 
 EventLifecycle: TypeAlias = Literal["detected", "updated", "resolved"]
+CLOCK_SOURCE_EDGE_WALL: Final = "edge_wall_clock"
 
 
 
@@ -64,12 +65,30 @@ def build_emitted_event(
         front_event_type=front_event_type(normalized_event_type),
         evidence={} if evidence is None else dict(evidence),
     )
+def build_audit_envelope(
+    *,
+    model_version: str | None,
+    detector_version: str | None,
+    operating_threshold: float | None,
+) -> dict[str, object]:
+    envelope: dict[str, object] = {"clock_source": CLOCK_SOURCE_EDGE_WALL}
+    if model_version is not None:
+        envelope["model_version"] = model_version
+    if detector_version is not None:
+        envelope["detector_version"] = detector_version
+    if operating_threshold is not None:
+        envelope["operating_threshold"] = operating_threshold
+    return envelope
+
+
 
 
 __all__ = [
+    "CLOCK_SOURCE_EDGE_WALL",
     "AlertEventType",
     "EmittedEvent",
     "EventApiPayload",
     "EventLifecycle",
     "build_emitted_event",
+    "build_audit_envelope",
 ]

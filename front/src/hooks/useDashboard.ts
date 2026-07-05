@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 import { useMonitorStore } from "@/stores/monitorStore";
 
 /** 대시보드 데이터 로딩 + 단일 모니터 스토어 구독 (직원/관리자 화면 공용) */

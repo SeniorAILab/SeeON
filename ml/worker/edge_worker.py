@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import base64
 import json
+import os
 import sys
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
+from contracts.worker_config import CONFIG_VERSION_KEY, PulledWorkerConfig
 from worker.camera_worker import CameraWorker, DomainDetectorProtocol
+from worker.config_pull import pull_worker_config
+from worker.config_resolver import resolve_effective_config, resolve_night_window
 from worker.domains import DOMAIN_REGISTRY
+from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker.edge_worker_config import (
     CameraRuntimeConfig,
     EdgeWorkerConfig,
@@ -22,6 +29,7 @@ from worker.edge_worker_config import (
 )
 from worker.edge_worker_supervisor import EdgeWorkerSupervisor
 from worker.fall_window_classifier import FallModelProtocol, FallWindowClassifier
+from worker.lkg_store import load_lkg, save_lkg
 from worker.mjpeg_server import (
     MjpegServer,
     OverlayFrameBuffer,
@@ -30,14 +38,19 @@ from worker.mjpeg_server import (
     dev_mjpeg_host,
     dev_mjpeg_port,
 )
+from worker.overlay_renderer import OverlayRenderer
+from worker.perception.tracker import GreedyIouTracker
 from worker.runners.device import select_device
 from worker.runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from worker.runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
+from worker.runners.warmup import warmup_runner
 from worker.scheduler import Scheduler
 from worker.sources.rtsp import RTSPSource
+from worker.sources.rtsp_backend import OpenCVRTSPBackend, RTSPBackend
 from worker.status_store import StatusStore
 
-
+# Phase-1 audit metadata identifies this worker-owned domain detector bundle.
+DETECTOR_VERSION = "worker-domain-detectors-v1"
 @dataclass(frozen=True, slots=True)
 class _Options:
     config_path: str | None
@@ -49,11 +62,10 @@ class _Options:
 @dataclass(frozen=True, slots=True)
 class _RunnerBundle:
     pose: RunnerProtocol
-    person: RunnerProtocol
     bed: RunnerProtocol
 
     def as_mapping(self) -> Mapping[str, RunnerProtocol]:
-        return {"pose": self.pose, "person": self.person, "bed": self.bed}
+        return {"pose": self.pose, "bed": self.bed}
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +76,7 @@ class _WorkerResources:
     status_store: StatusStore
     config: EdgeWorkerConfig
     overlay_publisher: OverlayPublisher | None = None
+    stop_event: threading.Event | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -77,16 +90,40 @@ def main(argv: list[str] | None = None) -> int:
     if options.check_config:
         print(json.dumps({"ok": True, "cameras": len(config.cameras)}, separators=(",", ":")))
         return 0
+    relay_url = os.environ.get("RELAY_URL", str(config.relay.url))
+    relay_token = os.environ.get("RELAY_TOKEN")
+    pulled = pull_worker_config(relay_url, relay_token)
+    source = "pulled"
+    if pulled is not None:
+        save_lkg(pulled)
+    else:
+        pulled = load_lkg()
+        source = "lkg" if pulled is not None else "yaml"
+    effective_config, config_version, boot_restart_epoch, source = resolve_effective_config(
+        config,
+        pulled,
+        source=source,
+    )
+    print(f"worker config source: {source}", file=sys.stderr)
+
     status_store = StatusStore()
     mjpeg_server: MjpegServer | None = None
-    if config.dev_mjpeg.enabled or dev_mjpeg_enabled():
+    if effective_config.dev_mjpeg.enabled or dev_mjpeg_enabled():
         overlay_buffer = OverlayFrameBuffer()
-        for camera in config.cameras:
+        for camera in effective_config.cameras:
             overlay_buffer.register_camera(camera.camera_id)
         mjpeg_server = MjpegServer(
             overlay_buffer,
-            host=config.dev_mjpeg.host if config.dev_mjpeg.enabled else dev_mjpeg_host(),
-            port=config.dev_mjpeg.port if config.dev_mjpeg.enabled else dev_mjpeg_port(),
+            host=(
+                effective_config.dev_mjpeg.host
+                if effective_config.dev_mjpeg.enabled
+                else dev_mjpeg_host()
+            ),
+            port=(
+                effective_config.dev_mjpeg.port
+                if effective_config.dev_mjpeg.enabled
+                else dev_mjpeg_port()
+            ),
         )
         mjpeg_server.start()
         overlay_publisher = OverlayPublisher(overlay_buffer)
@@ -94,9 +131,15 @@ def main(argv: list[str] | None = None) -> int:
         overlay_publisher = None
     try:
         supervisor = _build_supervisor(
-            config,
+            effective_config,
             status_store,
             overlay_publisher=overlay_publisher,
+            config_version=config_version,
+            restart_check=_restart_check(relay_url, relay_token, boot_restart_epoch),
+            yaml_config=config,
+            pulled=pulled,
+            relay_url=relay_url,
+            relay_token=relay_token,
         )
     except (ModelLoadError, TypeError) as exc:
         if mjpeg_server is not None:
@@ -170,10 +213,20 @@ def _build_supervisor(
     *,
     registry: ModelRegistry | None = None,
     overlay_publisher: OverlayPublisher | None = None,
+    config_version: int = 0,
+    restart_check: Callable[[], bool] | None = None,
+    yaml_config: EdgeWorkerConfig | None = None,
+    pulled: PulledWorkerConfig | None = None,
+    relay_url: str | None = None,
+    relay_token: str | None = None,
 ) -> EdgeWorkerSupervisor:
     model_registry = DEFAULT_REGISTRY if registry is None else registry
     device = select_device()
-    clients = {camera.camera_id: _relay_client(config, camera) for camera in config.cameras}
+    clients = {
+        camera.camera_id: _relay_client(config, camera, config_version)
+        for camera in config.cameras
+    }
+    stop_event = threading.Event()
     resources = _WorkerResources(
         clients=clients,
         runners=_build_runner_bundle(model_registry, device=device),
@@ -181,22 +234,47 @@ def _build_supervisor(
         status_store=status_store,
         config=config,
         overlay_publisher=overlay_publisher,
+        stop_event=stop_event,
     )
-    workers = tuple(_worker(camera, resources) for camera in config.cameras)
+    workers_and_detectors = tuple(
+        _worker_with_detectors(camera, resources) for camera in config.cameras
+    )
+    workers = tuple(worker for worker, _detectors in workers_and_detectors)
+    bed_exit_monitors = tuple(
+        detector
+        for _worker, detectors in workers_and_detectors
+        for detector in detectors
+        if isinstance(detector, BedExitMonitor)
+    )
+    night_window_source = config if yaml_config is None else yaml_config
+    night_window = resolve_night_window(night_window_source, pulled)
+    for monitor in bed_exit_monitors:
+        monitor.update_night_window(night_window)
     interval = min(camera.heartbeat_interval_sec for camera in config.cameras)
+    config_refresh = None
+    if relay_url is not None:
+        config_refresh = _config_refresh(
+            relay_url,
+            relay_token,
+            bed_exit_monitors,
+            night_window_source,
+            night_window,
+        )
     return EdgeWorkerSupervisor.from_workers(
         workers,
         status_store=status_store,
         heartbeat_sinks=clients,
         heartbeat_interval_sec=interval,
+        stop_event=stop_event,
+        restart_check=restart_check,
+        config_refresh=config_refresh,
     )
 
 
 def _build_runner_bundle(registry: ModelRegistry, *, device: str) -> _RunnerBundle:
     return _RunnerBundle(
-        pose=registry.create("pose", device=device),
-        person=registry.create("person", device=device),
-        bed=registry.create("bed", device=device),
+        pose=warmup_runner(registry.create("pose", device=device)),
+        bed=warmup_runner(registry.create("bed", device=device)),
     )
 
 
@@ -214,30 +292,64 @@ def _require_fall_model(model: RunnerProtocol) -> FallModelProtocol:
     return model
 
 
-def _worker(camera: CameraRuntimeConfig, resources: _WorkerResources) -> CameraWorker:
+def _decode_backend(camera: CameraRuntimeConfig) -> RTSPBackend:
+    if camera.decode_backend in (None, "opencv"):
+        return OpenCVRTSPBackend()
+    raise ValueError(f"unsupported decode_backend: {camera.decode_backend}")
+
+
+def _worker_with_detectors(
+    camera: CameraRuntimeConfig,
+    resources: _WorkerResources,
+) -> tuple[CameraWorker, tuple[DomainDetectorProtocol, ...]]:
+    detectors = _domain_detectors(resources.config)
+    return _worker(camera, resources, domain_detectors=detectors), detectors
+
+
+def _worker(
+    camera: CameraRuntimeConfig,
+    resources: _WorkerResources,
+    *,
+    domain_detectors: tuple[DomainDetectorProtocol, ...] | None = None,
+) -> CameraWorker:
     runtime = resources.config.runtime
+    tracker = GreedyIouTracker()
     return CameraWorker(
         camera_id=camera.camera_id,
         facility_id=camera.facility_id,
         frame_source=RTSPSource(
-            camera.rtsp_url,
+            camera.inference_rtsp_url,
             max_failures=runtime.max_failures,
             open_timeout_ms=runtime.open_timeout_ms,
             read_timeout_ms=runtime.read_timeout_ms,
+            # Production keeps retrying indefinitely so recoverable safety cameras
+            # come back online; each camera has its own capture thread, reports
+            # DEGRADED while down, and is promptly cancellable via stop_event.
+            backoff_wait=resources.stop_event.wait if resources.stop_event is not None else None,
+            stop_requested=(
+                resources.stop_event.is_set if resources.stop_event is not None else None
+            ),
+            backend=_decode_backend(camera),
+            target_fps=camera.fps,
+            pace_wait=resources.stop_event.wait if resources.stop_event is not None else None,
         ),
         runners=resources.runners.as_mapping(),
         scheduler=Scheduler(
             {
                 "pose": camera.frame_stride,
-                "person": camera.frame_stride,
                 "bed": max(30, camera.frame_stride),
             }
         ),
-        domain_detectors=_domain_detectors(resources.config),
+        domain_detectors=(
+            _domain_detectors(resources.config) if domain_detectors is None else domain_detectors
+        ),
         event_sink=resources.clients[camera.camera_id],
         status_store=resources.status_store,
         fall_classifier=FallWindowClassifier(resources.fall_model),
+        tracker=tracker,
         overlay_sink=resources.overlay_publisher,
+        snapshot_renderer=OverlayRenderer(),
+        detector_version=DETECTOR_VERSION,
     )
 
 
@@ -266,6 +378,7 @@ class _RelayClient:
     resident_id: str | None
     relay_token: str
     timeout_sec: float = 0.5
+    config_version: int = 0
     failure_count: int = 0
 
     def __post_init__(self) -> None:
@@ -276,23 +389,34 @@ class _RelayClient:
     def send_heartbeat(self) -> bool:
         return self._post(
             self.heartbeat_url,
-            {"camera_id": self.camera_id, "facility_id": self.facility_id},
+            {
+                "camera_id": self.camera_id,
+                "facility_id": self.facility_id,
+                CONFIG_VERSION_KEY: self.config_version,
+            },
         )
 
     def emit(self, event: EventPayload) -> None:
         event_type = str(event.get("event_type", ""))
         if event_type not in {"fall", "bed-exit"}:
             return
+        evidence = dict(event)
+        event_audit = evidence.pop("audit", None)
+        snapshot_jpeg = evidence.pop("snapshot_jpeg", None)
         payload: dict[str, object] = {
             "event_type": "bed-exit" if event_type == "bed-exit" else "fall",
             "probability": _event_probability(event),
             "detected_at": str(event.get("detected_at", "")) or _utc_timestamp(),
             "camera_id": self.camera_id,
             "facility_id": self.facility_id,
-            "evidence": dict(event),
+            "evidence": evidence,
         }
         if self.resident_id is not None:
             payload["resident_id"] = self.resident_id
+        if isinstance(event_audit, dict):
+            payload["audit"] = {**event_audit, CONFIG_VERSION_KEY: self.config_version}
+        if isinstance(snapshot_jpeg, bytes):
+            payload["snapshot_jpeg_base64"] = base64.b64encode(snapshot_jpeg).decode("ascii")
         self._post(self.alert_url, payload)
 
     def _post(self, url: str, payload: dict[str, object]) -> bool:
@@ -315,7 +439,11 @@ class _RelayClient:
         return True
 
 
-def _relay_client(config: EdgeWorkerConfig, camera: CameraRuntimeConfig) -> _RelayClient:
+def _relay_client(
+    config: EdgeWorkerConfig,
+    camera: CameraRuntimeConfig,
+    config_version: int = 0,
+) -> _RelayClient:
     return _RelayClient(
         alert_url=config.relay_alert_url,
         heartbeat_url=config.relay_heartbeat_url,
@@ -323,7 +451,49 @@ def _relay_client(config: EdgeWorkerConfig, camera: CameraRuntimeConfig) -> _Rel
         facility_id=camera.facility_id,
         resident_id=camera.resident_id,
         relay_token=config.relay.token.get_secret_value(),
+        config_version=config_version,
     )
+
+
+def _restart_check(
+    relay_url: str,
+    relay_token: str | None,
+    boot_restart_epoch: int,
+) -> Callable[[], bool]:
+    def _check() -> bool:
+        pulled = pull_worker_config(relay_url, relay_token)
+        return pulled is not None and pulled.restart_epoch > boot_restart_epoch
+
+    return _check
+
+def _config_refresh(
+    relay_url: str,
+    relay_token: str | None,
+    bed_exit_monitors: tuple[BedExitMonitor, ...],
+    yaml_config: EdgeWorkerConfig,
+    initial_window: NightWindow | None,
+    *,
+    pull_config: Callable[[str, str | None], PulledWorkerConfig | None] = pull_worker_config,
+) -> Callable[[], None]:
+    last_applied = initial_window
+
+    def _refresh() -> None:
+        nonlocal last_applied
+        try:
+            pulled = pull_config(relay_url, relay_token)
+            if pulled is None:
+                return
+            night_window = resolve_night_window(yaml_config, pulled)
+            if night_window == last_applied:
+                return
+            for monitor in bed_exit_monitors:
+                monitor.update_night_window(night_window)
+            last_applied = night_window
+        except Exception:  # noqa: BLE001 - config refresh is best-effort; keep last window
+            return
+
+    return _refresh
+
 
 
 def _parse_http_url(url: str) -> str:

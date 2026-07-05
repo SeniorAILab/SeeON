@@ -33,13 +33,13 @@ class YoloPoseModule:
         self._runner = YoloPoseRunner(model_path=str(pose_weight_path(size)), confidence=confidence)
 
     def predict(self, frame: Frame) -> FrameObservation:
-        poses, raw_boxes = self._runner.predict_full(frame.image)
+        result = self._runner.predict_full(frame.image)
         boxes = tuple(
             BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, confidence=conf)
-            for x1, y1, x2, y2, conf in raw_boxes
+            for x1, y1, x2, y2, conf in result.boxes
         )
         labels = tuple(
             DetectionLabel(text="person", confidence=conf, is_fall=False)
-            for _x1, _y1, _x2, _y2, conf in raw_boxes
+            for _x1, _y1, _x2, _y2, conf in result.boxes
         )
-        return FrameObservation(detections=(boxes, labels), poses=poses)
+        return FrameObservation(detections=(boxes, labels), poses=result.poses)
