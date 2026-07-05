@@ -29,6 +29,7 @@ class CameraHeartbeat:
     camera_id: str
     facility_id: str
     received_at: float
+    config_version: int | None = None
 
 
 @dataclass(slots=True)
@@ -44,11 +45,17 @@ class HeartbeatStore:
         facility_id: str,
         *,
         received_at: float | None = None,
+        config_version: int | None = None,
     ) -> None:
         """Record a relayed heartbeat. ``received_at`` is stamped by the caller
         after auth + camera binding and before any backend egress."""
         stamped = time() if received_at is None else received_at
-        self._beats[camera_id] = CameraHeartbeat(camera_id, facility_id, stamped)
+        self._beats[camera_id] = CameraHeartbeat(
+            camera_id,
+            facility_id,
+            stamped,
+            config_version,
+        )
 
     def snapshot(
         self,
@@ -78,6 +85,7 @@ class HeartbeatStore:
                     "status": NEVER_SEEN,
                     "last_heartbeat_at": None,
                     "age_sec": None,
+                    "config_version": None,
                 }
                 continue
             age = max(0.0, current - beat.received_at)
@@ -87,6 +95,7 @@ class HeartbeatStore:
                 "status": ONLINE if age <= self.stale_after_sec else STALE,
                 "last_heartbeat_at": beat.received_at,
                 "age_sec": age,
+                "config_version": beat.config_version,
             }
         return {"cameras": cameras, "stale_after_sec": self.stale_after_sec}
 

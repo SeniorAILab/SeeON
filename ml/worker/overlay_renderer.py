@@ -22,6 +22,8 @@ BED_ROI_TEXT_COLOR: Color = (255, 255, 0)
 BED_EXIT_STATUS_COLOR: Color = (0, 0, 255)
 BED_PRESENT_STATUS_COLOR: Color = (0, 255, 255)
 POSE_DOT_COLOR: Color = (255, 255, 255)
+MAX_SNAPSHOT_BYTES = 200 * 1024
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +75,38 @@ class OverlayRenderer:
         if not ok:
             raise ValueError("failed to encode overlay JPEG")
         return bytes(encoded)
+
+    def encode_jpeg_bounded(
+        self,
+        frame: Frame,
+        observation: FrameObservation,
+        debug_snapshots: tuple[DomainDebugSnapshot, ...] = (),
+        *,
+        max_bytes: int = MAX_SNAPSHOT_BYTES,
+    ) -> bytes | None:
+        try:
+            image = self.render(frame, observation, debug_snapshots)
+            encoded = _encode_bounded_image(image, max_bytes=max_bytes)
+            if encoded is not None:
+                return encoded
+            downscaled = cv2.resize(image, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+            return _encode_bounded_image(downscaled, max_bytes=max_bytes)
+        except Exception:  # noqa: BLE001 - snapshot encoding is best-effort alert metadata
+            return None
+
+
+def _encode_bounded_image(image: np.ndarray, *, max_bytes: int) -> bytes | None:
+    for quality in (85, 70, 55, 40, 25):
+        ok, encoded = cv2.imencode(
+            ".jpg",
+            image,
+            [cv2.IMWRITE_JPEG_QUALITY, quality],
+        )
+        if ok:
+            jpeg = bytes(encoded)
+            if len(jpeg) <= max_bytes:
+                return jpeg
+    return None
 
 
 def _draw_bed_exit_debug(image: np.ndarray, snapshot: DomainDebugSnapshot) -> None:

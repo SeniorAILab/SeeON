@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import urllib.error
 import urllib.parse
@@ -48,14 +49,24 @@ class EdgeIngestClient:
         event_type: AlertEventType,
         detected_at: str,
         probability: float,
+        audit: dict[str, object] | None = None,
+        snapshot_bytes: bytes | None = None,
     ) -> bool:
         payload = EventApiPayload(
             camera_id=self.camera_id,
             type=event_type,
             detected_at=detected_at,
             confidence=probability,
+            **_audit_payload_fields(audit),
         )
-        return self._post(self.events_url, payload.as_dict())
+        response = self._post_json(self.events_url, payload.as_dict())
+        if response is None:
+            self._increment_failure()
+            return False
+        event_id = response.get("id")
+        if snapshot_bytes is not None and isinstance(event_id, str) and event_id != "":
+            self._put_snapshot(_join_url(self.events_url, f"{event_id}/snapshot"), snapshot_bytes)
+        return True
 
     def for_camera(self, camera_id: str) -> EdgeIngestClient:
         if camera_id == self.camera_id:
@@ -104,6 +115,39 @@ class EdgeIngestClient:
             return False
         return True
 
+    def _post_json(self, url: str, payload: dict[str, object]) -> dict[str, object] | None:
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_sec) as response:
+                body = response.read()
+        except (TimeoutError, OSError, urllib.error.URLError, urllib.error.HTTPError):
+            return None
+        if body == b"":
+            return {}
+        try:
+            parsed = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    def _put_snapshot(self, url: str, snapshot_bytes: bytes) -> None:
+        request = urllib.request.Request(
+            url,
+            data=snapshot_bytes,
+            headers={"Content-Type": "image/jpeg"},
+            method="PUT",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_sec) as response:
+                response.read()
+        except (TimeoutError, OSError, urllib.error.URLError, urllib.error.HTTPError) as exc:
+            print(f"snapshot upload failed: {exc}", file=sys.stderr)
+
     def _increment_failure(self) -> None:
         with self._lock:
             self._failure_count += 1
@@ -137,5 +181,20 @@ def _event_probability(event: EventPayload) -> float:
         return min(1.0, max(0.0, float(value)))
     return 1.0
 
+
+def _audit_payload_fields(audit: dict[str, object] | None) -> dict[str, object]:
+    if audit is None:
+        return {}
+    return {
+        key: audit[key]
+        for key in (
+            "config_version",
+            "model_version",
+            "detector_version",
+            "operating_threshold",
+            "clock_source",
+        )
+        if audit.get(key) is not None
+    }
 
 __all__ = ["DEFAULT_TIMEOUT_SEC", "EdgeIngestClient", "_utc_iso_timestamp"]

@@ -7,6 +7,8 @@ from typing import Final, TypeAlias
 
 from numpy.typing import NDArray
 
+from contracts.runner import PersonRunnerResult, person_result
+
 PERSON_WEIGHTS_DIR: Final = Path(__file__).resolve().parent.parent / "models" / "person"
 PERSON_MODEL_FILENAME: Final = "yolo26n.pt"
 PERSON_MODEL_CONFIDENCE: Final = 0.25
@@ -29,12 +31,15 @@ class YoloPersonRunner:
         self._device = device
         self._model = None
 
-    def predict(self, frame: NDArray) -> PersonBoxes:
-        """Return person boxes as ``(x1,y1,x2,y2,conf)`` tuples."""
+    def predict(self, frame: NDArray) -> PersonRunnerResult:
+        """Return tagged person boxes as ``(x1,y1,x2,y2,conf)`` tuples."""
         results = self._get_model().predict(
             source=frame, conf=self._confidence, verbose=False, device=self._device
         )
-        return _extract_person_boxes(results[0], self._confidence)
+        return person_result(_extract_person_boxes(results[0], self._confidence))
+
+    def run(self, frame: NDArray) -> PersonRunnerResult:
+        return self.predict(frame)
 
     def _get_model(self):
         if self._model is None:

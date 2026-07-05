@@ -6,7 +6,8 @@ import numpy as np
 
 from contracts.frame import Frame
 from contracts.observation import FrameObservation
-from worker.camera_worker import CameraWorker, RunnerOutput
+from contracts.runner import RunnerOutput, bed_result, person_result
+from worker.camera_worker import CameraWorker
 from worker.domains.bed_exit.detector import BedExitMonitor
 from worker.domains.bed_exit.schema import DomainDebugSnapshot
 from worker.scheduler import Scheduler
@@ -18,13 +19,13 @@ PERSON = (10, 10, 50, 50, 0.9)
 class _Runner:
     def run(self, image: np.ndarray) -> RunnerOutput:
         del image
-        return (PERSON,)
+        return person_result((PERSON,))
 
 
 class _BedRunner:
     def run(self, image: np.ndarray) -> RunnerOutput:
         del image
-        return (BED,)
+        return bed_result((BED,))
 
 
 class _CountingMonitor(BedExitMonitor):
