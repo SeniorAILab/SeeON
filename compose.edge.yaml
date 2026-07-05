@@ -17,7 +17,12 @@ services:
     environment:
       API_BACKEND_EVENTS_URL: ${API_BACKEND_EVENTS_URL:?edge api requires backend Event API URL}
       API_EDGE_RELAY_TOKEN: ${API_EDGE_RELAY_TOKEN:?edge api requires worker relay token}
-      API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:?edge api requires camera inventory JSON}
+      # Backend config-read (PR-7): ml-api pulls camera inventory + night window +
+      # config_version from the backend ML config-read. This is the PRIMARY config source.
+      API_BACKEND_CONFIG_URL: ${API_BACKEND_CONFIG_URL:?edge api requires backend ML config-read base URL}
+      API_FACILITY_ID: ${API_FACILITY_ID:?edge api requires the facility id to pull config for}
+      # Fallback camera inventory: used ONLY when the backend config pull is unavailable.
+      API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:-}
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
     command:
@@ -47,8 +52,10 @@ services:
       EDGE_CAMERA_CONFIG: /run/secrets/ml-worker.yaml
       RELAY_URL: http://ml-api:8000
       RELAY_TOKEN: ${API_EDGE_RELAY_TOKEN:?edge worker requires relay token shared with ml-api}
+      ML_WORKER_STATE_DIR: /var/lib/ml-worker
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
+      - ml-worker-state:/var/lib/ml-worker
     secrets:
       - source: ml-worker-config
         target: ml-worker.yaml
@@ -66,3 +73,5 @@ services:
 secrets:
   ml-worker-config:
     file: ${EDGE_CAMERA_CONFIG:?edge requires a local ml-worker YAML config}
+volumes:
+  ml-worker-state: {}
