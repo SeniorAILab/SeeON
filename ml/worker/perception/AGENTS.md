@@ -8,7 +8,6 @@ Own worker observation construction and scene state derived from frames and runn
 - `tracker.py`: greedy IoU tracking.
 - `window_buffer.py`: temporal frame windows.
 - `scene_state.py`: scene-level state.
-- `bed_detector.py`: bed detection post-processing for overlays and domains.
 
 ## Imports
 
@@ -21,7 +20,6 @@ Forbidden: `worker/sources`, `worker/runners`, `worker/domains`, `worker` orches
 - `tests/test_perception_observation_builder.py`
 - `tests/test_frame_observation_contract.py`
 - `tests/test_demo_tracking.py`
-- `tests/test_demo_bed_detector.py`
 - `tests/test_import_dependency_ladder.py`
 
 ## Gotchas

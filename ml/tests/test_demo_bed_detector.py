@@ -11,7 +11,7 @@ import numpy as np
 
 from contracts import BoundingBox, Frame
 from contracts.runner import bed_result
-from worker.perception.bed_detector import BedDetector
+from demo.bed_detector import BedDetector
 from worker.runners import YoloBedSegRunner, dedupe_bed_boxes
 
 

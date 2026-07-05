@@ -16,7 +16,9 @@ ALLOWED_PATHS: Final = {
     "/api/v1/health",
     "/api/v1/models",
     "/api/v1/relay/alerts",
+    "/api/v1/relay/config",
     "/api/v1/relay/heartbeat",
+    "/api/v1/relay/restart",
     "/api/v1/status",
     "/docs",
     "/docs/oauth2-redirect",
@@ -33,7 +35,6 @@ PRODUCTION_ROUTE_TERMS: Final = (
 )
 FORBIDDEN_IMPORTS: Final = (
     "worker",
-    "events.publisher",
     "events.outbox",
     "events.schemas",
     "runtime.edge_worker",
@@ -107,7 +108,7 @@ def test_serving_import_allows_api_owned_backend_ingest_client_but_not_ml_runtim
             "-c",
             (
                 "import sys; import api.main; "
-                "forbidden = {'events.publisher', 'events.outbox', 'events.schemas', "
+                "forbidden = {'events.outbox', 'events.schemas', "
                 "'worker', 'worker.edge_worker', "
                 "'worker.runners.registry', 'worker.sources.registry'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "

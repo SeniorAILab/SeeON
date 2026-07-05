@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 __all__ = [
-    "AlertClient",
     "EventPublisher",
     "LoggingEventPublisher",
     "Outbox",
@@ -12,10 +11,6 @@ __all__ = [
 
 
 def __getattr__(name: str) -> object:
-    if name == "AlertClient":
-        from events.publisher import AlertClient
-
-        return AlertClient
     if name in {"EventPublisher", "LoggingEventPublisher", "StubEventPublisher"}:
         from events import local_publisher
 
