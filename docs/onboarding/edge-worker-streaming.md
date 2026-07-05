@@ -59,7 +59,7 @@ ADR과 `ml/AGENTS.md`의 dependency ladder는 worker가 어느 package를 어떤
 
 ## source intake와 capture thread
 
-`edge_worker._worker()`는 각 `CameraRuntimeConfig`마다 `RTSPSource(camera.rtsp_url, max_failures, open_timeout_ms, read_timeout_ms)`를 만든다. `RTSPSource.__iter__()`는 `OpenCVRTSPBackend`로 capture를 열고, read된 BGR frame을 RGB로 변환해 `Frame(index, time_sec, image)`를 yield한다.
+`edge_worker._worker()`는 각 `CameraRuntimeConfig`마다 추론용 SUB 스트림(`camera.inference_rtsp_url` — `streams.sub`가 있으면 그것, 없으면 legacy 단일 `rtsp_url` fallback)으로 `RTSPSource`를 만든다. `streams.main`(1080p 증거 스트림)은 Phase-1에선 config로만 plumbing되고 디코드하지 않는다. `RTSPSource.__iter__()`는 주입 가능한 decode backend(기본 `OpenCVRTSPBackend`, BGR→RGB 변환은 backend가 담당해 RGB frame을 반환)로 capture를 열고, 선택적 `fps`로 결정적 처리율을 페이싱하며, read 실패 시 capped backoff로 재접속(supervisor `stop_event`로 취소 가능)하고 `Frame(index, time_sec, image)`를 yield한다.
 
 `EdgeWorkerSupervisor.from_workers()`는 camera마다 `_CameraLoop(worker, LatestFrameBuffer())`를 만든다. `run()`은 다음 구조로 움직인다.
 
@@ -145,7 +145,7 @@ ADR과 `ml/AGENTS.md`의 dependency ladder는 worker가 어느 package를 어떤
 | `ml/worker/camera_worker.py` | per-frame runner/perception/domain/incident/sink path를 소유한다. |
 | `ml/worker/edge_worker_config.py` | YAML runtime contract를 검증한다. `CameraRuntimeConfig`, `RelayConfig`, `WorkerRuntimeConfig`, `FallModelConfig`, domain config, duplicate camera id 검증을 포함한다. |
 
-worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`로 시작해야 한다. legacy backend ingest field(`ingest`, `alert_api_url`, `heartbeat_api_url`, camera-level ingest key/secret)는 config validation에서 거부된다. worker는 relay-only이며 backend Event API URL을 직접 소유하지 않는다.
+worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`(또는 `streams.sub`/`streams.main`)은 `rtsp://`로 시작해야 한다. `streams.sub`는 추론 입력, `streams.main`은 추후 증거용(Phase-1 미사용), 단일 `rtsp_url`은 하위호환 fallback이고, 선택적 `fps`는 결정적 처리율(기본값은 CPU 유효 추론 fps 근사)을 정하며, 선택적 `decode_backend`는 디코드 백엔드(기본 `opencv`)를 고른다. legacy backend ingest field(`ingest`, `alert_api_url`, `heartbeat_api_url`, camera-level ingest key/secret)는 config validation에서 거부된다. worker는 relay-only이며 backend Event API URL을 직접 소유하지 않는다.
 
 ## relay 직전 경계
 
@@ -158,7 +158,7 @@ worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`�
 | `event_type` `fall`/`bed-exit`만 통과 | 그 외 event type은 무시 |
 | `probability` 또는 `confidence` | 0.0~1.0으로 clamp |
 | `detected_at` | event 값이 없으면 UTC timestamp 생성 |
-| camera identity | worker config의 `camera_id`, `facility_id`, optional `resident_id` 사용 |
+| camera identity | worker config의 `camera_id`, `facility_id` 사용 |
 | evidence | 원본 event dict 전체를 `evidence`에 포함 |
 
 여기서 `_RelayClient`가 `/api/v1/relay/alerts`로 HTTP POST를 시작하면 worker 내부 streaming 문서의 범위는 끝난다. token 검증, `API_CAMERA_INVENTORY` binding, backend `POST /api/v1/events`/`POST /api/v1/events/heartbeat` 호출은 `./edge-device.md`의 `ml-api` 책임이다.
@@ -167,8 +167,8 @@ worker YAML은 JSON이 아니라 YAML이어야 하며, `rtsp_url`은 `rtsp://`�
 
 - [../architecture.md](../architecture.md)
 - [./edge-device.md](./edge-device.md)
-- [../api/ml-serving-api.md](../api/ml-serving-api.md)
-- [../api/edge-ingest-api.md](../api/edge-ingest-api.md)
+- [../rules/rest-api-convention.md](../rules/rest-api-convention.md)
+- [../domain/alert-pipeline.md](../domain/alert-pipeline.md)
 - ADR
 - ADR
 - ADR

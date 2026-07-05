@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from contracts.artifacts import bed_seg_weight_path
+from contracts.runner import BedRunnerResult, bed_result
 
 # COCO class index for "bed" in the standard 80-class COCO label set. The weight
 # is asserted to actually map this index to "bed" at runtime (guards against a
@@ -48,29 +49,27 @@ class YoloBedSegRunner:
         self._device = device
         self._bed_class_id = _resolve_bed_class_id(getattr(self._model, "names", None))
 
-    def detect_beds(
-        self, frame: NDArray
-    ) -> tuple[tuple[int, int, int, int, float, tuple[tuple[int, int], ...]], ...]:
-        """Return bed instances ``(x1,y1,x2,y2,conf,polygon)`` for class-59 masks.
+    def detect_beds(self, frame: NDArray) -> BedRunnerResult:
+        """Return tagged bed instances ``(x1,y1,x2,y2,conf,polygon)`` for class-59 masks.
 
         No internal cap or merge: instance masks are already separated by the
         model. Cross-frame dedup and deterministic ordering happen in
         ``BedDetector`` (issue #244: no hard cap).
         """
         if self._bed_class_id is None:
-            return ()
+            return bed_result(())
         results = self._model.predict(
             source=frame, conf=self._confidence, verbose=False, device=self._device
         )
         r = results[0]
         if r.boxes is None or len(r.boxes) == 0 or r.masks is None:
-            return ()
+            return bed_result(())
         xyxy = r.boxes.xyxy.cpu().numpy()
         confs = r.boxes.conf.cpu().numpy()
         classes = r.boxes.cls.cpu().numpy()
         polygons = r.masks.xy
 
-        return tuple(
+        return bed_result(tuple(
             (
                 int(box[0]),
                 int(box[1]),
@@ -81,7 +80,10 @@ class YoloBedSegRunner:
             )
             for box, conf, cls, poly in zip(xyxy, confs, classes, polygons, strict=True)
             if int(cls) == self._bed_class_id and float(conf) >= self._confidence
-        )
+        ))
+
+    def run(self, frame: NDArray) -> BedRunnerResult:
+        return self.detect_beds(frame)
 
 
 def _simplify_polygon(points: NDArray, max_points: int) -> tuple[tuple[int, int], ...]:

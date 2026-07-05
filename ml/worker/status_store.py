@@ -79,6 +79,54 @@ class StatusStore:
         self._ops_events.append(event)
         return event
 
+    def record_camera_reconnecting(
+        self,
+        camera_id: str,
+        facility_id: str,
+        category: str,
+        *,
+        detail: str | None = None,
+        timestamp: float | None = None,
+    ) -> None:
+        self.set_status(
+            camera_id,
+            facility_id,
+            CameraStatus.DEGRADED,
+            error_category=category,
+            timestamp=timestamp,
+        )
+        self.record_ops_event(
+            "camera.offline",
+            camera_id,
+            facility_id,
+            category,
+            timestamp=timestamp,
+            detail=detail,
+        )
+
+    def record_camera_recovered(
+        self,
+        camera_id: str,
+        facility_id: str,
+        *,
+        detail: str | None = None,
+        timestamp: float | None = None,
+    ) -> None:
+        self.set_status(
+            camera_id,
+            facility_id,
+            CameraStatus.READY,
+            timestamp=timestamp,
+        )
+        self.record_ops_event(
+            "camera.recovered",
+            camera_id,
+            facility_id,
+            "rtsp_recovered",
+            timestamp=timestamp,
+            detail=detail,
+        )
+
     def ops_events(self) -> tuple[OpsEvent, ...]:
         return tuple(self._ops_events)
 

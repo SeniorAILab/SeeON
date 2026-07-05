@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { fetchActiveAlertSnapshot, mapAlertDto, resolveAlert, type FrontendAlert } from "@/services/api/alertEndpoints";
-import { buildSseUrl, isAbsoluteApiUrl, USE_MOCK } from "@/services/apiClient";
+import { buildSseUrl, isAbsoluteApiUrl } from "@/services/apiClient";
 import { dashboardService } from "@/services/dashboardService";
 import {
   alertsForFacility,
@@ -13,9 +13,8 @@ import {
   type AlertMergeState,
   type AlertUpdateDelta,
 } from "@/services/alertMerge";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
-import { realtimeEngine } from "@/mocks/realtimeEngine";
+import { useAuthStore } from "@/stores/authStore";
+import { registerFacilityMonitorController, useFacilityStore } from "@/stores/facilityStore";
 import type { ConnectionState, DashboardResponse, DashboardSummary, SpaceStatus } from "@/types";
 
 interface MonitorState {
@@ -31,13 +30,16 @@ interface MonitorState {
   stop: () => void;
   resolve: (spaceId: string) => Promise<void> | void;
   setSound: (on: boolean) => void;
-  trigger: (spaceId: string, emergency: boolean) => void;
 }
 
 let unsub: (() => void) | null = null;
 let alertMergeState: AlertMergeState = createAlertMergeState();
 let activeFacilityId: string | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+function isActiveFacility(facilityId: string): boolean {
+  return activeFacilityId === facilityId;
+}
+
 
 
 function closeLiveConnection(): void {
@@ -84,6 +86,7 @@ function dashboardWithStatuses(
 
 async function reconcileSnapshot(facilityId: string): Promise<void> {
   const alerts = await fetchActiveAlertSnapshot();
+  if (!isActiveFacility(facilityId)) return;
   alertMergeState = reconcileActiveAlertSnapshot(alertMergeState, facilityId, alerts);
 }
 
@@ -102,20 +105,6 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
   soundEnabled: false,
 
   start: (facilityId, intervalMs = 3000) => {
-    if (USE_MOCK) {
-      realtimeEngine.start(facilityId, intervalMs);
-      if (!unsub) {
-        unsub = realtimeEngine.subscribe((snap) =>
-          set({
-            statuses: snap.statuses,
-            connection: snap.connection,
-            lastUpdateAt: snap.lastUpdateAt,
-          })
-        );
-      }
-      set({ running: true });
-      return;
-    }
 
     if (activeFacilityId === facilityId && get().running) return;
     closeLiveConnection();
@@ -124,8 +113,10 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     alertMergeState = createAlertMergeState();
     set({ running: true, loading: true, connection: "RECONNECTING" });
     dashboardService.getDashboard(facilityId).then(async (dashboard) => {
+      if (!isActiveFacility(facilityId)) return;
       alertMergeState = createAlertMergeState(dashboard.unacknowledgedEvents as FrontendAlert[]);
       await reconcileSnapshot(facilityId);
+      if (!isActiveFacility(facilityId)) return;
       const statuses = deriveMergedStatuses(dashboard.statuses);
       set({
         dashboard: dashboardWithStatuses(dashboard, statuses),
@@ -136,8 +127,10 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       });
     });
     pollTimer = setInterval(() => {
+      if (!isActiveFacility(facilityId)) return;
       reconcileSnapshot(facilityId)
         .then(() => {
+          if (!isActiveFacility(facilityId)) return;
           set((state) => {
             const statuses = deriveMergedStatuses(state.statuses);
             return {
@@ -148,12 +141,15 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
             };
           });
         })
-        .catch(() => set({ connection: "RECONNECTING" }));
+        .catch(() => {
+          if (isActiveFacility(facilityId)) set({ connection: "RECONNECTING" });
+        });
     }, intervalMs);
     if (typeof EventSource === "undefined") return;
     const eventSource = eventSourceFor(facilityId);
     unsub = () => eventSource.close();
     const mergeAlertMessage = (event: MessageEvent) => {
+      if (!isActiveFacility(facilityId)) return;
       const alert = mapAlertDto(JSON.parse(event.data));
       alertMergeState = mergeAlerts(alertMergeState, [alert]);
       set((state) => {
@@ -168,6 +164,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     };
     eventSource.addEventListener("alert", (event) => mergeAlertMessage(event as MessageEvent));
     eventSource.addEventListener("alert-updated", (event) => {
+      if (!isActiveFacility(facilityId)) return;
       const update = JSON.parse((event as MessageEvent).data) as AlertUpdateDelta;
       alertMergeState = mergeAlertUpdates(alertMergeState, [update]);
       set((state) => {
@@ -181,9 +178,11 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       });
     });
     eventSource.onerror = () => {
+      if (!isActiveFacility(facilityId)) return;
       set({ connection: "RECONNECTING" });
       reconcileSnapshot(facilityId)
         .then(() => {
+          if (!isActiveFacility(facilityId)) return;
           set((state) => {
             const statuses = deriveMergedStatuses(state.statuses);
             return {
@@ -194,7 +193,9 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
             };
           });
         })
-        .catch(() => set({ connection: "RECONNECTING" }));
+        .catch(() => {
+          if (isActiveFacility(facilityId)) set({ connection: "RECONNECTING" });
+        });
     };
     eventSource.addEventListener("session-invalid", () => {
       closeLiveConnection();
@@ -215,8 +216,10 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     }
     useMonitorStore.setState({ loading: true });
     const dashboard = await dashboardService.getDashboard(facilityId);
+    if (!isActiveFacility(facilityId)) return;
     alertMergeState = createAlertMergeState(dashboard.unacknowledgedEvents as FrontendAlert[]);
     await reconcileSnapshot(facilityId);
+    if (!isActiveFacility(facilityId)) return;
     const statuses = deriveMergedStatuses(dashboard.statuses);
     useMonitorStore.setState({
       dashboard: dashboardWithStatuses(dashboard, statuses),
@@ -231,23 +234,24 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     closeLiveConnection();
     alertMergeState = createAlertMergeState();
     activeFacilityId = null;
-    if (USE_MOCK) realtimeEngine.stop();
     set({ running: false, dashboard: null, loading: false, statuses: {} });
   },
 
   resolve: async (spaceId) => {
-    if (USE_MOCK) {
-      realtimeEngine.acknowledge(spaceId);
-      return;
-    }
+    // 활성 시설을 캡처하고 절대 resurrect하지 않는다. stop/전환 이후엔 조용히 드롭한다.
+    const facilityId = activeFacilityId;
+    if (!facilityId) return;
     const alerts = await fetchActiveAlertSnapshot();
+    if (!isActiveFacility(facilityId)) return;
     const alert = alerts
-      .filter((item) => item.spaceId === spaceId && isActiveAlert(item))
+      .filter(
+        (item) => item.spaceId === spaceId && item.facilityId === facilityId && isActiveAlert(item),
+      )
       .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))[0];
     if (!alert) return;
-    activeFacilityId = activeFacilityId ?? alert.facilityId;
-    alertMergeState = mergeAlerts(alertMergeState, alerts.filter((item) => item.facilityId === alert.facilityId));
+    alertMergeState = mergeAlerts(alertMergeState, alerts.filter((item) => item.facilityId === facilityId));
     const resolved = await resolveAlert(alert.id);
+    if (!isActiveFacility(facilityId)) return;
     alertMergeState = mergeAlerts(alertMergeState, [resolved]);
     set((state) => {
       const statuses = deriveMergedStatuses(state.statuses);
@@ -259,7 +263,9 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     });
   },
   setSound: (on) => set({ soundEnabled: on }),
-  trigger: (spaceId, emergency) => {
-    if (USE_MOCK) realtimeEngine.trigger(spaceId, emergency);
-  },
 }));
+
+registerFacilityMonitorController({
+  stop: () => useMonitorStore.getState().stop(),
+  start: (id) => useMonitorStore.getState().start(id),
+});

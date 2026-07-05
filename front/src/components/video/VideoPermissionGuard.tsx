@@ -1,6 +1,6 @@
 import { Lock } from "lucide-react";
 import { canAdmin } from "@/lib/roles";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 /**
  * 영상 접근 권한 가드.
