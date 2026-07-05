@@ -8,6 +8,7 @@ Define every cross-layer **protocol, constant, enum, and shared data shape** her
 - `observation.py`: boxes, labels, detection results, and `FrameObservation`.
 - `model.py`: model module protocol and shared confidence defaults.
 - `artifacts.py`: model/weight path helpers.
+- `tracker.py`: shared tracker protocol surface.
 - `event.py`: event severity, levels, and frontend event-type mapping.
 
 ## Imports
@@ -20,7 +21,7 @@ Forbidden: `features`, `sources`, `runners`, `perception`, `domains`, `runtime`,
 
 - **Module**: lowercase singular concept noun, one bounded concept per file (`frame`, `observation`, `runner`, `event`, `model`, `artifacts`). A new concept gets a new module — never a `common`/`types`/`misc` dump.
 - **Data shapes**: `@dataclass(frozen=True, slots=True)`, PascalCase noun (`Frame`, `BoundingBox`, `FrameObservation`); domain-prefix when ambiguous (`BedRegionDebugSnapshot`). A mutable variant is `Mutable<Name>` (`MutableEventPayload`).
-- **Protocols**: PascalCase with a `Protocol` suffix (`RunnerProtocol`, `PredictFullRunnerProtocol`).
+- **Protocols**: PascalCase with a `Protocol` suffix (`RunnerProtocol`, `RunRunnerProtocol`).
 - **Type aliases**: PascalCase; runner/boundary I/O uses an `<X>Output` suffix (`PoseOutput`, `BoxOutput`, `RunnerOutput`); composites get a domain noun (`Detections`, `Regions`, `Image`).
 - **Enums**: `StrEnum`, PascalCase with an axis suffix that reads at the call site (`DetectionEventType`, `Level`, `<Concept>State`); members are `UPPER_SNAKE` with lowercase string values.
 - **Debug/telemetry**: `<Concept>DebugSnapshot`.

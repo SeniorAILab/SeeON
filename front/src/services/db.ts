@@ -1,7 +1,7 @@
+// ⚠ 비활 fixture: 런타임 도달 불가(가역 숨김 페이지 전용).
+// 재활성 시 실백엔드로 배선하거나 페이지 영구 제거 시 함께 삭제.
 // =============================================================
-// 인메모리 Mock DB
-// 실제 백엔드 도입 시 이 모듈만 교체하면 된다.
-// (각 service 파일은 이 db 또는 실제 fetch 를 호출하도록 분리되어 있음)
+// 인메모리 fixture DB
 // =============================================================
 import {
   alertRules as seedAlertRules,
@@ -12,26 +12,17 @@ import {
   spaceStatuses as seedStatuses,
   users as seedUsers,
   videoClips as seedVideoClips,
-  residents as seedResidents,
-  residentRiskSummaries as seedResidentSummaries,
-  zones as seedZones,
-  residentAssignments as seedAssignments,
 } from "@/data/mockData";
 import type {
   AlertRule,
   DetectionEvent,
   Facility,
   Floor,
-  Resident,
-  ResidentAction,
-  ResidentAssignment,
-  ResidentRiskSummary,
   Space,
   SpaceStatus,
   User,
   VideoAccessLog,
   VideoClip,
-  Zone,
 } from "@/types";
 
 // 깊은 복제로 seed 보존(HMR/리셋 대비)
@@ -47,11 +38,6 @@ export const db = {
   alertRules: clone(seedAlertRules) as AlertRule[],
   videoClips: clone(seedVideoClips) as VideoClip[],
   videoAccessLogs: [] as VideoAccessLog[],
-  residents: clone(seedResidents) as Resident[],
-  residentSummaries: clone(seedResidentSummaries) as ResidentRiskSummary[],
-  residentActions: [] as ResidentAction[],
-  zones: clone(seedZones) as Zone[],
-  assignments: clone(seedAssignments) as ResidentAssignment[],
 };
 
 export type MockDb = typeof db;

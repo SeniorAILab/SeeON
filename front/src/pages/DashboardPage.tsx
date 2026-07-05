@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { Filter, RefreshCw, AlertTriangle } from "lucide-react";
 import { StatsBar } from "@/components/StatsBar";
 import { FloorTabs } from "@/components/FloorTabs";
-import { StatusCard } from "@/components/StatusCard";
-import { SpaceDetailPanel } from "@/components/SpaceDetailPanel";
+import { RoomStatusBoard } from "@/components/status/RoomStatusBoard";
 import { Select } from "@/components/ui/primitives";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useMonitorStore } from "@/stores/monitorStore";
 import { spaceTypeLabel } from "@/lib/labels";
 import type { Space, SpaceType } from "@/types";
 
@@ -25,6 +25,8 @@ export function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [selected, setSelected] = useState<Space | null>(null);
+  const connection = useMonitorStore((s) => s.connection);
+  const lastUpdateAt = useMonitorStore((s) => s.lastUpdateAt);
 
   const visibleSpaces = useMemo(() => {
     if (!data) return [];
@@ -35,22 +37,19 @@ export function DashboardPage() {
       .filter((s) => {
         if (statusFilter === "ALL") return true;
         return data.statuses[s.id]?.status === statusFilter;
-      })
-      .sort((a, b) => {
-        // 위험 우선 정렬 — 직원이 3초 안에 위험 공간을 인지하도록
-        const rank = { DANGER: 0, CAUTION: 1, CHECK_NEEDED: 2, STABLE: 3 };
-        const ra = rank[data.statuses[a.id]?.status ?? "STABLE"];
-        const rb = rank[data.statuses[b.id]?.status ?? "STABLE"];
-        return ra - rb;
       });
   }, [data, floorFilter, statusFilter, typeFilter]);
+  const alertsBySpace = useMemo(() => {
+    const groups: Record<string, NonNullable<typeof data>["unacknowledgedEvents"]> = {};
+    for (const alert of data?.unacknowledgedEvents ?? []) groups[alert.spaceId] = [...(groups[alert.spaceId] ?? []), alert];
+    return groups;
+  }, [data?.unacknowledgedEvents]);
+
 
   if (loading && !data) {
     return <div className="py-20 text-center text-sm text-gray-400">대시보드를 불러오는 중...</div>;
   }
   if (!data) return null;
-
-  const floorOf = (id: string) => data.floors.find((f) => f.id === id);
 
   return (
     <div className="space-y-5">
@@ -108,29 +107,23 @@ export function DashboardPage() {
           조건에 맞는 공간이 없습니다.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleSpaces.map((space) => (
-            <StatusCard
-              key={space.id}
-              space={space}
-              floor={floorOf(space.floorId)}
-              status={data.statuses[space.id]}
-              onClick={() => setSelected(space)}
-            />
-          ))}
+        <div className="h-[70vh] min-h-[520px] overflow-hidden">
+          <RoomStatusBoard
+            spaces={visibleSpaces}
+            statuses={data.statuses}
+            floors={data.floors}
+            alertsBySpace={alertsBySpace}
+            connection={connection}
+            lastUpdateAt={lastUpdateAt}
+            variant="admin"
+            selectedSpace={selected}
+            onSelectSpace={setSelected}
+            onClosePanel={() => setSelected(null)}
+            onResolved={reload}
+          />
         </div>
       )}
 
-      {/* 상세 패널 */}
-      {selected && (
-        <SpaceDetailPanel
-          space={selected}
-          floor={floorOf(selected.floorId)}
-          status={data.statuses[selected.id]}
-          onClose={() => setSelected(null)}
-          onChanged={reload}
-        />
-      )}
     </div>
   );
 }

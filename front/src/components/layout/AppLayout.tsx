@@ -1,64 +1,40 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Bell,
   LogOut,
   Building2,
-  Layers,
   DoorOpen,
-  BedDouble,
-  ShieldAlert,
   Users as UsersIcon,
-  ChevronDown,
   Menu,
   X,
-  Smartphone,
   LayoutGrid,
   MonitorPlay,
-  Heart,
-  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
-import { useFacilityStore, facilitiesForUser } from "@/store/facilityStore";
+import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
-import {
-  DASHBOARD_HOME_PATH,
-  dashboardAdminPath,
-  dashboardStaffPath,
-  monitorHomePath,
-} from "@/lib/routeAccess";
-
-function useClock() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000 * 30);
-    return () => clearInterval(t);
-  }, []);
-  return now;
-}
+import { FACILITIES_PICKER_PATH, adminPath, dashboardPath } from "@/lib/routeAccess";
 
 export function AppLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const { facilityId: routeFacilityId } = useParams<{ facilityId: string }>();
-  const now = useClock();
   const [mobileOpen, setMobileOpen] = useState(false);
   const userFacilityId = user?.facilityId ?? null;
   const userId = user?.id;
   const userRole = user?.role;
 
-  // 관리자 화면은 항상 밝게(라이트) 표시 — 다크모드는 직원 야간 화면 전용
   useEffect(() => {
     document.documentElement.classList.remove("dark");
   }, []);
 
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
   const facilities = useFacilityStore((s) => s.facilities);
-  const setFacility = useFacilityStore((s) => s.setFacility);
+  const switchFacility = useFacilityStore((s) => s.switchFacility);
   const setFacilities = useFacilityStore((s) => s.setFacilities);
 
   useEffect(() => {
@@ -66,7 +42,6 @@ export function AppLayout() {
       setFacilities([]);
       return;
     }
-
     let cancelled = false;
     listFacilities()
       .then((nextFacilities) => {
@@ -75,45 +50,48 @@ export function AppLayout() {
       .catch(() => {
         if (!cancelled) setFacilities([]);
       });
-
     return () => {
       cancelled = true;
     };
-  }, [setFacilities, userFacilityId, userId, userRole]);
+  }, [setFacilities, userId, userRole, userFacilityId]);
 
   const myFacilities = facilitiesForUser(
     userRole === "SUPER_ADMIN" ? null : userFacilityId,
     facilities,
   );
-  const workspaceFacilityId = routeFacilityId ?? currentFacilityId ?? userFacilityId ?? "";
-  const currentFacility = myFacilities.find((f) => f.id === workspaceFacilityId) ?? null;
-  const activeFacilityId = currentFacility?.id ?? workspaceFacilityId;
+  const activeFacilityId = userRole === "SUPER_ADMIN" ? currentFacilityId : userFacilityId;
+  const currentFacility = myFacilities.find((f) => f.id === activeFacilityId) ?? null;
+  const facilityLabel = currentFacility?.name ?? activeFacilityId ?? "전역 개요";
 
   async function handleLogout() {
+    switchFacility(null);
     await logout();
     navigate("/login");
   }
 
-  const adminBase = activeFacilityId ? dashboardAdminPath(activeFacilityId) : "";
-  const nav = activeFacilityId
-    ? [
-        { to: adminBase, label: "상세 대시보드", Icon: LayoutGrid, show: true },
-        { to: `${adminBase}/events`, label: "이벤트", Icon: Bell, show: true },
-        { to: `${adminBase}/focus-residents`, label: "관심 어르신", Icon: Heart, show: true },
-        { to: `${adminBase}/monitor-settings`, label: "모니터 설정", Icon: MonitorPlay, show: canAdmin(user) },
-        { to: `${adminBase}/ux-test`, label: "UX 테스트 결과", Icon: FlaskConical, show: true },
-        { to: `${adminBase}/facility`, label: "시설 설정", Icon: Building2, show: canAdmin(user) },
-        { to: `${adminBase}/floors`, label: "층 관리", Icon: Layers, show: canAdmin(user) },
-        { to: `${adminBase}/spaces`, label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
-        { to: `${adminBase}/assignments`, label: "구역/침대 배정", Icon: BedDouble, show: canAdmin(user) },
-        { to: `${adminBase}/alert-rules`, label: "알림 규칙", Icon: ShieldAlert, show: canAdmin(user) },
-        { to: `${adminBase}/users`, label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
-      ].filter((n) => n.show)
-    : [];
+  function handleFacilityChange(next: string) {
+    if (next === "__global__") {
+      switchFacility(null);
+      navigate(FACILITIES_PICKER_PATH);
+      return;
+    }
+    switchFacility(next);
+    navigate(adminPath(next));
+  }
+
+  const routeFacilityId = activeFacilityId ?? "";
+  const nav = [
+    { to: routeFacilityId ? adminPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "상세 대시보드", Icon: LayoutGrid, show: true },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "events") : FACILITIES_PICKER_PATH, label: "이벤트", Icon: Bell, show: true },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "monitor-settings") : FACILITIES_PICKER_PATH, label: "모니터 설정", Icon: MonitorPlay, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "facility") : FACILITIES_PICKER_PATH, label: "시설 설정", Icon: Building2, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "spaces") : FACILITIES_PICKER_PATH, label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "users") : FACILITIES_PICKER_PATH, label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
+    // Re-enable after backend controllers exist: 관심 어르신, 구역/침대 배정, 알림 규칙.
+  ].filter((n) => n.show);
 
   return (
     <div className="flex min-h-screen bg-bg">
-      {/* 모바일 오버레이 */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/30 lg:hidden"
@@ -121,7 +99,6 @@ export function AppLayout() {
         />
       )}
 
-      {/* 사이드바 */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-surface transition-transform lg:static lg:translate-x-0",
@@ -132,7 +109,7 @@ export function AppLayout() {
           <LogoMark size={32} />
           <div className="leading-tight">
             <div className="text-sm font-bold text-ink">Senior AI Lab</div>
-            <div className="text-[11px] text-gray-400">관리자</div>
+            <div className="text-[11px] text-ink-soft">관리자</div>
           </div>
         </div>
 
@@ -145,29 +122,19 @@ export function AppLayout() {
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-brand-soft text-brand"
-                    : "text-ink-soft hover:bg-gray-100"
+                  isActive ? "bg-brand-soft text-brand" : "text-ink-soft hover:bg-gray-100"
                 )
               }
             >
-              <Icon className="h-4.5 w-4.5 h-[18px] w-[18px]" />
+              <Icon className="h-[18px] w-[18px]" />
               {label}
             </NavLink>
           ))}
         </nav>
 
         <div className="border-t border-border p-3">
-          <div className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-ink-soft">
-              {user?.name.slice(0, 1)}
-            </div>
-            <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm font-medium text-ink">{user?.name}</div>
-              <div className="text-[11px] text-gray-400">
-                {user ? roleLabel(user.role) : ""}
-              </div>
-            </div>
+          <div className="mb-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-ink">
+            <div className="truncate">{facilityLabel}</div>
           </div>
           <button
             onClick={handleLogout}
@@ -179,7 +146,6 @@ export function AppLayout() {
         </div>
       </aside>
 
-      {/* 메인 */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-2 border-b border-border bg-surface/80 px-4 py-2 backdrop-blur lg:flex-nowrap lg:gap-3 lg:px-6">
           <button
@@ -189,70 +155,41 @@ export function AppLayout() {
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          {/* 시설 선택 (SUPER_ADMIN 은 전환 가능) */}
-          <div className="relative min-w-0 flex-1 lg:flex-none">
-            {myFacilities.length > 1 ? (
-              <div className="flex max-w-full items-center gap-2 rounded-lg border border-border px-3 py-1.5">
+          <div className="min-w-0 flex-1 lg:flex-none">
+            {userRole === "SUPER_ADMIN" ? (
+              <label className="flex max-w-full items-center gap-2 rounded-lg border border-border px-3 py-1.5">
                 <Building2 className="h-4 w-4 text-gray-400" />
                 <select
+                  aria-label="시설 전환"
                   className="min-w-0 max-w-full truncate bg-transparent text-sm font-semibold text-ink focus:outline-none"
-                  value={currentFacility?.id ?? ""}
-                  onChange={(e) => {
-                    const selectedFacilityId = e.target.value;
-                    if (!selectedFacilityId) return;
-                    setFacility(selectedFacilityId);
-                    navigate(dashboardAdminPath(selectedFacilityId));
-                  }}
+                  value={activeFacilityId ?? "__global__"}
+                  onChange={(e) => handleFacilityChange(e.target.value)}
                 >
+                  <option value="__global__">전역 개요</option>
                   {myFacilities.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
+                    <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
                 </select>
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              </div>
+              </label>
             ) : (
               <div className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <Building2 className="h-4 w-4 text-gray-400" />
-                {currentFacility?.name ?? workspaceFacilityId}
+                {facilityLabel}
               </div>
             )}
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:gap-3">
-            {user?.role === "SUPER_ADMIN" && (
-              <button
-                onClick={() => navigate(DASHBOARD_HOME_PATH)}
-                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
-              >
-                <LayoutGrid className="h-4 w-4" />
-                전체 대시보드
-              </button>
-            )}
-            {activeFacilityId && (
-              <button
-                onClick={() => navigate(monitorHomePath(activeFacilityId))}
-                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
-              >
-                <MonitorPlay className="h-4 w-4" />
-                모니터
-              </button>
-            )}
+            <div className="hidden text-sm font-semibold text-ink-soft md:block">
+              {user ? roleLabel(user.role) : ""}
+            </div>
             <button
-              onClick={() => activeFacilityId && navigate(dashboardStaffPath(activeFacilityId))}
-              disabled={!activeFacilityId}
+              onClick={() => navigate(routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH)}
               className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"
             >
-              <Smartphone className="h-4 w-4" />
-              직원 모드
+              <MonitorPlay className="h-4 w-4" />
+              대시보드
             </button>
-            <div className="hidden text-sm tabular-nums text-ink-soft sm:block">
-              {now.getFullYear()}.{String(now.getMonth() + 1).padStart(2, "0")}.
-              {String(now.getDate()).padStart(2, "0")}{" "}
-              {String(now.getHours()).padStart(2, "0")}:
-              {String(now.getMinutes()).padStart(2, "0")}
-            </div>
           </div>
         </header>
 
