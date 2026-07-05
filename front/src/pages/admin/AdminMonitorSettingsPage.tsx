@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Select } from "@/components/ui/primitives";
 import { listFloors } from "@/services/api/floors";
 import { listSpaces } from "@/services/api/spaces";
-import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
+import { useMonitorSettingsStore } from "@/features/monitor";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { dashboardPath } from "@/lib/routeAccess";
 import type { Floor, Space } from "@/types";
