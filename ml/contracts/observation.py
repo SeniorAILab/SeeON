@@ -59,6 +59,7 @@ class FrameObservation:
     detections: Detections = field(default_factory=lambda: ((), ()))
     poses: tuple[tuple[tuple[int, int, float], ...], ...] = field(default_factory=tuple)
     regions: Regions = field(default_factory=lambda: ((), ()))
+    track_ids: tuple[int | None, ...] = field(default_factory=tuple)
 
     @property
     def boxes(self) -> tuple[BoundingBox, ...]:

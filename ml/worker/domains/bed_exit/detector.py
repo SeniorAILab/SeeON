@@ -13,7 +13,6 @@ from worker.domains.bed_exit.schema import (
     BedExitFrame,
     BedStatus,
 )
-from worker.perception.tracker import GreedyIouTracker
 
 
 @dataclass(slots=True)
@@ -52,7 +51,6 @@ class BedExitMonitor:
         min_containment: float = 0.35,
         hold_frames: int = 2,
         grace_frames: int = 3,
-        tracker: GreedyIouTracker | None = None,
         night_window: NightWindow | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -65,7 +63,7 @@ class BedExitMonitor:
         self._min_containment = min_containment
         self._hold_frames = hold_frames
         self._grace_frames = grace_frames
-        self._tracker = tracker if tracker is not None else GreedyIouTracker()
+
         self._assignments: dict[int, _Assignment] = {}
         self._night_window = night_window
         self._clock = (
@@ -73,11 +71,15 @@ class BedExitMonitor:
             if clock is not None
             else (
                 lambda: (
-                    datetime.now(ZoneInfo(night_window.tz)) if night_window is not None else None
+                    datetime.now(ZoneInfo(self._night_window.tz))
+                    if self._night_window is not None
+                    else None
                 )
             )
         )
         self.last_debug_snapshot: BedExitDebugSnapshot | None = None
+    def update_night_window(self, night_window: NightWindow | None) -> None:
+        self._night_window = night_window
 
     def update(
         self,
@@ -97,6 +99,7 @@ class BedExitMonitor:
         frame = self.update_boxes(
             bed_boxes=observation.bed_boxes,
             person_boxes=observation.boxes,
+            person_ids=observation.track_ids,
         )
         self.last_debug_snapshot = BedExitDebugSnapshot(
             frame_index=None,
@@ -117,9 +120,12 @@ class BedExitMonitor:
         *,
         bed_boxes: tuple[BoundingBox, ...],
         person_boxes: tuple[BoundingBox, ...],
+        person_ids: tuple[int | None, ...] = (),
     ) -> BedExitFrame:
-        person_ids = self._tracker.update(person_boxes)
-        for stale_id in set(self._assignments) - self._tracker.live_ids:
+        if not person_ids:
+            person_ids = tuple(range(len(person_boxes)))
+        live_ids = {person_id for person_id in person_ids if person_id is not None}
+        for stale_id in set(self._assignments) - live_ids:
             self._assignments.pop(stale_id, None)
 
         events: list[BedExitEvent] = []
@@ -127,6 +133,8 @@ class BedExitMonitor:
         exit_beds: set[int] = set()
 
         for person_id, person_box in zip(person_ids, person_boxes, strict=True):
+            if person_id is None:
+                continue
             assignment = self._assignments.setdefault(person_id, _Assignment())
             containments = tuple(_containment_ratio(person_box, bed) for bed in bed_boxes)
             best_bed_id = _best_bed_id(containments, self._min_containment)
