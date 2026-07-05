@@ -7,9 +7,9 @@ import numpy as np
 from contracts.event import EventPayload
 from contracts.frame import Frame
 from contracts.observation import BoundingBox
-from worker.camera_worker import CameraWorker, RunnerOutput
+from contracts.runner import RunnerOutput, bed_result, person_result
+from worker.camera_worker import CameraWorker
 from worker.domains.bed_exit.detector import BedExitMonitor
-from worker.perception.tracker import GreedyIouTracker
 from worker.scheduler import Scheduler
 
 BED = (0, 0, 100, 100, 0.9)
@@ -18,14 +18,18 @@ OUT_OF_BED = (150, 150, 190, 190, 0.9)
 
 
 class _Runner:
-    def __init__(self, outputs: dict[int, RunnerOutput] | RunnerOutput) -> None:
+    def __init__(self, outputs: dict[int, RunnerOutput] | RunnerOutput, kind: str) -> None:
         self.outputs = outputs
+        self.kind = kind
 
     def run(self, image: np.ndarray) -> RunnerOutput:
         frame_index = int(image[0, 0, 0])
-        if isinstance(self.outputs, dict):
-            return self.outputs.get(frame_index, ())
-        return self.outputs
+        output = (
+            self.outputs.get(frame_index, ())
+            if isinstance(self.outputs, dict)
+            else self.outputs
+        )
+        return bed_result(output) if self.kind == "bed" else person_result(output)
 
 
 @dataclass(slots=True)
@@ -60,14 +64,13 @@ def _worker(
         camera_id="cam-1",
         facility_id="facility-1",
         frame_source=(),
-        runners={"person": _Runner(people), "bed": _Runner(bed_outputs)},
+        runners={"person": _Runner(people, "person"), "bed": _Runner(bed_outputs, "bed")},
         scheduler=Scheduler({"person": 1, "bed": bed_interval}),
         domain_detectors=(
             BedExitMonitor(
                 min_containment=0.8,
                 hold_frames=1,
                 grace_frames=0,
-                tracker=GreedyIouTracker(min_iou=0.0),
             ),
         ),
         event_sink=sink,
@@ -105,7 +108,7 @@ def test_expired_cached_roi_cannot_suppress_fresh_bed_exit() -> None:
 
 
 def test_camera_worker_constructs_scene_state_per_camera_and_preserves_shared_runners() -> None:
-    runner = _Runner(())
+    runner = _Runner((), "person")
     first = CameraWorker("cam-1", "facility-1", (), {"person": runner})
     second = CameraWorker("cam-2", "facility-1", (), {"person": runner})
     assert first.runners["person"] is second.runners["person"]

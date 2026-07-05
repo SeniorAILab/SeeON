@@ -16,7 +16,6 @@ from contracts.observation import (
 )
 from features.pose_normalization import normalize_person_keypoints
 from features.window_features import extract_window_features
-from worker.perception.tracker import GreedyIouTracker
 
 
 class FallModelMetadataProtocol(Protocol):
@@ -35,7 +34,7 @@ class FallModelProtocol(Protocol):
 @dataclass(slots=True)
 class FallWindowClassifier:
     model: FallModelProtocol
-    tracker: GreedyIouTracker = field(default_factory=GreedyIouTracker)
+
     _buffers: dict[int, deque[NDArray[np.float32]]] = field(default_factory=dict, init=False)
     _last_probabilities: dict[int, float] = field(default_factory=dict, init=False)
     _frame_counter: int = field(default=0, init=False)
@@ -45,12 +44,19 @@ class FallWindowClassifier:
         observation: FrameObservation,
         frame_w: int,
         frame_h: int,
+        live_track_ids: frozenset[int] | None = None,
     ) -> FrameObservation:
-        track_ids = self.tracker.update(observation.boxes)
-        live_ids = self.tracker.live_ids
+        track_ids = observation.track_ids
+        live_ids = (
+            frozenset(track_id for track_id in track_ids if track_id is not None)
+            if live_track_ids is None
+            else live_track_ids
+        )
         active_ids: set[int] = set()
 
         for index, track_id in enumerate(track_ids):
+            if track_id is None:
+                continue
             active_ids.add(track_id)
             if index < len(observation.keypoints):
                 self._buffer_for(track_id).append(
@@ -79,12 +85,13 @@ class FallWindowClassifier:
         labels = tuple(
             self._label_for_track(track_id)
             for track_id in track_ids
-            if track_id in self.tracker.live_ids
+            if track_id is not None and track_id in live_ids
         )
         return FrameObservation(
             detections=(observation.boxes, labels),
             poses=observation.poses,
             regions=observation.regions,
+            track_ids=observation.track_ids,
         )
 
     def _buffer_for(self, track_id: int) -> deque[NDArray[np.float32]]:

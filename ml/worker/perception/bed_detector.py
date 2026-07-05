@@ -20,6 +20,7 @@ from typing import Final, Protocol
 from numpy.typing import NDArray
 
 from contracts import BoundingBox, Frame
+from contracts.runner import BedRunnerResult
 
 # bed-localization weight cache — a function axis under ml/models/ alongside
 # pose/ and fall/ (docs/rules/ml-models.md; gitignored, never committed).
@@ -39,9 +40,7 @@ class BedRunner(Protocol):
     contour. Detection-only stubs may omit the polygon (5-tuple) → no mask.
     """
 
-    def detect_beds(
-        self, frame: NDArray
-    ) -> tuple[tuple[int, int, int, int, float, tuple[tuple[int, int], ...]], ...]: ...
+    def detect_beds(self, frame: NDArray) -> BedRunnerResult: ...
 
 
 class BedDetector:
@@ -55,14 +54,14 @@ class BedDetector:
         self._runner = runner
 
     def detect(self, frame: Frame) -> tuple[BoundingBox, ...]:
-        return _build_beds(self._runner.detect_beds(frame.image))
+        return _build_beds(tuple(self._runner.detect_beds(frame.image).boxes))
 
     def detect_union(self, frames: tuple[Frame, ...]) -> tuple[BoundingBox, ...]:
         """Detect beds across multiple frames and return one stable deduped union."""
         raw = tuple(
             instance
             for frame in frames
-            for instance in self._runner.detect_beds(frame.image)
+            for instance in self._runner.detect_beds(frame.image).boxes
         )
         return _build_beds(raw)
 

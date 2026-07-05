@@ -32,4 +32,40 @@ export default tseslint.config(
       ],
     },
   },
+  // P7 seam ratchet: UI layers (components/pages/hooks) must consume services/*
+  // wrappers, not endpoint mappers directly. Tests may mock endpoints freely.
+  {
+    files: ['src/components/**/*.{ts,tsx}', 'src/pages/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/services/api/*', '**/services/api/*'],
+              message:
+                'UI(components/pages/hooks)는 services/api/*를 직접 import하지 말고 services/* 래퍼를 사용하세요 (P7 seam ratchet).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Legacy allowlist: pre-existing seam offenders (Follow-up Issue1 shrinks this).
+  {
+    files: [
+      'src/components/SpaceDetailPanel.tsx',
+      'src/components/layout/AppLayout.tsx',
+      'src/components/layout/StaffLayout.tsx',
+      'src/pages/SuperAdminDashboardPage.tsx',
+      'src/pages/admin/AdminFacilityPage.tsx',
+      'src/pages/admin/AdminMonitorSettingsPage.tsx',
+      'src/pages/admin/AdminSpacesPage.tsx',
+      'src/pages/admin/UsersPage.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
 )

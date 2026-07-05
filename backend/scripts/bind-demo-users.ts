@@ -6,7 +6,7 @@ import type {
   UserWhereClause,
 } from './bind-demo-users.types';
 
-const DEMO_FACILITY_ID = 'fac_happy_nokyang';
+const DEMO_FACILITY_CODE = 'happy-nokyang';
 // Kept as a seed-composed module only; prisma/seed.ts is the canonical entry.
 
 class CliInputError extends Error {}
@@ -146,7 +146,7 @@ function uniqueUsers(
 export async function bindDemoUsers(
   prisma: BindPrisma,
   options: BindOptions,
-  facilityId = DEMO_FACILITY_ID,
+  facilityCode = DEMO_FACILITY_CODE,
 ): Promise<{
   readonly boundCount: number;
   readonly changes: readonly BindChange[];
@@ -159,13 +159,15 @@ export async function bindDemoUsers(
   }
 
   const facility = await prisma.facility.findUnique({
-    where: { id: facilityId },
+    where: { code: facilityCode },
   });
   if (!facility) {
     throw new CliInputError(
-      `Demo facility ${facilityId} does not exist. Run the demo seed first.`,
+      `Demo facility with code ${facilityCode} does not exist. Run the demo seed first.`,
     );
   }
+
+  const facilityId = facility.id;
 
   const users = await prisma.user.findMany({
     where: buildWhere(options),

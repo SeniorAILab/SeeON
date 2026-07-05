@@ -27,7 +27,7 @@ backend/src/<domain>/
     *.dto.ts
 ```
 
-Small legacy domains may still have flat files during transition (`backend/src/residents/residents.controller.ts`, `backend/src/cameras/cameras.service.ts`, `backend/src/guardians/guardians.controller.ts`). New cross-cutting work should not deepen the flat pattern; move toward the per-domain folder layout when touching those domains for substantive changes.
+Small domains may still have flat files during transition (`backend/src/cameras/cameras.service.ts`). New cross-cutting work should not deepen the flat pattern; move toward the per-domain folder layout when touching those domains for substantive changes. Resident/guardian backend domains were removed from v1 and must return as a new v2 schema/API, not as legacy flat-file revival.
 
 ## Naming
 

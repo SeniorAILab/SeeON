@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { ttsManager, type TTSAlertInput } from "@/services/tts/ttsManager";
-import { categoryOf } from "@/services/tts/audioMap";
 import type { Floor, Space, SpaceStatus } from "@/types";
 
 /** 공간 상태 → TTS 알림 입력으로 변환 (주의/위험/응급만) */
@@ -17,9 +16,8 @@ export function buildTTSAlerts(
     const common = {
       spaceId: s.id,
       name: s.name,
-      reason: st.aiSummary,
+      reason: st.aiSummary ?? "",
       floorName: floorName(s.floorId),
-      category: categoryOf(s.type),
     };
     if (st.emergency) out.push({ ...common, level: "EMERGENCY" });
     else if (st.status === "DANGER") out.push({ ...common, level: "DANGER" });
