@@ -53,12 +53,63 @@ class _RecordingBackend:
         capture.release()
 
 
-def test_rtsp_source_forwards_url_timeouts_and_releases_backend(monkeypatch) -> None:
-    import worker.sources.rtsp as rtsp
+class _SequenceCapture:
+    def __init__(self, reads: list[tuple[bool, NDArray[np.uint8] | None]]) -> None:
+        self._reads = reads
+        self.released = False
 
+    def read(self) -> tuple[bool, NDArray[np.uint8] | None]:
+        if not self._reads:
+            return False, None
+        return self._reads.pop(0)
+
+    def release(self) -> None:
+        self.released = True
+
+
+class _SequenceBackend:
+    def __init__(self, reads_by_open: list[list[tuple[bool, NDArray[np.uint8] | None]]]) -> None:
+        self._reads_by_open = reads_by_open
+        self.captures: list[_SequenceCapture] = []
+        self.open_calls = 0
+        self.release_calls = 0
+
+    def open(
+        self,
+        url: str,
+        open_timeout_ms: int,
+        read_timeout_ms: int,
+    ) -> _SequenceCapture:
+        del url, open_timeout_ms, read_timeout_ms
+        self.open_calls += 1
+        reads = self._reads_by_open.pop(0) if self._reads_by_open else []
+        capture = _SequenceCapture(reads)
+        self.captures.append(capture)
+        return capture
+
+    def read(self, capture: _SequenceCapture) -> tuple[bool, NDArray[np.uint8] | None]:
+        return capture.read()
+
+    def release(self, capture: _SequenceCapture) -> None:
+        self.release_calls += 1
+        capture.release()
+
+
+def test_rtsp_source_uses_injected_rgb_backend_without_double_conversion(monkeypatch) -> None:
     backend = _RecordingBackend()
-    monkeypatch.setattr(rtsp, "_create_backend", lambda: backend)
-    monkeypatch.setattr(rtsp.time, "monotonic", _monotonic_values((10.0, 10.25)))
+    monkeypatch.setattr(
+        backend.capture,
+        "_frames",
+        [
+            np.array([[[10, 20, 30]]], dtype=np.uint8),
+            np.array([[[40, 50, 60]]], dtype=np.uint8),
+        ],
+    )
+    monkeypatch.setattr(cv2, "cvtColor", _fail_if_called)
+    monkeypatch.setattr(
+        "worker.sources.rtsp.time.monotonic",
+        _monotonic_values((10.0, 10.25)),
+    )
 
     frames = list(
         RTSPSource(
@@ -66,6 +117,9 @@ def test_rtsp_source_forwards_url_timeouts_and_releases_backend(monkeypatch) -> 
             max_failures=1,
             open_timeout_ms=1234,
             read_timeout_ms=5678,
+            backend=backend,
+            max_total_reconnects=0,
+            sleep=lambda _delay: None,
         )
     )
 
@@ -74,8 +128,8 @@ def test_rtsp_source_forwards_url_timeouts_and_releases_backend(monkeypatch) -> 
     assert backend.capture.released is True
     assert [frame.index for frame in frames] == [0, 1]
     assert [frame.time_sec for frame in frames] == [0.0, 0.25]
-    assert frames[0].image.tolist() == [[[30, 20, 10]]]
-    assert frames[1].image.tolist() == [[[60, 50, 40]]]
+    assert frames[0].image.tolist() == [[[10, 20, 30]]]
+    assert frames[1].image.tolist() == [[[40, 50, 60]]]
 
 
 def test_opencv_rtsp_backend_sets_timeout_and_buffer_properties(monkeypatch) -> None:
@@ -109,6 +163,16 @@ def test_opencv_rtsp_backend_sets_timeout_and_buffer_properties(monkeypatch) -> 
     ]
     assert (cv2.CAP_PROP_BUFFERSIZE, 1) in capture.set_calls
     assert (cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5678) in capture.set_calls
+
+
+def test_opencv_rtsp_backend_read_returns_rgb_frame() -> None:
+    capture = _FakeCapture()
+
+    read_ok, image = OpenCVRTSPBackend().read(capture)
+
+    assert read_ok is True
+    assert image is not None
+    assert image.tolist() == [[[30, 20, 10]]]
 
 
 def test_opencv_rtsp_backend_releases_capture() -> None:
@@ -149,6 +213,218 @@ def test_opencv_rtsp_backend_falls_back_when_parameterized_open_fails(
         ),
         ("rtsp://camera/trackID=2", (cv2.CAP_FFMPEG,)),
     ]
+
+
+
+def test_rtsp_source_reconnects_after_read_failures_and_resumes(monkeypatch) -> None:
+    backend = _SequenceBackend(
+        [
+            [(False, None), (False, None)],
+            [(True, np.array([[[1, 2, 3]]], dtype=np.uint8))],
+        ]
+    )
+    sleeps: list[float] = []
+    liveness: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "worker.sources.rtsp.time.monotonic",
+        _monotonic_values((100.0,)),
+    )
+    source = RTSPSource(
+        "rtsp://camera/trackID=2",
+        max_failures=2,
+        reconnect_initial_backoff_sec=0.5,
+        reconnect_max_backoff_sec=2.0,
+        max_total_reconnects=1,
+        sleep=sleeps.append,
+        backend=backend,
+        pace_wait=lambda _delay: False,
+    )
+    source.set_liveness_callbacks(
+        on_reconnecting=lambda reason: liveness.append(("degraded", reason)),
+        on_recovered=lambda reason: liveness.append(("ready", reason)),
+    )
+
+    frame = next(iter(source))
+
+    assert frame.index == 0
+    assert frame.time_sec == 0.0
+    assert frame.image.tolist() == [[[1, 2, 3]]]
+    assert backend.open_calls == 2
+    assert backend.release_calls == 2
+    assert sleeps == [0.5]
+    assert liveness == [("degraded", "read_failure"), ("ready", "read_recovered")]
+
+
+def test_rtsp_source_backoff_is_bounded() -> None:
+    source = RTSPSource(
+        "rtsp://camera/trackID=2",
+        reconnect_initial_backoff_sec=0.5,
+        reconnect_max_backoff_sec=1.0,
+        backend=_SequenceBackend([]),
+    )
+
+    assert [source._backoff_delay(reconnect) for reconnect in (1, 2, 3, 4)] == [
+        0.5,
+        1.0,
+        1.0,
+        1.0,
+    ]
+
+
+def test_rtsp_source_never_recovered_terminates_with_reconnect_budget() -> None:
+    backend = _SequenceBackend(
+        [
+            [(False, None)],
+            [(False, None)],
+            [(False, None)],
+        ]
+    )
+    sleeps: list[float] = []
+
+    frames = list(
+        RTSPSource(
+            "rtsp://camera/trackID=2",
+            max_failures=1,
+            reconnect_initial_backoff_sec=0.25,
+            reconnect_max_backoff_sec=1.0,
+            max_total_reconnects=2,
+            sleep=sleeps.append,
+            backend=backend,
+            pace_wait=lambda _delay: False,
+        )
+    )
+
+    assert frames == []
+    assert backend.open_calls == 3
+    assert backend.release_calls == 3
+    assert sleeps == [0.25, 0.5]
+
+
+def test_rtsp_source_stop_predicate_cancels_reconnect_backoff_promptly() -> None:
+    backend = _SequenceBackend(
+        [
+            [(False, None)],
+        ]
+    )
+    stop = False
+    waits: list[float] = []
+
+    def backoff_wait(delay_sec: float) -> bool:
+        nonlocal stop
+        waits.append(delay_sec)
+        stop = True
+        return stop
+
+    frames = list(
+        RTSPSource(
+            "rtsp://camera/trackID=2",
+            max_failures=1,
+            reconnect_initial_backoff_sec=30.0,
+            reconnect_max_backoff_sec=30.0,
+            max_total_reconnects=None,
+            backoff_wait=backoff_wait,
+            stop_requested=lambda: stop,
+            backend=backend,
+            pace_wait=lambda _delay: False,
+        )
+    )
+
+    assert frames == []
+    assert backend.open_calls == 1
+    assert backend.release_calls == 1
+    assert waits == [30.0]
+
+
+def test_rtsp_source_records_offline_before_reconnect_budget_exhaustion() -> None:
+    backend = _SequenceBackend(
+        [
+            [(False, None)],
+            [(False, None)],
+        ]
+    )
+    liveness: list[tuple[str, str]] = []
+    source = RTSPSource(
+        "rtsp://camera/trackID=2",
+        max_failures=1,
+        reconnect_initial_backoff_sec=0.25,
+        reconnect_max_backoff_sec=1.0,
+        max_total_reconnects=1,
+        sleep=lambda _delay: None,
+        backend=backend,
+        pace_wait=lambda _delay: False,
+    )
+    source.set_liveness_callbacks(
+        on_reconnecting=lambda reason: liveness.append(("degraded", reason)),
+        on_recovered=lambda reason: liveness.append(("ready", reason)),
+    )
+
+    assert list(source) == []
+    assert backend.open_calls == 2
+    assert liveness == [("degraded", "read_failure")]
+
+def test_rtsp_source_paces_processed_fps_with_injected_clock() -> None:
+    image = np.array([[[1, 2, 3]]], dtype=np.uint8)
+    backend = _SequenceBackend([[(True, image), (True, image), (True, image)]])
+    now = 10.0
+    waits: list[float] = []
+
+    def clock() -> float:
+        return now
+
+    def pace_wait(delay_sec: float) -> bool:
+        nonlocal now
+        waits.append(delay_sec)
+        now += delay_sec
+        return False
+
+    frames = list(
+        RTSPSource(
+            "rtsp://camera/trackID=2",
+            max_failures=1,
+            max_total_reconnects=0,
+            target_fps=2.0,
+            clock=clock,
+            pace_wait=pace_wait,
+            backend=backend,
+        )
+    )
+
+    assert [frame.index for frame in frames] == [0, 1, 2]
+    assert [frame.time_sec for frame in frames] == [0.0, 0.5, 1.0]
+    assert waits == [0.5, 0.5, 0.5]
+
+
+def test_rtsp_source_window_fill_wall_clock_matches_configured_fps() -> None:
+    image = np.array([[[1, 2, 3]]], dtype=np.uint8)
+    window_frames = 30
+    fps = 5.0
+    now = 100.0
+
+    def clock() -> float:
+        return now
+
+    def pace_wait(delay_sec: float) -> bool:
+        nonlocal now
+        now += delay_sec
+        return False
+
+    frames = list(
+        RTSPSource(
+            "rtsp://camera/trackID=2",
+            max_failures=1,
+            max_total_reconnects=0,
+            target_fps=fps,
+            clock=clock,
+            pace_wait=pace_wait,
+            backend=_SequenceBackend([[(True, image) for _ in range(window_frames)]]),
+        )
+    )
+
+    assert len(frames) == window_frames
+    assert frames[-1].time_sec == (window_frames - 1) / fps
+
+def _fail_if_called(*_args: object, **_kwargs: object) -> None:
+    raise AssertionError("RTSPSource must not convert backend-provided RGB frames")
 
 
 def _monotonic_values(values: tuple[float, ...]):

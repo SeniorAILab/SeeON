@@ -12,9 +12,9 @@ import {
   SIGNUP_PASSWORD_MAX_LENGTH,
   SIGNUP_PASSWORD_MIN_LENGTH,
 } from "@/lib/signupPassword";
-import { useFacilityStore } from "@/store/facilityStore";
-import { useUiStore } from "@/store/uiStore";
-import { useAuthStore } from "@/store/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -89,7 +89,7 @@ export function SignupPage() {
     : undefined;
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-[#eef2fb] to-bg p-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-bg p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark size={56} className="mb-3" />

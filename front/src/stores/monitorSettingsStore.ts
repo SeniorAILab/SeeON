@@ -11,7 +11,6 @@ const DEFAULTS: MonitorSettings = {
   cardSize: "lg", // 14공간 화면 기준 기본 크기
   visibleSpaceIds: null,
   allowAllView: true,
-  demoMode: "AUTO",
 };
 
 function load(): MonitorSettings {

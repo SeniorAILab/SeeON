@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { defaultPathForUser } from "@/lib/routeAccess";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function RoleRouteRedirect() {
   const user = useAuthStore((s) => s.user);
