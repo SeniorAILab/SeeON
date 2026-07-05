@@ -1,22 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { alertService } from "./alertService";
-import { resolveAlert } from "./api/alertEndpoints";
+import { resolveAlert, resolveAlertEndpoint } from "./api/alertEndpoints";
 import { createAlertNote, listAlertNotes } from "./api/alertNotes";
-import { resolveAlertEndpoint } from "./api/alertsApi";
 
 vi.mock("./api/alertEndpoints", () => ({
   resolveAlert: vi.fn(),
+  listAlertsEndpoint: vi.fn(),
+  resolveAlertEndpoint: vi.fn(),
 }));
 
 vi.mock("./api/alertNotes", () => ({
   createAlertNote: vi.fn(),
   listAlertNotes: vi.fn(),
-}));
-
-vi.mock("./api/alertsApi", () => ({
-  listAlertsEndpoint: vi.fn(),
-  resolveAlertEndpoint: vi.fn(),
 }));
 
 const resolveAlertMock = vi.mocked(resolveAlert);
@@ -29,7 +25,7 @@ describe("alertService endpoint delegation", () => {
     vi.clearAllMocks();
   });
 
-  it("resolves alerts through api/alertEndpoints, not alertsApi", async () => {
+  it("resolves alerts through resolveAlert, not resolveAlertEndpoint", async () => {
     resolveAlertMock.mockResolvedValue({ id: "a1" } as never);
 
     await alertService.resolveAlertById("a1");
