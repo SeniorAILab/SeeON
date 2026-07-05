@@ -26,7 +26,7 @@ ADR remains the name for architectural decision records, but the ADR set has bee
 If a future change makes an expensive-to-reverse decision, put the durable current rule where future work will naturally look:
 
 - Workflow conventions go in the relevant `docs/rules/` facet.
-- Wire contracts go in `docs/api/`.
+- Wire/HTTP/SSE/ingest contracts live in code + generated OpenAPI (`/api/docs`, `@nestjs/swagger`) + contract tests — not hand-maintained docs.
 - Domain semantics go in `docs/domain/`.
 - Runtime topology and high-level boundaries go in `docs/architecture.md` or the onboarding doc for that surface.
 - Rare ADR-level summaries go in `docs/decisions/README.md`.

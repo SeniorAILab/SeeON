@@ -28,7 +28,7 @@ export function SignupConsentFields({
         <span>
           <span className="font-medium">서비스 이용약관에 동의합니다</span>
           <span className="mt-0.5 block text-xs text-ink-faint">
-            MVP 서비스 이용 조건과 시설 관리자 계정 생성 기준을 확인했습니다.
+            서비스 이용 조건과 시설 관리자 계정 생성 기준을 확인했습니다.
           </span>
         </span>
       </label>

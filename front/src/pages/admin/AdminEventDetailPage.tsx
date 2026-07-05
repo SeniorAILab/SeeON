@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Film } from "lucide-react";
+import { ArrowLeft, Film } from "lucide-react";
 import { Card, Button, Textarea } from "@/components/ui/primitives";
 import { RiskBadge } from "@/components/RiskBadge";
 import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
@@ -15,15 +15,16 @@ import { VideoAccessLogTable } from "@/components/video/VideoAccessLogTable";
 import { eventService } from "@/services/eventService";
 import { dashboardService } from "@/services/dashboardService";
 import { videoService } from "@/services/videoService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { canAcknowledge } from "@/lib/roles";
-import { spaces, floors } from "@/data/mockData";
 import { formatDateTime } from "@/lib/format";
-import { eventTypeLabel, kakaoLabel } from "@/lib/labels";
+import { displayEventTypeLabel, kakaoLabel } from "@/lib/labels";
 import type {
   ActionType,
   DetectionEvent,
+  Floor,
   Level,
+  Space,
   SpaceStatusLevel,
   VideoClip,
 } from "@/types";
@@ -42,9 +43,11 @@ export function AdminEventDetailPage() {
   const [event, setEvent] = useState<DetectionEvent | null>(null);
   const [timeline, setTimeline] = useState<DetectionEvent[]>([]);
   const [clip, setClip] = useState<VideoClip | null>(null);
+  const [space, setSpace] = useState<Space | null>(null);
+  const [floor, setFloor] = useState<Floor | null>(null);
   const [clipChecked, setClipChecked] = useState(false);
   const [memo, setMemo] = useState("");
-  const [memoSaved, setMemoSaved] = useState(false);
+  const [memoSaving, setMemoSaving] = useState(false);
   const [logKey, setLogKey] = useState(0);
 
   async function loadEvent() {
@@ -52,8 +55,19 @@ export function AdminEventDetailPage() {
     const ev = await eventService.getById(eventId);
     setEvent(ev ?? null);
     if (ev) {
-      const list = await dashboardService.getSpaceEvents(ev.spaceId);
-      setTimeline(list);
+      const dashboard = await dashboardService.getDashboard(ev.facilityId);
+      const matchedSpace = dashboard.spaces.find((s) => s.id === ev.spaceId) ?? null;
+      setSpace(matchedSpace);
+      setFloor(dashboard.floors.find((f) => f.id === matchedSpace?.floorId) ?? null);
+      setTimeline(
+        dashboard.unacknowledgedEvents
+          .filter((item) => item.spaceId === ev.spaceId)
+          .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt)),
+      );
+    } else {
+      setSpace(null);
+      setFloor(null);
+      setTimeline([]);
     }
   }
 
@@ -79,23 +93,31 @@ export function AdminEventDetailPage() {
     return <p className="py-16 text-center text-sm text-ink-soft">불러오는 중...</p>;
   }
 
-  const space = spaces.find((s) => s.id === event.spaceId);
-  const floor = floors.find((f) => f.id === space?.floorId);
+  const spaceName = space?.name ?? event.room ?? event.spaceId;
+  const floorName = floor?.name ?? "층 정보 없음";
   const acked = event.kakaoAlertStatus === "ACKNOWLEDGED";
 
   async function handleAction(type: ActionType, note: string) {
     if (!user || !event) return;
     await eventService.addAction(event.id, type, note || undefined, user.name);
-    loadEvent();
+    await loadEvent();
   }
 
-  async function saveMemo() {
-    if (!user || !event || !memo.trim()) return;
-    await eventService.addAction(event.id, "MEMO", memo.trim(), user.name);
-    setMemo("");
-    setMemoSaved(true);
-    loadEvent();
+  async function handleMemoSave() {
+    if (!event || memo.trim().length === 0) return;
+    setMemoSaving(true);
+    try {
+      await eventService.addAction(event.id, "MEMO", memo.trim(), user?.name ?? "관리자");
+      setMemo("");
+      await loadEvent();
+    } finally {
+      setMemoSaving(false);
+    }
   }
+
+  const adminNotes = event.actions.filter((action) => "authorRole" in action && action.authorRole === "ADMIN");
+  const staffNotes = event.actions.filter((action) => !("authorRole" in action) || action.authorRole === "STAFF");
+
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -112,10 +134,10 @@ export function AdminEventDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-ink">
-              {space?.name} 이슈 상세
+              {spaceName} 이슈 상세
             </h1>
             <p className="mt-0.5 text-sm text-ink-faint">
-              {floor?.name} · {eventTypeLabel[event.eventType]} · {formatDateTime(event.detectedAt)}
+              {floorName} · {displayEventTypeLabel(event)} · {formatDateTime(event.detectedAt)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -134,6 +156,9 @@ export function AdminEventDetailPage() {
         </div>
 
         <div className="mt-4">
+          <p className="mb-3 text-sm font-medium text-ink">
+            AI 안전 분석: 위험 이벤트가 감지되었습니다
+          </p>
           <AIInsightBox
             summary={event.aiSummary}
             status={riskToStatus[event.riskLevel]}
@@ -147,6 +172,10 @@ export function AdminEventDetailPage() {
           <Film className="h-4.5 w-4.5 h-[18px] w-[18px]" />
           감지 근거 영상
         </h2>
+        <p className="mb-3 text-sm text-ink-faint">
+          관리자 권한으로 감지 시점의 안전 확인용 클립만 확인할 수 있습니다. 연결된 영상이 없거나
+          보관 상태를 확인할 수 없으면 그 상태를 그대로 표시합니다.
+        </p>
         <VideoPermissionGuard>
           {!clipChecked ? (
             <p className="text-sm text-ink-soft">영상 정보를 확인하는 중...</p>
@@ -174,26 +203,32 @@ export function AdminEventDetailPage() {
           rows={3}
           value={memo}
           placeholder="사고 판단/조치 근거를 기록하세요."
-          onChange={(e) => {
-            setMemo(e.target.value);
-            setMemoSaved(false);
-          }}
+          onChange={(e) => setMemo(e.target.value)}
         />
-        <div className="mt-2 flex items-center gap-3">
-          <Button size="sm" onClick={saveMemo} disabled={!canAcknowledge(user)}>
-            <Save className="h-4 w-4" />
-            메모 저장
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <Button size="sm" onClick={handleMemoSave} disabled={memoSaving || memo.trim().length === 0}>
+            {memoSaving ? "저장 중..." : "메모 저장"}
           </Button>
-          {memoSaved && <span className="text-sm text-status-stable">저장되었습니다.</span>}
         </div>
+        {adminNotes.length > 0 && (
+          <ul className="mt-4 space-y-2">
+            {adminNotes.map((a) => (
+              <li key={a.id} className="rounded-lg bg-surface2 px-3 py-2 text-sm">
+                <span className="font-medium text-ink">{a.createdBy}</span>
+                <span className="text-ink-faint"> · {formatDateTime(a.createdAt)}</span>
+                {a.note && <p className="mt-0.5 text-ink-soft">{a.note}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
-      {/* 조치 기록 */}
+      {/* 요양보호사 메모 */}
       <Card className="p-5">
-        <h2 className="mb-3 text-base font-semibold text-ink">조치 기록</h2>
-        {event.actions.length > 0 ? (
+        <h2 className="mb-3 text-base font-semibold text-ink">요양보호사 메모</h2>
+        {staffNotes.length > 0 ? (
           <ul className="mb-4 space-y-2">
-            {event.actions.map((a) => (
+            {staffNotes.map((a) => (
               <li key={a.id} className="rounded-lg bg-surface2 px-3 py-2 text-sm">
                 <span className="font-medium text-ink">{a.createdBy}</span>
                 <span className="text-ink-faint"> · {formatDateTime(a.createdAt)}</span>
@@ -202,7 +237,7 @@ export function AdminEventDetailPage() {
             ))}
           </ul>
         ) : (
-          <p className="mb-4 text-sm text-ink-faint">아직 조치 기록이 없습니다.</p>
+          <p className="mb-4 text-sm text-ink-faint">아직 요양보호사 메모가 없습니다.</p>
         )}
         <ActionLogForm onSubmit={handleAction} disabled={!canAcknowledge(user)} />
       </Card>

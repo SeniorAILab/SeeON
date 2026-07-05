@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DoorOpen, LayoutGrid, RefreshCw } from "lucide-react";
+import { DoorOpen, RefreshCw } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
 import { RealtimeUpdateIndicator } from "./RealtimeUpdateIndicator";
 import { FloorSummaryStats } from "./FloorSummaryStats";
 import { SoundToggle } from "./SoundToggle";
 import { FullscreenButton } from "./FullscreenButton";
-import type { ConnectionState, DashboardSummary } from "@/types";
+import { dashboardPath, floorPath } from "@/lib/routeAccess";
+import type { ConnectionState, DashboardSummary, Floor } from "@/types";
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -29,8 +30,9 @@ export function MonitorHeader({
   onToggleSound,
   onRefresh,
   fullscreenRef,
-  floorSelectorPath,
-  floorSelectorLabel = "층 선택",
+  floors,
+  currentFloorId,
+  facilityId,
   exitPath,
 }: {
   facilityName: string;
@@ -43,8 +45,9 @@ export function MonitorHeader({
   onToggleSound: () => void;
   onRefresh: () => void;
   fullscreenRef: React.RefObject<HTMLElement>;
-  floorSelectorPath?: string;
-  floorSelectorLabel?: string;
+  floors: Floor[];
+  currentFloorId?: string | null;
+  facilityId: string;
   exitPath?: string;
 }) {
   const navigate = useNavigate();
@@ -52,6 +55,15 @@ export function MonitorHeader({
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
   const ss = String(now.getSeconds()).padStart(2, "0");
+
+  const orderedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
+  const hasFloorSelector = orderedFloors.length > 0;
+  const floorTabClass = (active: boolean) =>
+    `inline-flex min-h-12 items-center rounded-full px-4 py-2 text-lg font-bold transition-colors 2xl:text-xl ${
+      active
+        ? "bg-brand text-white"
+        : "border border-border text-ink-soft hover:bg-surface2"
+    }`;
 
   return (
     <header className="space-y-3">
@@ -89,33 +101,52 @@ export function MonitorHeader({
         <div className="flex items-center gap-2">
           <button
             onClick={onRefresh}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+            className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-lg font-semibold text-ink-soft hover:bg-surface2"
           >
             <RefreshCw className="h-5 w-5" />
             새로고침
           </button>
-          {floorSelectorPath && (
-            <button
-              onClick={() => navigate(floorSelectorPath)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
-            >
-              <LayoutGrid className="h-5 w-5" />
-              {floorSelectorLabel}
-            </button>
-          )}
           {exitPath && (
             <button
               onClick={() => navigate(exitPath)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-base font-semibold text-ink-soft hover:bg-surface2"
+              className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-lg font-semibold text-ink-soft hover:bg-surface2"
             >
               <DoorOpen className="h-5 w-5" />
               나가기
             </button>
           )}
-          <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+          <div className="flex min-h-12 items-center">
+            <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+          </div>
           <FullscreenButton targetRef={fullscreenRef} />
         </div>
       </div>
+      {hasFloorSelector && (
+        <nav aria-label="층 선택" className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(dashboardPath(facilityId))}
+            aria-current={currentFloorId == null ? "page" : undefined}
+            className={floorTabClass(currentFloorId == null)}
+          >
+            전체
+          </button>
+          {orderedFloors.map((floor) => {
+            const active = currentFloorId === floor.id;
+            return (
+              <button
+                key={floor.id}
+                type="button"
+                onClick={() => navigate(floorPath(facilityId, floor.id))}
+                aria-current={active ? "page" : undefined}
+                className={floorTabClass(active)}
+              >
+                {floor.name}
+              </button>
+            );
+          })}
+        </nav>
+      )}
     </header>
   );
 }

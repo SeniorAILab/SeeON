@@ -16,32 +16,45 @@ monitor surfaces for live care workflows.
 The implementation source of truth is `front/src/index.css`; Tailwind aliases
 are declared in `front/tailwind.config.js`.
 
+Tone direction: Threads-style neutral. Component surfaces, backgrounds, and
+text are achromatic (no navy/blue tint) in both modes — light runs on a pure
+white family, dark runs on pure near-black/dark-gray. Status colors (stable,
+caution, danger, check) are the **only** chroma allowed on these surfaces.
+Brand blue survives strictly as an interactive-only accent (primary buttons,
+active nav/tabs, focus rings) and must not be used decoratively.
+
 | Role | Token | Light | Dark | Tailwind alias | Usage |
 |------|-------|-------|------|----------------|-------|
-| Surface/page | `--c-bg` | `#F4F6F9` | `#0E1620` | `bg-bg` | App canvas, staff mode background |
-| Surface/primary | `--c-surface` | `#FFFFFF` | `#18222F` | `bg-surface` | Cards, sidebars, headers, sheets |
-| Surface/secondary | `--c-surface-2` | `#F8FAFC` | `#202C3B` | `bg-surface2` | Nested panels, subtle hover fills |
-| Border/default | `--c-border` | `#E2E6EC` | `#2B3A4D` | `border-border` | Card borders, dividers, tab lines |
-| Text/primary | `--c-ink` | `#15233B` | `#F1F5FA` | `text-ink` | Headings, primary values, body |
-| Text/secondary | `--c-ink-soft` | `#51607A` | `#AAB8CC` | `text-ink-soft` | Secondary labels, button text |
-| Text/tertiary | `--c-ink-faint` | `#8593A8` | `#7488A0` | `text-ink-faint` | Metadata, muted icons, timestamps |
-| Accent/primary | `--c-brand` | `#2F6FB0` | `#4D97E0` | `bg-brand`, `text-brand` | Primary actions, active nav, focus |
-| Accent/soft | `--c-brand-soft` | `#EAF2FB` | `#1D2C40` | `bg-brand-soft` | Active nav fill, accent chips |
+| Surface/page | `--c-bg` | `#FAFAFA` | `#101010` | `bg-bg` | App canvas, staff mode background |
+| Surface/primary | `--c-surface` | `#FFFFFF` | `#1A1A1A` | `bg-surface` | Cards, sidebars, headers, sheets |
+| Surface/secondary | `--c-surface-2` | `#F0F0F0` | `#242424` | `bg-surface2` | Nested panels, subtle hover fills |
+| Border/default | `--c-border` | `#E0E0E0` | `#333333` | `border-border` | Card borders, dividers, tab lines |
+| Text/primary | `--c-ink` | `#0F0F0F` | `#F5F5F5` | `text-ink` | Headings, primary values, body |
+| Text/secondary | `--c-ink-soft` | `#595959` | `#B3B3B3` | `text-ink-soft` | Secondary labels, button text |
+| Text/tertiary | `--c-ink-faint` | `#8A8A8A` | `#808080` | `text-ink-faint` | Metadata, muted icons, timestamps |
+| Accent/primary (interactive-only) | `--c-brand` | `#2F6FB0` | `#4D97E0` | `bg-brand`, `text-brand` | Primary actions, active nav, focus — never decorative |
+| Accent/soft | `--c-brand-soft` | `#EAF2FB` | `#1D2C40` | `bg-brand-soft` | Active nav fill, accent chips (interactive state only) |
 | Accent/teal | `--c-teal` | `#2BB6A3` | `#3FD3BD` | `text-teal`, `bg-teal` | Secondary positive accent |
-| Status/stable | `--c-stable` | `#1F9D57` | `#45D07F` | `status-stable` | Stable state, success actions |
+| Status/stable | `--c-stable` | `#166E3D` | `#45D07F` | `status-stable` | Stable state, success actions |
 | Status/stable bg | `--c-stable-bg` | `#E7F7EE` | `#14301F` | `status-stableBg` | Stable chips and panels |
-| Status/caution | `--c-caution` | `#C2700A` | `#F7B733` | `status-caution` | Caution state |
+| Status/caution | `--c-caution` | `#884E07` | `#F7B733` | `status-caution` | Caution state |
 | Status/caution bg | `--c-caution-bg` | `#FDF2DF` | `#3A2B0B` | `status-cautionBg` | Caution chips and panels |
-| Status/danger | `--c-danger` | `#D92D20` | `#FF6B5E` | `status-danger` | Fall risk, emergency, destructive |
+| Status/danger | `--c-danger` | `#B8261B` | `#FF6B5E` | `status-danger` | Fall risk, emergency, destructive |
 | Status/danger bg | `--c-danger-bg` | `#FDECEB` | `#3C1714` | `status-dangerBg` | Danger chips and panels |
-| Status/check | `--c-check` | `#2563EB` | `#5FA3F7` | `status-check` | Check-needed state |
+| Status/check | `--c-check` | `#1554E0` | `#5FA3F7` | `status-check` | Check-needed state |
 | Status/check bg | `--c-check-bg` | `#E8F0FE` | `#15243B` | `status-checkBg` | Check-needed chips and panels |
+
+Light-mode status colors were darkened from the previous palette (e.g.
+`--c-stable` `#1F9D57` → `#166E3D`) so status-on-status-bg text pairs still
+clear 4.5:1 against the new neutral surfaces; dark-mode status colors are
+unchanged. See `front/src/lib/contrast.ts` (`contrastRatio`) and
+`front/src/lib/contrast.test.ts` for the enforced ratios per token pair.
 
 ### Rules
 
 - Use semantic Tailwind aliases (`bg-surface`, `text-ink`, `status-danger`) before raw palette classes.
 - Staff and monitor surfaces support dark mode through `.dark`; admin surfaces remove `.dark` and stay light.
-- Status colors are semantic, not decorative. Use them only for state, risk, or action feedback.
+- Component surfaces/backgrounds/text stay neutral (no navy or blue tint). Status colors are the only chroma allowed on those surfaces; use them only for state, risk, or action feedback, never decoratively.
 - Brand blue is reserved for primary actions, active navigation, and focus. Do not use it as background decoration.
 - Existing raw `gray-*`, `black/*`, and one-off hex values are legacy deviations. New code should either use tokens or extend this table first.
 
@@ -103,7 +116,7 @@ All spacing derives from Tailwind's 4px base scale.
 
 ### Rules
 
-- Keep fixed-format operational elements dimensionally stable: buttons, room cards, monitor tiles, counters, and nav tabs should not resize because of hover or state changes.
+- Keep fixed-format operational elements dimensionally stable: buttons, room cards, monitor tiles, counters, and nav tabs should not resize because of hover or state changes. **Exception:** monitor room tiles in the floor grid MAY grid-span-expand when a room enters an emergency (danger/check-needed) state, so the at-risk room reads as unmistakably larger. This resize is span-only (never a hover/idle-state resize) and must transition via FLIP (`transform`/`scale`) only, per the Motion & Interaction rules below.
 - Staff primary actions use at least 52-56px height for large touch targets.
 - Admin pages favor dense but readable spacing; avoid marketing-style section spacing.
 - Use responsive wrapping and truncation for labels; do not let text overlap controls.

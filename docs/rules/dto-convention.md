@@ -7,7 +7,7 @@ DTOs are the boundary contract for HTTP and external-service edges. They are not
 At the external edge/backend boundary:
 
 - JSON field names are `snake_case`.
-  - Ingest alert fields: `resident_id`, `facility_id`, `snapshot_url`, `detected_at`.
+  - Event ingest fields: `camera_id`, `type`, `detected_at`, `confidence`, optional `facility_id`.
   - Alert-event outbox fields: `source_id`, `external_event_id`, `detected_at`.
   - ML prediction response fields: `fall_probability`, `operating_threshold`, `is_fall`.
 - Timestamps are ISO-8601 UTC strings. DTO parsers convert to `Date` only after validating the string.
@@ -46,11 +46,11 @@ Reasons grounded in current code:
 
 - `alertSeq` is a `BigInt` and must become a string in SSE and REST DTOs.
 - `Date` values must serialize as ISO timestamps, not leak arbitrary object/string behavior.
-- Prisma relations such as `resident` may include more data than a route should expose if returned directly.
+- Prisma relations such as `space` or `camera` may include more data than a route should expose if returned directly.
 
 Transition examples:
 
-- `backend/src/dashboard/sse.controller.ts` already maps alert events through `formatAlertEvent` and status events through `formatStatusEvent`.
+- `backend/src/dashboard/sse.controller.ts` already maps alert events through `formatAlertEvent` and lifecycle updates through `formatAlertUpdateEvent`.
 - `backend/src/alerts/alerts.controller.ts` currently returns service results from Prisma-backed queries; new work should introduce explicit alert response DTO/presenter helpers instead of expanding this pattern.
 
 ## DTO placement

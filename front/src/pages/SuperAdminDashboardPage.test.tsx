@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SuperAdminDashboardPage } from "./SuperAdminDashboardPage";
-import { useAuthStore } from "@/store/authStore";
-import { useFacilityStore } from "@/store/facilityStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useFacilityStore } from "@/stores/facilityStore";
 
 const seededFacility = {
   id: "fac_happy_nokyang",
@@ -53,7 +53,7 @@ describe("SuperAdminDashboardPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "요양원을 선택하세요" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "요양원 전역 개요" })).toBeTruthy();
     expect(await screen.findByText("행복한요양원 녹양역점")).toBeTruthy();
     expect(screen.queryByText("대시보드 연결 실패")).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);

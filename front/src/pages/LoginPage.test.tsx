@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
 import { SignupPage } from "./SignupPage";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 beforeEach(() => {
   localStorage.clear();
@@ -24,9 +24,8 @@ function renderLogin(initialEntry = "/login") {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/dashboard" element={<div>SUPER_ADMIN_DASHBOARD</div>} />
-        <Route path="/dashboard/facilities/:facilityId/admin" element={<div>ADMIN_DASHBOARD</div>} />
-        <Route path="/dashboard/facilities/:facilityId/staff" element={<div>FACILITY_STAFF_DASHBOARD</div>} />
+        <Route path="/facilities" element={<div>DASHBOARD</div>} />
+        <Route path="/facilities/:facilityId/dashboard" element={<div>DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -124,7 +123,7 @@ describe("LoginPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
 
-    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
     expect(login).toHaveBeenCalledWith({
       email: "admin@sen.ai",
       password: "1234",
@@ -150,7 +149,7 @@ describe("LoginPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
 
-    await waitFor(() => expect(screen.getByText("SUPER_ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
   });
 
   it("회원가입 버튼 클릭 시 회원가입 폼 화면으로 이동한다", () => {
@@ -180,7 +179,7 @@ describe("LoginPage", () => {
     agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
-    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
     expect(register).toHaveBeenCalledWith({
       name: "홍원장",
       email: "owner@example.test",
@@ -202,7 +201,7 @@ describe("LoginPage", () => {
     expect(submitButton).toHaveProperty("disabled", true);
     fireEvent.click(submitButton);
     expect(register).not.toHaveBeenCalled();
-    expect(screen.queryByText("ADMIN_DASHBOARD")).toBeNull();
+    expect(screen.queryByText("DASHBOARD")).toBeNull();
 
     fireEvent.click(screen.getByRole("checkbox", { name: /서비스 이용약관/ }));
     expect(submitButton).toHaveProperty("disabled", true);
@@ -229,7 +228,7 @@ describe("LoginPage", () => {
     agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
-    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
     expect(register).toHaveBeenCalledWith({
       name: "홍원장",
       email: "owner@example.test",

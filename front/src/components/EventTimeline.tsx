@@ -29,11 +29,6 @@ export function EventTimeline({ events }: { events: DetectionEvent[] }) {
               <span className="text-xs font-medium text-ink">
                 {eventTypeLabel[ev.eventType]}
               </span>
-              {ev.zoneName && (
-                <span className="rounded bg-surface2 px-1.5 py-0.5 text-[11px] font-medium text-ink-soft">
-                  {ev.zoneName}
-                </span>
-              )}
             </div>
             <p className="mt-0.5 text-sm text-ink-soft">{ev.message}</p>
           </div>

@@ -1,5 +1,7 @@
 import type { AlertView } from "@/types";
 import { listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertsApi";
+import { resolveAlert } from "./api/alertEndpoints";
+import { createAlertNote, listAlertNotes, type AlertNote } from "./api/alertNotes";
 
 export const alertService = {
   listOpen(): Promise<AlertView[]> {
@@ -28,4 +30,14 @@ export const alertService = {
   resolve(id: string): Promise<AlertView> {
     return resolveAlertEndpoint(id);
   },
+  resolveAlertById(id: string) {
+    return resolveAlert(id);
+  },
+  listNotes(alertId: string): Promise<AlertNote[]> {
+    return listAlertNotes(alertId);
+  },
+  createNote(alertId: string, note: string): Promise<AlertNote> {
+    return createAlertNote(alertId, note);
+  },
 };
+export type { AlertNote } from "./api/alertNotes";
