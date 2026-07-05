@@ -139,6 +139,7 @@ def test_night_bed_exit_reaches_backend_ingest_through_worker_relay_and_ml_api()
             "event_type": "bed-exit",
             "detected_at": backend.alerts[0]["detected_at"],
             "probability": 1.0,
+            "audit": {"config_version": 0, "clock_source": "edge_wall_clock"},
         }
     ]
     assert backend.alerts[0]["detected_at"]

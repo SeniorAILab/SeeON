@@ -9,6 +9,8 @@ Own the Streamlit developer demo harness: playback UI, overlays, live-camera pag
 - `live_view.py`, `render.py`, `yolo_overlay.py`, `playback_status.py`, `video_playback.py`: playback and overlay rendering.
 - `classifiers.py`, `temporal_module.py`, `model_modules.py`, `model_bootstrap.py`: demo model adapters.
 - `video_registry.py`, `app_assets.py`, `live_bench.py`: demo assets and benchmarking.
+- `alert_client.py`: demo-only Event API HTTP shim (`AlertClient`); do not import this from api/worker.
+- `bed_detector.py`: bed detection post-processing for demo overlays and live-view bed-exit wiring.
 - `pages/`: Streamlit multipage entrypoints.
 
 ## Imports
@@ -24,6 +26,8 @@ Forbidden: adding new production dependencies on `demo`, direct backend writes f
 - `tests/test_demo_temporal_classifier.py`
 - `tests/test_demo_yolo_overlay.py`
 - `tests/test_demo_live_source_selection.py`
+- `tests/test_alert_client.py`
+- `tests/test_demo_bed_detector.py`
 - `tests/test_import_dependency_ladder.py`
 
 ## Gotchas
