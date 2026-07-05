@@ -55,7 +55,6 @@ export default tseslint.config(
   // Legacy allowlist: pre-existing seam offenders (Follow-up Issue1 shrinks this).
   {
     files: [
-      'src/components/SpaceDetailPanel.tsx',
       'src/components/layout/AppLayout.tsx',
       'src/components/layout/StaffLayout.tsx',
       'src/pages/SuperAdminDashboardPage.tsx',
