@@ -19,7 +19,7 @@
 │  │ bed runners  │                         │                      │  │
 │  │ perception   │                         │ /api/v1/relay/*      │  │
 │  │ domains      │                         │ health/status/models │  │
-│  │ heartbeat    │                         │ debug/source registry│  │
+│  │ heartbeat    │                         │ backend config pull  │  │
 │  └──────────────┘                         │ heartbeat store      │  │
 │                                           └──────────┬───────────┘  │
 │                                                      │              │
@@ -34,12 +34,12 @@
 
 ## 왜 두 프로세스인가
 
-ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리한다. RTSP 스트림이 끊기거나 특정 카메라 추론이 느려져도 `ml-api`의 health/readiness/debug/status 표면은 독립적으로 살아 있어야 하고, backend Event API URL·공개 egress·relay token 검증은 한 프로세스에 모여야 한다.
+ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리한다. RTSP 스트림이 끊기거나 특정 카메라 추론이 느려져도 `ml-api`의 health/readiness/status 표면은 독립적으로 살아 있어야 하고, backend Event API URL·공개 egress·relay token 검증은 한 프로세스에 모여야 한다.
 
 | 프로세스 | 책임 | 실제 코드 |
 | --- | --- | --- |
 | `ml-worker` | RTSP capture, pose/person/bed runner 실행, `FrameObservation` 조립, fall/bed-exit domain fact 생성, heartbeat 생성, local relay 호출 | `ml/worker/edge_worker.py`, `ml/worker/camera_worker.py`, `ml/worker/edge_worker_supervisor.py`, `ml/worker/edge_worker_config.py` |
-| `ml-api` | `/api/v1/relay/*` 수신, `X-Edge-Relay-Token` 검증, `API_CAMERA_INVENTORY` 기반 camera binding, backend Event API egress, health/status/models/debug route, source registry, heartbeat store, lifespan readiness | `ml/api/main.py`, `ml/api/lifespan.py`, `ml/api/routes/ingest_relay.py`, `ml/api/routes/health.py`, `ml/api/routes/status.py`, `ml/api/routes/models.py`, `ml/api/routes/debug.py` |
+| `ml-api` | `/api/v1/relay/*` 수신, `X-Edge-Relay-Token` 검증, backend `GET /api/v1/ml-config/:facilityId` primary config pull, fallback `API_CAMERA_INVENTORY` 기반 camera binding, backend Event API egress, health/status/models route, heartbeat store, lifespan readiness | `ml/api/main.py`, `ml/api/lifespan.py`, `ml/api/routes/ingest_relay.py`, `ml/api/routes/health.py`, `ml/api/routes/status.py`, `ml/api/routes/models.py` |
 | backend | Event API ingress 이후 정책, dedup, 불변 Event 저장, Alert 파생, SSE/Kakao side effect | `../api/edge-ingest-api.md` 참조 |
 
 ## 프로세스 경계와 연결
@@ -58,7 +58,7 @@ ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리
 | alert relay | `POST /api/v1/relay/alerts` → `202` accepted | `ml/api/routes/ingest_relay.py` |
 | heartbeat relay | `POST /api/v1/relay/heartbeat` → `202` accepted | `ml/api/routes/ingest_relay.py` |
 
-`ml-api`는 relay 요청에서 token을 먼저 검증하고, `API_CAMERA_INVENTORY`로 구성된 `camera_inventory`에서 `camera_id`와 `facility_id`가 일치하는지 확인한 뒤 backend egress를 수행한다. heartbeat는 auth와 camera binding 이후, backend egress 이전에 `HeartbeatStore.record()`로 local `received_at`을 찍기 때문에 `/api/v1/status`는 backend 장애와 독립적인 edge-local liveness를 보여준다.
+`ml-api`는 relay 요청에서 token을 먼저 검증하고, backend config pull로 구성된 `camera_inventory`에서 `camera_id`와 `facility_id`가 일치하는지 확인한 뒤 backend egress를 수행한다. `API_CAMERA_INVENTORY`는 backend config pull이 unavailable일 때만 쓰는 fallback이다. heartbeat는 auth와 camera binding 이후, backend egress 이전에 `HeartbeatStore.record()`로 local `received_at`을 찍기 때문에 `/api/v1/status`는 backend 장애와 독립적인 edge-local liveness를 보여준다.
 
 ### `ml-api → backend`
 
@@ -73,14 +73,14 @@ ADR은 카메라 루프의 수명과 FastAPI 게이트웨이의 수명을 분리
 | 구성 | 설명 |
 | --- | --- |
 | `ml-api` publish | 컨테이너는 `0.0.0.0:8000`에 bind하지만 host publish는 `127.0.0.1:${ML_SERVING_PORT:-8000}:8000`로 loopback-only다. |
-| `ml-api` env | `API_BACKEND_EVENTS_URL`, `API_EDGE_RELAY_TOKEN`, `API_CAMERA_INVENTORY`를 필수로 받는다. |
+| `ml-api` env | `API_BACKEND_EVENTS_URL`, `API_EDGE_RELAY_TOKEN`, `API_BACKEND_CONFIG_URL`, `API_FACILITY_ID`를 필수로 받는다. `API_CAMERA_INVENTORY`는 backend config pull unavailable 시에만 쓰는 optional fallback이다. |
 | `ml-api` model mount | `${ML_MODELS_DIR:-./ml/models}:/app/models:ro`를 읽기 전용으로 mount한다. |
 | `ml-api` healthcheck | `GET http://127.0.0.1:8000/health/live`를 호출한다. |
 | `ml-worker` config | `EDGE_CAMERA_CONFIG=/run/secrets/ml-worker.yaml`; Compose secret `ml-worker-config`가 `${EDGE_CAMERA_CONFIG}` 파일을 mount한다. |
 | `ml-worker` dependency | `depends_on.ml-api.condition: service_healthy`; gateway가 live 된 뒤 worker가 뜬다. |
 | `ml-worker` command | `python -m worker.edge_worker --config /run/secrets/ml-worker.yaml --heartbeat-on-start` |
 
-`.env.edge.prod.example`은 `API_CAMERA_INVENTORY=[{"camera_id":"cam-edge-01","facility_id":"facility-prod","resident_id":"resident-prod"}]` 형식을 예시로 둔다. 이 inventory는 relay payload의 camera/facility binding 검증에 쓰이며, RTSP URL과 domain/model 설정은 gitignored worker YAML에 둔다.
+`.env.edge.prod.example`은 required edge-prod vars로 `API_BACKEND_CONFIG_URL=https://senai.example.com/api/v1/ml-config`와 `API_FACILITY_ID=<facility-id>`를 예시로 둔다. `API_CAMERA_INVENTORY=[{"camera_id":"cam-edge-01","facility_id":"facility-prod","resident_id":"resident-prod"}]`는 backend config pull이 unavailable일 때 relay payload의 camera/facility binding 검증에 쓰는 optional fallback이며, primary source가 아니다. RTSP URL과 domain/model 설정은 gitignored worker YAML에 둔다.
 
 ## 3-state 모델
 
@@ -88,24 +88,22 @@ ADR 기준으로 엣지 상태는 세 종류로 나뉜다. 핵심은 `ml-api`와
 
 | 상태 종류 | Owner | 흐름 | 현재 구현/방향 |
 | --- | --- | --- | --- |
-| Policy CONFIG | backend가 SSOT, edge는 immutable snapshot/last-known-good copy | 향후 backend → `ml-api` pull → worker pull | night window, domain enable/disable 같은 값은 중앙 소유가 목표다. 현재 night window는 worker YAML에 남아 있고 동적 배포는 후속 작업이다. |
+| Policy CONFIG | backend가 SSOT, edge는 immutable snapshot/last-known-good copy | backend → `ml-api` pull → worker pull | `API_BACKEND_CONFIG_URL` + `API_FACILITY_ID`가 primary backend config pull이다. `API_CAMERA_INVENTORY`는 backend config pull unavailable 시 fallback이다. |
 | Events / facts | `ml-worker` 생성, `ml-api` egress | `worker → ml-api /api/v1/relay/* → backend /api/v1/events` | fall, bed-exit, heartbeat fact. `ml-worker`는 backend를 직접 호출하지 않는다. |
 | Runtime / flow state | process-local | 공유 없음 | worker의 detection window, `IncidentManager`, `LatestFrameBuffer`, `StatusStore`; api의 `HeartbeatStore`는 relay heartbeat에서 재구성한 별도 view다. |
 
-last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge가 기존 snapshot으로 계속 판단하는 운영 모델을 뜻한다. 이 문서의 현재 live path에서는 event/fact 업로드만 구현되어 있으며, policy config pull은 ADR의 후속 방향이다.
+last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge가 기존 snapshot으로 계속 판단하는 운영 모델을 뜻한다. The current live path pulls backend-owned policy/config through `ml-api` and persists worker LKG under `ML_WORKER_STATE_DIR`; cold start without backend-pulled config can fall back to `API_CAMERA_INVENTORY` for relay binding and worker YAML/LKG for worker runtime config.
 
 ## `ml-api` lifespan 부트 순서
 
 `ml/api/lifespan.py`의 실제 순서는 다음과 같다.
 
 1. `_load_config(app)`: 테스트나 app state에 주입된 config loader/validator가 있으면 실행한다.
-2. device/model registry 준비: `select_device`로 `app.state.device`를 정하고 `DEFAULT_REGISTRY`를 `app.state.model_registry`로 둔다.
-3. heartbeat store 준비: `HeartbeatStore(stale_after_sec=...)`가 없으면 만든다.
-4. model warmup: `get_model()`로 fall model을 로드하고 `warmup_runner()`를 실행한다. 실패하면 `model_load_error`를 남기고 readiness는 not ready가 된다.
-5. debug pipeline 준비: model이 있으면 `FallPipeline(model)`을 `app.state.fall_pipeline`로 둔다.
-6. backend-ingest gateway 구성: `API_EDGE_RELAY_TOKEN`, `API_CAMERA_INVENTORY`, `API_BACKEND_EVENTS_URL`, timeout을 읽어 `EdgeIngestClient`를 만든다.
-7. bounded debug source registry: `get_source_registry()`로 `app.state.source_registry`를 준비한다.
-8. readiness 설정: model이 있으면 `{"ready": true, "status": "ready"}`, 아니면 `model.load_failed`로 not ready.
+2. heartbeat store 준비: `HeartbeatStore(stale_after_sec=...)`가 없으면 만든다.
+3. restart/config state 초기화: `restart_epoch`, `config_version`, `pulled_config` 기본값을 둔다.
+4. backend ingest gateway 구성: `API_EDGE_RELAY_TOKEN`, optional fallback `API_CAMERA_INVENTORY`, `API_BACKEND_EVENTS_URL`, timeout을 읽어 relay token, camera inventory, `EdgeIngestClient`를 준비한다.
+5. backend config pull: `API_BACKEND_CONFIG_URL` + `API_FACILITY_ID`로 backend `GET /api/v1/ml-config/:facilityId`를 가져와 `pulled_config`, `config_version`, backend-derived `camera_inventory`를 적용한다.
+6. readiness 설정: `{"ready": true, "status": "ready"}`.
 
 이 boot는 camera loop를 만들지 않는다. `ml-api`는 `worker` package를 import하지 않고, production RTSP/runtime state도 소유하지 않는다.
 
@@ -122,6 +120,8 @@ last-known-good 자율성은 backend/config 배포가 일시 장애여도 edge�
 | `GET /api/v1/models` | `ml/api/routes/models.py` | gateway metadata only; no model registry/device |
 | `POST /api/v1/relay/alerts` | `ml/api/routes/ingest_relay.py` | worker alert fact relay, `202` |
 | `POST /api/v1/relay/heartbeat` | `ml/api/routes/ingest_relay.py` | worker heartbeat relay, `202` |
+| `GET /api/v1/relay/config` | `ml/api/routes/ingest_relay.py` | worker config pull; backend config unavailable and no pulled config returns `503` |
+| `POST /api/v1/relay/restart` | `ml/api/routes/ingest_relay.py` | Plane-O restart directive; bumps `restart_epoch` for workers to observe |
 
 와이어 계약의 필드와 응답 형식은 `../api/ml-serving-api.md`와 `../api/edge-ingest-api.md`를 기준으로 본다. 이 문서는 흐름과 책임만 요약한다.
 

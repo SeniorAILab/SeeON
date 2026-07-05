@@ -42,8 +42,8 @@ Current route inventory cross-checked against `backend/src/**/*.controller.ts` f
 | GET | `/api/v1/residents/assignments` | Same | Query `residentId?`, `spaceId?`, `zoneId?`, `active?` | Read-only assignment list. |
 | GET | `/api/v1/cameras` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body | Camera list. |
 | GET | `/api/v1/cameras/:id` | Same | Path `id` | One camera. |
-| POST | `/api/v1/cameras` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label: string, spaceId: string }` | Created camera. |
-| PATCH | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label?: string, spaceId?: string }` | Updated camera. |
+| POST | `/api/v1/cameras` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label: string, spaceId: string, rtspUrl?: string \| null }` | Created camera; `rtspUrl` is write-only, settable here but never returned by camera read DTOs or logs. |
+| PATCH | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | `{ label?: string, spaceId?: string, rtspUrl?: string \| null }` | Updated camera; `rtspUrl` remains write-only and is never returned by camera read DTOs or logs. |
 | DELETE | `/api/v1/cameras/:id` | Same + `RolesGuard`, `@RequireCapability('facilityAdmin')` | Path `id` | Removed camera result. |
 | GET | `/api/v1/guardians` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | Query `residentId?` | Guardian list. |
 | GET | `/api/v1/guardians/:id` | Same | Path `id` | One guardian. |
@@ -56,13 +56,24 @@ Current route inventory cross-checked against `backend/src/**/*.controller.ts` f
 | GET | `/api/v1/alerts/:alertId/snapshot` | Same | Path `alertId` | Snapshot bytes with private cache headers. |
 | PUT | `/api/v1/alerts/:alertId/snapshot` | Same | Raw image body, max 2 MiB | `201 { snapshotKey }`. |
 | GET | `/api/v1/dashboard/stream` | `JwtAuthGuard`, `RequireFacilityGuard` | Header `Last-Event-ID?`; cookie | SSE stream with named `alert` and `alert-updated` frames. |
-| POST | `/api/v1/events` | None | `{ camera_id: string, type: string, detected_at: string, confidence?: number }` | `201 { id, status }`; unknown camera returns `404`; unknown type returns `400`. |
+| POST | `/api/v1/events` | None / Event-API network trust | `{ camera_id: string, type: string, detected_at: string, confidence?: number, config_version?, model_version?, detector_version?, operating_threshold?, clock_source?, snapshot_key? }` | `201 { id, status }`; optional audit fields are stored when present; client-supplied `snapshot_key` is ignored because snapshot keys are server-derived; envelope-less requests remain valid; unknown camera returns `404`; unknown type returns `400`. |
 | POST | `/api/v1/events/heartbeat` | None | `{ camera_id: string }` | `200 { ok: true }`; marks camera online/last seen. |
+| PUT | `/api/v1/events/:eventId/snapshot` | None / Event-API network trust | Raw image body, max 2 MiB; no client key | Event-created-first snapshot upload; backend resolves the Event, derives `<facilityId>/<eventId>.<ext>`, rejects client-supplied keys, persists `Event.snapshotKey`, backfills derived `Alert.snapshotKey`, and returns `201 { snapshotKey }`. |
+| GET | `/api/v1/ml-config/:facilityId` | None / edge-LAN network trust | Path `facilityId` | ML-plane config read; returns `200 { configVersion, nightWindow: { start, end, tz }, cameras: [{ id, spaceId, label, rtspUrl, online }] }`; when no `MlFacilityConfig` row exists, returns `configVersion: 0`, default `nightWindow: { start: "21:00", end: "07:00", tz: "Asia/Seoul" }`, and the facility camera list (empty `cameras: []` when no cameras exist); this is the only route where `rtspUrl` leaves the backend. |
+| PUT | `/api/v1/ml-config/:facilityId/night-window` | `JwtAuthGuard`, `RequireFacilityGuard`, path/facility match | `{ start, end, tz }` | Plane-P policy write; updates the facility-level night window and bumps `config_version`. |
 | GET | `/api/v1/events` | `JwtAuthGuard`, `RequireFacilityGuard`, `FacilityContextInterceptor` | No body | Authenticated facility event history. |
 
 ## Event API contract
 
-`POST /api/v1/events` and `POST /api/v1/events/heartbeat` are the only live ML ingress endpoints. They are no-HMAC, accept camera-keyed JSON bodies, and resolve facility/space ownership from the backend camera record. Event type is trimmed and lowercased at ingress, must match the backend allowlist, and is otherwise accepted as the ML-provided type; backend does not apply probability re-thresholding, cooldowns, or hourly caps at ingress.
+`POST /api/v1/events` and `POST /api/v1/events/heartbeat` are the live ML ingress endpoints. They are no-HMAC, accept camera-keyed JSON bodies, and resolve facility/space ownership from the backend camera record. Event type is trimmed and lowercased at ingress, must match the backend allowlist, and is otherwise accepted as the ML-provided type; backend does not apply probability re-thresholding, cooldowns, or hourly caps at ingress.
+
+`POST /api/v1/events` is backward compatible with the original envelope-less body and additionally accepts the audit envelope fields `config_version`, `model_version`, `detector_version`, `operating_threshold`, and `clock_source`. A client-supplied `snapshot_key` is accepted only for compatibility and ignored for storage decisions; snapshot keys are server-derived.
+
+Snapshots use an Event-created-first flow: `ml-api` posts the event, receives the backend Event id, then uploads raw image bytes to `PUT /api/v1/events/:eventId/snapshot`. The route has the same Event-API network-trust posture, enforces the 2 MiB raw-body limit, rejects client-supplied key material, derives `<facilityId>/<eventId>.<ext>` from the resolved Event, writes `Event.snapshotKey` through the append-only-safe snapshot persistence path, and backfills the derived Alert snapshot key.
+
+`GET /api/v1/ml-config/:facilityId` is the ML-plane config read used by `ml-api`. It is not browser-authenticated in Phase-1; it relies on edge-LAN network trust like Event API ingress. It returns the facility `configVersion`, facility-level `nightWindow`, and cameras including plaintext `rtspUrl`; this route is the only place `rtspUrl` leaves the backend. `PUT /api/v1/ml-config/:facilityId/night-window` is the guarded Plane-P policy write and bumps `config_version`.
+
+`MlFacilityConfig` owns the facility-level night window and a monotonic per-facility `config_version`, bumped in the same transaction as camera or night-window mutations. Phase-1 intentionally uses edge-LAN network trust and plaintext write-only `Camera.rtspUrl`; Phase-2 hardening covers at-rest RTSP encryption/rotation and dedicated config-service authentication.
 
 ## Removed routes
 
