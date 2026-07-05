@@ -26,7 +26,9 @@ See `src/AGENTS.md` before changing frontend application code.
   code (types, stores such as `monitorStore`, `authStore`, `facilityStore`,
   `uiStore`, `components/ui`, `components/status/**`, layouts, `lib/*`,
   services core) stays in the type-based layers and is never moved into
-  `features/`.
+  `features/`. Carve-out: `*.test.*` files may deep-import feature internals
+  directly for mocking/fixtures (e.g. `vi.mock("@/features/monitor/pages/...")`);
+  production code must always go through the barrel.
 - Components never call the backend directly — go through `src/services/*` (the API seam).
 - Backend endpoint calls live under `src/services/api/*`; service files consume endpoint functions instead of scattering `fetch()` or backend JSON casts.
 - `src/types/index.ts` mirrors the PRD/API contract for frontend code.
