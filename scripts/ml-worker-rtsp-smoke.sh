@@ -46,7 +46,7 @@ except EdgeWorkerConfigError as exc:
     raise SystemExit(2) from exc
 
 for camera in config.cameras:
-    print(camera.rtsp_url)
+    print(camera.inference_rtsp_url)
 PY
 )"
 mapfile -t urls <<<"$urls_output"

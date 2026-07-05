@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from worker.camera_worker import RunnerOutput
+from contracts.runner import RunnerOutput, pose_result
 from worker.edge_worker_config import CameraRuntimeConfig, EdgeWorkerConfig
 from worker.status_store import StatusStore
 
@@ -12,7 +12,8 @@ from worker.status_store import StatusStore
 class _Runner:
     def run(self, image: np.ndarray) -> RunnerOutput:
         del image
-        return ()
+        return pose_result((), ())
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +36,7 @@ class _FallModel:
 class _CountingRegistry:
     pose_runner: _Runner = field(default_factory=_Runner)
     person_runner: _Runner = field(default_factory=_Runner)
+
     bed_runner: _Runner = field(default_factory=_Runner)
     fall_model: _FallModel = field(default_factory=_FallModel)
     created: dict[str, int] = field(
@@ -71,11 +73,10 @@ def test_worker_builds_pose_and_bed_runners_once_for_four_cameras(monkeypatch) -
 
     supervisor = edge_worker._build_supervisor(_four_camera_config(), StatusStore())
 
-    assert registry.created == {"pose": 1, "person": 1, "bed": 1, "fall": 1}
+    assert registry.created == {"pose": 1, "person": 0, "bed": 1, "fall": 1}
     assert selected_devices == ["mps"]
     assert registry.kwargs_by_task == {
         "pose": {"device": "mps"},
-        "person": {"device": "mps"},
         "bed": {"device": "mps"},
         "fall": {},
     }
@@ -85,9 +86,7 @@ def test_worker_builds_pose_and_bed_runners_once_for_four_cameras(monkeypatch) -
     assert {id(loop.worker.runners["bed"]) for loop in supervisor.loops} == {
         id(registry.bed_runner)
     }
-    assert {id(loop.worker.runners["person"]) for loop in supervisor.loops} == {
-        id(registry.person_runner)
-    }
+    assert all("person" not in loop.worker.runners for loop in supervisor.loops)
 
 
 def _four_camera_config() -> EdgeWorkerConfig:

@@ -8,6 +8,7 @@ from typing import Final, TypeAlias
 from numpy.typing import NDArray
 
 from contracts.artifacts import pose_weight_path
+from contracts.runner import PoseRunnerResult, pose_result
 
 PoseDetections: TypeAlias = tuple[tuple[tuple[int, int, float], ...], ...]
 POSE_MODEL_CONFIDENCE: Final = 0.05
@@ -30,10 +31,8 @@ class YoloPoseRunner:
         self._confidence = confidence
         self._device = device
 
-    def predict_full(
-        self, frame: NDArray
-    ) -> tuple[PoseDetections, tuple[tuple[int, int, int, int, float], ...]]:
-        """Return (pose_detections, person_boxes) where each box is (x1,y1,x2,y2,conf).
+    def predict_full(self, frame: NDArray) -> PoseRunnerResult:
+        """Return tagged pose detections plus person boxes.
 
         Runs the model once and extracts both keypoints and bounding boxes so
         callers can populate a full FrameObservation without a second inference.
@@ -77,4 +76,7 @@ class YoloPoseRunner:
                 for c, conf in zip(xyxy, confs, strict=True)
             )
 
-        return poses, raw_boxes
+        return pose_result(poses, raw_boxes)
+
+    def run(self, frame: NDArray) -> PoseRunnerResult:
+        return self.predict_full(frame)
