@@ -29,7 +29,11 @@ Terminology: dashboard = route/read-model/API, monitor = physical kiosk device/s
   internal to a feature may reference its own files directly. Shared code
   (types, cross-feature stores, `components/ui`, `components/status/**`,
   layouts, `lib/*`, services core, `hooks/useActiveFacilityId`) stays in the
-  type-based layers above and must not move into `features/`.
+  type-based layers above and must not move into `features/`. Carve-out:
+  `*.test.*` files may deep-import feature internals directly for
+  mocking/fixtures (e.g. `vi.mock("@/features/monitor/pages/FloorMonitorPage")`,
+  dynamic `import("@/features/monitor/services/tts/ttsConfig")`); production
+  code must always go through the barrel.
 - Components never call backend endpoints directly. Use `services/*`.
 - Endpoint functions live under `services/api/*`; higher services consume them.
 - Keep backend DTO parsing/mapping at the service seam, not inside components.
