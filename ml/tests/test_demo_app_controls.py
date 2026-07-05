@@ -30,6 +30,7 @@ from demo_app_control_helpers import (
 )
 from streamlit.testing.v1 import AppTest
 
+from demo.model_bootstrap import FALL_MODELS_DIR
 from demo.ui_labels import (
     BOUNDING_BOXES_LABEL,
     CLASSIFIER_SELECT_LABEL,
@@ -43,6 +44,16 @@ from demo.ui_labels import (
     VIDEO_SELECT_LABEL,
     WINDOW_FRAMES_LABEL,
     YOLO_SIZE_LABEL,
+)
+
+# demo/app.py reacquires fall weights via demo.model_bootstrap.ensure_fall_models()
+# at import time, which needs either ml/models/fall/ already populated (local/CI) or
+# huggingface_hub + network access (Streamlit Community Cloud only, see
+# demo/requirements.txt). Skip like test_models_layout.py rather than hit the network
+# from CI.
+pytestmark = pytest.mark.skipif(
+    not any(FALL_MODELS_DIR.glob("*/metadata.json")),
+    reason="ml/models/fall/ absent (fresh clone or unlinked worktree)",
 )
 
 # Absolute path — AppTest.from_file resolves relative to cwd which can vary.
