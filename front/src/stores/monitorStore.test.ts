@@ -206,7 +206,7 @@ describe("monitorStore live alert merge", () => {
     );
     vi.stubGlobal("fetch", dashboardFetch());
 
-    const { useRealtimeSpaceStatus } = await import("@/hooks/useRealtimeSpaceStatus");
+    const { useRealtimeSpaceStatus } = await import("@/features/monitor/hooks/useRealtimeSpaceStatus");
     const { rerender, unmount } = renderHook(
       ({ facilityId }) => useRealtimeSpaceStatus(facilityId, []),
       { initialProps: { facilityId: "facility-a" } }

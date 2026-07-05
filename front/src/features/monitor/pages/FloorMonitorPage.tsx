@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { MonitorHeader } from "@/components/monitor/MonitorHeader";
+import { MonitorHeader } from "@/features/monitor/components/MonitorHeader";
 
 import { RoomStatusBoard } from "@/components/status/RoomStatusBoard";
 import { dashboardService } from "@/services/dashboardService";
-import { useRealtimeSpaceStatus } from "@/hooks/useRealtimeSpaceStatus";
-import { useTTSAlerts, buildTTSAlerts } from "@/hooks/useTTSAlerts";
+import { useRealtimeSpaceStatus } from "@/features/monitor/hooks/useRealtimeSpaceStatus";
+import { useTTSAlerts, buildTTSAlerts } from "@/features/monitor/hooks/useTTSAlerts";
 import { useMonitorStore } from "@/stores/monitorStore";
-import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
+import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import { ACCESS_DENIED_PATH } from "@/lib/routeAccess";

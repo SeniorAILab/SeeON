@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useMonitorStore } from "@/stores/monitorStore";
-import { useMonitorSettingsStore } from "@/stores/monitorSettingsStore";
+import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
 import { attentionRank } from "@/lib/staffCopy";
 import type { DashboardSummary, Space, SpaceStatus } from "@/types";
 

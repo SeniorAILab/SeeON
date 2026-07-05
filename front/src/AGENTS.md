@@ -9,19 +9,27 @@ inactive fixtures for reversibly hidden pages, and tests for the Vite React app.
 | Task | Location | Notes |
 | --- | --- | --- |
 | App entry | `main.tsx`, `router.tsx` | React bootstrap and route tree. |
+| Feature modules | `features/<name>/` | Bulletproof-react style feature folders (`monitor`, `admin-events`, `dashboard`); each has its own `components/`, `hooks/`, `pages/`, `services/`, `stores/` as needed, plus an `index.ts` public API. |
 | Backend access | `services/api/` | Endpoint mappers and backend DTO validation. |
 | Workflows | `services/` | Service-level orchestration over endpoint functions. |
 | Domain types | `types/index.ts` | Frontend type mirror of the PRD/API contract. |
-| Pages | `pages/` | Route-level UI surfaces. |
-| Reusable UI | `components/` | Dashboard widgets, monitor UI, layout, video. |
-| State containers | `stores/` | Zustand state containers; single owner for frontend shared state. |
-| Reusable hooks | `hooks/` | Reusable React hooks over services, state, and route context. |
+| Pages | `pages/` | Route-level UI surfaces not owned by a feature (shared/cross-feature pages). |
+| Reusable UI | `components/` | Shared/cross-feature dashboard widgets, layout, status board, UI primitives. Feature-specific UI lives under `features/<name>/components/`. |
+| State containers | `stores/` | Zustand state containers for shared/cross-feature state (e.g. `monitorStore`, `authStore`, `facilityStore`, `uiStore`). Feature-scoped state lives under `features/<name>/stores/`. |
+| Reusable hooks | `hooks/` | Reusable React hooks over services, state, and route context, shared across features (e.g. `useActiveFacilityId`). Feature-scoped hooks live under `features/<name>/hooks/`. |
 | Roles | `lib/roles.ts` | Frontend mirror for PRD role labels, permission helpers, and default routes. |
 | Tests | `test/`, `*.test.tsx`, `*.test.ts` | Vitest/jsdom setup and colocated specs. |
 
 Terminology: dashboard = route/read-model/API, monitor = physical kiosk device/settings, status = reusable board widgets.
 ## Conventions
 
+- Feature-internal code under `features/<name>/**` is imported by consumers
+  outside that feature only via the feature's `index.ts` public API (e.g.
+  `import { useMonitorSettingsStore } from "@/features/monitor"`). Code
+  internal to a feature may reference its own files directly. Shared code
+  (types, cross-feature stores, `components/ui`, `components/status/**`,
+  layouts, `lib/*`, services core, `hooks/useActiveFacilityId`) stays in the
+  type-based layers above and must not move into `features/`.
 - Components never call backend endpoints directly. Use `services/*`.
 - Endpoint functions live under `services/api/*`; higher services consume them.
 - Keep backend DTO parsing/mapping at the service seam, not inside components.

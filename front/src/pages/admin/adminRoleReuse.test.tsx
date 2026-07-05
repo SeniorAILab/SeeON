@@ -25,7 +25,7 @@ vi.mock("@/components/layout/StaffLayout", async () => {
 vi.mock("@/pages/AccessDeniedPage", () => ({
   AccessDeniedPage: () => <div>ACCESS_DENIED_PAGE</div>,
 }));
-vi.mock("@/pages/DashboardPage", () => ({
+vi.mock("@/features/dashboard/pages/DashboardPage", () => ({
   DashboardPage: () => <div>ADMIN_DASHBOARD_PAGE</div>,
 }));
 vi.mock("@/pages/EventsPage", () => ({
@@ -34,7 +34,7 @@ vi.mock("@/pages/EventsPage", () => ({
 vi.mock("@/pages/SuperAdminDashboardPage", () => ({
   SuperAdminDashboardPage: () => <div>SUPER_ADMIN_DASHBOARD_PAGE</div>,
 }));
-vi.mock("@/pages/admin/AdminEventDetailPage", () => ({
+vi.mock("@/features/admin-events/pages/AdminEventDetailPage", () => ({
   AdminEventDetailPage: () => <div>ADMIN_EVENT_DETAIL_PAGE</div>,
 }));
 vi.mock("@/pages/admin/AdminFacilityPage", () => ({
@@ -49,7 +49,7 @@ vi.mock("@/pages/admin/UsersPage", () => ({
 vi.mock("@/pages/admin/AdminMonitorSettingsPage", () => ({
   AdminMonitorSettingsPage: () => <div>ADMIN_MONITOR_SETTINGS_PAGE</div>,
 }));
-vi.mock("@/pages/monitor/FloorMonitorPage", () => ({
+vi.mock("@/features/monitor/pages/FloorMonitorPage", () => ({
   FloorMonitorPage: () => <div>FLOOR_MONITOR_PAGE</div>,
 }));
 vi.mock("@/pages/LoginPage", () => ({
