@@ -42,7 +42,7 @@
 
 ## 이 컬렉션의 범위
 
-`docs/onboarding/`는 시스템의 흐름과 구성(how it flows)을 설명한다. 정확한 HTTP body, SSE frame, route inventory 같은 wire 계약은 [`../api/`](../api/)가 소유하고, 왜 그런 결정을 했는지는 [`../decisions/`](../decisions/)의 decision이 소유하며, 데이터 모델과 도메인 용어는 [`../domain/`](../domain/)에서 확인한다.
+`docs/onboarding/`는 시스템의 흐름과 구성(how it flows)을 설명한다. 정확한 HTTP body, SSE frame, route inventory 같은 wire 계약은 code + generated OpenAPI(`/api/docs`) + contract tests가 소유한다. Durable routing rules는 `../rules/`와 `../domain/`에 두고, 왜 그런 결정을 했는지는 `../decisions/`의 decision이 소유한다.
 
 ## References
 
@@ -56,6 +56,8 @@
 
 ### Hubs
 
-- [`../api/`](../api/) — wire/API 계약
+- [`../decisions/common/adr-wire-contract-ssot-code-openapi.md`](../decisions/common/adr-wire-contract-ssot-code-openapi.md) — wire contract SSOT
+- [`../rules/rest-api-convention.md`](../rules/rest-api-convention.md) — REST route convention
+- [`../rules/realtime-sse-convention.md`](../rules/realtime-sse-convention.md) — SSE convention
 - [`../decisions/`](../decisions/) — ADR
 - [`../domain/`](../domain/) — 데이터 모델/도메인 문서

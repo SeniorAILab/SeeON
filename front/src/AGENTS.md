@@ -2,7 +2,7 @@
 
 ## Overview
 `front/src/**` owns the product dashboard UI, frontend domain types, services,
-state, mocks, and tests for the Vite React app.
+inactive fixtures for reversibly hidden pages, and tests for the Vite React app.
 
 ## Where to look
 
@@ -14,19 +14,23 @@ state, mocks, and tests for the Vite React app.
 | Domain types | `types/index.ts` | Frontend type mirror of the PRD/API contract. |
 | Pages | `pages/` | Route-level UI surfaces. |
 | Reusable UI | `components/` | Dashboard widgets, monitor UI, layout, video. |
-| State | `store/`, `stores/`, `hooks/` | Client state and shared hooks. |
+| State containers | `stores/` | Zustand state containers; single owner for frontend shared state. |
+| Reusable hooks | `hooks/` | Reusable React hooks over services, state, and route context. |
 | Roles | `lib/roles.ts` | Frontend mirror for PRD role labels, permission helpers, and default routes. |
-| Mock mode | `mocks/`, `data/` | Automated-tests-only runtime (`VITE_USE_MOCK=true`); not in dev/prod. |
 | Tests | `test/`, `*.test.tsx`, `*.test.ts` | Vitest/jsdom setup and colocated specs. |
 
+Terminology: dashboard = route/read-model/API, monitor = physical kiosk device/settings, status = reusable board widgets.
 ## Conventions
 
 - Components never call backend endpoints directly. Use `services/*`.
 - Endpoint functions live under `services/api/*`; higher services consume them.
 - Keep backend DTO parsing/mapping at the service seam, not inside components.
-- Real backend mode is default. Mock mode (`VITE_USE_MOCK=true`, the
-  frontend-alone "demo" path) is for automated tests only, not dev/prod runtime
-  — see `../../docs/architecture.md`.
+- Runtime uses the real backend API seam. Do not reintroduce frontend mock auth
+  users, localStorage auth sessions, or runtime demo branches.
+- `data/mockData.ts`, `services/db.ts`, and their fixture service island are
+  preserved only for reversibly hidden pages. They are not a runtime backend
+  substitute; wire reactivated pages to the real backend or delete the fixture
+  island with those pages.
 - Auth is backend-owned. Restore identity through `/api/v1/auth/me`; do not add
   frontend mock users or localStorage auth sessions.
 - Use the `@/*` alias for source imports where it improves readability.

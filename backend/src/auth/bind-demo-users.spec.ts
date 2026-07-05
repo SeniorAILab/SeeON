@@ -37,12 +37,14 @@ describe('bind demo users script helpers', () => {
     ]);
   });
 
+  const demoFacilityId = 'clw0nokyangdemo000000000a';
+
   it('binds only exact Kakao-backed users to 녹양역점 as SUPER_ADMIN', async () => {
     const userUpdate = Promise.resolve({});
     const identityUpdate = Promise.resolve({});
     const prisma = {
       facility: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'fac_happy_nokyang' }),
+        findUnique: jest.fn().mockResolvedValue({ id: demoFacilityId }),
       },
       user: {
         findMany: jest.fn().mockResolvedValue([
@@ -75,7 +77,7 @@ describe('bind demo users script helpers', () => {
           email: 'rhqjatn310@kakao',
           id: 'user-1',
           kakaoId: 'kakao-1',
-          nextFacilityId: 'fac_happy_nokyang',
+          nextFacilityId: demoFacilityId,
           nextRole: 'SUPER_ADMIN',
           previousFacilityId: null,
           previousRole: 'ADMIN',
@@ -85,19 +87,19 @@ describe('bind demo users script helpers', () => {
     });
 
     expect(prisma.facility.findUnique).toHaveBeenCalledWith({
-      where: { id: 'fac_happy_nokyang' },
+      where: { code: 'happy-nokyang' },
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: {
-        facilityId: 'fac_happy_nokyang',
+        facilityId: demoFacilityId,
         role: 'SUPER_ADMIN',
         sessionVersion: { increment: 1 },
       },
     });
     expect(prisma.kakaoIdentity.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      data: { facilityId: 'fac_happy_nokyang' },
+      data: { facilityId: demoFacilityId },
     });
     expect(prisma.$transaction).toHaveBeenCalledWith([
       userUpdate,
@@ -108,7 +110,7 @@ describe('bind demo users script helpers', () => {
   it('dry-runs exact binding without mutating users', async () => {
     const prisma = {
       facility: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'fac_happy_nokyang' }),
+        findUnique: jest.fn().mockResolvedValue({ id: demoFacilityId }),
       },
       user: {
         findMany: jest.fn().mockResolvedValue([
@@ -150,15 +152,13 @@ describe('bind demo users script helpers', () => {
         },
         { dryRun: false, emails: [], kakaoIds: ['kakao-1'] },
       ),
-    ).rejects.toThrow('Demo facility fac_happy_nokyang does not exist');
+    ).rejects.toThrow('Demo facility with code happy-nokyang does not exist');
 
     await expect(
       bindDemoUsers(
         {
           facility: {
-            findUnique: jest
-              .fn()
-              .mockResolvedValue({ id: 'fac_happy_nokyang' }),
+            findUnique: jest.fn().mockResolvedValue({ id: demoFacilityId }),
           },
           user: {
             findMany: jest.fn().mockResolvedValue([]),

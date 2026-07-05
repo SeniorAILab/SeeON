@@ -27,6 +27,29 @@ LOWER_LAYER_ALLOWED = {
     "contracts": {"contracts"},
     "features": {"contracts", "features"},
 }
+EXPECTED_RUNNER_CONTRACT_SYMBOLS = {
+    "RunnerResult",
+    "PoseRunnerResult",
+    "PersonRunnerResult",
+    "BedRunnerResult",
+    "DetectionRunnerResult",
+    "pose_result",
+    "person_result",
+    "bed_result",
+    "detection_result",
+}
+EXPECTED_TRACKER_CONTRACT_SYMBOLS = {"TrackerProtocol"}
+EXPECTED_WORKER_CONFIG_CONTRACT_SYMBOLS = {
+    "WORKER_CONFIG_PATH",
+    "WORKER_RESTART_PATH",
+    "CONFIG_VERSION_KEY",
+    "RESTART_EPOCH_KEY",
+    "PulledCameraConfig",
+    "PulledNightWindow",
+    "PulledWorkerConfig",
+}
+
+
 
 
 def _tracked_python_files() -> list[Path]:
@@ -149,6 +172,28 @@ def test_module_level_import_allowlist() -> None:
                 failures.append((path, line, module))
 
     assert not failures, _format(failures)
+def test_runner_contract_exports_tagged_result_symbols() -> None:
+    namespace: dict[str, object] = {}
+    exec((ML_ROOT / "contracts" / "runner.py").read_text(encoding="utf-8"), namespace)
+    exported = set(namespace["__all__"])
+    assert EXPECTED_RUNNER_CONTRACT_SYMBOLS <= exported
+
+def test_tracker_contract_exports_protocol_symbol() -> None:
+    namespace: dict[str, object] = {}
+    exec((ML_ROOT / "contracts" / "tracker.py").read_text(encoding="utf-8"), namespace)
+    exported = set(namespace["__all__"])
+    assert EXPECTED_TRACKER_CONTRACT_SYMBOLS <= exported
+
+
+def test_worker_config_contract_exports_pull_symbols() -> None:
+    namespace: dict[str, object] = {}
+    exec(
+        (ML_ROOT / "contracts" / "worker_config.py").read_text(encoding="utf-8"),
+        namespace,
+    )
+    exported = set(namespace["__all__"])
+    assert EXPECTED_WORKER_CONFIG_CONTRACT_SYMBOLS <= exported
+
 
 
 def _imported_roots(node: ast.AST) -> set[str]:

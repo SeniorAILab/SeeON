@@ -2,7 +2,7 @@
 
 ## 1. Atmosphere & Identity
 
-Senior AI Lab is a calm care-operations command center. The signature is quiet clinical clarity: soft surfaces, restrained blue action color, high Korean readability, and enough spacing for staff using the dashboard repeatedly during care work.
+Senior AI Lab is a calm care-operations command center. The signature is Threads-style neutral clarity: achromatic surfaces (no navy/blue tint), status colors as the only chroma, restrained blue reserved for interactive elements, high Korean readability, and enough spacing for staff using the dashboard repeatedly during care work.
 
 ## 2. Color
 
@@ -10,26 +10,29 @@ Senior AI Lab is a calm care-operations command center. The signature is quiet c
 
 | Role | Token | Light | Dark | Usage |
 |---|---|---|---|---|
-| Background | `--c-bg` | `#f4f6f9` | `#0e1620` | Page background |
-| Surface | `--c-surface` | `#ffffff` | `#18222f` | Cards, primary panels |
-| Surface/secondary | `--c-surface-2` | `#f8fafc` | `#202c3b` | Secondary controls and hover states |
-| Border | `--c-border` | `#e2e6ec` | `#2b3a4d` | Cards, inputs, dividers |
-| Text/primary | `--c-ink` | `#15233b` | `#f1f5fa` | Main text |
-| Text/secondary | `--c-ink-soft` | `#51607a` | `#aab8cc` | Labels and helper text |
-| Text/faint | `--c-ink-faint` | `#8593a8` | `#7488a0` | Metadata and low-priority help |
-| Brand/action | `--c-brand` | `#2f6fb0` | `#4d97e0` | Primary actions, focus, links |
+| Background | `--c-bg` | `#fafafa` | `#101010` | Page background |
+| Surface | `--c-surface` | `#ffffff` | `#1a1a1a` | Cards, primary panels |
+| Surface/secondary | `--c-surface-2` | `#f0f0f0` | `#242424` | Secondary controls and hover states |
+| Border | `--c-border` | `#e0e0e0` | `#333333` | Cards, inputs, dividers |
+| Text/primary | `--c-ink` | `#0f0f0f` | `#f5f5f5` | Main text |
+| Text/secondary | `--c-ink-soft` | `#595959` | `#b3b3b3` | Labels and helper text |
+| Text/faint | `--c-ink-faint` | `#8a8a8a` | `#808080` | Metadata and low-priority help |
+| Brand/action (interactive-only) | `--c-brand` | `#2f6fb0` | `#4d97e0` | Primary actions, focus, links — never decorative |
 | Brand/soft | `--c-brand-soft` | `#eaf2fb` | `#1d2c40` | Subtle action background |
 | Teal/accent | `--c-teal` | `#2bb6a3` | `#3fd3bd` | Secondary accent |
-| Status/success | `--c-stable` | `#1f9d57` | `#45d07f` | Stable state |
-| Status/warning | `--c-caution` | `#c2700a` | `#f7b733` | Caution state |
-| Status/error | `--c-danger` | `#d92d20` | `#ff6b5e` | Errors and destructive states |
-| Status/info | `--c-check` | `#2563eb` | `#5fa3f7` | Check/info state |
+| Status/success | `--c-stable` | `#166e3d` | `#45d07f` | Stable state |
+| Status/warning | `--c-caution` | `#884e07` | `#f7b733` | Caution state |
+| Status/error | `--c-danger` | `#b8261b` | `#ff6b5e` | Errors and destructive states |
+| Status/info | `--c-check` | `#1554e0` | `#5fa3f7` | Check/info state |
 
 ### Rules
 
 - Use token-backed Tailwind colors (`bg`, `surface`, `surface2`, `border`, `ink`, `brand`, `status`) before raw colors.
-- Brand blue is for actions, links, and focus states.
+- Surfaces, backgrounds, and text stay neutral (no navy or blue tint); status colors are the only chroma on those surfaces.
+- Brand blue is for actions, links, and focus states only — never background decoration.
 - Status colors must pair text with their matching background token where possible.
+
+See the repo-root `DESIGN.md` for the canonical palette rationale, contrast rules, and the monitor-tile dimensional-stability exception.
 
 ## 3. Typography
 
