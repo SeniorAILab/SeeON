@@ -79,12 +79,15 @@ src/
 │   ├── dashboardService.ts 대시보드/공간 상태
 │   ├── eventService.ts     이벤트 확인/조치
 │   └── adminService.ts     가역 숨김 관리자 페이지 전용 비활 fixture
-├── stores/                 zustand state containers: authStore(권한) · facilityStore(시설 선택)
-├── components/             StatusCard, RiskBadge, StatusBadge, EventTimeline,
-│                           AIInsightBox, KakaoAlertStatusBadge, ActionLogForm,
-│                           FloorTabs, StatsBar, SpaceDetailPanel, layout/AppLayout ...
-└── pages/                  LoginPage, DashboardPage, EventsPage,
-                            admin/{Facility,Spaces,MonitorSettings,Users,EventDetail}Page
+├── stores/                 zustand state containers: authStore(권한) · facilityStore(시설 선택) · monitorStore(SSE 상태)
+├── components/             RiskBadge, KakaoAlertStatusBadge, layout/{AppLayout,StaffLayout},
+│                           status/{RoomStatusBoard,RoomActionPanel,RoomStatusTreemap}, ui/primitives ...
+├── features/               bulletproof-react 기능 폴더(components/hooks/pages/services/stores + index.ts):
+│                           dashboard(StatsBar, FloorTabs, DashboardPage) · monitor(MonitorHeader,
+│                           FloorMonitorPage, TTS 서비스) · admin-events(EventTimeline, AIInsightBox,
+│                           ActionLogForm, 영상 UI)
+└── pages/                  LoginPage, EventsPage,
+                            admin/{Facility,Spaces,MonitorSettings,Users}Page
 ```
 
 ---
@@ -144,14 +147,13 @@ src/
 
 ### 적응형 레이아웃 (평상시 압축 → 상황 시 확대)
 
-"상시 관제판"이 아니라 "상황 발생 시 커지는 안전 현황판"입니다. 평상시(NORMAL)는 14개 공간이 작고 조용한 압축형, 상황 발생 시 자동 확대됩니다:
+"상시 관제판"이 아니라 "상황 발생 시 커지는 안전 현황판"입니다. 평상시(안정/주의)는 공간이 작고 조용한 그리드형, 위험·확인 필요 상황이 생기면 자동 확대됩니다:
 
-- **주의(ATTENTION)**: 해당 공간만 ~1.5배 확대, 나머지 압축.
-- **위험(DANGER)**: 위험 공간을 대형 강조 영역에, 나머지는 압축 유지.
-- **응급(EMERGENCY)**: 화면 중앙 대형 오버레이 + 배경 딤. 바닥 자세/낙상 등.
-- **자동 복귀 금지**: 주의는 시간이 지나면 안정으로 돌아갈 수 있지만, **위험/응급은 확인 완료 전까지 유지**됩니다. 카드의 "확인 완료" 버튼을 누르면 평상시로 복귀하고 음성 안내도 멈춥니다.
+- **주의(CAUTION)**: 카드 배경·테두리 색만 주의 톤으로 바뀌고 크기는 그대로 유지.
+- **위험/확인 필요(DANGER/CHECK_NEEDED)**: 해당 공간이 "히어로" 타일로 확대되고 펄스 테두리로 강조됩니다. 화면 전체를 덮는 별도 오버레이는 없습니다.
+- **자동 복귀 금지**: 주의는 시간이 지나면 안정으로 돌아갈 수 있지만, **위험/확인 필요는 확인 완료 전까지 유지**됩니다. 카드를 눌러 연 조치 패널에서 "확인완료"를 누르면 평상시로 복귀하고 음성 안내도 멈춥니다.
 
-컴포넌트: `AdaptiveMonitorLayout`, `CompactSpaceCard`, `ExpandedAlertCard`, `EmergencyOverlay`, `AcknowledgementButton`.
+컴포넌트: `components/status/RoomStatusTreemap.tsx`(그리드/히어로 확대), `components/status/RoomActionPanel.tsx`(조치 패널). 이전 문서에 있던 `AdaptiveMonitorLayout`/`CompactSpaceCard`/`ExpandedAlertCard`/`EmergencyOverlay`/`AcknowledgementButton`는 미사용 코드로 이미 삭제되었습니다.
 
 ### TTS 음성 안내 (AI 안전 도우미)
 
@@ -160,7 +162,7 @@ src/
 - **우선순위 큐**: 응급 > 위험 > 주의. 동시에 여러 건이면 먼저 "현재 확인이 필요한 공간이 N곳 있습니다" 요약 후 개별 안내.
 - **문구**: 주의 "○○호 확인해 주세요" · 위험 "○○호 확인이 필요합니다. (사유)" · 응급 "○○호 응급 상황입니다. 직원 확인이 필요합니다."
 - **재안내**: 30초 → 2분 → 5분 간격. 동일 이벤트 중복 재생 금지. **확인 완료 시 즉시 중단.**
-- **Provider 패턴**: MVP는 브라우저 `SpeechSynthesis`. 상용화 시 `TTSProvider` 인터페이스만 구현하면 **Naver CLOVA Voice / Google Cloud TTS**로 교체 가능(상위 큐/스케줄 로직 불변). 파일: `services/tts/ttsProvider.ts`, `services/tts/ttsManager.ts`, `hooks/useTTSAlerts.ts`.
+- **Provider 패턴**: MVP는 브라우저 `SpeechSynthesis`. 상용화 시 `TTSProvider` 인터페이스만 구현하면 **Naver CLOVA Voice / Google Cloud TTS**로 교체 가능(상위 큐/스케줄 로직 불변). 파일: `features/monitor/services/tts/ttsProvider.ts`, `features/monitor/services/tts/ttsManager.ts`, `features/monitor/hooks/useTTSAlerts.ts`.
 
 > 브라우저 음성 정책상 첫 음성은 화면을 한 번 클릭/상호작용한 뒤 재생됩니다(자동재생 차단 대응).
 
@@ -177,7 +179,7 @@ GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Goog
 - 문구/공간을 조합해 `public/audio/tts/<층>/<호실>_<단계>.mp3`, `public/audio/tts/common/<슬러그>_<단계>.mp3`, `summary.mp3`를 생성합니다. (예: `201호 확인이 필요합니다` → `/audio/tts/2F/201_danger.mp3`, `중앙복도 단독 이동…` → `/audio/tts/common/center_hallway_danger.mp3`)
 - 생성 결과는 `manifest.json`에 `real: true/false`로 기록되고, 런타임 `playTTS`는 **실제 파일이 있으면 `Audio`로 재생, 없으면 브라우저 음성으로 폴백**합니다. 그래서 키가 없어도 동작하고, 키를 넣어 한 번 생성하면 자동으로 mp3 재생으로 전환됩니다.
 - 중복 재생 방지·우선순위(응급>위험>주의)·확인 완료 시 중단은 `ttsManager`가 담당합니다.
-- 파일: `scripts/generate-tts.ts`, `src/services/tts/{ttsConfig,audioMap,ttsProvider,synthesizer,playTTS,ttsManager}.ts`. 문구를 바꾸려면 `pnpm --filter front gen:tts` 재실행하면 됩니다.
+- 파일: `scripts/generate-tts.ts`, `src/features/monitor/services/tts/{ttsConfig,audioMap,ttsProvider,playTTS,ttsManager}.ts`, `src/services/tts/synthesizer.ts`. 문구를 바꾸려면 `pnpm --filter front gen:tts` 재실행하면 됩니다.
 
 ---
 
