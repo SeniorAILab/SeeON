@@ -1,8 +1,0 @@
-{
-  "id": "exp-022-transformer-best-restore",
-  "model_family": "transformer",
-  "hypothesis": "Wave7/restore: retrain the family-best config (d=64, heads=4, layers=1, lr=1.3066e-4, exp-010). Expect ~0.2574 reproduction.",
-  "hp_override": {"d_model": 64, "heads": 4, "layers": 1, "lr": 0.00013066739238053285},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}

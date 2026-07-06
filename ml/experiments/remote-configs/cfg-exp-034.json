@@ -1,8 +1,0 @@
-{
-  "id": "exp-034-gcn-best-restore",
-  "model_family": "gcn",
-  "hypothesis": "Restore: retrain exp-027 budget30 winner (hidden=38, blocks=3, lr=1.013e-4, dropout=0.3653) — canonical was clobbered by the blocks4 probe. Expect 0.3291.",
-  "hp_override": {"hidden": 38, "blocks": 3, "lr": 0.0001012993983606608, "dropout": 0.3653379080945175},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}
