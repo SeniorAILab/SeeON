@@ -225,20 +225,6 @@ export interface DashboardSummary {
   unacknowledged: number;
 }
 
-/** AI 모델이 백엔드로 전송하는 페이로드(연동 지점) */
-export interface AIDetectionPayload {
-  facilityCode: string;
-  cameraId: string;
-  spaceId: string;
-  timestamp: string;
-  peopleCount: number;
-  movementLevel: Level;
-  fallRiskLevel: Level;
-  eventType: DetectionEventType;
-  aiSummary: string;
-  confidence: number;
-}
-
 // ---------- 모니터(현황판) 모드 ----------
 
 export type ConnectionState =
