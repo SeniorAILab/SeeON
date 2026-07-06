@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable, Iterator
 
@@ -13,6 +14,9 @@ _LivenessCallback = Callable[[str], None]
 _StopPredicate = Callable[[], bool]
 
 _DEFAULT_PROCESSED_FPS = 5.0
+RTSP_BACKEND_ENV = "ML_RTSP_BACKEND"
+_DEFAULT_RTSP_BACKEND = "opencv"
+
 
 class RTSPSource:
     def __init__(
@@ -28,6 +32,7 @@ class RTSPSource:
         backoff_wait: Callable[[float], bool] | None = None,
         stop_requested: _StopPredicate | None = None,
         backend: RTSPBackend | None = None,
+        backend_name: str | None = None,
         target_fps: float = _DEFAULT_PROCESSED_FPS,
         clock: Callable[[], float] | None = None,
         pace_wait: Callable[[float], bool] | None = None,
@@ -36,7 +41,7 @@ class RTSPSource:
         self._max_failures = max(1, max_failures)
         self._open_timeout_ms = max(1, open_timeout_ms)
         self._read_timeout_ms = max(1, read_timeout_ms)
-        self._backend = OpenCVRTSPBackend() if backend is None else backend
+        self._backend = _create_backend(backend_name) if backend is None else backend
         self._reconnect_initial_backoff_sec = max(0.0, reconnect_initial_backoff_sec)
         self._reconnect_max_backoff_sec = max(
             self._reconnect_initial_backoff_sec,
@@ -159,6 +164,29 @@ class RTSPSource:
     def _notify_recovered(self, reason: str) -> None:
         if self._on_recovered is not None:
             self._on_recovered(reason)
+
+
+def _normalize_backend_name(backend_name: str | None = None) -> str:
+    raw_name = backend_name
+    if raw_name is None:
+        raw_name = os.environ.get(RTSP_BACKEND_ENV, _DEFAULT_RTSP_BACKEND)
+    normalized = raw_name.strip().lower()
+    return normalized or _DEFAULT_RTSP_BACKEND
+
+
+def _create_backend(backend_name: str | None = None) -> RTSPBackend:
+    normalized = _normalize_backend_name(backend_name)
+    if normalized == "opencv":
+        return OpenCVRTSPBackend()
+    if normalized == "nvdec":
+        raise NotImplementedError(
+            "RTSP backend 'nvdec' is not implemented yet. "
+            f"Set {RTSP_BACKEND_ENV}=opencv until the NVDEC adapter is added."
+        )
+    raise ValueError(
+        "Unsupported RTSP backend "
+        f"{normalized!r}; expected 'opencv' or 'nvdec'."
+    )
 
 
 __all__ = ["RTSPSource"]
