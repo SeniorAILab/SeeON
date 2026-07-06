@@ -1,8 +1,0 @@
-{
-  "id": "exp-021-svm-best-restore",
-  "model_family": "svm",
-  "hypothesis": "Wave7/restore: retrain the family-best config (linear, C=15.703, exp-008). Expect 0.4333 reproduction.",
-  "hp_override": {"kernel": "linear", "C": 15.702970884055382, "gamma": 0.01},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}

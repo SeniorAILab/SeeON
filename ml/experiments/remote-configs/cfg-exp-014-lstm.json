@@ -1,8 +1,0 @@
-{
-  "id": "exp-014-lstm-3layer-lastshot",
-  "model_family": "lstm",
-  "hypothesis": "Wave3/explore: last attempt for the floor family — pin layers=3 (wave-1 best), search hidden/lr/dropout. If it stays <0.15 with AUC-PR <0.3, LSTM is structurally unfit for 48-frame windows and gets retired from the loop.",
-  "hp_override": {"layers": 3},
-  "n_trials": 5,
-  "trial_timeout_s": 3600
-}

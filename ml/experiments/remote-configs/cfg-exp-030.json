@@ -1,8 +1,0 @@
-{
-  "id": "exp-030-logreg-c-finemap",
-  "model_family": "logistic-regression",
-  "hypothesis": "Phase2/finemap: C curve peak is between 300 (0.400) and 10000 (0.252); probe C=2000 to bracket the 1000 (0.448) peak from above.",
-  "hp_override": {"C": 2000.0},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}
