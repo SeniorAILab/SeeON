@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from worker.runners.registry import ModelRegistry, default_registry
-from worker.runners.sklearn_fall import FallDetector
+from worker.runners.sklearn_fall import MODELS_DIR, FallDetector
 from worker.runners.yolo_bed_seg import YoloBedSegRunner
 from worker.runners.yolo_person import YoloPersonRunner
 from worker.runners.yolo_pose import YoloPoseRunner
@@ -51,3 +53,6 @@ def test_default_registry_has_pose_bed_person_fall_factories_without_loading_mod
     assert registry.get_factory("bed") is YoloBedSegRunner
     assert registry.get_factory("person") is YoloPersonRunner
     assert registry.get_factory("fall") is FallDetector
+
+def test_sklearn_fall_default_models_dir_points_to_ml_models_root() -> None:
+    assert MODELS_DIR == Path(__file__).resolve().parents[1] / "models"

@@ -1,7 +1,7 @@
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readPositiveIntegerConfig } from './config.js';
 
@@ -24,16 +24,19 @@ const DEFAULT_TIMEOUT_MS = 3_000;
 
 @Injectable()
 export class KakaoSendToMeChannelAdapter implements ChannelPort {
+  private readonly logger = new Logger(KakaoSendToMeChannelAdapter.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   async send(message: AlertDeliveryMessage): Promise<DeliveryResult> {
     if (
       message.recipient_access_token === undefined ||
-      message.recipient_access_token.length === 0
+      message.recipient_access_token.trim().length === 0
     ) {
-      return classifyKakaoDeliveryFailure(
-        new KakaoConfigError('recipient_access_token'),
+      this.logger.warn(
+        `Kakao send-to-me skipped: recipient access token not configured for delivery_attempt_id=${message.delivery_attempt_id}`,
       );
+      return notConfiguredKakaoDelivery();
     }
     try {
       const token = message.recipient_access_token;
@@ -149,6 +152,15 @@ export function classifyKakaoDeliveryFailure(error: unknown): DeliveryResult {
   }
 
   return failed('transient', 'unknown_kakao_send_error', 60_000);
+}
+
+export function notConfiguredKakaoDelivery(): DeliveryResult {
+  return failed(
+    'terminal_operator_action',
+    'NOT_CONFIGURED',
+    undefined,
+    'Connect Kakao for the recipient before retrying delivery.',
+  );
 }
 
 function failed(
