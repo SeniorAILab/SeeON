@@ -135,8 +135,8 @@ def build_temporal_model(
         raise FileNotFoundError(
             f"No trained artifact for {key!r} found at {adir}. "
             "Train it in eldercare-dataset-ops (ADR-0004): "
-            "`cd ml && uv run python -m training.train`, then copy the artifact "
-            "directory here under ml/models/fall/."
+            "`cd ../eldercare-dataset-ops/ml && uv run python -m training.train`, "
+            "then copy the artifact directory here under ml/models/fall/."
         )
     # === 단계 2: metadata.json 로드 (window / stride / operating_threshold) ===
     # The selected artifact still owns the demo buffer geometry and threshold.
