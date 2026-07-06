@@ -13,7 +13,7 @@ describe('AddCameraModal', () => {
       root.render(<AddCameraModal open onClose={vi.fn()} onCreated={vi.fn()} />);
     });
 
-    const submitButton = Array.from(host.querySelectorAll('button')).find((button) => button.textContent === '카메라 등록');
+    const submitButton = Array.from(host.querySelectorAll('button')).find((button) => button.textContent === '연결 테스트 단계로');
 
     act(() => {
       submitButton?.click();
