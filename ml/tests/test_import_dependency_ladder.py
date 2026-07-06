@@ -10,22 +10,22 @@ OLD_ROOTS = {"runners", "sources", "perception", "domains"}
 MOVED_PACKAGES = ("runners", "sources", "perception", "domains")
 INTERNAL_TOPS = {
     "api",
+    "artifact_metadata",
     "contracts",
     "demo",
     "events",
     "features",
-    "training",
     "worker",
     *OLD_ROOTS,
 }
 
 API_ALLOWED = {"api", "contracts", "events.edge_ingest_client"}
 WORKER_ALLOWED = {"worker", "contracts", "features", "events"}
-TRAINING_ALLOWED = {"training", "contracts", "features"}
-DEMO_ALLOWED = {"demo", "contracts", "features", "worker", "events", "training"}
+DEMO_ALLOWED = {"demo", "contracts", "features", "worker", "events", "artifact_metadata"}
 LOWER_LAYER_ALLOWED = {
     "contracts": {"contracts"},
     "features": {"contracts", "features"},
+    "artifact_metadata": {"artifact_metadata"},
 }
 EXPECTED_RUNNER_CONTRACT_SYMBOLS = {
     "RunnerResult",
@@ -121,8 +121,6 @@ def _allowed_for(top: str, module: str) -> bool:
         )
     if top == "worker":
         return module.split(".", 1)[0] in WORKER_ALLOWED
-    if top == "training":
-        return module.split(".", 1)[0] in TRAINING_ALLOWED
     if top == "demo":
         return module.split(".", 1)[0] in DEMO_ALLOWED
     if top in LOWER_LAYER_ALLOWED:
@@ -165,7 +163,7 @@ def test_module_level_import_allowlist() -> None:
     failures: list[tuple[Path, int, str]] = []
     for path in _tracked_python_files():
         top = _top_package(path)
-        if top not in {"api", "worker", "training", "demo", "contracts", "features"}:
+        if top not in {"api", "worker", "demo", "contracts", "features", "artifact_metadata"}:
             continue
         for line, module in _import_modules(path):
             if _is_internal(module) and not _allowed_for(top, module):
