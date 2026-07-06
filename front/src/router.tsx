@@ -19,15 +19,14 @@ import { OnboardingPage } from "@/pages/OnboardingPage";
 import { AccessDeniedPage } from "@/pages/AccessDeniedPage";
 import { SuperAdminDashboardPage } from "@/pages/SuperAdminDashboardPage";
 import { AlertsPage } from "@/pages/staff/AlertsPage";
-import { DashboardPage } from "@/pages/DashboardPage";
+import { DashboardPage } from "@/features/dashboard";
 import { EventsPage } from "@/pages/EventsPage";
-import { AdminEventDetailPage } from "@/pages/admin/AdminEventDetailPage";
+import { AdminEventDetailPage } from "@/features/admin-events";
 import { AdminFacilityPage } from "@/pages/admin/AdminFacilityPage";
 import { AdminSpacesPage } from "@/pages/admin/AdminSpacesPage";
 import { UsersPage } from "@/pages/admin/UsersPage";
 import { AdminMonitorSettingsPage } from "@/pages/admin/AdminMonitorSettingsPage";
-import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
-import { FloorSelectLandingPage } from "@/pages/monitor/FloorSelectLandingPage";
+import { FloorMonitorPage, FloorSelectLandingPage } from "@/features/monitor";
 
 const auth = (children: ReactNode, minRole?: "STAFF" | "ADMIN" | "SUPER_ADMIN") => (
   <RouterBootstrap>

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Filter, RefreshCw, AlertTriangle } from "lucide-react";
-import { StatsBar } from "@/components/StatsBar";
-import { FloorTabs } from "@/components/FloorTabs";
+import { StatsBar } from "@/features/dashboard/components/StatsBar";
+import { FloorTabs } from "@/features/dashboard/components/FloorTabs";
 import { RoomStatusBoard } from "@/components/status/RoomStatusBoard";
 import { Select } from "@/components/ui/primitives";
-import { useDashboard } from "@/hooks/useDashboard";
+import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
 import { useMonitorStore } from "@/stores/monitorStore";
 import { spaceTypeLabel } from "@/lib/labels";
 import type { Space, SpaceType } from "@/types";

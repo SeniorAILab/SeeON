@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { FloorSelectCard } from "@/components/monitor/FloorSelectCard";
+import { FloorSelectCard } from "@/features/monitor/components/FloorSelectCard";
 import { groupRoomsByFloor, type RoomFloorGroup } from "@/components/status/RoomStatusTreemap";
 import { ACCESS_DENIED_PATH, dashboardPath, floorPath } from "@/lib/routeAccess";
 import { dashboardService } from "@/services/dashboardService";

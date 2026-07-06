@@ -2,8 +2,8 @@ import { act, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { connectionChipLabel, useDebouncedStatuses } from "./RoomStatusBoard";
 import { groupRoomsByFloor } from "./RoomStatusTreemap";
-import { textFor } from "@/services/tts/audioMap";
-import { FloorMonitorPage } from "@/pages/monitor/FloorMonitorPage";
+import { textFor } from "@/features/monitor/services/tts/audioMap";
+import { FloorMonitorPage } from "@/features/monitor/pages/FloorMonitorPage";
 import type { Floor, Space, SpaceStatus } from "@/types";
 
 const spaces: Space[] = [
@@ -78,8 +78,8 @@ describe("TTS", () => {
     expect(textFor("201호", "danger")).toBe("201호에서 위험 발생, 확인이 필요합니다");
   });
   it("exposes only the fixed spoken template from the runtime audio map", async () => {
-    const audioMap = await import("@/services/tts/audioMap");
-    const ttsConfig = await import("@/services/tts/ttsConfig");
+    const audioMap = await import("@/features/monitor/services/tts/audioMap");
+    const ttsConfig = await import("@/features/monitor/services/tts/ttsConfig");
     expect(textFor("201호", "danger")).toBe("201호에서 위험 발생, 확인이 필요합니다");
     expect("summaryMessage" in ttsConfig).toBe(false);
     expect("COMMON_SLUGS" in ttsConfig).toBe(false);
