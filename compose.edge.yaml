@@ -25,6 +25,7 @@ services:
       API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:-}
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
+      - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:ro
     command:
       - uvicorn
       - api.main:app
@@ -56,6 +57,7 @@ services:
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
       - ml-worker-state:/var/lib/ml-worker
+      - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:rw
     secrets:
       - source: ml-worker-config
         target: ml-worker.yaml
@@ -75,3 +77,4 @@ secrets:
     file: ${EDGE_CAMERA_CONFIG:?edge requires a local ml-worker YAML config}
 volumes:
   ml-worker-state: {}
+  clip-store: {}
