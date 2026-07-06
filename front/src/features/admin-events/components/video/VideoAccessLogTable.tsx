@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { formatDateTime } from "@/lib/format";
-import { videoService } from "@/services/videoService";
+import { videoService } from "@/features/admin-events/services/videoService";
 import { useAuthStore } from "@/stores/authStore";
 import type { VideoAccessAction, VideoAccessLog } from "@/types";
 

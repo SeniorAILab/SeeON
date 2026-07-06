@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Field } from "./ui/primitives";
+import { Button, Field } from "@/components/ui/primitives";
 import { actionTypeLabel } from "@/lib/labels";
 import type { ActionType } from "@/types";
 

@@ -4,7 +4,7 @@ import { formatTime, formatDateTime } from "@/lib/format";
 import { EventClipTimeline } from "./EventClipTimeline";
 import { VideoAccessNotice } from "./VideoAccessNotice";
 import { VideoUnavailableState } from "./VideoUnavailableState";
-import { videoService } from "@/services/videoService";
+import { videoService } from "@/features/admin-events/services/videoService";
 import { useAuthStore } from "@/stores/authStore";
 import type { VideoClip } from "@/types";
 

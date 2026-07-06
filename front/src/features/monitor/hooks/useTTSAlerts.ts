@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { ttsManager, type TTSAlertInput } from "@/services/tts/ttsManager";
+import { ttsManager, type TTSAlertInput } from "@/features/monitor/services/tts/ttsManager";
 import type { Floor, Space, SpaceStatus } from "@/types";
 
 /** 공간 상태 → TTS 알림 입력으로 변환 (주의/위험/응급만) */
