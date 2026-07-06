@@ -1,9 +1,9 @@
 // Host stack (backend/front) runs on the amd64 Naver Cloud VM; the edge stack
-// (ml-api/ml-worker) runs on the external edge device (aarch64 Jetson Nano B01,
-// arm64 — ADR). These deployment targets are fixed per release, so
-// each image's build platform is a pinned constant, not a tunable flag.
+// (ml-api/ml-worker) targets an x86 PC with an RTX 50-series GPU
+// (linux/amd64, NVIDIA runtime). Jetson/arm64 is out of target for now;
+// retargeting will split tags/platforms by hardware class per ralplan decision.
 const HOST_PLATFORM = "linux/amd64";
-const EDGE_PLATFORM = "linux/arm64";
+const EDGE_PLATFORM = "linux/amd64";
 
 export function buildAndPushImages({ imageNamespace, run, sha, dryRun }) {
   const backendImage = `${imageNamespace}/backend:${sha}`;

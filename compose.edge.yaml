@@ -2,6 +2,8 @@
 # The edge performs ML inference locally. ml-worker relays alert/heartbeat facts
 # to local ml-api over the compose network, and ml-api is the only process that
 # pushes backend Event API requests over the public network.
+# Edge target is a linux/amd64 PC with an NVIDIA RTX-class GPU; images are
+# pulled from GHCR only (pinned tag or digest) — no on-site builds.
 #
 # Usage (on the edge device):
 #   docker compose --env-file .env.edge.prod -f compose.edge.yaml up -d
@@ -48,6 +50,14 @@ services:
     build: !reset null
     pull_policy: always
     restart: unless-stopped
+    # GPU inference: reserve the host NVIDIA GPU (requires NVIDIA Container Toolkit).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       EDGE_CAMERA_CONFIG: /run/secrets/ml-worker.yaml
       RELAY_URL: http://ml-api:8000
