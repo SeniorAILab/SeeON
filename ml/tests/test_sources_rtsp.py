@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+import pytest
 from numpy.typing import NDArray
 
-from worker.sources.rtsp import RTSPSource
+from worker.sources.probe import RTSPProbeError, mask_rtsp_url, probe_first_frame
+from worker.sources.rtsp import RTSPSource, _create_backend
 from worker.sources.rtsp_backend import OpenCVRTSPBackend
 
 
@@ -49,6 +51,57 @@ class _RecordingBackend:
         return capture.read()
 
     def release(self, capture: _FakeCapture) -> None:
+        self.release_calls += 1
+        capture.release()
+
+
+class _ProbeCapture:
+    def __init__(
+        self,
+        responses: list[tuple[bool, NDArray[np.uint8] | None]],
+    ) -> None:
+        self._responses = responses
+        self.released = False
+
+    def set(self, prop_id: int, value: float) -> bool:
+        del prop_id, value
+        return True
+
+    def read(self) -> tuple[bool, NDArray[np.uint8] | None]:
+        if self._responses:
+            return self._responses.pop(0)
+        return False, None
+
+    def release(self) -> None:
+        self.released = True
+
+
+class _ProbeBackend:
+    def __init__(
+        self,
+        responses: list[tuple[bool, NDArray[np.uint8] | None]] | None = None,
+        open_error: Exception | None = None,
+    ) -> None:
+        self.capture = _ProbeCapture(responses or [])
+        self.open_error = open_error
+        self.open_calls: list[tuple[str, int, int]] = []
+        self.release_calls = 0
+
+    def open(
+        self,
+        url: str,
+        open_timeout_ms: int,
+        read_timeout_ms: int,
+    ) -> _ProbeCapture:
+        self.open_calls.append((url, open_timeout_ms, read_timeout_ms))
+        if self.open_error is not None:
+            raise self.open_error
+        return self.capture
+
+    def read(self, capture: _ProbeCapture) -> tuple[bool, NDArray[np.uint8] | None]:
+        return capture.read()
+
+    def release(self, capture: _ProbeCapture) -> None:
         self.release_calls += 1
         capture.release()
 
@@ -131,6 +184,102 @@ def test_rtsp_source_uses_injected_rgb_backend_without_double_conversion(monkeyp
     assert frames[0].image.tolist() == [[[10, 20, 30]]]
     assert frames[1].image.tolist() == [[[40, 50, 60]]]
 
+
+def test_create_backend_defaults_to_opencv(monkeypatch) -> None:
+    monkeypatch.delenv("ML_RTSP_BACKEND", raising=False)
+
+    assert isinstance(_create_backend(), OpenCVRTSPBackend)
+
+
+def test_create_backend_selects_opencv_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("ML_RTSP_BACKEND", "OPENCV")
+
+    assert isinstance(_create_backend(), OpenCVRTSPBackend)
+
+
+def test_create_backend_rejects_nvdec_until_adapter_exists() -> None:
+    with pytest.raises(NotImplementedError, match="NVDEC adapter"):
+        _create_backend("nvdec")
+
+
+def test_probe_first_frame_reports_resolution_channels_and_releases_capture() -> None:
+    frame = np.zeros((2, 3, 3), dtype=np.uint8)
+    backend = _ProbeBackend([(True, frame)])
+
+    result = probe_first_frame(
+        "rtsp://user:secret@camera.local/live?token=abc",
+        backend=backend,
+        timeout_ms=1000,
+        open_timeout_ms=111,
+        read_timeout_ms=222,
+    )
+
+    assert result.width == 3
+    assert result.height == 2
+    assert result.channels == 3
+    assert result.masked_url == "rtsp://***:***@camera.local/live?token=%2A%2A%2A"
+    assert backend.open_calls == [
+        ("rtsp://user:secret@camera.local/live?token=abc", 111, 222)
+    ]
+    assert backend.release_calls == 1
+    assert backend.capture.released is True
+
+
+def test_probe_first_frame_classifies_timeout_and_releases_capture() -> None:
+    backend = _ProbeBackend([(False, None), (False, None)])
+    monotonic = _monotonic_values((0.0, 0.1, 0.2, 0.6))
+
+    with pytest.raises(RTSPProbeError) as error:
+        probe_first_frame(
+            "rtsp://camera.local/live",
+            backend=backend,
+            timeout_ms=500,
+            monotonic=monotonic,
+        )
+
+    assert error.value.error_class == "timeout"
+    assert "rtsp://camera.local/live" in str(error.value)
+    assert backend.release_calls == 1
+    assert backend.capture.released is True
+
+
+def test_probe_first_frame_classifies_decode_failure() -> None:
+    backend = _ProbeBackend([(True, None)])
+
+    with pytest.raises(RTSPProbeError) as error:
+        probe_first_frame("rtsp://camera.local/live", backend=backend)
+
+    assert error.value.error_class == "decode"
+    assert "codec" in str(error.value)
+    assert backend.release_calls == 1
+
+
+def test_probe_first_frame_classifies_auth_and_masks_credentials() -> None:
+    raw_url = "rtsp://operator:s3cr3t@camera.local/live?token=plain"
+    backend = _ProbeBackend(open_error=RuntimeError(f"401 Unauthorized for {raw_url}"))
+
+    with pytest.raises(RTSPProbeError) as error:
+        probe_first_frame(raw_url, backend=backend)
+
+    assert error.value.error_class == "auth"
+    assert error.value.masked_url == (
+        "rtsp://***:***@camera.local/live?token=%2A%2A%2A"
+    )
+    assert "operator" not in str(error.value)
+    assert "s3cr3t" not in str(error.value)
+    assert "plain" not in str(error.value)
+    assert backend.release_calls == 0
+
+
+def test_mask_rtsp_url_redacts_userinfo_and_sensitive_query_values() -> None:
+    assert (
+        mask_rtsp_url(
+            "rtsp://user:password@host/stream"
+            "?profile=main&username=admin&secret=abc"
+        )
+        == "rtsp://***:***@host/stream"
+        "?profile=main&username=%2A%2A%2A&secret=%2A%2A%2A"
+    )
 
 def test_opencv_rtsp_backend_sets_timeout_and_buffer_properties(monkeypatch) -> None:
     captures: list[_FakeCapture] = []
