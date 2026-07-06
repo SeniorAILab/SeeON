@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -16,11 +17,12 @@ from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
 from contracts.worker_config import CONFIG_VERSION_KEY, PulledWorkerConfig
 from worker.camera_worker import CameraWorker, DomainDetectorProtocol
-from worker.config_pull import pull_worker_config
-from worker.config_resolver import resolve_effective_config, resolve_night_window
+from worker.config_pull import load_edge_worker_config_from_relay, pull_worker_config
+from worker.config_resolver import resolve_night_window
 from worker.domains import DOMAIN_REGISTRY
 from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker.edge_worker_config import (
+    EDGE_CAMERA_CONFIG_ENV,
     CameraRuntimeConfig,
     EdgeWorkerConfig,
     EdgeWorkerConfigError,
@@ -29,7 +31,6 @@ from worker.edge_worker_config import (
 )
 from worker.edge_worker_supervisor import EdgeWorkerSupervisor
 from worker.fall_window_classifier import FallModelProtocol, FallWindowClassifier
-from worker.lkg_store import load_lkg, save_lkg
 from worker.mjpeg_server import (
     MjpegServer,
     OverlayFrameBuffer,
@@ -60,6 +61,15 @@ class _Options:
 
 
 @dataclass(frozen=True, slots=True)
+class _StartupConfig:
+    config: EdgeWorkerConfig
+    registry_version: int
+    source: str
+    yaml_config: EdgeWorkerConfig | None = None
+    pulled: PulledWorkerConfig | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class _RunnerBundle:
     pose: RunnerProtocol
     bed: RunnerProtocol
@@ -83,28 +93,23 @@ def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     try:
         options = _parse_args(args)
-        config = load_edge_worker_config(resolve_config_path(options.config_path))
+        startup = _load_startup_config(options)
     except EdgeWorkerConfigError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    effective_config = startup.config
+    config_version = startup.registry_version
+    boot_registry_version = startup.registry_version
     if options.check_config:
-        print(json.dumps({"ok": True, "cameras": len(config.cameras)}, separators=(",", ":")))
+        print(
+            json.dumps(
+                {"ok": True, "cameras": len(effective_config.cameras)}, separators=(",", ":")
+            )
+        )
         return 0
-    relay_url = os.environ.get("RELAY_URL", str(config.relay.url))
+    relay_url = os.environ.get("RELAY_URL", str(effective_config.relay.url))
     relay_token = os.environ.get("RELAY_TOKEN")
-    pulled = pull_worker_config(relay_url, relay_token)
-    source = "pulled"
-    if pulled is not None:
-        save_lkg(pulled)
-    else:
-        pulled = load_lkg()
-        source = "lkg" if pulled is not None else "yaml"
-    effective_config, config_version, boot_restart_epoch, source = resolve_effective_config(
-        config,
-        pulled,
-        source=source,
-    )
-    print(f"worker config source: {source}", file=sys.stderr)
+    print(f"worker config source: {startup.source}", file=sys.stderr)
 
     status_store = StatusStore()
     mjpeg_server: MjpegServer | None = None
@@ -135,9 +140,9 @@ def main(argv: list[str] | None = None) -> int:
             status_store,
             overlay_publisher=overlay_publisher,
             config_version=config_version,
-            restart_check=_restart_check(relay_url, relay_token, boot_restart_epoch),
-            yaml_config=config,
-            pulled=pulled,
+            restart_check=_restart_check(relay_url, relay_token, boot_registry_version),
+            yaml_config=startup.yaml_config,
+            pulled=startup.pulled,
             relay_url=relay_url,
             relay_token=relay_token,
         )
@@ -195,6 +200,40 @@ def _parse_args(args: list[str]) -> _Options:
         max_frames_per_camera=max_frames_per_camera,
         heartbeat_on_start=heartbeat_on_start,
     )
+
+
+def _load_startup_config(options: _Options) -> _StartupConfig:
+    if _yaml_config_requested(options):
+        config = load_edge_worker_config(resolve_config_path(options.config_path))
+        print(
+            f"{EDGE_CAMERA_CONFIG_ENV} YAML bootstrap is configured; "
+            "worker config pull is bypassed",
+            file=sys.stderr,
+        )
+        return _StartupConfig(
+            config=config, registry_version=0, source="yaml", yaml_config=config
+        )
+
+    relay_url = _required_env("RELAY_URL")
+    relay_token = os.environ.get("RELAY_TOKEN")
+    loaded = load_edge_worker_config_from_relay(relay_url, relay_token)
+    if loaded is None:
+        raise EdgeWorkerConfigError("worker config pull failed and LKG is unavailable")
+    config, registry_version, source = loaded
+    return _StartupConfig(config=config, registry_version=registry_version, source=source)
+
+
+def _yaml_config_requested(options: _Options) -> bool:
+    if options.config_path is not None:
+        return True
+    return bool(os.environ.get(EDGE_CAMERA_CONFIG_ENV, "").strip())
+
+
+def _required_env(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if value == "":
+        raise EdgeWorkerConfigError(f"{name} is required when {EDGE_CAMERA_CONFIG_ENV} is unset")
+    return value
 
 
 def _positive_int(raw: str, name: str) -> int:
@@ -458,11 +497,28 @@ def _relay_client(
 def _restart_check(
     relay_url: str,
     relay_token: str | None,
-    boot_restart_epoch: int,
+    boot_registry_version: int,
+    *,
+    poll_interval_sec: float = 60.0,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> Callable[[], bool]:
+    last_checked = -poll_interval_sec
+
     def _check() -> bool:
+        nonlocal last_checked
+        now = monotonic()
+        if now - last_checked < poll_interval_sec:
+            return False
+        last_checked = now
         pulled = pull_worker_config(relay_url, relay_token)
-        return pulled is not None and pulled.restart_epoch > boot_restart_epoch
+        if pulled is None or pulled.config_version <= boot_registry_version:
+            return False
+        print(
+            f"worker registry_version changed "
+            f"{boot_registry_version}->{pulled.config_version}; exiting for restart",
+            file=sys.stderr,
+        )
+        return True
 
     return _check
 
