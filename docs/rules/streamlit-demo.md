@@ -16,9 +16,13 @@ add knobs that duplicate model-contract internals.
 
 - **Classifier selectbox** — `select_classifier_spec()` from `demo.demo_ui`;
   renders a "분류 모델" selectbox over `CLASSIFIER_REGISTRY`. The registry is
-  derived from `training.models.catalog.CATALOG`: every temporal model family whose
+  derived from `artifact_metadata.CATALOG`: every temporal model family whose
   trained artifact exists on disk is exposed automatically — never hand-list
-  families in the demo. Fall classification runs in the demo harness for local operator evaluation; `ml-api` no longer exposes `/debug/predict/*` prediction routes.
+  families in the demo. (Per-family model *class* dispatch by key now lives only
+  in eldercare-dataset-ops's `training.models.catalog.CATALOG`, ADR-0004; the demo
+  always loads inference through `worker.runners.sklearn_fall.FallDetector`
+  regardless of key.) Fall classification runs in the demo harness for local
+  operator evaluation; `ml-api` no longer exposes `/debug/predict/*` prediction routes.
   `rule_based` is not a selectable classifier.
 - **판정 임계값 slider** — `select_decision_threshold(spec)` from
   `demo.demo_ui`; shown for available temporal models only. Default comes from

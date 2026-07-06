@@ -1,78 +1,48 @@
-# Rule: ML training pipeline conventions
+# Rule: ML training pipeline conventions (moved to eldercare-dataset-ops)
 
-> Scope: `ml/training/` and the artifacts it produces. Operational parameters,
-> procedures, and contracts. The current decisions behind dataset, labelling,
-> threshold, gold-clip evaluation, strategy, and pose backbone choices are
-> summarized in the ADR.
+> Scope: this file is a stub, kept for link stability. The training pipeline
+> it used to document — `ml/training/` (pose extraction, models, train/eval
+> scripts) and `ml/experiments/` code — no longer lives in this repo. Per
+> ADR-0004 (`eldercare-dataset-ops/docs/adr/0004-migration-sequencing-parity-gate.md`,
+> plus ADR-0001 and ADR-0006 in the same repo), the pipeline, its locked
+> parameters, and the current dataset/labelling/threshold/gold-clip-evaluation
+> decisions now live in **eldercare-dataset-ops** (`ml/training/`, `ml/hp.py`,
+> `ml/AGENTS.md`). Read and run the pipeline there.
 
-## Locked parameters (`training/config.py` is the single source of truth)
+## What stays in this repo
 
-| Parameter | Value | Meaning |
-|-----------|-------|---------|
-| `T_WINDOW` | 30 | frames per sliding window |
-| `STRIDE` | 5 | window step (must divide `T_WINDOW` — the live adapter asserts it) |
-| `OVERLAP_THRESHOLD` | 0.5 | window is positive iff fall-interval overlap / T ≥ this |
-| `CONF_THRESHOLD` | 0.2 | keypoint confidence gate (matches `demo/features.py`) |
-| `SEED` | 42 | all stochastic steps |
-| `TEST_SPLIT_FRACTION` | 0.25 | clip-wise held-out fraction |
-| `GOLD8_POS_WINDOW_FRACTION` | 0.5 | clip predicted fall iff positive-window fraction ≥ this |
-| `FEATURE_DIM` | 45 | defined by `training/data/features.py` — never derived elsewhere |
+`eldercare-fall-ai` keeps only what the live demo/worker need at inference
+time — no training code, no `--group training` dependency group:
 
-Changing `T_WINDOW`/`STRIDE`/`OVERLAP_THRESHOLD` invalidates every trained
-artifact and the metadata contract — that is an ADR supersede, not a tweak.
+- `ml/artifact_metadata/` — the read-side `ModelMetadata` schema
+  (`metadata.json` contract: `model_type`, `framework`, `window`, `stride`,
+  `input_shape`, `feature_dim`, `seed`, `classes`, `operating_threshold`,
+  `name`/`version`/`dataset`/`outputs`, `source`/`reacquire`). Kept in
+  lockstep with dataset-ops's `training/metadata.py` (the write side) by
+  `ml/tests/test_vendor_drift.py`.
+- `ml/contracts/`, `ml/features/` — pure types/math, vendored byte-identical
+  into dataset-ops's `ml/contracts/`, `ml/features/` (same test enforces
+  this both ways).
+- A few locked training-pipeline constants duplicated as literals where the
+  live path needs them — e.g. `demo/temporal_module.py`'s
+  `_CONF_THRESHOLD = 0.2` and `_KPT_VECTOR_DIM` (17 keypoints × 3 dims), and
+  `features/window_features.py`'s `_D = 45` (feature dimension, "do not
+  derive D from anywhere else" per that module's own docstring). These must
+  stay numerically identical to dataset-ops's `training/config.py`
+  (`CONF_THRESHOLD`, `N_KEYPOINTS`, `KPT_DIMS`, `FEATURE_DIM`), but this repo
+  no longer imports that module to get them — they are load-bearing literals
+  now, not a shared import.
 
-## Pipeline procedure
+`ml/models/fall/*` (gitignored, populated by an operator copying an artifact
+directory built in dataset-ops) is still the read path: `demo/temporal_module.py`
+and `demo/thresholds.py` load `metadata.json` and the serialized weights from
+there via `artifact_metadata.artifact_dir`/`load_metadata`.
 
-All commands run from `ml/`:
+## Where the old sections went
 
-```bash
-# 1. Extract pose caches (.npz) from a domain's clips (avi + mp4)
-uv run --group training python -m training.extract_poses \
-    --input-dir data/le2i/raw --output-dir data/le2i/poses
-
-# 2. Train all three models (rf / lstm / transformer)
-uv run --group training python -m training.train
-
-# 3. Evaluate: metrics table + threshold calibration + gold-clip pass
-uv run --group training python -m training.evaluate
-```
-
-- `extract_poses` uses the **same YOLO pose runtime and
-  `normalize_person_keypoints`** as the live demo (person[0], x/w + y/h
-  normalisation to [0, 1], confidence gate) — train↔serve skew prevention is a
-  hard rule: any change to normalisation must land in *both* paths in the same
-  commit.
-- Labels: Le2i annotations are 1-based inclusive → converted to 0-based
-  half-open `[f_start − 1, f_end)`. Unparseable annotation files are treated
-  as ADL with a logged warning.
-- The split asserts train/test clip-id disjointness on every dataset view —
-  do not remove these asserts to "make it run".
-
-## Operating threshold procedure
-
-1. `train.py` writes `metadata.json` with `operating_threshold` defaulted.
-2. `evaluate.py` computes precision/recall over held-out test windows, picks
-   the **Recall ≥ 0.90** point, and overwrites `operating_threshold` in each
-   artifact's `metadata.json`.
-3. The demo adapter (`demo/temporal_module.py`) reads the threshold from
-   `metadata.json` — never hardcode a threshold in demo code.
-
-## `metadata.json` contract
-
-Written by `train.py`, updated by `evaluate.py`, read by the demo. Schema:
-`training/metadata.py::ModelMetadata` — `model_type`, `framework`, `window`,
-`stride`, `input_shape`, `feature_dim`, `seed`, `classes`,
-`operating_threshold`, plus contract keys `name`/`version`/`dataset`/`outputs`.
-
-**Skew tolerance is mandatory:** `load_metadata` drops unknown keys and
-defaults missing ones. A reader must never crash because the writer's schema
-moved — the live demo depends on this.
-
-## Evaluation outputs
-
-- Held-out metrics + gold-clip results → CSVs under `ml/data/eval/`
-  (`le2i-poc-results.csv`, `gold8-poc-results.csv`).
-- The gold-clip pass (`--gold-clips-dir`, default: the nursing-home processed
-  folder) is the domain-transfer check — report it alongside Le2i metrics,
-  including `no_person_frac` per clip and the ADR rule-based floor (0/8).
-  Le2i metrics alone never gate a model.
+The locked-parameter table, pipeline procedure (`extract_poses` →
+`train` → `evaluate`), operating-threshold procedure, and evaluation-output
+conventions this file used to document are unchanged in substance — they now
+live in eldercare-dataset-ops's copy of this rule (or its `ml/AGENTS.md` /
+ADR-0004 if that repo has not split them into a standalone rule file). Do not
+re-author them here; this file only tracks what changed on the fall-ai side.

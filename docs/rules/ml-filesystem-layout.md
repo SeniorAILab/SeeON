@@ -13,7 +13,7 @@
 
 ## Edge-device package tree
 
-`ml/` has pure shared foundations, the `worker/` live-ML package tree, gateway-only `api/`, `training/`, and `demo/`:
+`ml/` has pure shared foundations, the `worker/` live-ML package tree, gateway-only `api/`, and `demo/` (training moved to eldercare-dataset-ops, ADR-0004):
 
 ```text
 ml/
@@ -28,7 +28,7 @@ ml/
     └── domains/     # domain detectors/latches: fall, bed-exit, long-lie, risk, wheelchair standup
 ```
 
-Dependency boundaries are package-name based and enforced by `ml/tests/test_import_dependency_ladder.py`. There is no `runtime` package — worker-owned live orchestration/state lives in `worker/` (ADR). `api` and `worker` are separate deployable processes with **zero cross-boundary shared state**; their only connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`). `demo/` is a developer harness. `training/` may import only `contracts` and `features` from the production tree and contracts with runtime through model artifacts. `ml/core/` and `ml/util/` do not exist.
+Dependency boundaries are package-name based and enforced by `ml/tests/test_import_dependency_ladder.py`. There is no `runtime` package — worker-owned live orchestration/state lives in `worker/` (ADR). `api` and `worker` are separate deployable processes with **zero cross-boundary shared state**; their only connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`). `demo/` is a developer harness. `training` moved to eldercare-dataset-ops (ADR-0004); see `ml/AGENTS.md` for the current package boundary map, including the `artifact_metadata` read-side schema shim it left behind. `ml/core/` and `ml/util/` do not exist.
 
 `ml-api` boot is owned by `api.lifespan` as a thin gateway: load config, configure the backend-ingest gateway + relay-heartbeat store, then expose `/health`, `/status`, `/models`, and `/api/v1/relay/*`. `/status` is derived from the relay-heartbeat store; `ml-api` does not load models, expose prediction routes, resolve live sources, or assemble camera loops. Keep boot-order changes in that module and its tests.
 
@@ -62,8 +62,10 @@ ml/data/
 ### Adding a new domain
 
 Create `ml/data/{domain}/` (kebab-case provenance name) with whichever fixed role
-folders you need. Point the relevant config constant (`training/config.py`) at it.
-Nothing else — no new conventions, no registry.
+folders you need. Training no longer reads this locally: point the relevant
+config constant in eldercare-dataset-ops's `training/config.py`
+(`ELDERCARE_TRAINING_DATA_ROOT` override) at it if the new domain must be
+visible to the training pipeline. Nothing else — no new conventions, no registry.
 
 ## Where each file category lives
 

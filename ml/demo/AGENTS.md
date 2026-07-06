@@ -15,7 +15,7 @@ Own the Streamlit developer demo harness: playback UI, overlays, live-camera pag
 
 ## Imports
 
-Allowed: lower-layer production packages, selected `training` metadata/catalog modules for demo-only temporal models, and local `demo`.
+Allowed: lower-layer production packages, `artifact_metadata` (read-only model artifact schema for demo-only temporal models), and local `demo`.
 
 Forbidden: adding new production dependencies on `demo`, direct backend writes from UI code, secrets in app state.
 
