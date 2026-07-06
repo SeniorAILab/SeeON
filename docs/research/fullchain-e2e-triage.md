@@ -164,3 +164,114 @@ Kakao 무발송(§1 P2-2)과 worker 탐지 래치(§1 P2-5)는 모두 "실패했
   CI는 baseline-subset 일치(신규 실패 0), 런타임에서 getter·파일 저장(107,913 bytes)·
   events.snapshot_key 기록까지 실증. 잔여는 §1 P2-1.
 - 관찰 "요약 1건 vs 카드 정상"은 폴링 주기 내 구조적 불일치로 판정 — 버그 아님 (§3-4에 개선안).
+
+## 5. 해결 가이드 — 내가 직접 해결한다면 (권고 순서와 방법)
+
+§1~§3이 "무엇이 깨져 있나"라면, 이 절은 "그 클래스의 문제를 **개발자가 다시는 생각할 필요
+없게** 만드는 순서와 방법"이다. 개별 버그를 하나씩 잡는 게 아니라, 사건 클래스를 구조적으로
+소거하는 것이 목표다. 채택 여부는 소유자 결정이며, 각 단계는 리포 규칙대로 표면별 개별 PR로
+쪼갠다. 코드 인용은 2026-07-06 main(8a74170) 기준 재검증 결과다.
+
+### 5-0. 우선순위와 의존성 — 한 장 요약
+
+| 순서 | 작업 | 소거되는 사건 클래스 |
+| --- | --- | --- |
+| 1 | `cameras.rtsp_url` 마이그레이션 추가 | main 상시 빨강(§1-1), baseline-subset 규칙(F-6), **그리고 ml-config 런타임 주입 경로의 복구(§5-2)** — 한 PR이 세 개를 푼다 |
+| 2 | CI에 전체 drift 감사 추가 | "언젠가 생긴 drift가 조용히 누적"되는 클래스 자체 |
+| 3 | migrate-on-boot 게이트 | psql 수동 적용(W-6), "이 DB에 함수 있나?" 류의 환경별 확인 노동 |
+| 4 | seed에 rtspUrl + worker roster 권한 이전 | E2E/신규 환경에서 worker YAML 손배선(W-4) |
+| 5 | in-repo `compose.e2e.yaml` + smoke | E2E 스택 손조립(W-1~W-3), 풀체인 회귀의 수동 재증명 |
+| 6 | 스냅샷 원자성 + delivery 관측성 + 아티팩트 계약 | 부분 커밋(§1-3), 침묵 실패(P2-2), 인도물 오염(W-5) |
+
+### 5-1. "개발 단계에서 왜 migration SQL을 계속 생각해야 하나" — 세 겹으로 의식에서 지운다
+
+현재 구조에서 마이그레이션이 계속 의식에 남는 이유는 정확히 두 가지다.
+(i) 가드가 **co-change 결합 게이트뿐**이다 — `check-schema-migration.sh`는 "이 diff에서
+schema.prisma를 건드렸으면 같은 diff에 migration.sql도 있어야 한다"만 본다
+(`scripts/backend-guard/check-schema-migration.sh:48-58`, CI `ci.yml:94-95` + `.githooks/pre-commit:12`).
+과거에 이미 생긴 drift는 어떤 PR에서도 다시 검사되지 않아 영원히 잡히지 않는다 —
+`rtsp_url`이 정확히 이 구멍으로 살아남았다(schema.prisma:143에는 있고, 전체 migrations
+grep에 rtsp 0건). (ii) **적용이 수동**이다 — migrate deploy는 CI의 임시 DB(ci.yml:107-108)와
+수동 트리거 배포 스크립트(ncloud-deploy.sh:126-132)에서만 돌고, backend 컨테이너 기동
+경로(Dockerfile:35-48 `CMD ["node","dist/main"]`, compose 서비스 정의)에는 없다. 그래서
+"내 DB가 코드보다 뒤쳐졌나"를 사람이 기억해야 한다.
+
+세 겹을 깔면 마이그레이션을 생각하는 순간은 "스키마를 바꾸는 그 커밋" 딱 한 번으로 준다:
+
+1. **작성 시점(유지)**: 지금의 co-change 게이트. 이미 있다.
+2. **PR 시점(신규)**: CI에 전체 drift 감사 —
+   `prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --exit-code`.
+   어느 PR이든, 그 PR과 무관하게 리포에 누적된 스키마↔마이그레이션 불일치가 있으면 실패한다.
+   rtsp_url 클래스는 이 시점에서 소멸한다. 단 raw SQL 함수는 schema.prisma에 없으므로 diff가
+   못 본다 — §3-1(b)의 pg_proc 존재성 체크(부팅 또는 CI fresh-DB에서 backend가 의존하는 함수
+   목록 확인)가 이 사각을 막는 보완재다. 42883 클래스는 이 둘의 합으로 차단된다.
+3. **기동 시점(신규)**: migrate-on-boot — compose에 one-shot migrate 서비스(backend가
+   `depends_on: condition: service_completed_successfully`로 대기)를 두거나 entrypoint에서
+   `prisma migrate deploy && node dist/main`. dev/e2e/prod가 같은 경로를 타므로
+   "환경별로 migrate를 돌렸던가"라는 질문 자체가 사라진다. ncloud-deploy.sh의 명시적
+   migrate 분기는 유지해도 무방하다(그 위의 안전망이 될 뿐).
+
+### 5-2. worker 스트림 설정 — "runtime 주입" 결정은 이미 있다. 막힌 구멍 세 개를 뚫으면 된다
+
+먼저 §2A W-4의 정정: 거기서 "소유자 미결"로 적었으나, 재검증 결과 **결정은 이미 있다**.
+ADR phase1(`docs/decisions/adr-phase1-eldercare-realtime-detection-delivery.md`)이 "Backend is
+the ML config SSOT — `Camera.rtspUrl`은 `GET /api/v1/ml-config/:facilityId`로만 ML plane에
+나간다"를 명시하고, 구현도 끝까지 있다: worker는 부팅 시 `RELAY_URL`/`RELAY_TOKEN`으로
+ml-api `/api/v1/relay/config`를 pull하고(`ml/worker/edge_worker.py:93-107`,
+`config_pull.py:11-39`), ml-api가 backend ml-config를 프록시하며(`ml/api/lifespan.py:90-107`),
+성공 시 last-known-good까지 저장한다. 즉 W-4는 "미결"이 아니라 **"결정 미이행"**이고,
+E2E에서 YAML 손배선이 필요했던 것은 이 경로가 세 군데서 막혀 있었기 때문이다:
+
+1. **DB에 컬럼이 없다**: `rtsp_url`은 schema에만 있고 어떤 마이그레이션도 만들지 않는다.
+   ml-config 서비스는 Prisma `camera.findMany`로 그 컬럼을 읽으므로(`ml-config.service.ts:20-44`,
+   특히 `camera.rtspUrl ?? null` line 38) fresh DB에서는 이 경로가 런타임에 깨진다 —
+   main 테스트를 빨갛게 만드는 바로 그 drift다. → **§5-1의 1번 PR이 그대로 해결.**
+2. **seed가 값을 안 채운다**: `seed.ts:138-162` upsertCameras와 `CameraSeed` 타입
+   (`demo-nokyang.fixture.ts:56-59`)에 rtspUrl이 없다. 컬럼이 생겨도 null이 내려간다.
+   → CameraSeed에 `rtspUrl?: string`을 추가하고 데모/E2E fixture에 스트림 URL을 넣는다.
+   이러면 "seed에 있는 병실을 실시간으로 잡는" 시나리오가 seed만으로 성립한다.
+3. **roster의 SSOT가 여전히 YAML이다**: pull된 config는 "YAML에 이미 있는 camera_id"의
+   rtsp_url만 override할 수 있고(`config_resolver.py:17-23`), 카메라 명단 자체는
+   `EDGE_CAMERA_CONFIG` YAML이 정의한다(`edge_worker_config.py:24,387-394`). backend에서
+   새 카메라를 내릴 수 없다. → pulled payload의 cameras를 roster-authoritative로 승격:
+   worker 부팅 필수 입력을 (RELAY_URL, RELAY_TOKEN)로 줄이고, YAML은 `EDGE_CAMERA_CONFIG`를
+   명시했을 때만 쓰는 오프라인 개발용 탈출구로 격하한다(기동 로그에 `source=yaml` 경고).
+   fps/frame_stride/모델·도메인 파라미터는 엣지 하드웨어 종속이므로 워커 기본값+로컬
+   오버라이드로 남긴다 — ml-config DTO(`ml-config.dto.ts:3-19`)에 fps가 없는 현 계약을
+   유지하는 선이며, 계약 확장은 별도 결정이다.
+
+1→2→3 순서대로 하면 각 단계가 독립 PR로 성립하고, 3까지 끝나면 W-4의 글루("worker에
+YAML 만들어 넣기")는 개념적으로 존재할 수 없게 된다: 카메라는 seed → backend → pull로
+연결되고, E2E 하네스가 worker에 대해 할 일은 env 두 줄뿐이다. 참고로 roster 변경이
+프로세스 재시작(`restart_epoch`)으로만 반영되는 현 동작(`edge_worker.py:458-466`)은
+그대로 두어도 무방하다 — 재시작 신호 역시 pull 경로에 이미 있다.
+
+### 5-3. E2E 스택이 글루 없이 서게 — 부팅 가능한 full profile
+
+W-1~W-3의 소거. ① `compose.e2e.yaml`을 리포에 추가: 전용 프로젝트명 강제(README에
+`-p` 필수 명기), 포트 전부 `${..._PORT:-기본값}` 변수화, `container_name` 고정 제거(또는
+프로젝트명 파생), §5-1-3의 migrate 서비스 포함. ② e2e env는 example 파일이 아니라
+**생성 스크립트**(`scripts/` 소유)로: 랜덤 시크릿을 만들어 production 검증을 실값으로
+통과시킨다 — W-2에서 손으로 했던 그 일을 스크립트가 한다. 시크릿이 리포에 들어가지 않는
+것이 example 파일 대비 장점이다. ③ 그 위에 full-chain smoke(수동 트리거로 시작, 안정되면
+nightly): 외부 RTSP 컨테이너 기동 → compose up → "relay 202 → alerts 행 → 스냅샷 200"
+어설션. RTSP publisher는 anti-pattern 규칙대로 리포 밖 이미지를 참조만 한다.
+
+### 5-4. 나머지 셋 — 각각 소형 PR 하나 분량
+
+- **스냅샷 원자성(§1-3)**: `persistSnapshotKey`의 함수 호출과 `alerts.updateMany`를 단일
+  인터랙티브 트랜잭션으로 묶는다. 기존 불일치 행(event에는 key, alerts에는 null)은 일회성
+  backfill 스크립트로 정리. 장기적으로 §3-3의 StorageService 시임과 같은 PR 라인.
+- **delivery 관측성(P2-2)**: Kakao 어댑터의 "미연결 계정" 분기를 NOT_CONFIGURED 같은
+  명시적 delivery 상태로 기록하고 경고 로그 1줄을 계약으로. hop 카운터(§3-7)까지 가면
+  W-10의 수동 로그 감시가 어설션으로 대체된다.
+- **아티팩트 인도 계약(W-5)**: dataset-ops의 export 단계에 "metadata.yaml 정확히 1개,
+  stale 파일 0개" 검증을 추가하고, fall-ai의 로더 가드는 최후 방어선으로 유지. 현재
+  체크아웃의 stale `metadata.json`은 일회성 정리.
+
+### 5-5. 이 가이드가 성립하면 사라지는 질문들
+
+"이 환경에 migrate 돌렸던가?" / "dev DB에 그 함수 있나?" / "main이 왜 빨갛지?" /
+"worker YAML 어디서 만들어 넣지?" / "카메라 스트림 주소는 누가 아는 거지?" /
+"알림이 진짜 나갔나?" — 전부 사람의 기억에서 구조(게이트·계약·어설션)로 이동한다.
+E2E를 다시 돌리는 날, 손으로 만들 것은 RTSP 소스 하나여야 한다.
