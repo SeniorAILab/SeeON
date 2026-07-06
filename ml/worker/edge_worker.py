@@ -17,6 +17,7 @@ from contracts.event import EventPayload
 from contracts.runner import RunnerProtocol
 from contracts.worker_config import CONFIG_VERSION_KEY, PulledWorkerConfig
 from worker.camera_worker import CameraWorker, DomainDetectorProtocol
+from worker.clip_recorder import ClipRecorder
 from worker.config_pull import load_edge_worker_config_from_relay, pull_worker_config
 from worker.config_resolver import resolve_night_window
 from worker.domains import DOMAIN_REGISTRY
@@ -87,6 +88,7 @@ class _WorkerResources:
     config: EdgeWorkerConfig
     overlay_publisher: OverlayPublisher | None = None
     stop_event: threading.Event | None = None
+    clip_recorder: ClipRecorder | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -134,6 +136,12 @@ def main(argv: list[str] | None = None) -> int:
         overlay_publisher = OverlayPublisher(overlay_buffer)
     else:
         overlay_publisher = None
+    clip_recorder = ClipRecorder.from_env()
+    try:
+        clip_recorder.start()
+    except Exception as exc:  # noqa: BLE001 - clip recording must not block worker startup
+        print(f"clip recorder disabled: {exc}", file=sys.stderr)
+        clip_recorder = None
     try:
         supervisor = _build_supervisor(
             effective_config,
@@ -145,10 +153,13 @@ def main(argv: list[str] | None = None) -> int:
             pulled=startup.pulled,
             relay_url=relay_url,
             relay_token=relay_token,
+            clip_recorder=clip_recorder,
         )
     except (ModelLoadError, TypeError) as exc:
         if mjpeg_server is not None:
             mjpeg_server.stop()
+        if clip_recorder is not None:
+            clip_recorder.stop()
         print(str(exc), file=sys.stderr)
         return 2
     try:
@@ -159,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if mjpeg_server is not None:
             mjpeg_server.stop()
+        if clip_recorder is not None:
+            clip_recorder.stop()
     print(
         json.dumps({"processed": result, "status": status_store.snapshot()}, separators=(",", ":"))
     )
@@ -258,6 +271,7 @@ def _build_supervisor(
     pulled: PulledWorkerConfig | None = None,
     relay_url: str | None = None,
     relay_token: str | None = None,
+    clip_recorder: ClipRecorder | None = None,
 ) -> EdgeWorkerSupervisor:
     model_registry = DEFAULT_REGISTRY if registry is None else registry
     device = select_device()
@@ -274,6 +288,7 @@ def _build_supervisor(
         config=config,
         overlay_publisher=overlay_publisher,
         stop_event=stop_event,
+        clip_recorder=clip_recorder,
     )
     workers_and_detectors = tuple(
         _worker_with_detectors(camera, resources) for camera in config.cameras
@@ -389,6 +404,7 @@ def _worker(
         overlay_sink=resources.overlay_publisher,
         snapshot_renderer=OverlayRenderer(),
         detector_version=DETECTOR_VERSION,
+        clip_recorder=resources.clip_recorder,
     )
 
 

@@ -51,6 +51,11 @@ class PublishEventSinkProtocol(Protocol):
     def publish(self, event: EventPayload) -> None: ...
 
 
+class ClipRecorderProtocol(Protocol):
+    def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
+    def on_event(self, camera_id: str, event_ref: str) -> str | None: ...
+
+
 class OverlaySinkProtocol(Protocol):
     def publish(
         self,
@@ -82,6 +87,7 @@ class CameraWorker:
     tracker: TrackerProtocol = field(default_factory=GreedyIouTracker)
     snapshot_renderer: OverlayRenderer | None = None
     detector_version: str | None = None
+    clip_recorder: ClipRecorderProtocol | None = None
 
     def __post_init__(self) -> None:
         if self.scene_state is None:
@@ -149,6 +155,7 @@ class CameraWorker:
         )
 
     def process_frame(self, frame: Frame) -> FrameObservation:
+        self._record_clip_frame(frame)
         scheduled_tasks = self.scheduler.tasks_for_frame(frame.index)
         outputs = self._run_scheduled_runners(frame, scheduled_tasks)
         observation, bed_debug = self._build_observation(
@@ -188,6 +195,7 @@ class CameraWorker:
                     frame.time_sec,
                 )
                 if self.incident_manager.admit(event, now_sec=frame.time_sec):
+                    self._record_clip_event(event)
                     self._attach_alert_metadata(event, frame, observation, tuple(debug_snapshots))
                     self._emit(event)
         if self.overlay_sink is not None:
@@ -309,6 +317,22 @@ class CameraWorker:
             ),
         )
 
+    def _record_clip_frame(self, frame: Frame) -> None:
+        if self.clip_recorder is None:
+            return
+        try:
+            self.clip_recorder.on_frame(self.camera_id, frame)
+        except Exception:  # noqa: BLE001 - recorder backpressure/failure must not block inference
+            return
+
+    def _record_clip_event(self, event: EventPayload) -> None:
+        if self.clip_recorder is None:
+            return
+        try:
+            self.clip_recorder.on_event(self.camera_id, _event_ref(event))
+        except Exception:  # noqa: BLE001 - recorder finalize failure must not block alert emit
+            return
+
     def _emit(self, event: EventPayload) -> None:
         if self.event_sink is None:
             return
@@ -393,6 +417,13 @@ def _events_from_detector(
         return iter(result)
     return iter((result,))
 
+
+def _event_ref(event: EventPayload) -> str:
+    for key in ("event_id", "identity", "detected_at", "time_sec"):
+        value = event.get(key)
+        if value is not None and str(value) != "":
+            return str(value)
+    return str(event.get("event_type", "event"))
 
 def _with_camera_identity(
     event: EventPayload,
