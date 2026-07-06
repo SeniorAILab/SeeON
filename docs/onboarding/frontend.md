@@ -30,9 +30,9 @@ user action / page effect
 | --- | --- | --- |
 | API client seam | `front/src/services/apiClient.ts` | `VITE_API_BASE_URL`, `/dashboard/stream` SSE URL 생성, `fetch` wrapper, cookie credentials, `ApiError` 표준화 |
 | Endpoint mapper | `front/src/services/api/authEndpoints.ts` | backend DTO 검증·frontend type mirror 생성. 예: `loginEndpoint()`, `restoreSessionEndpoint()`, `parseRole()` |
-| Workflow service | `front/src/services/authService.ts`, `dashboardService.ts`, `eventService.ts`, `adminService.ts`, `videoService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
+| Workflow service | `front/src/services/{authService,dashboardService,eventService,adminService}.ts`, `front/src/features/admin-events/services/videoService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
-| TTS side effect | `front/src/services/tts/*`, `front/src/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
+| TTS side effect | `front/src/features/monitor/services/tts/*`(ttsManager 등), `front/src/services/tts/{announceFocus,synthesizer}.ts`, `front/src/features/monitor/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
 
 현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/api/v1/auth/login`, `restoreSessionEndpoint()`는 `/api/v1/auth/me`, `logoutEndpoint()`는 `/api/v1/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/stores/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
 
@@ -44,7 +44,7 @@ user action / page effect
 
 ### 실제 EventSource 구현 위치
 
-실제 `EventSource` 생성은 `front/src/stores/monitorStore.ts`에 있다. 이 store의 `start(facilityId, intervalMs)`가 `buildSseUrl()`로 `/api/v1/dashboard/stream`을 만들고, URL이 absolute일 때만 `new EventSource(url, { withCredentials: true })`를 사용한다. same-origin 상대 URL(`/api/v1/dashboard/stream`)에서는 browser cookie가 자동 포함된다. `front/src/hooks/useDashboard.ts`·`useRealtimeSpaceStatus.ts`는 이 store를 `start`하고 상태만 구독한다.
+실제 `EventSource` 생성은 `front/src/stores/monitorStore.ts`에 있다. 이 store의 `start(facilityId, intervalMs)`가 `buildSseUrl()`로 `/api/v1/dashboard/stream`을 만들고, URL이 absolute일 때만 `new EventSource(url, { withCredentials: true })`를 사용한다. same-origin 상대 URL(`/api/v1/dashboard/stream`)에서는 browser cookie가 자동 포함된다. `front/src/features/dashboard/hooks/useDashboard.ts`·`front/src/features/monitor/hooks/useRealtimeSpaceStatus.ts`는 이 store를 `start`하고 상태만 구독한다.
 
 ```text
 backend alert stream
@@ -58,7 +58,7 @@ backend alert stream
   → `DashboardPage`, staff/monitor components render
 ```
 
-`front/src/services/apiClient.ts`의 `buildSseUrl()`은 `SSE_PATH = "/dashboard/stream"`를 `API_BASE_URL`에 붙이므로 기본 real backend 모드에서 `/api/v1/dashboard/stream`가 된다. `front/src/stores/monitorStore.ts`는 `USE_MOCK`이거나 `EventSource`가 없으면 SSE를 열지 않고, 초기 load와 `setInterval(reload, pollMs)` polling을 유지한다. `front/src/hooks/useDashboard.ts`는 이 store의 `start`/`reload`/`dashboard`를 소비할 뿐 자체 stream을 열지 않는다. 이 fallback은 SSE reconnect 중에도 read-model을 다시 가져올 수 있게 하는 안전장치다.
+`front/src/services/apiClient.ts`의 `buildSseUrl()`은 `SSE_PATH = "/dashboard/stream"`를 `API_BASE_URL`에 붙이므로 기본 real backend 모드에서 `/api/v1/dashboard/stream`가 된다. `front/src/stores/monitorStore.ts`는 `USE_MOCK`이거나 `EventSource`가 없으면 SSE를 열지 않고, 초기 load와 `setInterval(reload, pollMs)` polling을 유지한다. `front/src/features/dashboard/hooks/useDashboard.ts`는 이 store의 `start`/`reload`/`dashboard`를 소비할 뿐 자체 stream을 열지 않는다. 이 fallback은 SSE reconnect 중에도 read-model을 다시 가져올 수 있게 하는 안전장치다.
 
 ### SSE frame별 frontend 처리
 
@@ -71,9 +71,9 @@ backend alert stream
 
 중요한 점은 프론트가 SSE payload를 직접 누적해 자체 SSOT를 만들지 않는다는 것이다. 이벤트를 “무언가 바뀌었다”는 invalidation signal로 보고 `dashboardService.getDashboard(facilityId)`를 다시 호출해 dashboard read-model을 seed/reload한다. reload 시드는 `GET /api/v1/alerts`와 시설/공간/거주자 read-model 계약에 맞물리며, 상세 wire 계약은 backend controller/DTO code, generated OpenAPI(`/api/docs`), endpoint mapper tests, `../rules/rest-api-convention.md`, and `../rules/dto-convention.md`가 소유한다.
 
-`front/src/hooks/useRealtimeSpaceStatus.ts`는 monitor 화면의 상태 소비 hook이다. 이 hook은 `useMonitorStore.start(facilityId, refreshMs)`를 호출하고 `statuses`, `connection`, `lastUpdateAt`을 읽어 정렬된 공간 목록과 요약을 만든다. `front/src/stores/monitorStore.ts`는 EventSource(및 polling fallback)로 받은 `alert`/`alert-updated` frame을 `alertMerge`로 반영해 `statuses`, `connection`, `lastUpdateAt`을 갱신한다. `FloorMonitorPage.tsx`는 이 hook 결과를 `MonitorHeader`와 `RoomStatusBoard`(status widget)들에 전달한다. 즉 monitor UI도 page가 직접 stream/protocol을 다루지 않고 hook/store seam을 통해 상태만 소비한다.
+`front/src/features/monitor/hooks/useRealtimeSpaceStatus.ts`는 monitor 화면의 상태 소비 hook이다. 이 hook은 `useMonitorStore.start(facilityId, refreshMs)`를 호출하고 `statuses`, `connection`, `lastUpdateAt`을 읽어 정렬된 공간 목록과 요약을 만든다. `front/src/stores/monitorStore.ts`는 EventSource(및 polling fallback)로 받은 `alert`/`alert-updated` frame을 `alertMerge`로 반영해 `statuses`, `connection`, `lastUpdateAt`을 갱신한다. `front/src/features/monitor/pages/FloorMonitorPage.tsx`는 이 hook 결과를 `MonitorHeader`와 `RoomStatusBoard`(status widget)들에 전달한다. 즉 monitor UI도 page가 직접 stream/protocol을 다루지 않고 hook/store seam을 통해 상태만 소비한다.
 
-`front/src/hooks/useTTSAlerts.ts`는 `SpaceStatus`를 TTS 입력으로 변환하는 별도 side-effect seam이다. `FloorMonitorPage.tsx`에서 `buildTTSAlerts(shownSpaces, statuses, floors)`로 주의/위험/응급 공간을 만들고 `useTTSAlerts(ttsAlerts, soundEnabled)`가 `front/src/services/tts/ttsManager.ts`에 동기화한다. 이 구조 덕분에 SSE/read-model 갱신, 화면 렌더링, 음성 알림 side effect가 서로 직접 결합하지 않는다.
+`front/src/features/monitor/hooks/useTTSAlerts.ts`는 `SpaceStatus`를 TTS 입력으로 변환하는 별도 side-effect seam이다. `front/src/features/monitor/pages/FloorMonitorPage.tsx`에서 `buildTTSAlerts(shownSpaces, statuses, floors)`로 주의/위험/응급 공간을 만들고 `useTTSAlerts(ttsAlerts, soundEnabled)`가 `front/src/features/monitor/services/tts/ttsManager.ts`에 동기화한다. 이 구조 덕분에 SSE/read-model 갱신, 화면 렌더링, 음성 알림 side effect가 서로 직접 결합하지 않는다.
 
 ## 4. 컴포넌트 구성과 재사용성
 
@@ -82,25 +82,30 @@ backend alert stream
 ```text
 `components/ui/` primitives
   → `components/layout/` route shells
-  → domain components (`monitor/`, `staff/`, `resident/`, `poc/`, `video/`, shared root components)
-  → `pages/**` route-level composition
+  → domain components (`components/{monitor,staff,status,resident,poc}/`, shared root components)
+    + feature-owned UI (`features/{dashboard,monitor,admin-events}/components/**`, 예: 영상 UI는 `features/admin-events/components/video/`)
+  → `pages/**` + `features/*/pages/**` route-level composition
   → `router.tsx` + `RequireAuth` + `roles.ts` RBAC/default route
 ```
 
 | 디렉터리/파일 | 재사용 책임 | 예시 |
 | --- | --- | --- |
-| `front/src/components/ui/` | 스타일 primitive와 입력 요소. backend/domain을 모른다 | `primitives.tsx`의 `Select`를 `DashboardPage.tsx` 필터에 사용 |
+| `front/src/components/ui/` | 스타일 primitive와 입력 요소. backend/domain을 모른다 | `primitives.tsx`의 `Select`를 `features/dashboard/pages/DashboardPage.tsx` 필터에 사용 |
 | `front/src/components/layout/` | route shell과 navigation chrome | `StaffLayout.tsx`는 직원 모드, `AppLayout.tsx`는 관리자 모드 children을 감싼다 |
-| `front/src/components/monitor/` | 대형 현황판 전용 widget | `MonitorHeader`, `AlertBanner`, `AdaptiveMonitorLayout`, `MonitorStatusCard`, `RealtimeUpdateIndicator` |
-| `front/src/components/staff/` | 직원용 단순 카드/확인 UI | `StaffSpaceCard`, `StaffStatusBadge`, `StaffConfirmSheet` |
+| `front/src/components/monitor/` | 대형 현황판 전용 widget(공용 조각) | `AlertBanner` |
+| `front/src/features/monitor/components/` | 대형 현황판 widget(feature-owned) | `MonitorHeader`, `RealtimeUpdateIndicator`, `ConnectionStatusBadge`, `FloorSelectCard`, `FloorSummaryStats`, `SoundToggle`, `FullscreenButton` |
+| `front/src/components/status/` | 방 상태 보드 + 조치 패널(모니터·대시보드 공용) | `RoomStatusBoard`, `RoomStatusTreemap`, `RoomActionPanel` |
+| `front/src/components/staff/` | 직원용 단순 배지 UI | `StaffStatusBadge` |
 | `front/src/components/resident/` | 관심 어르신/배정 중심 UI | `FocusResidentSection` |
-| `front/src/components/video/` | 관리자 전용 event clip UI와 권한 표시 | `VideoPermissionGuard`, `AdminEventVideoPlayer`, `VideoAccessLogTable` |
-| `front/src/pages/` | route-level composition과 page-local UI state | `DashboardPage.tsx`, `pages/staff/*`, `pages/monitor/*`, `pages/admin/*` |
-| `front/src/hooks/` | page가 재사용하는 data/side-effect seam | `useDashboard`, `useRealtimeSpaceStatus`, `useTTSAlerts` |
+| `front/src/features/admin-events/components/video/` | 관리자 전용 event clip UI와 권한 표시 | `VideoPermissionGuard`, `AdminEventVideoPlayer`, `VideoAccessLogTable` |
+| `front/src/pages/` | route-level composition과 page-local UI state(공용) | `LoginPage.tsx`, `pages/staff/AlertsPage.tsx`, `pages/admin/*`, `EventsPage.tsx` |
+| `front/src/features/{dashboard,monitor,admin-events}/pages/` | feature-owned page composition | `DashboardPage.tsx`, `FloorMonitorPage.tsx`, `FloorSelectLandingPage.tsx`, `AdminEventDetailPage.tsx` |
+| `front/src/hooks/` | page가 재사용하는 data/side-effect seam(공용) | `useActiveFacilityId` |
+| `front/src/features/{dashboard,monitor}/hooks/` | feature-owned data/side-effect seam | `useDashboard`, `useRealtimeSpaceStatus`, `useTTSAlerts` |
 | `front/src/types/index.ts` | PRD/API contract의 frontend type mirror | `Role`, `Space`, `SpaceStatus`, `DetectionEvent`, `DashboardResponse` 등 |
 | `front/src/lib/` | pure formatting/label/role helper | `format.ts`, `labels.ts`, `alert.ts`, `roles.ts` |
 
-이 구조에서는 page가 orchestration을 맡고 컴포넌트는 props로만 렌더링한다. 예를 들어 `front/src/pages/monitor/FloorMonitorPage.tsx`는 `dashboardService.getDashboard()`로 시설/층/공간 seed를 얻고, `useRealtimeSpaceStatus()`로 실시간 status projection을 읽은 뒤, domain component에 `spaces`, `statuses`, `summary`, `connection`을 전달한다. `front/src/pages/DashboardPage.tsx`도 `dashboardService.getDashboard()`를 호출하고 `StatsBar`, `FloorTabs`, `StatusCard`, `SpaceDetailPanel`을 조합하지만, backend transport나 DTO parsing은 알지 않는다.
+이 구조에서는 page가 orchestration을 맡고 컴포넌트는 props로만 렌더링한다. 예를 들어 `front/src/features/monitor/pages/FloorMonitorPage.tsx`는 `dashboardService.getDashboard()`로 시설/층/공간 seed를 얻고, `useRealtimeSpaceStatus()`로 실시간 status projection을 읽은 뒤, domain component(`MonitorHeader`, `RoomStatusBoard`)에 `spaces`, `statuses`, `summary`, `connection`을 나눠 전달한다. `front/src/features/dashboard/pages/DashboardPage.tsx`도 `dashboardService.getDashboard()`를 호출하고 `StatsBar`, `FloorTabs`, `RoomStatusBoard`를 조합하지만, backend transport나 DTO parsing은 알지 않는다.
 
 라우팅과 RBAC는 `front/src/router.tsx`, `front/src/lib/routeAccess.ts`, `front/src/lib/roles.ts`가 합성한다. `router.tsx`는 공개 route(`/login`, `/signup`, `/onboarding`), 시스템 대시보드(`/dashboard`), 시설 관리자 workbench(`/dashboard/facilities/:facilityId/admin`), 시설 직원 workbench(`/dashboard/facilities/:facilityId/staff`), monitor route(`/monitor/:facilityId`, `/monitor/:facilityId/floors/:floorId`)를 분리한다. 보호 route는 `RouterBootstrap`과 `RequireAuth`로 감싸고, 관리자 shell은 `RequireAuth minRole="ADMIN"`로 제한한다. `routeAccess.ts`는 기본 경로와 facility-scoped path builder를, `roles.ts`는 사용자-facing role label과 permission helper를 `SUPER_ADMIN | ADMIN | STAFF` 계약에서 직접 읽히게 둔다.
 
@@ -115,7 +120,7 @@ backend `GET /api/v1/dashboard/stream`
   └─ `event: session-invalid`
         │
         ▼
-`front/src/hooks/useDashboard.ts`
+`front/src/features/dashboard/hooks/useDashboard.ts`
   ├─ alert/update → `reload()`
   │     ▼
   │   `dashboardService.getDashboard(facilityId)`

@@ -1,6 +1,5 @@
 import type { AlertView } from "@/types";
-import { listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertsApi";
-import { resolveAlert } from "./api/alertEndpoints";
+import { listAlertsEndpoint, resolveAlert, resolveAlertEndpoint } from "./api/alertEndpoints";
 import { createAlertNote, listAlertNotes, type AlertNote } from "./api/alertNotes";
 
 export const alertService = {
