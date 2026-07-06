@@ -1,8 +1,0 @@
-{
-  "id": "exp-010-transformer-1layer-refine",
-  "model_family": "transformer",
-  "hypothesis": "Wave2/exploit: pin layers=1 (wave1: smaller-is-better) and refine d_model/heads/lr; low lr ~1e-4 region looked best.",
-  "hp_override": {"layers": 1},
-  "n_trials": 6,
-  "trial_timeout_s": 3600
-}

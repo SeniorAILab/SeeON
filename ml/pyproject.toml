@@ -16,7 +16,7 @@ dependencies = [
     "pyyaml>=6",
 ]
 
-# Lifecycle separation: training and demo deps are isolated from api.
+# Lifecycle separation: demo/test/worker deps are isolated from the slim api path.
 [dependency-groups]
 demo = [
     "streamlit>=1.38",

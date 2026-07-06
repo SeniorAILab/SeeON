@@ -1,8 +1,0 @@
-{
-  "id": "exp-039-logreg-best-restore2",
-  "model_family": "logistic-regression",
-  "hypothesis": "Restore after Step-3 sweeps: canonical holds the scaled C=1611 variant (0.4062); family best remains unscaled C=1000 (0.4483).",
-  "hp_override": {"C": 1000.0, "scaled": 0},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}
