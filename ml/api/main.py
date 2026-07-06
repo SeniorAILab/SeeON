@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.config import get_settings
 from api.lifespan import lifespan as serving_lifespan
-from api.routes import cameras, ingest_relay, models, status, system
+from api.routes import cameras, clips, ingest_relay, models, status, system
 from api.routes import health as health_routes
 
 LifespanFactory = Callable[[FastAPI], AsyncIterator[None]]
@@ -35,6 +35,7 @@ def create_app(*, lifespan: LifespanFactory | None = serving_lifespan) -> FastAP
     api_router.include_router(models.router)
     api_router.include_router(ingest_relay.router)
     api_router.include_router(cameras.router)
+    api_router.include_router(clips.router)
     api_router.include_router(system.router)
     app.include_router(api_router, prefix=prefix)
     _mount_dashboard_dist(app)
