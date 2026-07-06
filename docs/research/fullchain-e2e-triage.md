@@ -69,6 +69,33 @@ Docker 상태에 대한 정직 고지: 세션 종료 시점에 Docker 데몬이 
 이 세션에서 실행한 docker 명령은 compose up/restart/logs/exec 계열뿐이며 이미지 삭제 명령은 없었다.
 런북상의 정식 teardown 절차(`docker compose -p fallai-e2e --profile full down`)는 별도로 실행되지 않았다.
 
+## 2A. 임시 배선(temporal wiring) 인벤토리 — 각 배선이 드러낸 모듈 경계·SRP 결함
+
+E2E의 이상적인 형태는 각 모듈이 **계약 경계에서 글루 없이 끼워지는** 것이다. 실제로는 아래
+배선을 손으로 만들어야 체인이 성립했고, 각 글루는 "없는 모듈" 또는 "깨진 계약"의 증거다.
+반대로 글루가 필요 없던 지점도 함께 기록한다 — 계약이 있는 곳은 E2E가 그냥 통과했다.
+(이 배선들은 전부 scratchpad/세션 종속이어서 스택 정리와 함께 이미 소실됨. 현재 유일한
+재현 경로는 이 기록과 §3-5의 정식화다.)
+
+| # | 만들어 붙인 글루 | 왜 필요했나 | 드러난 경계/SRP 결함 | 있어야 할 계약 |
+| --- | --- | --- | --- | --- |
+| W-1 | 리포 밖 `compose.e2e.yaml` 오버레이, 모든 호출에 `-p fallai-e2e` 강제 | 리포에 E2E 스택 정의가 없고, committed compose의 full profile은 그대로는 부팅 불가 (dev placeholder 값이 production env 검증과 충돌) | "부팅 가능한 full profile"이라는 배포 계약 부재. compose 한 파일이 dev 편의값과 prod 검증 요구를 동시에 짊어짐 | §3-5 (in-repo e2e compose) |
+| W-2 | `e2e.env` 수작업 — production 경로 유지한 채 `*.localhost` origin + 실제 랜덤 시크릿으로 검증 통과 (초기 검토한 NODE_ENV=development 완화는 "검증 skip = E2E 의미 훼손"이라 폐기) | full profile을 프로덕션 코드 경로 그대로 태우려면 유효한 env 값 세트를 손으로 만들어야 함 | env 스키마 검증(env:verify)은 있으나 "e2e용 유효 값 세트"의 생성을 책임지는 모듈이 없음 | e2e env example 또는 생성 스크립트 (`scripts/**` 소유) |
+| W-3 | 포트 리맵(ml-api 8000→18000, DB 5432, front 3000) + `container_name` 충돌 사전검사 + :8080 잔류 프로세스 정리 | 포트·컨테이너 이름이 전역 고정이라 사용자 상시 스택(55433, 8000)과 공존 불가 | 스택 격리 계약 부재 — `container_name: eldercare-fall-db` 전역 고정, 포트 하드코드. "동시 스택 수 = 1"이라는 암묵 가정 | 프로젝트명 파생 네이밍 + 포트 변수화 + 포트 매트릭스 문서 (§3-5) |
+| W-4 | worker 스트림 바인딩을 외부 YAML로 주입 — worker config에 cam_sp_202 → `rtsp://host.docker.internal:8554/nursing-home/202` (fps 5.0), `ML_MODELS_DIR` 절대경로 env | worker는 "configured streams"를 소비하는 설계라, 카메라-스트림 바인딩 파일을 밖에서 만들어 넣어야 함 | **스트림 URL의 SSOT 이원화 조짐**: backend 스키마에는 `cameras.rtsp_url` 컬럼이 있고(§1-1 drift의 그 컬럼), 런타임 바인딩은 worker YAML이 소유 — "카메라-스트림 바인딩"의 소유 모듈이 미결 | 소유자 결정 필요(결정은 본 문서 밖): worker config가 SSOT면 `cameras.rtsp_url` 제거, backend가 SSOT면 worker가 backend에서 읽는 계약 |
+| W-5 | lstm 모델 아티팩트 클린카피 마운트 | 아티팩트 디렉토리에 metadata.yaml + stale metadata.json 공존 → 로더의 ambiguity 가드가 기동 거부 (가드 자체는 정상 동작) | 아티팩트 **생산측** 패키징 계약 부재 — dataset-ops → fall-ai 인도물의 형태를 검증하는 단계가 없음 | 인도 시점 아티팩트 스키마 검증 + stale 파일 정리 (§1 P3) |
+| W-6 | 마이그레이션 SQL psql 수동 선적용 (#517 머지 전 검증) | 스냅샷 DB 함수가 어떤 커밋에도 없었음(42883) | migrate-then-start 미강제 + raw SQL 객체의 SSOT 규칙 부재 | §3-1, §3-6 |
+| W-7 | backend 재시작으로 Prisma prepared-statement flush | DB 함수 시그니처 교체 후 stale descriptor 위험 | DB 객체 변경과 앱 커넥션 수명 간 계약 부재 | §2 F-4 명문화 |
+| W-8 | 가짜 Kakao 자격증명으로 실발송 차단 | 외부 발송 없이 알림 체인을 검증해야 함 | 발송 모듈이 "미구성"과 "실패"를 구분하지 않고 침묵 — 미구성 상태의 delivery 계약 부재 | §1 P2-2, §3-7 |
+| W-9 | (글루 불필요 — 대조 사례) front 접속은 nginx 같은-origin `/api` 프록시(localhost:3000)로 그대로 통과 — CORS/쿠키(sameSite=Strict) 문제 0건 | — | front 컨테이너가 프록시를 내장한 덕: **계약이 모듈 안에 있으면 글루가 필요 없다**는 실증 | 현행 유지 |
+| W-10 | 관측 하네스 수작업 — `--tail 0` 로그 모니터, `alerts.snapshot_key` 폴링 워처, 로그 시각 비교로 성공/실패 판정 | 파이프라인 hop별 성공 신호가 없어 사람이 로그를 뒤져야 함 (타임존 오판 2회 유발, F-8) | hop별 관측 계약 부재 | §3-7 |
+
+같은 결로, 글루가 **필요 없던** 경계도 명시해 둔다: worker→backend **relay API 계약**(202 수신),
+**seed 데이터**(시설·공간·카메라 토폴로지), **front API 시임**(`front/src/services/**`)은 손대지 않고
+그대로 끼워졌다. 이번 E2E에서 사람 손이 들어간 곳과 아닌 곳의 경계선이 곧 이 시스템의
+모듈 계약 성숙도 지도다: 글루 밀도가 높은 곳(스택 조립·env·스트림 바인딩·아티팩트 인도)이
+SRP/계약 정비의 우선 대상이고, 글루 0인 곳(relay·seed·front 시임)이 따라야 할 기준선이다.
+
 ## 3. 역제안 — 처음부터 설계했다면 (모듈화·파이프라인 흐름 관점)
 
 이번 세션에서 실제로 깨진 지점들로부터의 역제안이다. 각각 채택 여부는 별도 결정 사항.
