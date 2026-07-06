@@ -13,9 +13,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pytest
+from sklearn.ensemble import RandomForestClassifier
 
+from artifact_metadata import ModelMetadata, load_metadata, save_metadata
 from contracts import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
@@ -30,9 +33,7 @@ from demo.temporal_module import (
     TemporalFallClassifierModule,
     temporal_artifact_available,
 )
-from training.data.features import extract_window_features
-from training.metadata import ModelMetadata, load_metadata, save_metadata
-from training.models.rf import RandomForestFallClassifier
+from features.window_features import extract_window_features
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,6 +41,37 @@ from training.models.rf import RandomForestFallClassifier
 
 _FRAME_W = 640
 _FRAME_H = 480
+
+
+class _SyntheticRandomForestClassifier:
+    """Minimal RF fit/save/load/predict_proba wrapper for synthetic test artifacts.
+
+    Not production code — training lives in eldercare-dataset-ops (ADR-0004)
+    now. This exists only so this test file can build a fitted model.pkl on
+    synthetic data (and reload it into a TemporalFallClassifierModule) without
+    a production model class to call.
+    """
+
+    def __init__(self) -> None:
+        self._clf = RandomForestClassifier(
+            n_estimators=50, class_weight="balanced", random_state=42, n_jobs=-1
+        )
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+        self._clf.fit(X, y)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        return self._clf.predict_proba(X)
+
+    def save(self, directory: Path) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        joblib.dump(self._clf, directory / "model.pkl")
+
+    @classmethod
+    def load(cls, directory: Path) -> _SyntheticRandomForestClassifier:
+        obj = cls()
+        obj._clf = joblib.load(directory / "model.pkl")
+        return obj
 
 
 def _frame(index: int) -> Frame:
@@ -87,7 +119,7 @@ class _EmptyPose:
 
 
 def _build_rf_artifact(tmp_path: Path, window: int = 30, stride: int = 5) -> Path:
-    """Train a tiny RandomForestFallClassifier on synthetic features and save to tmp_path.
+    """Fit a tiny _SyntheticRandomForestClassifier on synthetic features and save to tmp_path.
 
     Fall window:   alternating (0,1,0.9) / (1,0,0.9) normalised keypoints
                    → high velocity features; matches _fall_kpts outputs after
@@ -116,7 +148,7 @@ def _build_rf_artifact(tmp_path: Path, window: int = 30, stride: int = 5) -> Pat
     )
     y = np.array([0] * 50 + [1] * 50, dtype=np.int64)
 
-    rf = RandomForestFallClassifier()
+    rf = _SyntheticRandomForestClassifier()
     rf.fit(X, y)
     rf.save(tmp_path)
 
@@ -137,7 +169,7 @@ def _build_rf_artifact(tmp_path: Path, window: int = 30, stride: int = 5) -> Pat
 def _load_module(tmp_path: Path) -> TemporalFallClassifierModule:
     """Load RF + metadata from tmp_path and return a TemporalFallClassifierModule."""
     meta = load_metadata(tmp_path)
-    rf = RandomForestFallClassifier.load(tmp_path)
+    rf = _SyntheticRandomForestClassifier.load(tmp_path)
     return TemporalFallClassifierModule(
         pose_module=_FakePoseForFall(),
         model=rf,
@@ -202,7 +234,7 @@ class TestTemporalFallClassifierModule:
         """When pose detects no person, predict returns empty FrameObservation."""
         _build_rf_artifact(tmp_path)
         meta = load_metadata(tmp_path)
-        rf = RandomForestFallClassifier.load(tmp_path)
+        rf = _SyntheticRandomForestClassifier.load(tmp_path)
         module = TemporalFallClassifierModule(
             pose_module=_EmptyPose(),
             model=rf,
@@ -341,7 +373,7 @@ class TestMultiPersonTemporalModule:
         """All detected boxes, labels, and keypoints are present in the FrameObservation."""
         _build_rf_artifact(tmp_path)
         meta = load_metadata(tmp_path)
-        rf = RandomForestFallClassifier.load(tmp_path)
+        rf = _SyntheticRandomForestClassifier.load(tmp_path)
         module = TemporalFallClassifierModule(
             pose_module=_TwoPersonFakePose(),
             model=rf,
@@ -360,7 +392,7 @@ class TestMultiPersonTemporalModule:
         NORMAL_LABEL_TEXT."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         meta = load_metadata(tmp_path)
-        rf = RandomForestFallClassifier.load(tmp_path)
+        rf = _SyntheticRandomForestClassifier.load(tmp_path)
         module = TemporalFallClassifierModule(
             pose_module=_TwoPersonFakePose(),
             model=rf,
@@ -387,7 +419,7 @@ class TestMultiPersonTemporalModule:
         confidence 0.0."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         meta = load_metadata(tmp_path)
-        rf = RandomForestFallClassifier.load(tmp_path)
+        rf = _SyntheticRandomForestClassifier.load(tmp_path)
         module = TemporalFallClassifierModule(
             pose_module=_TwoPersonFakePose(),
             model=rf,
@@ -408,7 +440,7 @@ class TestMultiPersonTemporalModule:
         """Person B disappears mid-stream; missed frames get zero-filled without error."""
         _build_rf_artifact(tmp_path, window=30, stride=5)
         meta = load_metadata(tmp_path)
-        rf = RandomForestFallClassifier.load(tmp_path)
+        rf = _SyntheticRandomForestClassifier.load(tmp_path)
         module = TemporalFallClassifierModule(
             pose_module=_DisappearingBPose(b_disappears_after=15),
             model=rf,
@@ -430,7 +462,7 @@ class TestMultiPersonTemporalModule:
         """Boxes and keypoints in the result equal the raw pose output."""
         _build_rf_artifact(tmp_path)
         meta = load_metadata(tmp_path)
-        rf = RandomForestFallClassifier.load(tmp_path)
+        rf = _SyntheticRandomForestClassifier.load(tmp_path)
         fake_pose = _TwoPersonFakePose()
         module = TemporalFallClassifierModule(
             pose_module=fake_pose,
