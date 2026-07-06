@@ -1,8 +1,0 @@
-{
-  "id": "exp-023-gcn-best-restore",
-  "model_family": "gcn",
-  "hypothesis": "Wave7/restore: retrain the family-best config (hidden=110, blocks=3, lr=2.6588e-4, dropout=0.0909, exp-009). Expect ~0.1871 reproduction.",
-  "hp_override": {"hidden": 110, "blocks": 3, "lr": 0.00026587543983272726, "dropout": 0.09091248360355031},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}

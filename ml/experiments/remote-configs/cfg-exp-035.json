@@ -1,8 +1,0 @@
-{
-  "id": "exp-035-transformer-best-restore",
-  "model_family": "transformer",
-  "hypothesis": "Restore: budget30 (max 0.1844) did not re-find the exp-010 region; retrain exp-010 exact config (d=64, heads=4, layers=1, lr=1.2385e-4). Expect 0.2574.",
-  "hp_override": {"d_model": 64, "heads": 4, "layers": 1, "lr": 0.0001238513729886094},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}

@@ -1,8 +1,0 @@
-{
-  "id": "exp-008-svm-linear-refine",
-  "model_family": "svm",
-  "hypothesis": "Wave2/exploit: wave1 showed linear kernel dominates (0.426/0.400 vs <=0.193 rbf). Pin kernel=linear and refine C; expect stable plateau >=0.40 confirming the jump is not a single-trial fluke.",
-  "hp_override": {"kernel": "linear", "gamma": 0.01},
-  "n_trials": 8,
-  "trial_timeout_s": 3600
-}
