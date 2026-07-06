@@ -32,7 +32,7 @@ user action / page effect
 | Endpoint mapper | `front/src/services/api/authEndpoints.ts` | backend DTO 검증·frontend type mirror 생성. 예: `loginEndpoint()`, `restoreSessionEndpoint()`, `parseRole()` |
 | Workflow service | `front/src/services/{authService,dashboardService,eventService,adminService}.ts`, `front/src/features/admin-events/services/videoService.ts` | 페이지/훅이 호출하는 도메인 단위 유스케이스. 컴포넌트는 backend JSON shape나 `fetch()`를 직접 알지 않는다 |
 | Local/test data seam | `front/src/services/db.ts`, `front/src/mocks/`, `front/src/data/` | 자동테스트 mock mode와 아직 backend wiring 전인 화면 데이터를 격리. dev/prod 기본 경로로 설명하지 않는다 |
-| TTS side effect | `front/src/features/monitor/services/tts/*`(ttsManager 등), `front/src/services/tts/{announceFocus,synthesizer}.ts`, `front/src/features/monitor/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화 |
+| TTS side effect | `front/src/features/monitor/services/tts/*`(ttsManager 등), `front/src/features/monitor/hooks/useTTSAlerts.ts` | 화면 상태를 음성 알림 입력으로 변환하고 `ttsManager`에 동기화. `front/src/services/tts/{announceFocus,synthesizer}.ts`는 과거 경로의 no-op/빈 스텁이며 현재 어디서도 호출되지 않는다 |
 
 현재 auth 흐름은 `front/src/services/authService.ts`가 `front/src/services/api/authEndpoints.ts`의 endpoint mapper를 호출한다. 예를 들어 `loginEndpoint()`는 `/api/v1/auth/login`, `restoreSessionEndpoint()`는 `/api/v1/auth/me`, `logoutEndpoint()`는 `/api/v1/auth/logout`을 `credentials: "include"`로 호출하고 `parseAuthSessionResponse()`가 `AuthSession`으로 매핑한다. `front/src/stores/authStore.ts`는 이 service를 감싸 `init()`, `login()`, `register()`, `logout()` 상태 전이를 담당한다.
 

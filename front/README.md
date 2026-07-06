@@ -149,7 +149,7 @@ src/
 
 "상시 관제판"이 아니라 "상황 발생 시 커지는 안전 현황판"입니다. 평상시(안정/주의)는 공간이 작고 조용한 그리드형, 위험·확인 필요 상황이 생기면 자동 확대됩니다:
 
-- **주의(CAUTION)**: 카드 배경·테두리 색만 주의 톤으로 바뀌고 크기는 그대로 유지.
+- **주의(CAUTION)**: 카드 배경·아이콘/텍스트 색만 주의 톤으로 바뀌고 크기는 그대로 유지(테두리 강조는 위험/확인 필요 단계에만 적용됩니다).
 - **위험/확인 필요(DANGER/CHECK_NEEDED)**: 해당 공간이 "히어로" 타일로 확대되고 펄스 테두리로 강조됩니다. 화면 전체를 덮는 별도 오버레이는 없습니다.
 - **자동 복귀 금지**: 주의는 시간이 지나면 안정으로 돌아갈 수 있지만, **위험/확인 필요는 확인 완료 전까지 유지**됩니다. 카드를 눌러 연 조치 패널에서 "확인완료"를 누르면 평상시로 복귀하고 음성 안내도 멈춥니다.
 
@@ -166,20 +166,18 @@ src/
 
 > 브라우저 음성 정책상 첫 음성은 화면을 한 번 클릭/상호작용한 뒤 재생됩니다(자동재생 차단 대응).
 
-#### 음성 사전 생성 (mp3 캐시)
+#### 음성 사전 생성 (mp3 캐시) — 현재 스텁, 미동작
 
-실시간마다 TTS API를 호출하지 않도록, 자주 쓰는 안내 문구를 **미리 mp3로 생성**해 두고 재생합니다.
+과거에는 자주 쓰는 안내 문구를 **미리 mp3로 생성**해 두고 재생하는 캐시 경로가 있었으나, features/ 리팩토링으로 실제 모듈이 `src/features/monitor/services/tts/`의 단일 고정 문구 템플릿(`ttsConfig.ts`/`audioMap.ts`)으로 축소·이동되면서 이 경로는 끊어졌습니다.
+
+- `src/services/tts/synthesizer.ts`는 `export {}`만 남은 빈 스텁이고, `scripts/generate-tts.ts`가 여전히 import하는 `../src/services/tts/{ttsConfig,audioMap}`는 해당 경로에 파일 자체가 존재하지 않습니다. 그래서 `pnpm --filter front gen:tts`는 현재 실행하면 모듈을 찾지 못해 실패합니다.
+- 런타임 `playTTS`(`src/features/monitor/services/tts/playTTS.ts`)는 pregenerated mp3나 manifest를 전혀 참조하지 않고, 항상 브라우저 `SpeechSynthesis`(`ttsProvider.ts`)로만 재생합니다. 아래 CLOVA/Google 키 기반 mp3 생성·재생 전환은 현재 동작하지 않습니다.
+- mp3 캐시를 다시 쓰려면 `scripts/generate-tts.ts`를 `src/features/monitor/services/tts/`의 현재 단일 템플릿 구조에 맞게 다시 작성해야 합니다(향후 작업, 현재 미착수).
 
 ```bash
-pnpm --filter front gen:tts        # Mock(키 없음): 폴더 구조 + manifest 생성, 런타임은 음성 폴백
-CLOVA_CLIENT_ID=... CLOVA_CLIENT_SECRET=... pnpm --filter front gen:tts   # 실제 mp3 생성
-GOOGLE_TTS_API_KEY=... pnpm --filter front gen:tts                        # Google TTS 로 생성
+# 참고용(현재 미동작): 과거에는 아래처럼 mp3를 사전 생성했습니다.
+pnpm --filter front gen:tts
 ```
-
-- 문구/공간을 조합해 `public/audio/tts/<층>/<호실>_<단계>.mp3`, `public/audio/tts/common/<슬러그>_<단계>.mp3`, `summary.mp3`를 생성합니다. (예: `201호 확인이 필요합니다` → `/audio/tts/2F/201_danger.mp3`, `중앙복도 단독 이동…` → `/audio/tts/common/center_hallway_danger.mp3`)
-- 생성 결과는 `manifest.json`에 `real: true/false`로 기록되고, 런타임 `playTTS`는 **실제 파일이 있으면 `Audio`로 재생, 없으면 브라우저 음성으로 폴백**합니다. 그래서 키가 없어도 동작하고, 키를 넣어 한 번 생성하면 자동으로 mp3 재생으로 전환됩니다.
-- 중복 재생 방지·우선순위(응급>위험>주의)·확인 완료 시 중단은 `ttsManager`가 담당합니다.
-- 파일: `scripts/generate-tts.ts`, `src/features/monitor/services/tts/{ttsConfig,audioMap,ttsProvider,playTTS,ttsManager}.ts`, `src/services/tts/synthesizer.ts`. 문구를 바꾸려면 `pnpm --filter front gen:tts` 재실행하면 됩니다.
 
 ---
 
@@ -213,7 +211,7 @@ AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다.
 
 - **직원 화면**: "지금 확인할 곳"(`/dashboard`) 상단에 "오늘 집중 관찰 필요 N명" 섹션. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"만 보여주고 **확인함 / 직원 방문 중 / 도움 요청** 3버튼을 제공합니다. "음성으로 듣기" 버튼으로 TTS 안내를 들을 수 있습니다.
 - **관리자 화면**: `focus-residents` 관리자 화면은 남아 있지만 가역 숨김 상태이며 현재 백엔드에는 `/api/v1/resident-risk-summaries` route가 없습니다. `services/residentService.ts`와 fixture 데이터는 재활성 전까지 비활 fixture로만 보존합니다.
-- **TTS 안내**: "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 짧고 명확하게 안내(`services/tts/announceFocus.ts`).
+- **TTS 안내(미구현)**: 설계상으로는 "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 안내할 계획이었으나, `services/tts/announceFocus.ts`는 호출부가 모두 제거된 no-op 스텁이라 현재는 아무 것도 안내하지 않습니다(재활성 시 구현 필요).
 - **데이터 모델**: `Resident`와 배정 정보는 실제 백엔드 route가 있고, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI 호환 타입입니다.
 
 ---
