@@ -1,17 +1,24 @@
 """Registry-driven demo exposure (demo-registry-driven-model-loading plan).
 
-Pins the lockstep chain CATALOG → training REGISTRY → demo TEMPORAL_MODEL_KEYS
+Pins the demo-side chain CATALOG (artifact_metadata) → demo TEMPORAL_MODEL_KEYS
 → CLASSIFIER_REGISTRY, and the threshold-default resolution order
-(NH-recommended mapping first, artifact metadata fallback).
+(NH-recommended mapping first, artifact metadata fallback). Per-family model
+class dispatch (the old CATALOG → training REGISTRY link) now lives only in
+eldercare-dataset-ops (ADR-0004): fall-ai no longer imports a per-family model
+class at all — InProcessFallClassifier always runs inference through
+worker.runners.sklearn_fall.FallDetector regardless of key.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pytest
+from sklearn.ensemble import RandomForestClassifier
 
+from artifact_metadata import CATALOG, ModelMetadata, save_metadata
 from demo.classifiers import CLASSIFIER_REGISTRY
 from demo.temporal_module import (
     _KEY_TO_ARTIFACT,
@@ -19,25 +26,10 @@ from demo.temporal_module import (
     build_temporal_model,
 )
 from demo.thresholds import NH_RECOMMENDED_THRESHOLDS, default_threshold
-from training.data.features import extract_window_features
-from training.metadata import ModelMetadata, save_metadata
-from training.models.catalog import CATALOG, load_model_class
+from features.window_features import extract_window_features
 
 
 class TestCatalogLockstep:
-    def test_registry_built_from_catalog(self) -> None:
-        from training.models import REGISTRY
-
-        assert set(REGISTRY) == set(CATALOG)
-        for key, entry in CATALOG.items():
-            assert REGISTRY[key]["mode"] == entry.mode
-            assert REGISTRY[key]["artifact_filename"] == entry.artifact_filename
-            assert REGISTRY[key]["factory"].__name__ == entry.class_name
-
-    def test_load_model_class_resolves_every_key(self) -> None:
-        for key, entry in CATALOG.items():
-            assert load_model_class(key).__name__ == entry.class_name
-
     def test_demo_keys_are_underscore_form_of_catalog(self) -> None:
         assert set(TEMPORAL_MODEL_KEYS) == {k.replace("-", "_") for k in CATALOG}
         for demo_key, artifact_key in _KEY_TO_ARTIFACT.items():
@@ -137,9 +129,30 @@ def _write_metadata(adir: Path, operating_threshold: float) -> None:
     )
 
 
-def _build_rf_artifact(adir: Path, window: int = 30, stride: int = 5) -> None:
-    from training.models.rf import RandomForestFallClassifier
+class _SyntheticRandomForestClassifier:
+    """Minimal RF fit/save wrapper for building synthetic test artifacts.
 
+    Not production code — training lives in eldercare-dataset-ops (ADR-0004)
+    now. This exists only so this test file can build a fitted model.pkl on
+    synthetic data without a production model class to call. This file never
+    reloads the artifact (InProcessFallClassifier is monkeypatched out), so
+    no ``load()`` classmethod is needed here.
+    """
+
+    def __init__(self) -> None:
+        self._clf = RandomForestClassifier(
+            n_estimators=50, class_weight="balanced", random_state=42, n_jobs=-1
+        )
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+        self._clf.fit(X, y)
+
+    def save(self, directory: Path) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        joblib.dump(self._clf, directory / "model.pkl")
+
+
+def _build_rf_artifact(adir: Path, window: int = 30, stride: int = 5) -> None:
     fall_window = np.zeros((window, 17, 3), dtype=np.float32)
     for t in range(window):
         fall_window[t, :] = [0.0, 1.0, 0.9] if t % 2 == 0 else [1.0, 0.0, 0.9]
@@ -153,7 +166,7 @@ def _build_rf_artifact(adir: Path, window: int = 30, stride: int = 5) -> None:
         ]
     )
     y = np.array([0] * 50 + [1] * 50, dtype=np.int64)
-    rf = RandomForestFallClassifier()
+    rf = _SyntheticRandomForestClassifier()
     rf.fit(X, y)
     rf.save(adir)
     save_metadata(

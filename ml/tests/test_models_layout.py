@@ -18,8 +18,12 @@ ALLOWED_TOP_LEVEL = {"bed", "fall", "person", "pose"}
 ALLOWED_SOURCES = {"downloaded", "trained", "third-party"}
 
 pytestmark = pytest.mark.skipif(
-    not MODELS_ROOT.is_dir(),
-    reason="ml/models/ absent (fresh clone or unlinked worktree)",
+    not any((MODELS_ROOT / "fall").glob("*/metadata.json")),
+    reason=(
+        "ml/models/fall/ absent (fresh clone, unlinked worktree, or a "
+        "persistent workspace where only ml/models/pose/ has been populated "
+        "by test_live_bench's YOLO auto-download, without any fall/ artifact)"
+    ),
 )
 
 

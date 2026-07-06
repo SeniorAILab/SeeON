@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from artifact_metadata import artifact_dir, load_metadata
 from demo.temporal_module import _KEY_TO_ARTIFACT
-from training.metadata import artifact_dir, load_metadata
 
 NH_RECOMMENDED_THRESHOLDS: Final[dict[str, float]] = {
     "gcn": 0.30,  # 18/19 catches @ 10.5% FP — recall-first frontier

@@ -1,15 +1,26 @@
-"""Tests for training.data.features.extract_window_features.
+"""Tests for features.window_features.extract_window_features.
 
 Verifies shape, dtype, NaN/inf-freedom for degenerate inputs.
 All fixtures are synthetic; no real data is loaded.
+
+Ported from the deleted tests/test_training_features.py (training/config.py
+no longer lives here — training moved to eldercare-dataset-ops, ADR-0004).
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from training.config import CONF_THRESHOLD, FEATURE_DIM, T_WINDOW
-from training.data.features import extract_window_features
+from contracts.model import DEFAULT_FALL_CONFIDENCE_THRESHOLD
+from features.window_features import extract_window_features
+
+# Source of truth for the feature dimension: features.window_features._D
+# (module docstring: "do not derive D from anywhere else"). T_WINDOW=30 is a
+# locked ADR parameter (docs/rules/ml-training.md); extract_window_features
+# itself is window-length agnostic, so any T works here — 30 just matches the
+# real pipeline's window geometry.
+_FEATURE_DIM = 45
+_T_WINDOW = 30
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -18,23 +29,23 @@ from training.data.features import extract_window_features
 
 def _all_zero_window() -> np.ndarray:
     """float32[T, 17, 3] — all coords and confidences are zero."""
-    return np.zeros((T_WINDOW, 17, 3), dtype=np.float32)
+    return np.zeros((_T_WINDOW, 17, 3), dtype=np.float32)
 
 
 def _partial_conf_window(seed: int = 0) -> np.ndarray:
     """float32[T, 17, 3] — random coords; half the keypoints have conf=0 (missing)."""
     rng = np.random.default_rng(seed)
-    window = rng.random((T_WINDOW, 17, 3)).astype(np.float32)
+    window = rng.random((_T_WINDOW, 17, 3)).astype(np.float32)
     # Zero out the confidence channel for every other keypoint
     window[:, ::2, 2] = 0.0
     return window
 
 
 def _above_threshold_window(seed: int = 1) -> np.ndarray:
-    """float32[T, 17, 3] — all keypoints above CONF_THRESHOLD."""
+    """float32[T, 17, 3] — all keypoints above DEFAULT_FALL_CONFIDENCE_THRESHOLD."""
     rng = np.random.default_rng(seed)
-    window = rng.random((T_WINDOW, 17, 3)).astype(np.float32)
-    window[:, :, 2] = CONF_THRESHOLD + 0.1  # well above threshold
+    window = rng.random((_T_WINDOW, 17, 3)).astype(np.float32)
+    window[:, :, 2] = DEFAULT_FALL_CONFIDENCE_THRESHOLD + 0.1  # well above threshold
     return window
 
 
@@ -46,16 +57,16 @@ def _above_threshold_window(seed: int = 1) -> np.ndarray:
 class TestExtractWindowFeaturesShape:
     def test_output_shape_is_feature_dim(self) -> None:
         feats = extract_window_features(_all_zero_window())
-        assert feats.shape == (FEATURE_DIM,)
+        assert feats.shape == (_FEATURE_DIM,)
 
     def test_output_dtype_is_float32(self) -> None:
         feats = extract_window_features(_all_zero_window())
         assert feats.dtype == np.float32
 
     def test_feature_dim_matches_config_constant(self) -> None:
-        """FEATURE_DIM in config must equal the actual output length."""
+        """_FEATURE_DIM here must equal the actual output length."""
         feats = extract_window_features(_above_threshold_window())
-        assert len(feats) == FEATURE_DIM
+        assert len(feats) == _FEATURE_DIM
 
 
 class TestExtractWindowFeaturesNumerical:

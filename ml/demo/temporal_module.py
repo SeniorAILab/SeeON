@@ -1,23 +1,18 @@
 """Temporal fall-classifier adapter for the Streamlit demo.
 
-Bridges every training-pipeline model family (``training.models.catalog``)
-into the ModelModule protocol so live_view.py can drive them identically to
-the rule-based path — no change to the frame-intake or overlay layer.
+Wraps the trained fall detector (``worker.runners.sklearn_fall.FallDetector``)
+into the ModelModule protocol so live_view.py can drive it identically to the
+rule-based path — no change to the frame-intake or overlay layer.
 
-The key set, feature mode, and artifact location all derive from CATALOG:
-a family whose artifact exists on disk is exposed automatically — training
-finishes, the next Streamlit run lists it. No demo edits per family.
-
-Lazy-import policy
-------------------
-Model classes import sklearn/torch at *their* module level. They are loaded
-ONLY inside ``build_temporal_model`` (via ``catalog.load_model_class``) so
-that this module and all callers that only need ``TEMPORAL_MODEL_KEYS`` /
-``temporal_artifact_available`` remain importable without those heavy deps.
-
-``normalize_person_keypoints`` is imported lazily inside ``predict`` because
-its module (training.extract_poses) brings in cv2 via demo.model_modules —
-keeping the cv2 requirement scoped to the hot path rather than import time.
+The demo key set and artifact-availability probe derive from CATALOG
+(``artifact_metadata.CATALOG``, a tuple of model-family keys): a family whose
+``ml/models/fall/<key>/metadata.json`` exists is exposed automatically. Every
+demo key resolves to the *same* in-process fall detector at build time —
+CATALOG no longer maps a key to a distinct model class; per-family training
+and class dispatch live only in eldercare-dataset-ops now (ADR-0004). CATALOG
+stays here purely to enumerate demo keys against on-disk artifact
+availability, so a family whose artifact lands on disk (e.g. copied over from
+a dataset-ops training run) is picked up without a demo-side edit.
 """
 
 from __future__ import annotations
@@ -28,6 +23,7 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
+from artifact_metadata import CATALOG, artifact_dir, load_metadata
 from contracts import (
     FALL_LABEL_TEXT,
     NORMAL_LABEL_TEXT,
@@ -36,20 +32,27 @@ from contracts import (
     FrameObservation,
     ModelModule,
 )
+from features.pose_normalization import normalize_person_keypoints
 from features.window_features import extract_window_features
-from training import config
-from training.metadata import artifact_dir, load_metadata
-from training.models.catalog import CATALOG
 from worker.perception.tracker import GreedyIouTracker
+
+# Keypoint geometry (COCO-17). Duplicated locally now that training/config.py
+# no longer lives in this repo — keep in sync with eldercare-dataset-ops's
+# training/config.py, which the training pipeline still uses to build windows
+# the same way.
+_N_KEYPOINTS = 17  # COCO-17
+_KPT_DIMS = 3  # (x, y, conf)
+_KPT_VECTOR_DIM = _N_KEYPOINTS * _KPT_DIMS  # 51-dim per frame for sequence models
+_CONF_THRESHOLD = 0.2  # keypoint confidence gate; must match training's CONF_THRESHOLD
 
 # ---------------------------------------------------------------------------
 # Public constants — derived from the model catalog (import-light)
 # ---------------------------------------------------------------------------
 
 # The demo exposes underscore keys (UI-friendly, e.g. ``random_forest``) while
-# the training pipeline (train.py / evaluate.py / artifact_dir) saves artifacts
-# under the kebab catalog key (e.g. ``random-forest``, ADR). The mapping is
-# mechanical so every CATALOG family is exposed without a demo-side edit.
+# artifacts on disk use the kebab catalog key (e.g. ``random-forest``, ADR).
+# The mapping is mechanical so every CATALOG family is exposed without a
+# demo-side edit.
 _KEY_TO_ARTIFACT: Final[dict[str, str]] = {key.replace("-", "_"): key for key in CATALOG}
 
 TEMPORAL_MODEL_KEYS: Final[tuple[str, ...]] = tuple(_KEY_TO_ARTIFACT)
@@ -63,8 +66,8 @@ TEMPORAL_MODEL_KEYS: Final[tuple[str, ...]] = tuple(_KEY_TO_ARTIFACT)
 def temporal_artifact_available(key: str) -> bool:
     """Return True iff a trained artifact for *key* is present on disk.
 
-    Intentionally cheap: only pathlib + training.config/metadata, no torch
-    import, so it is safe to call at module level during registry construction.
+    Intentionally cheap: only pathlib + artifact_metadata, no torch import, so
+    it is safe to call at module level during registry construction.
     """
     return (artifact_dir(_KEY_TO_ARTIFACT.get(key, key)) / "metadata.json").exists()
 
@@ -79,18 +82,18 @@ class InProcessFallClassifier:
 
     def predict(self, window: NDArray[np.float32]) -> float:
         arr = np.asarray(window, dtype=np.float32)
-        if arr.ndim != 2 or arr.shape[1] != config.KPT_VECTOR_DIM:
-            raise ValueError(f"expected window [T, {config.KPT_VECTOR_DIM}], got {arr.shape}")
+        if arr.ndim != 2 or arr.shape[1] != _KPT_VECTOR_DIM:
+            raise ValueError(f"expected window [T, {_KPT_VECTOR_DIM}], got {arr.shape}")
         features = extract_window_features(
-            arr.reshape(arr.shape[0], config.N_KEYPOINTS, config.KPT_DIMS)
+            arr.reshape(arr.shape[0], _N_KEYPOINTS, _KPT_DIMS)
         )
         return self._detector.predict(features)
 
     def predict_proba(self, X: NDArray[np.float32]) -> NDArray[np.float32]:
         arr = np.asarray(X, dtype=np.float32)
-        if arr.ndim != 3 or arr.shape[2] != config.KPT_VECTOR_DIM:
+        if arr.ndim != 3 or arr.shape[2] != _KPT_VECTOR_DIM:
             raise ValueError(
-                f"expected window batch [N, T, {config.KPT_VECTOR_DIM}], got {arr.shape}"
+                f"expected window batch [N, T, {_KPT_VECTOR_DIM}], got {arr.shape}"
             )
         probs = np.array([self.predict(window) for window in arr], dtype=np.float32)
         return np.stack([1.0 - probs, probs], axis=1)
@@ -131,7 +134,9 @@ def build_temporal_model(
     if not (adir / "metadata.json").exists():
         raise FileNotFoundError(
             f"No trained artifact for {key!r} found at {adir}. "
-            "Run `uv run --group training python -m training.train` to produce one."
+            "Train it in eldercare-dataset-ops (ADR-0004): "
+            "`cd ml && uv run python -m training.train`, then copy the artifact "
+            "directory here under ml/models/fall/."
         )
     # === 단계 2: metadata.json 로드 (window / stride / operating_threshold) ===
     # The selected artifact still owns the demo buffer geometry and threshold.
@@ -168,9 +173,10 @@ class TemporalFallClassifierModule:
     triggered every *stride* frames for every track whose buffer is full.
 
     Anti-skew: live keypoints are normalised with ``normalize_person_keypoints``
-    from ``training.extract_poses`` — the *same* function used by the training
-    pipeline — so pixel → [0, 1] conversion and confidence-gating are identical
-    between training and api.  The 1-tuple call convention
+    from ``features.pose_normalization`` — the *same* function eldercare-dataset-ops's
+    training pipeline uses (vendored copy, checked by test_vendor_drift) — so
+    pixel → [0, 1] conversion and confidence-gating are identical between
+    training and api.  The 1-tuple call convention
     ``normalize_person_keypoints((keypoints[i],), ...)`` ensures person[0] of
     a 1-element tuple is exactly person i — no per-person index skew.
 
@@ -213,11 +219,6 @@ class TemporalFallClassifierModule:
         Missed (occluded) tracks still receive an all-zeros keypoint frame so
         their window stays temporally contiguous with the training convention.
         """
-        # Lazy import: avoids pulling cv2 (via training.extract_poses) at module
-        # import time — safe to do here because Python caches the module after
-        # the first call.
-        from training.extract_poses import normalize_person_keypoints
-
         # === 단계 1: 입력 프레임에서 YOLO 포즈 추론(pose_module) → COCO-17 키포인트 추출 ===
         pose = self._pose.predict(frame)
         frame_h, frame_w = frame.image.shape[:2]
@@ -235,7 +236,7 @@ class TemporalFallClassifierModule:
             if tid not in self._buffers:
                 self._buffers[tid] = deque(maxlen=self._window)
             kpt: NDArray[np.float32] = normalize_person_keypoints(
-                (pose.keypoints[i],), frame_w, frame_h, config.CONF_THRESHOLD
+                (pose.keypoints[i],), frame_w, frame_h, _CONF_THRESHOLD
             )
             self._buffers[tid].append(kpt)
 
@@ -245,7 +246,7 @@ class TemporalFallClassifierModule:
         missed_ids = live_ids - active_ids
         if missed_ids:
             zeros: NDArray[np.float32] = np.zeros(
-                (config.N_KEYPOINTS, config.KPT_DIMS), dtype=np.float32
+                (_N_KEYPOINTS, _KPT_DIMS), dtype=np.float32
             )
             for tid in missed_ids:
                 if tid not in self._buffers:
@@ -279,7 +280,7 @@ class TemporalFallClassifierModule:
                     X = np.stack(
                         [
                             np.stack(list(self._buffers[tid]), axis=0).reshape(
-                                self._window, config.KPT_VECTOR_DIM
+                                self._window, _KPT_VECTOR_DIM
                             )
                             for tid in due_ids
                         ],

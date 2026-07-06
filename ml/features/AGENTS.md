@@ -16,10 +16,10 @@ Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `events`, `
 
 ## Focused Tests
 
-- `tests/test_training_features.py`
-- `tests/test_training_windowing.py`
+- `tests/test_features_window.py`
 - `tests/test_import_dependency_ladder.py`
+- `tests/test_vendor_drift.py`
 
 ## Gotchas
 
-`training.data.features` delegates to `features.window_features`; keep feature dimensions compatible with `training.config.FEATURE_DIM` and API model metadata.
+Training moved to eldercare-dataset-ops (ADR-0004); this package is vendored byte-identical into that repo's `ml/features/` (`tests/test_vendor_drift.py` enforces the two copies stay in sync). In this repo, `demo/temporal_module.py` is the only production consumer of `window_features`/`pose_normalization`. `window_features._D = 45` is the single source of truth for the feature dimension — do not derive it elsewhere; hardcode `45` as a literal with a comment if a consumer needs the constant (matches `demo/temporal_module.py` and `tests/test_features_window.py`).
