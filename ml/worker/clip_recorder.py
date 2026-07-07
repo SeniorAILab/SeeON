@@ -42,7 +42,7 @@ class ClipRecorderConfig:
     retention_days: int = field(default_factory=lambda: _env_retention_days())
     disk_high_watermark: float = field(default_factory=lambda: _env_disk_high_watermark())
     max_queue_size: int = 128
-    codec: str = "avc1"
+    codec: str = "mp4v"
 
 
 @dataclass(slots=True)
@@ -60,8 +60,11 @@ class _CodecSpec:
     suffix: str
 
 
+# mp4v (software MPEG-4 in bundled ffmpeg) is browser-playable and reliable on
+# headless OpenCV. avc1 is intentionally excluded: on CI/edge headless builds it
+# resolves to the h264_v4l2m2m hardware encoder, which fails to initialize on
+# machines without a V4L2 device. MJPG/.avi is the last-resort always-works fallback.
 DEFAULT_CODEC_CANDIDATES = (
-    _CodecSpec("avc1", ".mp4"),
     _CodecSpec("mp4v", ".mp4"),
     _CodecSpec("MJPG", ".avi"),
 )

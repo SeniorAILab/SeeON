@@ -96,8 +96,8 @@ def test_clip_recorder_falls_back_to_next_codec_once_per_camera(
 
     def _fake_open_writer(path: Path, _frame_size, _fps: float, codec: str):
         calls.append(codec)
-        if codec == "avc1":
-            raise RuntimeError("avc1 unavailable")
+        if codec == "mp4v":
+            raise RuntimeError("mp4v unavailable")
         return _Writer()
 
     monkeypatch.setattr("worker.clip_recorder._open_writer", _fake_open_writer)
@@ -109,11 +109,12 @@ def test_clip_recorder_falls_back_to_next_codec_once_per_camera(
         "cam-1", tmp_path, "seg", (16, 16)
     )
 
-    assert first_codec == "mp4v"
-    assert first_path.name == "clip.tmp.mp4"
-    assert second_codec == "mp4v"
-    assert second_path.name == "seg.mp4"
-    assert calls == ["avc1", "mp4v", "mp4v"]
+    assert first_codec == "MJPG"
+    assert first_path.name == "clip.tmp.avi"
+    assert second_codec == "MJPG"
+    assert second_path.name == "seg.avi"
+    # mp4v is tried once, fails, MJPG is cached; the second open reuses MJPG only.
+    assert calls == ["mp4v", "MJPG", "MJPG"]
 
 
 def test_clip_recorder_writes_manifest_when_video_append_fails(
