@@ -1,7 +1,0 @@
-{
-  "id": "exp-005-lstm-hpsearch",
-  "model_family": "lstm",
-  "hypothesis": "Wave1/A+B: leaderboard floor family (0.0463) — tuned lr/hidden/dropout determines whether LSTM is HP-starved or structurally unfit for 48-frame windows.",
-  "n_trials": 5,
-  "trial_timeout_s": 3600
-}

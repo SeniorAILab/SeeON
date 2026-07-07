@@ -1,8 +1,0 @@
-{
-  "id": "exp-029-svm-poly-probe",
-  "model_family": "svm",
-  "hypothesis": "Phase2/boundary: kernel space only has rbf/linear; poly sits between them. 4 trials sampling C/gamma under pinned poly kernel.",
-  "hp_override": {"kernel": "poly"},
-  "n_trials": 4,
-  "trial_timeout_s": 3600
-}

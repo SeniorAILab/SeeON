@@ -51,6 +51,7 @@ class EdgeIngestClient:
         probability: float,
         audit: dict[str, object] | None = None,
         snapshot_bytes: bytes | None = None,
+        clip_id: str | None = None,
     ) -> bool:
         payload = EventApiPayload(
             camera_id=self.camera_id,
@@ -58,8 +59,10 @@ class EdgeIngestClient:
             detected_at=detected_at,
             confidence=probability,
             **_audit_payload_fields(audit),
-        )
-        response = self._post_json(self.events_url, payload.as_dict())
+        ).as_dict()
+        if clip_id is not None and clip_id.strip() != "":
+            payload["clip_id"] = clip_id
+        response = self._post_json(self.events_url, payload)
         if response is None:
             self._increment_failure()
             return False
@@ -89,6 +92,7 @@ class EdgeIngestClient:
             event_type="bed-exit" if event_type == "bed-exit" else "fall",
             detected_at=detected_at,
             probability=probability,
+            clip_id=_event_clip_id(event),
         )
 
     def publish(self, event: _PublishedEvent) -> None:
@@ -98,6 +102,7 @@ class EdgeIngestClient:
             event_type="bed-exit" if event.event_type == "bed-exit" else "fall",
             detected_at=_utc_iso_timestamp(),
             probability=_event_probability(event.evidence),
+            clip_id=_event_clip_id(event.evidence),
         )
 
     def _post(self, url: str, payload: dict[str, str | float]) -> bool:
@@ -180,6 +185,13 @@ def _event_probability(event: EventPayload) -> float:
     if isinstance(value, int | float):
         return min(1.0, max(0.0, float(value)))
     return 1.0
+
+
+def _event_clip_id(event: EventPayload) -> str | None:
+    value = event.get("clip_id")
+    if isinstance(value, str) and value.strip() != "":
+        return value
+    return None
 
 
 def _audit_payload_fields(audit: dict[str, object] | None) -> dict[str, object]:

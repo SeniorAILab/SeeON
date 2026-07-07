@@ -1,8 +1,0 @@
-{
-  "id": "exp-017-logreg-c1000-probe",
-  "model_family": "logistic-regression",
-  "hypothesis": "Wave5/probe: companion point to exp-016 — C=1000 (effectively unregularized). If 016/017 plateau or degrade vs C=29, the C curve is mapped and logreg is final at ~0.31.",
-  "hp_override": {"C": 1000.0},
-  "n_trials": 1,
-  "trial_timeout_s": 3600
-}
