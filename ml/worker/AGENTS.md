@@ -37,3 +37,10 @@ Forbidden: `api`, `demo`, `training`. There is no `runtime` package; import work
 ## Gotchas
 
 Runner objects are intentionally shared across camera workers. Preserve object identity when changing `_RunnerBundle` or supervisor construction. The worker owns ALL live flow state (status/latest-frame/incident/detector windows); there is no cross-process shared state with `ml-api`. The only worker↔api connection is one-directional relay HTTP facts (`worker -> ml-api /relay/*`); classification probability is produced here and relayed as backend Event API `confidence`.
+
+For nursing-home edge dashboard access, follow
+`../../docs/rules/nursing-home-edge-dashboard-access.md`. `ml-worker` does not own
+Tailscale login, Google account fallback, ML dashboard port/firewall setup, SSH,
+or remote mutation. Do not put Tailscale IPs, tailnet domains,
+RTSP URLs, passwords, tokens, or camera topology in worker docs, logs, fixtures,
+or test evidence.
