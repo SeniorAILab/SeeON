@@ -120,10 +120,17 @@ class EdgeWorkerSupervisor:
         try:
             worker._bind_source_liveness_callbacks()
             frame_iter = iter(worker.frame_source)
-            self.status_store.set_status(worker.camera_id, worker.facility_id, CameraStatus.READY)
+            saw_frame = False
             for frame in frame_iter:
                 if self.stop_event.is_set():
                     break
+                if not saw_frame:
+                    self.status_store.set_status(
+                        worker.camera_id,
+                        worker.facility_id,
+                        CameraStatus.READY,
+                    )
+                    saw_frame = True
                 if not loop.buffer.put(frame, stop_event=self.stop_event):
                     break
         except Exception as exc:  # noqa: BLE001 - camera source failures soft-degrade one camera
