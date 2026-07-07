@@ -8,7 +8,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from contracts.worker_config import PulledCameraConfig, PulledWorkerConfig
+from contracts.worker_config import WORKER_CONFIG_PATH, PulledCameraConfig, PulledWorkerConfig
 from worker.edge_worker_config import (
     CameraRuntimeConfig,
     DomainsConfig,
@@ -16,7 +16,6 @@ from worker.edge_worker_config import (
     RelayConfig,
 )
 
-WORKER_CONFIG_PATH = "/api/v1/cameras/worker-config"
 ML_WORKER_STATE_DIR_ENV = "ML_WORKER_STATE_DIR"
 _DEFAULT_STATE_DIR = "/var/lib/ml-worker"
 _LKG_FILENAME = "worker-config-last-known-good.json"

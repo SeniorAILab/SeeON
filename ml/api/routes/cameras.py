@@ -18,6 +18,7 @@ from api.camera_registry import (
     status_from_probe,
 )
 from api.lifespan import API_EDGE_RELAY_TOKEN_ENV, API_FACILITY_ID_ENV
+from contracts.worker_config import PulledWorkerConfig
 
 RELAY_TOKEN_HEADER = "X-Edge-Relay-Token"
 
@@ -83,6 +84,9 @@ class WorkerConfigResponse(BaseModel):
 
     registry_version: int = Field(ge=0)
     cameras: list[WorkerCameraConfig]
+    config_version: int | None = Field(default=None, ge=0)
+    restart_epoch: int | None = Field(default=None, ge=0)
+    night_window: dict[str, object] | None = None
 
 
 @router.get("", response_model=ListCamerasResponse)
@@ -210,6 +214,12 @@ def worker_config(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, object]:
     _authorize(request, relay_token, authorization)
+    return worker_config_snapshot(request)
+
+
+def worker_config_snapshot(
+    request: Request, *, require_available: bool = False
+) -> dict[str, object]:
     snapshot = _store(request).snapshot()
     facility_id = _facility_id()
     cameras = []
@@ -225,7 +235,34 @@ def worker_config(
                 "rtsp_url": rtsp_url,
             }
         )
-    return {"registry_version": snapshot["registry_version"], "cameras": cameras}
+    pulled = getattr(request.app.state, "pulled_config", None)
+    if not cameras and isinstance(pulled, PulledWorkerConfig):
+        return _live_pulled_config(request, pulled).as_dict()
+    if require_available and not cameras:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="worker config unavailable",
+        )
+    response: dict[str, object] = {
+        "registry_version": snapshot["registry_version"],
+        "cameras": cameras,
+    }
+    if isinstance(pulled, PulledWorkerConfig):
+        live_pulled = _live_pulled_config(request, pulled)
+        response["config_version"] = live_pulled.config_version
+        response["restart_epoch"] = live_pulled.restart_epoch
+        if live_pulled.night_window is not None:
+            response["night_window"] = live_pulled.night_window.as_dict()
+    return response
+
+
+def _live_pulled_config(request: Request, pulled: PulledWorkerConfig) -> PulledWorkerConfig:
+    return PulledWorkerConfig(
+        config_version=int(getattr(request.app.state, "config_version", 0)),
+        restart_epoch=int(getattr(request.app.state, "restart_epoch", 0)),
+        night_window=pulled.night_window,
+        cameras=pulled.cameras,
+    )
 
 def retry_pending_backend_mappings(request: Request) -> int:
     store = _store(request)
@@ -331,4 +368,4 @@ def _probe_response(probe: ProbeResult) -> dict[str, object]:
     return response
 
 
-__all__ = ["retry_pending_backend_mappings", "router"]
+__all__ = ["retry_pending_backend_mappings", "router", "worker_config_snapshot"]

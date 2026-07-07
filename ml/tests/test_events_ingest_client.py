@@ -50,6 +50,7 @@ def test_edge_ingest_client_posts_event_api_alert_and_heartbeat_without_auth_hea
                 event_type="fall",
                 detected_at="2026-06-23T12:00:00.000Z",
                 probability=0.91,
+                clip_id="clip-123",
             )
             is True
         )
@@ -78,10 +79,38 @@ def test_edge_ingest_client_posts_event_api_alert_and_heartbeat_without_auth_hea
                     "type": "fall",
                     "detected_at": "2026-06-23T12:00:00.000Z",
                     "confidence": 0.91,
+                    "clip_id": "clip-123",
                 },
             ),
         ]
         assert client.failure_count == 0
+    finally:
+        server.shutdown()
+        thread.join(timeout=1.0)
+
+
+def test_edge_ingest_client_omits_missing_clip_id_for_backward_compatibility() -> None:
+    _RecordingHandler.received = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RecordingHandler)
+    thread = _run_server(server)
+    client = EdgeIngestClient(
+        events_url=f"http://127.0.0.1:{server.server_port}/events",
+        camera_id="camera-1",
+        timeout_sec=0.2,
+    )
+    try:
+        assert client.send_alert(
+            event_type="fall",
+            detected_at="2026-06-23T12:00:00.000Z",
+            probability=0.91,
+        )
+
+        assert _RecordingHandler.received[0][2] == {
+            "camera_id": "camera-1",
+            "type": "fall",
+            "detected_at": "2026-06-23T12:00:00.000Z",
+            "confidence": 0.91,
+        }
     finally:
         server.shutdown()
         thread.join(timeout=1.0)

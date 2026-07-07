@@ -45,7 +45,7 @@ def _alert_payload(**overrides) -> dict:
         "detected_at": "2026-06-25T12:00:00.000Z",
         "camera_id": "camera-1",
         "facility_id": "facility-1",
-        "evidence": {"domain": "night-bed-exit"},
+        "evidence": {"domain": "night-bed-exit", "clip_id": "clip-123"},
     }
     payload.update(overrides)
     return payload
@@ -104,9 +104,27 @@ def test_relay_alert_forwards_valid_event_to_backend_ingest_client() -> None:
             "event_type": "bed-exit",
             "detected_at": "2026-06-25T12:00:00.000Z",
             "probability": 0.87,
+            "clip_id": "clip-123",
         }
     ]
 
+
+def test_relay_alert_omits_missing_clip_id_for_backward_compatibility() -> None:
+    fake = FakeBackendIngestClient()
+    response = _client(fake).post(
+        "/api/v1/relay/alerts",
+        json=_alert_payload(evidence={"domain": "night-bed-exit"}),
+        headers={"X-Edge-Relay-Token": "relay-token"},
+    )
+
+    assert response.status_code == 202
+    assert fake.alerts == [
+        {
+            "event_type": "bed-exit",
+            "detected_at": "2026-06-25T12:00:00.000Z",
+            "probability": 0.87,
+        }
+    ]
 
 def test_relay_heartbeat_forwards_valid_camera_to_backend_ingest_client() -> None:
     fake = FakeBackendIngestClient()

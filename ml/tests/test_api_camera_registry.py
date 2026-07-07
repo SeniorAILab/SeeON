@@ -7,9 +7,9 @@ from typing import Self
 import pytest
 from fastapi.testclient import TestClient
 
-from api.camera_registry import ProbeResult
+from api.camera_registry import CameraRegistryStore, ProbeResult
 from api.main import create_app, no_lifespan
-from contracts.worker_config import PulledWorkerConfig
+from contracts.worker_config import PulledNightWindow, PulledWorkerConfig
 from worker.config_pull import load_edge_worker_config_from_relay
 from worker.edge_worker import _restart_check
 
@@ -128,6 +128,13 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
             ],
         }
 
+        relay_config = client.get(
+            "/api/v1/relay/config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+        assert relay_config.status_code == 200
+        assert relay_config.json() == worker_config.json()
+
         patched = client.patch(
             f"/api/v1/cameras/{camera['id']}",
             headers=AUTH,
@@ -158,6 +165,54 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
         "timeout": 0.5,
     }
 
+
+def test_worker_config_integrates_backend_metadata_without_second_roster(tmp_path) -> None:
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    app.state.config_version = 42
+    app.state.restart_epoch = 5
+    app.state.pulled_config = PulledWorkerConfig(
+        config_version=42,
+        restart_epoch=5,
+        night_window=PulledNightWindow(start="21:00", end="06:00", tz="UTC"),
+        cameras=(),
+    )
+    store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="camera-1",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+    )
+
+    with TestClient(app) as client:
+        worker_config = client.get(
+            "/api/v1/cameras/worker-config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+        relay_config = client.get(
+            "/api/v1/relay/config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    assert worker_config.status_code == 200
+    expected = {
+        "registry_version": 1,
+        "cameras": [
+            {
+                "camera_id": "camera-1",
+                "facility_id": "local-facility",
+                "rtsp_url": "rtsp://camera/stream",
+            }
+        ],
+        "config_version": 42,
+        "restart_epoch": 5,
+        "night_window": {"start": "21:00", "end": "06:00", "tz": "UTC"},
+    }
+    assert worker_config.json() == expected
+    assert relay_config.status_code == 200
+    assert relay_config.json() == expected
 
 def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_BACKEND_URL", "http://backend")
