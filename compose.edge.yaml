@@ -25,6 +25,7 @@ services:
       API_FACILITY_ID: ${API_FACILITY_ID:?edge api requires the facility id to pull config for}
       # Fallback camera inventory: used ONLY when the backend config pull is unavailable.
       API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:-}
+      ML_API_WORKER_PROBE_ORIGIN: http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
       - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:ro
