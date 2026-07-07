@@ -66,13 +66,15 @@ Pose-window classification is a live `ml-worker` responsibility; the Streamlit d
 Edge Compose uses the production service split:
 
 ```bash
-EDGE_CAMERA_CONFIG=./ml/worker/ml-worker.local.yaml \
-  docker compose -f compose.edge.yaml up -d --build
+pnpm edge:preflight
+docker compose --env-file .env.edge.prod -f compose.edge.yaml pull
+docker compose --env-file .env.edge.prod -f compose.edge.yaml up -d
 ```
 
-`EDGE_CAMERA_CONFIG` is a gitignored YAML file. It holds the local `ml-api`
-relay URL/token plus per-camera RTSP URL and camera/facility/resident identity.
-Backend `/api/v1/events` URL and key/secret configuration live in `ml-api`.
+Edge production uses already-built image refs from `.env.edge.prod`; do not use
+`--build` on the edge host. `pnpm edge:preflight` fails before `docker compose`
+when Docker cannot expose the NVIDIA runtime needed by `ml-worker`. Backend
+`/api/v1/events` URL and relay-token configuration live in `ml-api`.
 
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future

@@ -9,6 +9,7 @@ import yaml
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml")
 EDGE_COMPOSE_FILE: Final = "compose.edge.yaml"
+EDGE_PREFLIGHT_SCRIPT: Final = "scripts/edge-preflight/check-nvidia-runtime.sh"
 EDGE_SERVICES: Final = {
     "ml-api": "ml/Dockerfile.api",
     "ml-worker": "ml/Dockerfile.worker",
@@ -124,6 +125,20 @@ def test_edge_service_builds_do_not_depend_on_dockerfile_targets() -> None:
             failures.append(f"{service_name} build target is {build['target']!r}")
 
     assert not failures, "\n".join(failures)
+
+
+def test_edge_compose_has_gpu_runtime_preflight_guard() -> None:
+    script = REPO_ROOT / EDGE_PREFLIGHT_SCRIPT
+    package_json = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert script.exists()
+    source = script.read_text(encoding="utf-8")
+    assert package_json["scripts"]["edge:preflight"] == f"sh {EDGE_PREFLIGHT_SCRIPT}"
+    assert "nvidia-ctk runtime configure --runtime=docker" in source
+    assert "docker info" in source
+    assert "nvidia-container-runtime" in source
+    assert "docker compose pull" not in source
+    assert "docker compose up" not in source
 
 
 def test_api_image_does_not_copy_worker_package() -> None:
