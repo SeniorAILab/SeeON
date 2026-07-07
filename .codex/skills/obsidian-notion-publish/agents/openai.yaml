@@ -1,0 +1,13 @@
+interface:
+  display_name: "Obsidian Notion Publish"
+  short_description: "Publish project notes to Notion pages."
+  default_prompt: "Use $obsidian-notion-publish to publish selected Obsidian project notes to Notion with wikilink resolution."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "notion"
+      description: "Notion connector for page search, fetch, creation, and updates."
+
+policy:
+  allow_implicit_invocation: true
