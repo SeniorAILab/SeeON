@@ -209,6 +209,7 @@ function verify() {
         'API_BACKEND_CONFIG_URL: https://senai.example.com/api/v1/ml-config',
         'API_FACILITY_ID: facility-prod',
         'ML_API_WORKER_STREAM_ORIGIN: http://ml-worker:8090',
+        'ML_API_WORKER_PROBE_ORIGIN: http://ml-worker:8090',
         'ML_WORKER_DEV_MJPEG: "true"',
         'ML_WORKER_DEV_MJPEG_HOST: 0.0.0.0',
         'ML_WORKER_DEV_MJPEG_PORT: "8090"',

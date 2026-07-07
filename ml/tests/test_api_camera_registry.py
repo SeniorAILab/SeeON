@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from collections.abc import Iterator
 from typing import Self
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.camera_registry import CameraRegistryStore, ProbeResult
+from api.camera_registry import CameraRegistryStore
+from api.config import get_settings
 from api.main import create_app, no_lifespan
 from contracts.worker_config import PulledCameraConfig, PulledNightWindow, PulledWorkerConfig
 from worker.config_pull import load_edge_worker_config_from_relay
@@ -32,7 +34,7 @@ class FakeHTTPResponse:
 
 
 @pytest.fixture(autouse=True)
-def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def clear_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for name in (
         "API_CAMERA_STORE",
         "API_EDGE_RELAY_TOKEN",
@@ -47,8 +49,12 @@ def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "ML_WORKER_STATE_DIR",
         "RELAY_TOKEN",
         "RELAY_URL",
+        "ML_API_WORKER_PROBE_ORIGIN",
     ):
         monkeypatch.delenv(name, raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
@@ -60,13 +66,22 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
     monkeypatch.setenv("API_FACILITY_ID", "facility-1")
     monkeypatch.setenv("API_BACKEND_EDGE_CAMERAS_URL", "http://backend/api/v1/edge/cameras")
     monkeypatch.setenv("API_FACILITY_TOKEN", "facility-token")
-    monkeypatch.setattr(
-        "api.routes.cameras.probe_rtsp_url",
-        lambda rtsp_url: ProbeResult(ok=False, error_class="timeout"),
-    )
+    monkeypatch.setenv("ML_API_WORKER_PROBE_ORIGIN", "http://worker.local:8090")
     captured: list[dict[str, object]] = []
+    probe_calls: list[dict[str, object]] = []
 
     def fake_urlopen(request, timeout: float) -> FakeHTTPResponse:
+        if request.full_url == "http://worker.local:8090/probe":
+            probe_calls.append(
+                {
+                    "url": request.full_url,
+                    "method": request.get_method(),
+                    "relay_token": request.headers.get("X-edge-relay-token"),
+                    "body": json.loads(request.data.decode("utf-8")),
+                    "timeout": timeout,
+                }
+            )
+            return FakeHTTPResponse({"ok": False, "error_class": "timeout"})
         captured.append(
             {
                 "url": request.full_url,
@@ -154,18 +169,36 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
         after_delete = client.get("/api/v1/cameras", headers=AUTH).json()
         assert after_delete == {"registry_version": 3, "cameras": []}
 
+    captured_body = captured[0]["body"]
+    assert isinstance(captured_body, dict)
     assert captured[0] == {
         "url": "http://backend/api/v1/edge/cameras",
         "method": "PUT",
         "authorization": "Bearer facility-token",
         "facility_id": "facility-1",
         "body": {
-            "edge_camera_ref": captured[0]["body"]["edge_camera_ref"],
+            "edge_camera_ref": captured_body["edge_camera_ref"],
             "label": "Lobby",
             "spaceId": "space-1",
         },
         "timeout": 0.5,
     }
+    assert probe_calls == [
+        {
+            "url": "http://worker.local:8090/probe",
+            "method": "POST",
+            "relay_token": "relay-token",
+            "body": {"rtsp_url": "rtsp://user:secret@camera.local:8554/live"},
+            "timeout": 5.0,
+        },
+        {
+            "url": "http://worker.local:8090/probe",
+            "method": "POST",
+            "relay_token": "relay-token",
+            "body": {"rtsp_url": "rtsp://user:secret@camera.local:8554/live"},
+            "timeout": 5.0,
+        },
+    ]
 
 
 def test_worker_config_uses_registry_first_and_metadata_from_backend_pull(tmp_path) -> None:
@@ -286,9 +319,10 @@ def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("API_BACKEND_URL", "http://backend")
     monkeypatch.setenv("ML_EDGE_VERSION", "2026.07.06")
 
-    with TestClient(create_app(lifespan=no_lifespan)) as client:
-        client.app.state.backend_reachable = True
-        client.app.state.backend_last_ok_at = "2026-07-06T00:00:00.000Z"
+    app = create_app(lifespan=no_lifespan)
+    app.state.backend_reachable = True
+    app.state.backend_last_ok_at = "2026-07-06T00:00:00.000Z"
+    with TestClient(app) as client:
         response = client.get("/api/v1/system")
 
     assert response.status_code == 200
@@ -306,7 +340,7 @@ def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatc
 
 def test_config_pull_persists_lkg_and_falls_back(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ML_WORKER_STATE_DIR", str(tmp_path))
-    payload = {
+    payload: dict[str, object] = {
         "registry_version": 9,
         "cameras": [
             {

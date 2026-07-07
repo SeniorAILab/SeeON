@@ -242,6 +242,9 @@ def test_edge_compose_wires_worker_overlay_stream_to_ml_api_only() -> None:
     assert api_env["ML_API_WORKER_STREAM_ORIGIN"] == (
         "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
     )
+    assert api_env["ML_API_WORKER_PROBE_ORIGIN"] == (
+        "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    )
     assert worker_env["ML_WORKER_DEV_MJPEG"] == "${ML_WORKER_DEV_MJPEG:-true}"
     assert worker_env["ML_WORKER_DEV_MJPEG_HOST"] == "0.0.0.0"
     assert worker_env["ML_WORKER_DEV_MJPEG_PORT"] == "${ML_WORKER_DEV_MJPEG_PORT:-8090}"
