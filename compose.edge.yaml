@@ -27,6 +27,7 @@ services:
       API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:-}
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
+      - ml-api-state:/var/lib/ml-api
       - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:ro
     command:
       - uvicorn
@@ -89,5 +90,6 @@ services:
 #   ml-worker-config:
 #     file: ${EDGE_CAMERA_CONFIG_FILE:-./ml-worker.yaml}
 volumes:
+  ml-api-state: {}
   ml-worker-state: {}
   clip-store: {}
