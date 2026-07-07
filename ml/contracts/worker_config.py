@@ -1,21 +1,19 @@
-"""Worker runtime-config pull contract (backend SSOT -> ml-api -> worker).
+"""Worker runtime-config pull contract (ml-api camera registry SSOT -> worker).
 
 Dependency-light shared shape for the config the worker pulls from ml-api.
-ml-api derives cameras + night window + config_version from the backend ML
-config-read (PR-B3) and adds its own ops-plane ``restart_epoch``. The worker
-persists the last pulled payload as last-known-good (LKG) and prefers it over
-its YAML bootstrap. Pure dataclasses + a JSON-parity codec so the HTTP route
-payload and the on-disk LKG round-trip byte-identically.
+The worker roster is authoritative at ``/api/v1/cameras/worker-config`` and is
+derived from the ml-api camera registry; ``/api/v1/relay/config`` is only a
+backward-compatible alias. Backend-pulled ML settings such as night window and
+config version are optional metadata on that same response, so the worker does
+not consume a second config authority.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Worker-facing paths (full suffixes matching EDGE_RELAY_*_PATH style in
-# worker.edge_worker_config, i.e. mounted under the /api/v1 app prefix + the
-# /relay router prefix).
-WORKER_CONFIG_PATH = "/api/v1/relay/config"
+# Worker-facing paths (full suffixes mounted under the /api/v1 app prefix).
+WORKER_CONFIG_PATH = "/api/v1/cameras/worker-config"
 WORKER_RESTART_PATH = "/api/v1/relay/restart"
 
 CONFIG_VERSION_KEY = "config_version"

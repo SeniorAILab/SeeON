@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
-from contracts.worker_config import CONFIG_VERSION_KEY, RESTART_EPOCH_KEY, PulledWorkerConfig
+from contracts.worker_config import CONFIG_VERSION_KEY, RESTART_EPOCH_KEY
 
 
 class FakeBackendIngestClient:
@@ -114,29 +114,19 @@ def test_backend_config_pull_seeds_inventory_and_worker_config(
         )
 
     assert response.status_code == 200
-    assert response.json() == PulledWorkerConfig.from_dict(
-        {
-            "config_version": 7,
-            "restart_epoch": 0,
-            "night_window": {"start": "21:00", "end": "06:00", "tz": "Asia/Seoul"},
-            "cameras": [
-                {
-                    "camera_id": "cam-pulled-1",
-                    "space_id": "room-101",
-                    "label": "Room 101",
-                    "rtsp_url": "rtsp://camera/101",
-                    "online": True,
-                },
-                {
-                    "camera_id": "cam-pulled-2",
-                    "space_id": "room-102",
-                    "label": "Room 102",
-                    "rtsp_url": None,
-                    "online": False,
-                },
-            ],
-        }
-    ).as_dict()
+    assert response.json() == {
+        "registry_version": 0,
+        "cameras": [
+            {
+                "camera_id": "cam-pulled-1",
+                "facility_id": "facility-pulled",
+                "rtsp_url": "rtsp://camera/101",
+            }
+        ],
+        "config_version": 7,
+        "restart_epoch": 0,
+        "night_window": {"start": "21:00", "end": "06:00", "tz": "Asia/Seoul"},
+    }
 
 
 def test_backend_config_pull_failure_keeps_env_inventory_fallback(
@@ -279,7 +269,15 @@ def test_config_refresh_reflects_backend_change_without_restart(
         {  # first GET re-pull -> changed backend config, no restart
             "configVersion": 8,
             "nightWindow": {"start": "22:00", "end": "05:00", "tz": "Asia/Seoul"},
-            "cameras": [],
+            "cameras": [
+                {
+                    "id": "cam-pulled-1",
+                    "spaceId": "room-101",
+                    "label": "Room 101",
+                    "rtspUrl": "rtsp://camera/101",
+                    "online": True,
+                }
+            ],
         },
     ]
     calls = {"n": 0}

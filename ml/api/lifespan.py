@@ -11,6 +11,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from api.backend_mapping import BackendCameraMapper, backend_status_from_env, mark_backend_status
+from api.camera_registry import CameraRegistryStore
 from api.heartbeat_store import DEFAULT_STALE_AFTER_SEC, HeartbeatStore
 from contracts.worker_config import (
     PulledCameraConfig,
@@ -35,6 +37,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     if not isinstance(getattr(app.state, "heartbeat_store", None), HeartbeatStore):
         app.state.heartbeat_store = HeartbeatStore(stale_after_sec=_heartbeat_stale_after_sec())
+
+    if not isinstance(getattr(app.state, "camera_registry", None), CameraRegistryStore):
+        app.state.camera_registry = CameraRegistryStore.from_env()
+    if not isinstance(getattr(app.state, "backend_camera_mapper", None), BackendCameraMapper):
+        app.state.backend_camera_mapper = BackendCameraMapper.from_env()
+    backend_status = backend_status_from_env()
+    app.state.backend_configured = backend_status["configured"]
+    app.state.backend_reachable = getattr(
+        app.state, "backend_reachable", backend_status["reachable"]
+    )
+    app.state.backend_last_ok_at = getattr(
+        app.state, "backend_last_ok_at", backend_status["last_ok_at"]
+    )
 
     app.state.restart_epoch = getattr(app.state, "restart_epoch", 0)
     app.state.config_version = getattr(app.state, "config_version", 0)
@@ -96,6 +111,7 @@ def _fetch_backend_config(app: FastAPI) -> PulledWorkerConfig | None:
         url = f'{base_url.rstrip("/")}/{facility_id}'
         with urllib.request.urlopen(url, timeout=_backend_ingest_timeout_sec()) as response:
             parsed = _as_mapping(json.loads(response.read().decode("utf-8")))
+        mark_backend_status(app.state, True)
         return PulledWorkerConfig(
             config_version=_backend_config_version(parsed),
             restart_epoch=int(getattr(app.state, "restart_epoch", 0)),
@@ -104,6 +120,7 @@ def _fetch_backend_config(app: FastAPI) -> PulledWorkerConfig | None:
         )
     except Exception as exc:  # noqa: BLE001 - best-effort pull must never crash boot/serve
         print(f"failed to pull backend ml config: {exc}", file=sys.stderr)
+        mark_backend_status(app.state, False)
         return None
 
 

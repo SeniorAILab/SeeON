@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 from typing import Any, Protocol
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.camera_registry import CameraRegistryStore
 from api.heartbeat_store import get_heartbeat_store
-from api.lifespan import refresh_backend_config
+from api.lifespan import API_EDGE_RELAY_TOKEN_ENV, API_FACILITY_ID_ENV, refresh_backend_config
+from api.routes.cameras import worker_config_snapshot
 from contracts import AlertEventType
-from contracts.worker_config import (
-    RESTART_EPOCH_KEY,
-    PulledWorkerConfig,
-)
+from contracts.worker_config import RESTART_EPOCH_KEY
 from events.edge_ingest_client import EdgeIngestClient
 
 RELAY_TOKEN_HEADER = "X-Edge-Relay-Token"
@@ -66,6 +66,7 @@ class BackendIngestClient(Protocol):
         probability: float,
         audit: dict[str, object] | None = None,
         snapshot_bytes: bytes | None = None,
+        clip_id: str | None = None,
     ) -> bool: ...
 
     def send_heartbeat(self) -> bool: ...
@@ -77,12 +78,8 @@ def worker_config(
     relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
 ) -> dict[str, object]:
     _authorize(request, relay_token)
-    # Re-pull backend config best-effort so a live backend change (e.g. night
-    # window) reaches this worker request without an ml-api restart; last-good
-    # is preserved on failure.
     refresh_backend_config(request.app)
-    cfg = _current_worker_config(request)
-    return cfg.as_dict()
+    return worker_config_snapshot(request, require_available=True)
 
 
 @router.post("/restart", status_code=status.HTTP_202_ACCEPTED)
@@ -110,6 +107,9 @@ def relay_alert(
         "detected_at": payload.detected_at,
         "probability": payload.probability,
     }
+    clip_id = _payload_clip_id(payload)
+    if clip_id is not None:
+        alert_kwargs["clip_id"] = clip_id
     # Envelope-less alerts forward the exact prior 3-field shape; audit/snapshot
     # kwargs are added ONLY when present (backward-compat with the route contract).
     if payload.audit is not None:
@@ -158,8 +158,11 @@ def _decode_snapshot(snapshot_jpeg_base64: str | None) -> bytes | None:
     except (binascii.Error, ValueError):
         return None
 
+
 def _authorize(request: Request, relay_token: str | None) -> None:
-    expected = getattr(request.app.state, "edge_relay_token", None)
+    expected = getattr(request.app.state, "edge_relay_token", None) or os.environ.get(
+        API_EDGE_RELAY_TOKEN_ENV
+    )
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -171,7 +174,18 @@ def _authorize(request: Request, relay_token: str | None) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="relay token mismatch")
 
 
+def _payload_clip_id(payload: RelayAlertRequest) -> str | None:
+    if payload.evidence is None:
+        return None
+    value = payload.evidence.get("clip_id")
+    if isinstance(value, str) and value.strip() != "":
+        return value
+    return None
+
 def _camera_binding(request: Request, camera_id: str, facility_id: str) -> dict[str, str | None]:
+    registry_binding = _camera_binding_from_registry(request, camera_id, facility_id)
+    if registry_binding is not None:
+        return registry_binding
     inventory = getattr(request.app.state, "camera_inventory", {})
     binding = inventory.get(camera_id) if isinstance(inventory, dict) else None
     if binding is None:
@@ -182,6 +196,32 @@ def _camera_binding(request: Request, camera_id: str, facility_id: str) -> dict[
             status_code=status.HTTP_403_FORBIDDEN, detail="camera facility mismatch"
         )
     return dict(binding)
+
+
+def _camera_binding_from_registry(
+    request: Request,
+    camera_id: str,
+    facility_id: str,
+) -> dict[str, str | None] | None:
+    store = getattr(request.app.state, "camera_registry", None)
+    if not isinstance(store, CameraRegistryStore):
+        return None
+    snapshot = store.snapshot()
+    cameras = snapshot.get("cameras")
+    if not isinstance(cameras, list) or not cameras:
+        return None
+    expected_facility = os.environ.get(API_FACILITY_ID_ENV, "local-facility").strip()
+    if expected_facility and facility_id != expected_facility:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="camera facility mismatch"
+        )
+    for record in cameras:
+        if not isinstance(record, dict):
+            continue
+        canonical_id = record.get("backend_camera_id") or record.get("id")
+        if canonical_id == camera_id:
+            return {"camera_id": str(canonical_id), "facility_id": facility_id, "resident_id": None}
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="unknown camera")
 
 
 def _backend_ingest_client(request: Request, *, camera_id: str) -> BackendIngestClient:
@@ -195,25 +235,6 @@ def _backend_ingest_client(request: Request, *, camera_id: str) -> BackendIngest
         return client.for_camera(camera_id)
     return client
 
-
-def _current_worker_config(request: Request) -> PulledWorkerConfig:
-    pulled = getattr(request.app.state, "pulled_config", None)
-    if not isinstance(pulled, PulledWorkerConfig):
-        # No real backend-pulled config: signal UNAVAILABLE so the worker's
-        # pull returns None and it keeps its own LKG/YAML instead of persisting
-        # an empty placeholder over a valid last-known-good config.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="backend config unavailable",
-        )
-    # Rebuild from LIVE app.state so a restart_epoch/config_version bump is
-    # visible without a re-pull.
-    return PulledWorkerConfig(
-        config_version=int(getattr(request.app.state, "config_version", 0)),
-        restart_epoch=int(getattr(request.app.state, "restart_epoch", 0)),
-        night_window=pulled.night_window,
-        cameras=pulled.cameras,
-    )
 
 
 __all__ = ["router"]

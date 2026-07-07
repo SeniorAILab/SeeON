@@ -1,7 +1,0 @@
-{
-  "id": "exp-015-logreg-linear-hypothesis",
-  "model_family": "logistic-regression",
-  "hypothesis": "Wave4/A-axis: linear-SVM dominance (0.43 vs <=0.19 rbf) implies near-linear separability of the 144-dim handcrafted features. A calibrated plain linear model (logreg) should land in the same 0.35-0.45 band; if it does, the signal is in the features, not the margin objective, and logreg becomes the cheapest adoption candidate.",
-  "n_trials": 8,
-  "trial_timeout_s": 3600
-}

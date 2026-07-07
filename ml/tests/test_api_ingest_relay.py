@@ -4,6 +4,7 @@ import base64
 
 from fastapi.testclient import TestClient
 
+from api.camera_registry import CameraRegistryStore
 from api.main import create_app, no_lifespan
 
 
@@ -44,7 +45,7 @@ def _alert_payload(**overrides) -> dict:
         "detected_at": "2026-06-25T12:00:00.000Z",
         "camera_id": "camera-1",
         "facility_id": "facility-1",
-        "evidence": {"domain": "night-bed-exit"},
+        "evidence": {"domain": "night-bed-exit", "clip_id": "clip-123"},
     }
     payload.update(overrides)
     return payload
@@ -103,9 +104,27 @@ def test_relay_alert_forwards_valid_event_to_backend_ingest_client() -> None:
             "event_type": "bed-exit",
             "detected_at": "2026-06-25T12:00:00.000Z",
             "probability": 0.87,
+            "clip_id": "clip-123",
         }
     ]
 
+
+def test_relay_alert_omits_missing_clip_id_for_backward_compatibility() -> None:
+    fake = FakeBackendIngestClient()
+    response = _client(fake).post(
+        "/api/v1/relay/alerts",
+        json=_alert_payload(evidence={"domain": "night-bed-exit"}),
+        headers={"X-Edge-Relay-Token": "relay-token"},
+    )
+
+    assert response.status_code == 202
+    assert fake.alerts == [
+        {
+            "event_type": "bed-exit",
+            "detected_at": "2026-06-25T12:00:00.000Z",
+            "probability": 0.87,
+        }
+    ]
 
 def test_relay_heartbeat_forwards_valid_camera_to_backend_ingest_client() -> None:
     fake = FakeBackendIngestClient()
@@ -119,6 +138,33 @@ def test_relay_heartbeat_forwards_valid_camera_to_backend_ingest_client() -> Non
     assert response.json() == {"status": "accepted"}
     assert fake.heartbeats == 1
 
+
+def test_relay_accepts_canonical_camera_id_from_registry_when_inventory_missing(tmp_path) -> None:
+    fake = FakeBackendIngestClient()
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    store = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="provisional-camera",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+        backend_camera_id="backend-camera-1",
+    )
+    app.state.camera_registry = store
+    app.state.camera_inventory = {}
+    app.state.backend_ingest_client = fake
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/relay/heartbeat",
+            json={"camera_id": "backend-camera-1", "facility_id": "local-facility"},
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    assert response.status_code == 202
+    assert fake.heartbeats == 1
 
 def test_relay_alert_rejects_raw_frame_payloads() -> None:
     payload = _alert_payload(frame=[0, 1, 2])
