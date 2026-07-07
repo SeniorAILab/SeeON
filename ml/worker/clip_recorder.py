@@ -449,18 +449,22 @@ class ClipRecorder:
         video_error = clip.video_error
         if clip.writer is not None:
             clip.writer.release()
+        # Write the manifest straight into the final dir and move only the video
+        # file. The old approach renamed the whole staging dir onto final_dir,
+        # whose directory-rename semantics were environment-fragile (a leftover
+        # tmp file or an existing target could abort finalize and silently lose
+        # the event->clip manifest). The manifest write below is unconditional.
+        clip.final_dir.mkdir(parents=True, exist_ok=True)
+        video_path: str | None = None
         if video_available and clip.final_video_path is not None:
+            destination = clip.final_dir / clip.final_video_path.name
             try:
-                os.replace(clip.tmp_video_path, clip.final_video_path)
+                os.replace(clip.tmp_video_path, destination)
+                video_path = f"clips/{clip.clip_id}/{destination.name}"
             except Exception as exc:  # noqa: BLE001 - manifest records video failure
                 video_available = False
                 video_error = str(exc)
         duration_s = round(max(0.0, clip.last_time_sec - clip.start_time_sec), 3)
-        video_path = (
-            f"clips/{clip.clip_id}/{clip.final_video_path.name}"
-            if video_available and clip.final_video_path is not None
-            else None
-        )
         manifest = {
             "clip_id": clip.clip_id,
             "camera_id": clip.camera_id,
@@ -474,8 +478,8 @@ class ClipRecorder:
         }
         if video_error is not None:
             manifest["video_error"] = video_error
-        _atomic_write_json(clip.manifest_path, manifest)
-        os.replace(clip.staging_dir, clip.final_dir)
+        _atomic_write_json(clip.final_dir / "manifest.json", manifest)
+        shutil.rmtree(clip.staging_dir, ignore_errors=True)
         with self._lock:
             self.stats.finalized_clips += 1
             if not video_available:
