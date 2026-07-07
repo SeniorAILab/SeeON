@@ -139,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Probe an RTSP URL by decoding its first frame."
     )
     parser.add_argument("url")
+    # 'nvdec' is a reserved future backend: selecting it raises
+    # NotImplementedError until an adapter lands. Only 'opencv' works today.
     parser.add_argument("--backend", choices=("opencv", "nvdec"), default=None)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--open-timeout-ms", type=int, default=None)
