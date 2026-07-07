@@ -237,7 +237,7 @@ def worker_config_snapshot(
         )
     pulled = getattr(request.app.state, "pulled_config", None)
     if not cameras and isinstance(pulled, PulledWorkerConfig):
-        return _live_pulled_config(request, pulled).as_dict()
+        cameras = _worker_cameras_from_pulled_config(pulled, facility_id)
     if require_available and not cameras:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -255,6 +255,22 @@ def worker_config_snapshot(
             response["night_window"] = live_pulled.night_window.as_dict()
     return response
 
+
+def _worker_cameras_from_pulled_config(
+    pulled: PulledWorkerConfig, facility_id: str
+) -> list[dict[str, object]]:
+    cameras: list[dict[str, object]] = []
+    for camera in pulled.cameras:
+        if camera.rtsp_url is None or not camera.rtsp_url.strip():
+            continue
+        cameras.append(
+            {
+                "camera_id": camera.camera_id,
+                "facility_id": facility_id,
+                "rtsp_url": camera.rtsp_url,
+            }
+        )
+    return cameras
 
 def _live_pulled_config(request: Request, pulled: PulledWorkerConfig) -> PulledWorkerConfig:
     return PulledWorkerConfig(

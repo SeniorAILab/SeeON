@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from api.camera_registry import CameraRegistryStore, ProbeResult
 from api.main import create_app, no_lifespan
-from contracts.worker_config import PulledNightWindow, PulledWorkerConfig
+from contracts.worker_config import PulledCameraConfig, PulledNightWindow, PulledWorkerConfig
 from worker.config_pull import load_edge_worker_config_from_relay
 from worker.edge_worker import _restart_check
 
@@ -166,7 +166,7 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
     }
 
 
-def test_worker_config_integrates_backend_metadata_without_second_roster(tmp_path) -> None:
+def test_worker_config_uses_registry_first_and_metadata_from_backend_pull(tmp_path) -> None:
     app = create_app(lifespan=no_lifespan)
     app.state.edge_relay_token = "relay-token"
     app.state.config_version = 42
@@ -175,7 +175,15 @@ def test_worker_config_integrates_backend_metadata_without_second_roster(tmp_pat
         config_version=42,
         restart_epoch=5,
         night_window=PulledNightWindow(start="21:00", end="06:00", tz="UTC"),
-        cameras=(),
+        cameras=(
+            PulledCameraConfig(
+                camera_id="pulled-camera",
+                space_id="space-pulled",
+                label="Pulled",
+                rtsp_url="rtsp://pulled/stream",
+                online=True,
+            ),
+        ),
     )
     store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
     store.create(
@@ -213,6 +221,64 @@ def test_worker_config_integrates_backend_metadata_without_second_roster(tmp_pat
     assert worker_config.json() == expected
     assert relay_config.status_code == 200
     assert relay_config.json() == expected
+
+
+def test_worker_config_normalizes_pulled_cameras_when_registry_empty(tmp_path) -> None:
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    app.state.config_version = 42
+    app.state.restart_epoch = 5
+    app.state.pulled_config = PulledWorkerConfig(
+        config_version=7,
+        restart_epoch=0,
+        night_window=PulledNightWindow(start="21:00", end="06:00", tz="UTC"),
+        cameras=(
+            PulledCameraConfig(
+                camera_id="pulled-camera",
+                space_id="space-pulled",
+                label="Pulled",
+                rtsp_url="rtsp://pulled/stream",
+                online=True,
+            ),
+            PulledCameraConfig(
+                camera_id="pulled-without-rtsp",
+                space_id="space-empty",
+                label="Empty",
+                rtsp_url=None,
+                online=False,
+            ),
+        ),
+    )
+    app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+
+    with TestClient(app) as client:
+        worker_config = client.get(
+            "/api/v1/cameras/worker-config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+        relay_config = client.get(
+            "/api/v1/relay/config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    expected = {
+        "registry_version": 0,
+        "cameras": [
+            {
+                "camera_id": "pulled-camera",
+                "facility_id": "local-facility",
+                "rtsp_url": "rtsp://pulled/stream",
+            }
+        ],
+        "config_version": 42,
+        "restart_epoch": 5,
+        "night_window": {"start": "21:00", "end": "06:00", "tz": "UTC"},
+    }
+    assert worker_config.status_code == 200
+    assert relay_config.status_code == 200
+    assert worker_config.json() == expected
+    assert relay_config.json() == expected
+    assert set(worker_config.json()["cameras"][0]) == {"camera_id", "facility_id", "rtsp_url"}
 
 def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_BACKEND_URL", "http://backend")
