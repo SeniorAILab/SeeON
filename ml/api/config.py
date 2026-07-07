@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     worker_stream_origin: str = "http://127.0.0.1:8090"
     worker_stream_timeout_s: float = 3.0
+    worker_probe_origin: str = ""
+    worker_probe_timeout_s: float = 5.0
 
 
 @lru_cache
