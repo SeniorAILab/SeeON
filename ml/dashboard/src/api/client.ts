@@ -23,7 +23,7 @@ export type CameraRegistry = {
 export type CameraInput = {
   label: string;
   rtsp_url: string;
-  space_id: string;
+  space_id?: string;
 };
 
 export type CameraPatchInput = Partial<CameraInput> & {
@@ -77,7 +77,17 @@ export type Clip = {
 };
 
 const API_BASE = '/api/v1';
+const DEFAULT_DASHBOARD_RELAY_TOKEN = 'local-edge-relay-token';
 let relayToken: string | null = null;
+
+export function getApiBase(): string {
+  return API_BASE;
+}
+
+export function getConfiguredRelayToken(): string {
+  const configured = import.meta.env.VITE_ML_API_RELAY_TOKEN;
+  return typeof configured === 'string' && configured.trim() ? configured.trim() : DEFAULT_DASHBOARD_RELAY_TOKEN;
+}
 
 export function setRelayToken(token: string): void {
   relayToken = token.trim() || null;
@@ -198,8 +208,8 @@ function normalizeClip(value: unknown): Clip | null {
     id,
     camera_id: pickNullableString(value, ['camera_id', 'cameraId']),
     camera_label: pickString(value, ['camera_label', 'cameraLabel', 'camera'], '카메라 미상'),
-    event_type: pickString(value, ['event_type', 'eventType', 'type'], '이벤트'),
-    created_at: pickNullableString(value, ['created_at', 'createdAt', 'timestamp']),
+    event_type: pickString(value, ['event_type', 'eventType', 'type', 'event_ref', 'eventRef'], '이벤트'),
+    created_at: pickNullableString(value, ['created_at', 'createdAt', 'timestamp', 'started_at', 'startedAt']),
     label: label === 'TRUE_POSITIVE' || label === 'FALSE_POSITIVE' || label === 'UNREVIEWED' ? label : null,
     video_path: `${API_BASE}/clips/${encodeURIComponent(id)}/video${relayToken ? `?token=${encodeURIComponent(relayToken)}` : ''}`,
   };

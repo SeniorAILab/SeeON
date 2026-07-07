@@ -28,13 +28,15 @@ class _Sink:
 class _Recorder:
     clip_id: str | None
     event_refs: list[tuple[str, str]] = field(default_factory=list)
+    event_types: list[str | None] = field(default_factory=list)
 
     def on_frame(self, camera_id: str, frame: Frame) -> bool:
         del camera_id, frame
         return True
 
-    def on_event(self, camera_id: str, event_ref: str) -> str | None:
+    def on_event(self, camera_id: str, event_ref: str, event_type: str | None = None) -> str | None:
         self.event_refs.append((camera_id, event_ref))
+        self.event_types.append(event_type)
         return self.clip_id
 
 
@@ -59,6 +61,7 @@ def test_camera_worker_propagates_recorder_clip_id_on_event() -> None:
     worker.process_frame(_frame())
 
     assert recorder.event_refs == [("cam-1", "evt-1")]
+    assert recorder.event_types == ["bed-exit"]
     assert sink.events[0]["clip_id"] == "clip-123"
 
 

@@ -26,6 +26,8 @@ def _write_manifest(
     clip_id: str,
     *,
     camera_id: str = "camera-1",
+    event_ref: str | None = None,
+    event_type: str | None = "fall",
     started_at: str = "2026-07-06T00:00:00Z",
     path: str | None = None,
     finalized: bool = True,
@@ -36,13 +38,15 @@ def _write_manifest(
     payload = {
         "clip_id": clip_id,
         "camera_id": camera_id,
-        "event_ref": f"event-{clip_id}",
+        "event_ref": event_ref or f"event-{clip_id}",
         "started_at": started_at,
         "duration_s": 30.0,
         "codec": "h264",
         "path": path or f"clips/{clip_id}",
         "finalized": finalized,
     }
+    if event_type is not None:
+        payload["event_type"] = event_type
     (clip_dir / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -86,8 +90,26 @@ def test_list_clips_returns_only_finalized_latest_first_and_filters_camera(clip_
 
     assert listed.status_code == 200
     assert [clip["clip_id"] for clip in listed.json()["clips"]] == ["clip-new", "clip-old"]
+    assert listed.json()["clips"][0]["event_type"] == "fall"
     assert filtered.status_code == 200
     assert [clip["clip_id"] for clip in filtered.json()["clips"]] == ["clip-old"]
+
+
+def test_list_clips_preserves_event_type_when_event_ref_is_identity(clip_env) -> None:
+    clip_store = clip_env / "clip-store"
+    _write_manifest(
+        clip_store,
+        "clip-bed-exit",
+        event_ref="0:0",
+        event_type="bed-exit",
+    )
+
+    with TestClient(create_app(lifespan=no_lifespan)) as client:
+        response = client.get("/api/v1/clips", headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json()["clips"][0]["event_ref"] == "0:0"
+    assert response.json()["clips"][0]["event_type"] == "bed-exit"
 
 
 def test_streams_manifest_video_and_appends_audit(clip_env) -> None:
