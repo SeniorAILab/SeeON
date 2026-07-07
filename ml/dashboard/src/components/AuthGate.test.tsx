@@ -6,11 +6,14 @@ import { AuthGate } from './AuthGate';
 
 afterEach(() => {
   clearRelayToken();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
 describe('AuthGate', () => {
-  it('opens protected content with the local admin/admin account and uses the configured relay token', async () => {
+  it('opens protected content with the local admin/admin account and configured relay token', async () => {
+    const configuredToken = 'configured-relay-token';
+    vi.stubEnv('VITE_ML_API_RELAY_TOKEN', configuredToken);
     const setItemSpy = vi.spyOn(window.localStorage.__proto__, 'setItem');
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -46,12 +49,13 @@ describe('AuthGate', () => {
     });
 
     expect(host.textContent).toContain('보호된 홈');
-    expect(getRelayToken()).toBe(getConfiguredRelayToken());
+    expect(getConfiguredRelayToken()).toBe(configuredToken);
+    expect(getRelayToken()).toBe(configuredToken);
     expect(setItemSpy).not.toHaveBeenCalled();
 
     await fetchCameras();
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/cameras', expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: `Bearer ${getConfiguredRelayToken()}` }),
+      headers: expect.objectContaining({ Authorization: `Bearer ${configuredToken}` }),
     }));
 
     act(() => root.unmount());

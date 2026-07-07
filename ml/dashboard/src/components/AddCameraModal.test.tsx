@@ -67,16 +67,16 @@ describe('AddCameraModal', () => {
 
     expect(host.textContent).not.toContain('space_id');
     expect(host.textContent).not.toContain('카메라 ID');
+    expect((host.querySelector('input[name="rtspPath"]') as HTMLInputElement | null)?.value).toBe('/trackID=1');
 
     setInput(host, 'label', '301호 침대 A');
     setInput(host, 'rtspHost', '10.0.0.5');
     setInput(host, 'rtspPort', '8554');
-    setInput(host, 'rtspPath', '/live');
     setInput(host, 'rtspUsername', 'operator');
     setInput(host, 'rtspPassword', 'secret');
     setInput(host, 'rtspQuery', 'profile=main');
 
-    expect(host.textContent).toContain('rtsp://operator:***@10.0.0.5:8554/live?profile=main');
+    expect(host.textContent).toContain('rtsp://operator:***@10.0.0.5:8554/trackID=1?profile=main');
 
     const submitButton = Array.from(host.querySelectorAll('button')).find((button) => button.textContent === '카메라 등록');
     await act(async () => {
@@ -85,7 +85,7 @@ describe('AddCameraModal', () => {
 
     expect(createCamera).toHaveBeenCalledWith({
       label: '301호 침대 A',
-      rtsp_url: 'rtsp://operator:secret@10.0.0.5:8554/live?profile=main',
+      rtsp_url: 'rtsp://operator:secret@10.0.0.5:8554/trackID=1?profile=main',
     });
     expect(testCamera).toHaveBeenCalledWith('server-issued-camera-id');
 
