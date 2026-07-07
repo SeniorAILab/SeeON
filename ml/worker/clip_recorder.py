@@ -278,19 +278,28 @@ class ClipRecorder:
         frame_size = (width, height)
         if state.frame_size is None:
             state.frame_size = frame_size
-        if state.current is None:
-            state.current = self._open_segment(state, frame.time_sec, frame_size)
-        elif frame.time_sec - state.current.start_time_sec >= self.config.segment_seconds:
-            closed = self._close_segment(state)
-            if closed is not None:
-                self._append_segment_to_active_clips(closed)
-            state.current = self._open_segment(state, frame.time_sec, frame_size)
-        if state.current is None:
-            return
-        state.current.writer.write(_as_bgr(image))
-        state.current.frame_count += 1
-        state.current.end_time_sec = frame.time_sec
+        # Track timing unconditionally: an event must still produce a clip even
+        # when the segment writer cannot open (headless build without a working
+        # codec). Otherwise last_time_sec stays None and _handle_event drops the
+        # event silently, losing the evidence clip entirely.
         state.last_time_sec = frame.time_sec
+        try:
+            if state.current is None:
+                state.current = self._open_segment(state, frame.time_sec, frame_size)
+            elif frame.time_sec - state.current.start_time_sec >= self.config.segment_seconds:
+                closed = self._close_segment(state)
+                if closed is not None:
+                    self._append_segment_to_active_clips(closed)
+                state.current = self._open_segment(state, frame.time_sec, frame_size)
+            if state.current is not None:
+                state.current.writer.write(_as_bgr(image))
+                state.current.frame_count += 1
+                state.current.end_time_sec = frame.time_sec
+        except Exception as exc:  # noqa: BLE001 - encoder loss must not drop events
+            LOGGER.warning("clip segment write failed (%s); continuing without video", exc)
+            state.current = None
+            with self._lock:
+                self.stats.failed_writes += 1
         self._finalize_ready_clips()
         self._prune_segment_ring(state)
 

@@ -150,6 +150,37 @@ def test_clip_recorder_writes_manifest_when_video_append_fails(
     assert recorder.stats.finalized_clips == 1
     assert recorder.stats.video_unavailable_clips == 1
 
+def test_clip_recorder_writes_manifest_when_no_codec_opens(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Reproduces the headless-CI/edge condition where no VideoWriter codec
+    # initializes: the event must still produce a manifest so the event->clip
+    # correlation survives (video_available=false).
+    def _no_codec(_path, _frame_size, _fps, _codec):
+        raise RuntimeError("no working codec")
+
+    monkeypatch.setattr("worker.clip_recorder._open_writer", _no_codec)
+    recorder = _recorder(tmp_path, pre_event_seconds=0.0, post_event_seconds=1.0)
+    recorder.start()
+    try:
+        clip_id: str | None = None
+        for index in range(8):
+            recorder.on_frame("cam-1", _frame(index, index * 0.5))
+            if index == 2:
+                clip_id = recorder.on_event("cam-1", "evt-no-codec")
+                assert clip_id is not None
+        assert recorder.flush()
+    finally:
+        recorder.stop()
+
+    assert clip_id is not None
+    manifest_path = tmp_path / "clips" / clip_id / "manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["event_ref"] == "evt-no-codec"
+    assert manifest["video_available"] is False
+    assert manifest["path"] is None
+
 
 def test_clip_recorder_uses_tmp_then_rename_for_manifest_finalize(
     tmp_path: Path, monkeypatch
