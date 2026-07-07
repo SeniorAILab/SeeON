@@ -5,6 +5,7 @@ import {
   fetchClips,
   fetchStatus,
   fetchSystem,
+  getApiBase,
   type Camera,
   type CameraRegistry,
   type Clip,
@@ -16,12 +17,27 @@ import { CameraCard } from './components/CameraCard';
 import { ClipLabelButtons, koreanClipLabel } from './components/ClipLabelButtons';
 import { DetectionSettingsForm } from './components/DetectionSettingsForm';
 import { getBackendStatus } from './components/StatusBadge';
-import { extractEvents, extractHeartbeat } from './statusFeed';
+import { extractEvents, extractHeartbeat, type FeedEvent } from './statusFeed';
 
 const emptyRegistry: CameraRegistry = {
   registry_version: 0,
   cameras: [],
 };
+
+export function upsertCameraInRegistry(registry: CameraRegistry, camera: Camera, previousCameraId?: string): CameraRegistry {
+  const replacementIds = new Set([camera.id, camera.backend_camera_id, previousCameraId].filter((value): value is string => Boolean(value)));
+  return {
+    registry_version: registry.registry_version + 1,
+    cameras: [
+      camera,
+      ...registry.cameras.filter((item) => {
+        if (replacementIds.has(item.id)) return false;
+        if (item.backend_camera_id && replacementIds.has(item.backend_camera_id)) return false;
+        return true;
+      }),
+    ],
+  };
+}
 
 type ScreenId = 'home' | 'cameras' | 'events' | 'system' | 'settings';
 
@@ -32,6 +48,8 @@ const screens: Array<{ id: ScreenId; label: string }> = [
   { id: 'system', label: '시스템' },
   { id: 'settings', label: '탐지 설정' },
 ];
+
+const apiBase = getApiBase();
 
 function formatTime(value: string | null): string {
   if (!value) {
@@ -80,6 +98,41 @@ export function StorageGauge({ system }: { system: SystemSnapshot | null }): JSX
       </div>
       <p className="mt-3 text-sm font-bold text-slate-600">{usageText}</p>
     </div>
+  );
+}
+
+function isBedExitText(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized.includes('bed-exit') || normalized.includes('bed_exit') || normalized.includes('bed exit') || normalized.includes('침대 이탈');
+}
+
+export function BedExitLivePanel({ events, clips }: { events: FeedEvent[]; clips: Clip[] }): JSX.Element {
+  const bedExitClip = clips.find((clip) => isBedExitText(clip.event_type));
+  const bedExitEvent = events.find((event) => isBedExitText(event.title) || isBedExitText(event.detail));
+
+  return (
+    <section className="mt-5 rounded-3xl bg-white/10 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-200">Bed-exit overlay</p>
+          <h3 className="mt-1 text-lg font-black text-white">침대 이탈 실시간 상태</h3>
+        </div>
+        <span className={`rounded-full px-3 py-2 text-xs font-black ${bedExitClip || bedExitEvent ? 'bg-amber-300 text-slate-950' : 'bg-white/10 text-slate-300'}`}>
+          {bedExitClip || bedExitEvent ? '감지 신호 있음' : '대기 중'}
+        </span>
+      </div>
+      {bedExitClip ? (
+        <video src={bedExitClip.video_path} controls className="mt-4 aspect-video w-full rounded-2xl bg-black" aria-label="침대 이탈 오버레이 영상" />
+      ) : (
+        <div className="mt-4 flex aspect-video w-full items-center justify-center rounded-2xl border border-white/10 bg-black/30 px-4 text-center text-sm font-bold text-slate-300">
+          침대 세그멘테이션과 사람 오버레이 영상이 도착하면 이 영역에 표시됩니다.
+        </div>
+      )}
+      <p className="mt-3 text-sm font-bold text-slate-200">
+        {bedExitEvent ? `${bedExitEvent.cameraLabel} · ${bedExitEvent.detail}` : '최근 침대 이탈 이벤트가 없습니다.'}
+      </p>
+    </section>
   );
 }
 
@@ -233,11 +286,8 @@ function Dashboard(): JSX.Element {
     };
   }, []);
 
-  function upsertCamera(camera: Camera): void {
-    setRegistry((current) => ({
-      registry_version: current.registry_version + 1,
-      cameras: [camera, ...current.cameras.filter((item) => item.id !== camera.id)],
-    }));
+  function upsertCamera(camera: Camera, previousCameraId?: string): void {
+    setRegistry((current) => upsertCameraInRegistry(current, camera, previousCameraId));
   }
 
   function handleClipChanged(clip: Clip): void {
@@ -293,6 +343,7 @@ function Dashboard(): JSX.Element {
     <section className="rounded-4xl bg-slate-950 p-5 text-white shadow-glow">
       <p className="text-sm font-black text-indigo-300">Live feed</p>
       <h2 className="mt-1 text-2xl font-black">이벤트</h2>
+      <BedExitLivePanel events={events} clips={clips} />
       <div className="mt-5 rounded-3xl bg-white/10 p-4">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Heartbeat</p>
         <p className="mt-2 text-sm font-bold text-white">{heartbeat}</p>
@@ -353,7 +404,7 @@ function Dashboard(): JSX.Element {
   const systemPanel = (
     <section className="space-y-5">
       <div className="rounded-4xl bg-white/85 p-6 shadow-soft">
-        <p className="text-sm font-black uppercase tracking-[0.24em] text-indigo-500">/api/v1/system</p>
+        <p className="text-sm font-black tracking-[0.24em] text-indigo-500">{apiBase}/system</p>
         <h2 className="mt-2 text-2xl font-black text-slate-950">시스템</h2>
         {systemError ? <p className="mt-3 text-sm font-bold text-rose-600">{systemError}</p> : null}
         {system ? (
@@ -409,7 +460,7 @@ function Dashboard(): JSX.Element {
             ))}
           </nav>
           <div className="mt-auto rounded-3xl bg-white/10 p-4 text-xs leading-5 text-slate-300">
-            같은 origin의 <span className="font-mono text-white">/api/v1</span>만 호출하고 Authorization 헤더에 메모리 토큰을 붙입니다.
+            같은 origin의 <span className="font-mono text-white">{apiBase}</span>만 호출하고 Authorization 헤더에 메모리 토큰을 붙입니다.
           </div>
         </aside>
 
@@ -417,7 +468,7 @@ function Dashboard(): JSX.Element {
           <header className="rounded-4xl bg-white/85 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.24em] text-indigo-500">ML API /api/v1</p>
+                <p className="text-sm font-black tracking-[0.24em] text-indigo-500">ML API {apiBase}</p>
                 <h2 className="mt-2 text-3xl font-black text-slate-950 md:text-4xl">{screens.find((entry) => entry.id === screen)?.label}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-3">

@@ -25,6 +25,7 @@ class ClipManifest:
     clip_id: str
     camera_id: str
     event_ref: str
+    event_type: str | None
     started_at: str
     duration_s: float
     codec: str
@@ -36,6 +37,7 @@ class ClipManifest:
             "clip_id": self.clip_id,
             "camera_id": self.camera_id,
             "event_ref": self.event_ref,
+            "event_type": self.event_type,
             "started_at": self.started_at,
             "duration_s": self.duration_s,
             "codec": self.codec,
@@ -164,6 +166,7 @@ def _manifest_from_mapping(data: dict[str, object]) -> ClipManifest | None:
     clip_id = _text(data.get("clip_id"))
     camera_id = _text(data.get("camera_id"))
     event_ref = _text(data.get("event_ref"))
+    event_type = _text(data.get("event_type")) or None
     started_at = _text(data.get("started_at"))
     codec = _text(data.get("codec"))
     path = _text(data.get("path"))
@@ -181,6 +184,7 @@ def _manifest_from_mapping(data: dict[str, object]) -> ClipManifest | None:
         clip_id=clip_id,
         camera_id=camera_id,
         event_ref=event_ref,
+        event_type=event_type,
         started_at=started_at,
         duration_s=float(duration_s),
         codec=codec,
