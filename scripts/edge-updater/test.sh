@@ -123,11 +123,11 @@ case "$last_arg" in
       up_count=$(cat "$TEST_STATE/up_count")
     fi
     if [ "${TEST_SCENARIO:-success}" = "rollback" ] && [ "$up_count" -lt 2 ]; then
-      printf '{"images":["sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"]}'
+      printf '{"version":"test-version","image_digests":{"ml_api":"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","ml_worker":"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},"backend":{"configured":false,"reachable":null,"last_ok_at":null},"storage":{"clip_store":{"total_bytes":null,"used_bytes":null,"used_pct":null}},"updated_at":"2026-07-07T00:00:00Z"}'
     elif [ "${TEST_SCENARIO:-success}" = "rollback" ]; then
-      printf '{"images":["%s","%s"]}' "$API_OLD" "$WORKER_OLD"
+      printf '{"version":"test-version","image_digests":{"ml_api":"%s","ml_worker":"%s"},"backend":{"configured":false,"reachable":null,"last_ok_at":null},"storage":{"clip_store":{"total_bytes":null,"used_bytes":null,"used_pct":null}},"updated_at":"2026-07-07T00:00:00Z"}' "$API_OLD" "$WORKER_OLD"
     else
-      printf '{"images":["%s","%s"]}' "$API_NEW" "$WORKER_NEW"
+      printf '{"version":"test-version","image_digests":{"ml_api":"%s","ml_worker":"%s"},"backend":{"configured":false,"reachable":null,"last_ok_at":null},"storage":{"clip_store":{"total_bytes":null,"used_bytes":null,"used_pct":null}},"updated_at":"2026-07-07T00:00:00Z"}' "$API_NEW" "$WORKER_NEW"
     fi
     exit 0
     ;;
@@ -157,6 +157,7 @@ ML_SERVING_PORT=18080
 ML_API_IMAGE=ghcr.io/acme/ml-api:new
 ML_WORKER_IMAGE=ghcr.io/acme/ml-worker:new
 API_EDGE_RELAY_TOKEN=not-secret-for-test
+ML_EDGE_VERSION=test-version
 EOF_ENV
   cat >"$case_dir/compose.edge.yaml" <<'EOF_COMPOSE'
 services:

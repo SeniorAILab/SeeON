@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 from typing import Any, Protocol
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.camera_registry import CameraRegistryStore
 from api.heartbeat_store import get_heartbeat_store
-from api.lifespan import refresh_backend_config
+from api.lifespan import API_FACILITY_ID_ENV, refresh_backend_config
 from contracts import AlertEventType
 from contracts.worker_config import (
     RESTART_EPOCH_KEY,
@@ -172,6 +174,9 @@ def _authorize(request: Request, relay_token: str | None) -> None:
 
 
 def _camera_binding(request: Request, camera_id: str, facility_id: str) -> dict[str, str | None]:
+    registry_binding = _camera_binding_from_registry(request, camera_id, facility_id)
+    if registry_binding is not None:
+        return registry_binding
     inventory = getattr(request.app.state, "camera_inventory", {})
     binding = inventory.get(camera_id) if isinstance(inventory, dict) else None
     if binding is None:
@@ -182,6 +187,32 @@ def _camera_binding(request: Request, camera_id: str, facility_id: str) -> dict[
             status_code=status.HTTP_403_FORBIDDEN, detail="camera facility mismatch"
         )
     return dict(binding)
+
+
+def _camera_binding_from_registry(
+    request: Request,
+    camera_id: str,
+    facility_id: str,
+) -> dict[str, str | None] | None:
+    store = getattr(request.app.state, "camera_registry", None)
+    if not isinstance(store, CameraRegistryStore):
+        return None
+    snapshot = store.snapshot()
+    cameras = snapshot.get("cameras")
+    if not isinstance(cameras, list) or not cameras:
+        return None
+    expected_facility = os.environ.get(API_FACILITY_ID_ENV, "local-facility").strip()
+    if expected_facility and facility_id != expected_facility:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="camera facility mismatch"
+        )
+    for record in cameras:
+        if not isinstance(record, dict):
+            continue
+        canonical_id = record.get("backend_camera_id") or record.get("id")
+        if canonical_id == camera_id:
+            return {"camera_id": str(canonical_id), "facility_id": facility_id, "resident_id": None}
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="unknown camera")
 
 
 def _backend_ingest_client(request: Request, *, camera_id: str) -> BackendIngestClient:

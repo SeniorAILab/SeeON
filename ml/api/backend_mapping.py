@@ -17,6 +17,7 @@ API_BACKEND_CAMERA_MAPPING_TIMEOUT_SEC_ENV = "API_BACKEND_CAMERA_MAPPING_TIMEOUT
 API_FACILITY_TOKEN_ENV = "API_FACILITY_TOKEN"
 API_BACKEND_FACILITY_TOKEN_ENV = "API_BACKEND_FACILITY_TOKEN"
 API_EDGE_FACILITY_TOKEN_ENV = "API_EDGE_FACILITY_TOKEN"
+API_FACILITY_ID_ENV = "API_FACILITY_ID"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,10 +29,16 @@ class MappingResult:
 
 class BackendCameraMapper:
     def __init__(
-        self, *, endpoint: str | None, token: str | None, timeout_sec: float = 0.5
+        self,
+        *,
+        endpoint: str | None,
+        token: str | None,
+        facility_id: str | None = None,
+        timeout_sec: float = 0.5,
     ) -> None:
         self.endpoint = _clean(endpoint)
         self.token = _clean(token)
+        self.facility_id = _clean(facility_id)
         self.timeout_sec = timeout_sec
 
     @classmethod
@@ -39,6 +46,7 @@ class BackendCameraMapper:
         return cls(
             endpoint=_mapping_endpoint_from_env(),
             token=_facility_token_from_env(),
+            facility_id=os.environ.get(API_FACILITY_ID_ENV),
             timeout_sec=_timeout_sec(),
         )
 
@@ -61,6 +69,7 @@ class BackendCameraMapper:
                 "Authorization": f"Bearer {self.token}",
                 "Content-Type": "application/json",
                 "Accept": "application/json",
+                **({"x-facility-id": self.facility_id} if self.facility_id is not None else {}),
             },
             method="PUT",
         )

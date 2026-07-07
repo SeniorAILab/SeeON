@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { createCamera, testCameraConnection, type Camera, type CameraTestResult } from '../api/client';
+import { createCamera, testCamera, type Camera, type CameraTestResult } from '../api/client';
 
 const RTSP_PATTERN = /^rtsps?:\/\/.+/i;
 
@@ -28,7 +28,6 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
   const [spaceId, setSpaceId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [testPassed, setTestPassed] = useState(false);
 
   const rtspValidationError = useMemo(() => {
     if (!label.trim()) {
@@ -51,7 +50,6 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
     setSpaceId('');
     setMessage(null);
     setBusy(false);
-    setTestPassed(false);
     onClose();
   }
 
@@ -63,25 +61,12 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
       return;
     }
     setStep('test');
-    setMessage('입력값이 준비되었습니다. 서버 연결 테스트를 실행하세요.');
+    setMessage('입력값이 준비되었습니다. 병실 매핑 후 등록하면 서버가 등록된 카메라 ID로 연결 테스트를 실행합니다.');
   }
 
-  async function handleTest(): Promise<void> {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const result = await testCameraConnection({ label, rtsp_url: rtspUrl });
-      setMessage(formatTestResult(result));
-      setTestPassed(result.ok);
-      if (result.ok) {
-        setStep('mapping');
-      }
-    } catch {
-      setTestPassed(false);
-      setMessage('연결 테스트 요청에 실패했습니다. 사전 테스트 API 상태를 확인하세요.');
-    } finally {
-      setBusy(false);
-    }
+  function handleTest(): void {
+    setStep('mapping');
+    setMessage('등록 후 /api/v1/cameras/{id}/test 연결 테스트를 실행합니다.');
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -91,17 +76,13 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
       setMessage('병실 매핑 space_id를 입력하세요.');
       return;
     }
-    if (!testPassed) {
-      setMessage('등록 전에 연결 테스트 성공이 필요합니다.');
-      setStep('test');
-      return;
-    }
 
     setBusy(true);
     try {
       const camera = await createCamera({ label, rtsp_url: rtspUrl, space_id: spaceId });
+      const result = await testCamera(camera.id);
       onCreated(camera);
-      setMessage('카메라가 등록되었습니다.');
+      setMessage(`카메라가 등록되었습니다. ${formatTestResult(result)}`);
       closeAndReset();
     } catch {
       setMessage('카메라 등록에 실패했습니다. 입력값과 API 상태를 확인하세요.');
@@ -171,7 +152,7 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
                 disabled={busy}
                 className="rounded-full bg-emerald-100 px-5 py-3 text-sm font-black text-emerald-700 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? '테스트 중...' : '연결 테스트 실행'}
+                {busy ? '확인 중...' : '병실 매핑으로'}
               </button>
               <button type="button" onClick={() => setStep('rtsp')} className="rounded-full bg-white px-5 py-3 text-sm font-black text-slate-600 shadow-sm">
                 이전

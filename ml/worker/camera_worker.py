@@ -195,7 +195,7 @@ class CameraWorker:
                     frame.time_sec,
                 )
                 if self.incident_manager.admit(event, now_sec=frame.time_sec):
-                    self._record_clip_event(event)
+                    event["clip_id"] = self._record_clip_event(event)
                     self._attach_alert_metadata(event, frame, observation, tuple(debug_snapshots))
                     self._emit(event)
         if self.overlay_sink is not None:
@@ -325,13 +325,13 @@ class CameraWorker:
         except Exception:  # noqa: BLE001 - recorder backpressure/failure must not block inference
             return
 
-    def _record_clip_event(self, event: EventPayload) -> None:
+    def _record_clip_event(self, event: EventPayload) -> str | None:
         if self.clip_recorder is None:
-            return
+            return None
         try:
-            self.clip_recorder.on_event(self.camera_id, _event_ref(event))
+            return self.clip_recorder.on_event(self.camera_id, _event_ref(event))
         except Exception:  # noqa: BLE001 - recorder finalize failure must not block alert emit
-            return
+            return None
 
     def _emit(self, event: EventPayload) -> None:
         if self.event_sink is None:

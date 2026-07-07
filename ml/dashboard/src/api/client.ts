@@ -49,9 +49,16 @@ export type SystemSnapshot = {
     last_ok_at: string | null;
   };
   version: string;
+  image_digests?: {
+    ml_api: string | null;
+    ml_worker: string | null;
+  };
   storage?: {
-    clips_used_bytes?: number;
-    clips_limit_bytes?: number;
+    clip_store?: {
+      total_bytes: number | null;
+      used_bytes: number | null;
+      used_pct: number | null;
+    };
   };
   update_history?: Array<{ id?: string; version?: string; created_at?: string; status?: string }>;
   rollback_history?: Array<{ id?: string; version?: string; created_at?: string; status?: string }>;
@@ -194,7 +201,7 @@ function normalizeClip(value: unknown): Clip | null {
     event_type: pickString(value, ['event_type', 'eventType', 'type'], '이벤트'),
     created_at: pickNullableString(value, ['created_at', 'createdAt', 'timestamp']),
     label: label === 'TRUE_POSITIVE' || label === 'FALSE_POSITIVE' || label === 'UNREVIEWED' ? label : null,
-    video_path: `${API_BASE}/clips/${encodeURIComponent(id)}/video`,
+    video_path: `${API_BASE}/clips/${encodeURIComponent(id)}/video${relayToken ? `?token=${encodeURIComponent(relayToken)}` : ''}`,
   };
 }
 
@@ -226,10 +233,10 @@ function cameraBody(input: CameraInput | CameraPatchInput): string {
     body.label = input.label.trim();
   }
   if (input.rtsp_url !== undefined) {
-    body.rtspUrl = input.rtsp_url.trim();
+    body.rtsp_url = input.rtsp_url.trim();
   }
   if (input.space_id !== undefined) {
-    body.spaceId = input.space_id.trim();
+    body.space_id = input.space_id.trim();
   }
   if ('detectionSettings' in input && input.detectionSettings) {
     body.detectionSettings = input.detectionSettings;
@@ -267,12 +274,6 @@ export function testCamera(cameraId: string): Promise<CameraTestResult> {
   return requestJson<CameraTestResult>(`/cameras/${encodeURIComponent(cameraId)}/test`, { method: 'POST' });
 }
 
-export function testCameraConnection(input: Pick<CameraInput, 'label' | 'rtsp_url'>): Promise<CameraTestResult> {
-  return requestJson<CameraTestResult>('/cameras/test', {
-    method: 'POST',
-    body: JSON.stringify({ label: input.label.trim(), rtspUrl: input.rtsp_url.trim() }),
-  });
-}
 
 export function fetchStatus(): Promise<unknown> {
   return requestJson<unknown>('/status');

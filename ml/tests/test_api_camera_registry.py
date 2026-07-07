@@ -13,6 +13,8 @@ from contracts.worker_config import PulledWorkerConfig
 from worker.config_pull import load_edge_worker_config_from_relay
 from worker.edge_worker import _restart_check
 
+AUTH = {"Authorization": "Bearer relay-token"}
+
 
 class FakeHTTPResponse:
     def __init__(self, payload: dict[str, object], status: int = 200) -> None:
@@ -70,6 +72,7 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
                 "url": request.full_url,
                 "method": request.get_method(),
                 "authorization": request.headers.get("Authorization"),
+                "facility_id": request.headers.get("X-facility-id"),
                 "body": json.loads(request.data.decode("utf-8")),
                 "timeout": timeout,
             }
@@ -81,6 +84,7 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
     with TestClient(create_app(lifespan=no_lifespan)) as client:
         created = client.post(
             "/api/v1/cameras",
+            headers=AUTH,
             json={
                 "label": "Lobby",
                 "rtsp_url": "rtsp://user:secret@camera.local:8554/live",
@@ -93,9 +97,10 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
         assert camera["rtsp_url_masked"] == "rtsp://***:***@camera.local:8554/live"
         assert "secret" not in json.dumps(camera)
         assert camera["backend_camera_id"] == "backend-camera-1"
+        assert camera["id"] == "backend-camera-1"
         assert camera["status"] == "offline"
 
-        listed = client.get("/api/v1/cameras").json()
+        listed = client.get("/api/v1/cameras", headers=AUTH).json()
         assert listed["registry_version"] == 1
         assert listed["cameras"] == [camera]
 
@@ -125,25 +130,31 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
 
         patched = client.patch(
             f"/api/v1/cameras/{camera['id']}",
+            headers=AUTH,
             json={"label": "Lobby North"},
         )
         assert patched.status_code == 200
-        assert client.get("/api/v1/cameras").json()["registry_version"] == 2
+        assert client.get("/api/v1/cameras", headers=AUTH).json()["registry_version"] == 2
 
-        tested = client.post(f"/api/v1/cameras/{camera['id']}/test")
+        tested = client.post(f"/api/v1/cameras/{camera['id']}/test", headers=AUTH)
         assert tested.status_code == 200
         assert tested.json() == {"ok": False, "error_class": "timeout"}
 
-        deleted = client.delete(f"/api/v1/cameras/{camera['id']}")
+        deleted = client.delete(f"/api/v1/cameras/{camera['id']}", headers=AUTH)
         assert deleted.status_code == 204
-        after_delete = client.get("/api/v1/cameras").json()
+        after_delete = client.get("/api/v1/cameras", headers=AUTH).json()
         assert after_delete == {"registry_version": 3, "cameras": []}
 
     assert captured[0] == {
         "url": "http://backend/api/v1/edge/cameras",
         "method": "PUT",
         "authorization": "Bearer facility-token",
-        "body": {"edge_camera_ref": camera["id"], "label": "Lobby", "spaceId": "space-1"},
+        "facility_id": "facility-1",
+        "body": {
+            "edge_camera_ref": captured[0]["body"]["edge_camera_ref"],
+            "label": "Lobby",
+            "spaceId": "space-1",
+        },
         "timeout": 0.5,
     }
 
@@ -158,14 +169,16 @@ def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatc
         response = client.get("/api/v1/system")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "backend": {
-            "configured": True,
-            "reachable": True,
-            "last_ok_at": "2026-07-06T00:00:00.000Z",
-        },
-        "version": "2026.07.06",
+    body = response.json()
+    assert body["backend"] == {
+        "configured": True,
+        "reachable": True,
+        "last_ok_at": "2026-07-06T00:00:00.000Z",
     }
+    assert body["version"] == "2026.07.06"
+    assert body["image_digests"] == {"ml_api": None, "ml_worker": None}
+    assert set(body["storage"]["clip_store"]) == {"total_bytes", "used_bytes", "used_pct"}
+    assert body["updated_at"].endswith("Z")
 
 
 def test_config_pull_persists_lkg_and_falls_back(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

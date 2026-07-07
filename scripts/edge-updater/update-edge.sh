@@ -383,17 +383,46 @@ base_url() {
   printf 'http://127.0.0.1:%s' "$port"
 }
 
-body_contains_all() {
+system_digest_key() {
+  case "$1" in
+    ml-api) printf '%s' 'ml_api' ;;
+    ml-worker) printf '%s' 'ml_worker' ;;
+    *) printf '%s' "$(printf '%s' "$1" | tr '[:lower:]-' '[:lower:]_')" ;;
+  esac
+}
+
+body_contains_json_string() {
+  body=$1
+  key=$2
+  value=$3
+  [ -n "$value" ] || return 1
+  case "$body" in
+    *'"'"$key"'"'*':'*'"'"$value"'"'*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+system_body_matches() {
   body=$1
   expected=$2
+  case "$body" in
+    *'"version"'*'"image_digests"'*) ;;
+    *) return 1 ;;
+  esac
+
+  expected_version=${EDGE_UPDATER_EXPECTED_VERSION:-$(env_value ML_EDGE_VERSION || true)}
+  if [ -n "$expected_version" ]; then
+    body_contains_json_string "$body" "version" "$expected_version" || return 1
+  fi
+
   check_values=$(printf '%s' "$expected" | tr ',' ' ')
   for pair in $check_values; do
+    service=${pair%%=*}
     value=${pair#*=}
+    [ -n "$service" ] || continue
     [ -n "$value" ] || continue
-    case "$body" in
-      *"$value"*) ;;
-      *) return 1 ;;
-    esac
+    digest_key=$(system_digest_key "$service")
+    body_contains_json_string "$body" "$digest_key" "$value" || return 1
   done
   return 0
 }
@@ -409,11 +438,7 @@ verify_once() {
     *) return 1 ;;
   esac
   system_body=$(curl -fsS "$root_url$SYSTEM_PATH" 2>/dev/null || true)
-  if [ -n "${EDGE_UPDATER_EXPECTED_VERSION:-}" ]; then
-    body_contains_all "$system_body" "$EDGE_UPDATER_EXPECTED_VERSION" || return 1
-  else
-    body_contains_all "$system_body" "$expected_digests" || return 1
-  fi
+  system_body_matches "$system_body" "$expected_digests" || return 1
   return 0
 }
 
