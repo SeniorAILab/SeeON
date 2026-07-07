@@ -293,7 +293,9 @@ export async function labelClip(clipId: string, label: ClipLabel): Promise<Clip>
   const clip = normalizeClip(
     await requestJson<unknown>(`/clips/${encodeURIComponent(clipId)}/label`, {
       method: 'PUT',
-      body: JSON.stringify({ label }),
+      // API label literal is TRUE_POSITIVE | FALSE_POSITIVE | null; the UI's
+      // UNREVIEWED choice maps to null (clears the review verdict).
+      body: JSON.stringify({ label: label === 'UNREVIEWED' ? null : label }),
     }),
   );
   if (!clip) {
