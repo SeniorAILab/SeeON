@@ -139,6 +139,9 @@ class EdgeWorkerSupervisor:
 
     def _send_heartbeats(self) -> None:
         for loop in self.loops:
+            status = self.status_store.get_status(loop.worker.camera_id)
+            if status is None or status.status != CameraStatus.READY:
+                continue
             sink = self.heartbeat_sinks.get(loop.worker.camera_id)
             if sink is not None:
                 sink.send_heartbeat()
