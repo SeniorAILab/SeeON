@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import ClassVar
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ML_API_", extra="ignore")
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_prefix="ML_API_",
+        extra="ignore",
+    )
 
     api_v1_prefix: str = "/api/v1"
+    worker_stream_origin: str = "http://127.0.0.1:8090"
+    worker_stream_timeout_s: float = 3.0
 
 
 @lru_cache

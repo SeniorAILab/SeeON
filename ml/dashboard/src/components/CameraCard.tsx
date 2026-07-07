@@ -4,7 +4,7 @@ import { StatusBadge } from './StatusBadge';
 
 type CameraCardProps = {
   camera: Camera;
-  onUpdated?: (camera: Camera) => void;
+  onUpdated?: (camera: Camera, previousCameraId: string) => void;
   onDelete?: (camera: Camera) => void;
 };
 
@@ -12,8 +12,6 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
   const mapped = Boolean(camera.space_id || camera.backend_camera_id);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(camera.label);
-  const [spaceId, setSpaceId] = useState(camera.space_id ?? '');
-  const [rtspUrl, setRtspUrl] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,21 +22,14 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
       setMessage('카메라 이름을 입력하세요.');
       return;
     }
-    if (!spaceId.trim()) {
-      setMessage('병실 매핑 space_id를 입력하세요.');
-      return;
-    }
     setBusy(true);
     try {
       const updated = await updateCamera(camera.id, {
-        label,
-        space_id: spaceId,
-        ...(rtspUrl.trim() ? { rtsp_url: rtspUrl } : {}),
+        label: label.trim(),
       });
-      onUpdated?.(updated);
+      onUpdated?.(updated, camera.id);
       setEditing(false);
       setMessage('카메라 정보를 수정했습니다.');
-      setRtspUrl('');
     } catch {
       setMessage('카메라 수정에 실패했습니다.');
     } finally {
@@ -59,11 +50,11 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
       <dl className="mt-5 space-y-3 text-sm">
         <div>
           <dt className="font-semibold text-slate-400">RTSP</dt>
-          <dd className="mt-1 break-all rounded-2xl bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600">{camera.rtsp_url_masked}</dd>
+          <dd className="mt-1 break-words rounded-2xl bg-slate-50 px-3 py-2 font-mono text-xs leading-5 text-slate-600">{camera.rtsp_url_masked}</dd>
         </div>
         <div className="flex items-center justify-between rounded-2xl bg-indigo-50 px-3 py-2">
           <dt className="font-semibold text-slate-600">병실 매핑</dt>
-          <dd className={mapped ? 'font-bold text-indigo-700' : 'font-bold text-slate-400'}>{mapped ? `연결됨${camera.space_id ? ` · ${camera.space_id}` : ''}` : '미연결'}</dd>
+          <dd className={mapped ? 'font-bold text-indigo-700' : 'font-bold text-slate-400'}>{mapped ? '서버 자동 관리' : '로컬 등록'}</dd>
         </div>
       </dl>
 
@@ -71,18 +62,10 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
         <form className="mt-5 space-y-3 rounded-3xl bg-slate-50 p-4" onSubmit={(event) => void handleSubmit(event)} noValidate>
           <label className="block text-sm font-bold text-slate-700">
             이름
-            <input value={label} onChange={(event) => setLabel(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            space_id
-            <input value={spaceId} onChange={(event) => setSpaceId(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            새 RTSP URL (선택, 저장 시에만 전송)
-            <input value={rtspUrl} onChange={(event) => setRtspUrl(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-xs text-slate-900 outline-none ring-indigo-200 focus:ring-4" placeholder="rtsp://..." />
+            <input name="label" value={label} onChange={(event) => setLabel(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
           </label>
           <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={busy} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? '저장 중...' : 'PATCH 수정'}</button>
+            <button type="submit" disabled={busy} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? '저장 중...' : '저장'}</button>
             <button type="button" onClick={() => setEditing(false)} className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-600 shadow-sm">취소</button>
           </div>
         </form>
