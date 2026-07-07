@@ -9,6 +9,7 @@ import yaml
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml")
 EDGE_COMPOSE_FILE: Final = "compose.edge.yaml"
+EDGE_IMAGES_WORKFLOW: Final = ".github/workflows/edge-images.yml"
 EDGE_SERVICES: Final = {
     "ml-api": "ml/Dockerfile.api",
     "ml-worker": "ml/Dockerfile.worker",
@@ -23,7 +24,7 @@ def _compose_tag(
     loader: ComposeLoader,
     tag_suffix: str,
     node: yaml.Node,
-) -> str | list[str] | dict[str, str] | None:
+) -> object:
     del tag_suffix
     if isinstance(node, yaml.ScalarNode):
         return loader.construct_scalar(node)
@@ -37,12 +38,29 @@ def _compose_tag(
 ComposeLoader.add_multi_constructor("!", _compose_tag)
 
 
-def _compose_services(compose_file: str) -> dict[str, dict[str, str]]:
+def _compose_services(compose_file: str) -> dict[str, dict[str, object]]:
     compose = yaml.load(
         (REPO_ROOT / compose_file).read_text(encoding="utf-8"),
         Loader=ComposeLoader,
     )
-    return compose.get("services", {})
+    assert isinstance(compose, dict)
+    services = compose.get("services", {})
+    assert isinstance(services, dict)
+    normalized: dict[str, dict[str, object]] = {}
+    for service_name, service in services.items():
+        assert isinstance(service_name, str)
+        assert isinstance(service, dict)
+        normalized[service_name] = {str(key): value for key, value in service.items()}
+    return normalized
+
+
+def _workflow(path: str) -> dict[str, object]:
+    workflow = yaml.load(
+        (REPO_ROOT / path).read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+    assert isinstance(workflow, dict)
+    return workflow
 
 
 def test_host_compose_services_are_ml_free() -> None:
@@ -53,7 +71,7 @@ def test_host_compose_services_are_ml_free() -> None:
             build = service.get("build", {})
             dockerfile = build.get("dockerfile", "") if isinstance(build, dict) else ""
             image = service.get("image", "")
-            fields = (service_name, dockerfile, image)
+            fields = (service_name, str(dockerfile), str(image))
             if any("ml" in field.lower() for field in fields):
                 failures.append(f"{compose_file}:{service_name} contains ML topology: {fields}")
 
@@ -92,6 +110,32 @@ def test_edge_services_pin_release_images_with_dockerfiles_for_build() -> None:
             )
 
     assert not failures, "\n".join(failures)
+
+
+def test_edge_image_release_workflow_publishes_digest_env_artifact() -> None:
+    workflow_path = REPO_ROOT / EDGE_IMAGES_WORKFLOW
+    source = workflow_path.read_text(encoding="utf-8")
+    workflow = _workflow(EDGE_IMAGES_WORKFLOW)
+
+    triggers = workflow.get("on")
+    assert isinstance(triggers, dict)
+    assert "release" in triggers
+    assert "workflow_dispatch" in triggers
+
+    permissions = workflow.get("permissions")
+    assert isinstance(permissions, dict)
+    assert permissions["contents"] == "read"
+    assert permissions["packages"] == "write"
+
+    assert "ml/Dockerfile.api" in source
+    assert "ml/Dockerfile.worker" in source
+    assert "docker/build-push-action@v6" in source
+    assert "actions/upload-artifact@v4" in source
+    assert "steps.build-api.outputs.digest" in source
+    assert "steps.build-worker.outputs.digest" in source
+    assert "ML_API_IMAGE=" in source
+    assert "ML_WORKER_IMAGE=" in source
+    assert "edge-ml-image-refs.env" in source
 
 
 def test_legacy_multi_target_ml_dockerfile_is_removed() -> None:
@@ -204,6 +248,8 @@ def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
     api_env = services["ml-api"].get("environment", {})
     worker_env = services["ml-worker"].get("environment", {})
+    assert isinstance(api_env, dict)
+    assert isinstance(worker_env, dict)
 
     assert "API_BACKEND_EVENTS_URL" in api_env
     assert "API_BACKEND_" + "ALERT_URL" not in api_env
