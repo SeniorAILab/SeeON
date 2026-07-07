@@ -220,7 +220,12 @@ class ClipRecorder:
         clip_id = _clip_id(camera_id)
         try:
             self._queue.put_nowait(
-                _EventMessage(camera_id=camera_id, event_ref=event_ref, event_type=event_type, clip_id=clip_id)
+                _EventMessage(
+                    camera_id=camera_id,
+                    event_ref=event_ref,
+                    event_type=event_type,
+                    clip_id=clip_id,
+                )
             )
         except queue.Full:
             with self._lock:
@@ -574,7 +579,9 @@ def _codec_candidates(preferred: str) -> list[_CodecSpec]:
 
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
-    def on_event(self, camera_id: str, event_ref: str, event_type: str | None = None) -> str | None: ...
+    def on_event(
+        self, camera_id: str, event_ref: str, event_type: str | None = None
+    ) -> str | None: ...
 
 
 def _open_writer(
