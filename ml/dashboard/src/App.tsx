@@ -20,7 +20,7 @@ import { DeleteCameraDialog } from './components/DeleteCameraDialog';
 import { DetectionSettingsForm } from './components/DetectionSettingsForm';
 import { getBackendStatus } from './components/StatusBadge';
 import { StorageGauge, SystemPanel } from './components/SystemPanels';
-import { extractEvents, extractHeartbeat } from './statusFeed';
+import { extractCameraRuntimeStatuses, extractEvents, extractHeartbeat } from './statusFeed';
 
 export function upsertCameraInRegistry(registry: CameraRegistry, camera: Camera, previousCameraId?: string): CameraRegistry {
   const replacementIds = new Set([camera.id, camera.backend_camera_id, previousCameraId].filter((value): value is string => Boolean(value)));
@@ -34,6 +34,27 @@ export function upsertCameraInRegistry(registry: CameraRegistry, camera: Camera,
         return true;
       }),
     ],
+  };
+}
+
+export function mergeRuntimeCameraStatuses(registry: CameraRegistry, statusSnapshot: unknown): CameraRegistry {
+  const runtimeStatuses = extractCameraRuntimeStatuses(statusSnapshot);
+  if (runtimeStatuses === null) {
+    return registry;
+  }
+
+  return {
+    ...registry,
+    cameras: registry.cameras.map((camera) => {
+      const runtimeStatus = runtimeStatuses[camera.id] ?? (camera.backend_camera_id ? runtimeStatuses[camera.backend_camera_id] : undefined);
+      if (runtimeStatus) {
+        return { ...camera, status: runtimeStatus };
+      }
+      if (camera.status === 'online') {
+        return { ...camera, status: 'starting' };
+      }
+      return camera;
+    }),
   };
 }
 
@@ -57,6 +78,7 @@ function Dashboard(): JSX.Element {
   const backendStatus = getBackendStatus(system);
   const events = useMemo(() => extractEvents(statusSnapshot), [statusSnapshot]);
   const heartbeat = useMemo(() => extractHeartbeat(statusSnapshot), [statusSnapshot]);
+  const displayRegistry = useMemo(() => mergeRuntimeCameraStatuses(registry, statusSnapshot), [registry, statusSnapshot]);
 
   useEffect(() => {
     let active = true;
@@ -84,10 +106,10 @@ function Dashboard(): JSX.Element {
 
   useEffect(() => {
     setSelectedCameraId((current) => {
-      if (current && registry.cameras.some((camera) => camera.id === current)) return current;
-      return registry.cameras[0]?.id ?? null;
+      if (current && displayRegistry.cameras.some((camera) => camera.id === current)) return current;
+      return displayRegistry.cameras[0]?.id ?? null;
     });
-  }, [registry.cameras]);
+  }, [displayRegistry.cameras]);
 
   useEffect(() => {
     let active = true;
@@ -193,7 +215,7 @@ function Dashboard(): JSX.Element {
 
   const cameraPanel = (
     <CameraManagementPanel
-      registry={registry}
+      registry={displayRegistry}
       cameraError={cameraError}
       onAddCamera={() => setModalOpen(true)}
       onUpdated={upsertCamera}
@@ -203,7 +225,7 @@ function Dashboard(): JSX.Element {
 
   const eventPanel = (
     <CameraEventWorkspace
-      cameras={registry.cameras}
+      cameras={displayRegistry.cameras}
       events={events}
       clips={clips}
       heartbeat={heartbeat}
@@ -239,7 +261,7 @@ function Dashboard(): JSX.Element {
           {screen === 'cameras' ? cameraPanel : null}
           {screen === 'events' ? <div className="space-y-6">{eventPanel}</div> : null}
           {screen === 'system' ? systemPanel : null}
-          {screen === 'settings' ? <DetectionSettingsForm cameras={registry.cameras} /> : null}
+          {screen === 'settings' ? <DetectionSettingsForm cameras={displayRegistry.cameras} /> : null}
     </>
   );
 
