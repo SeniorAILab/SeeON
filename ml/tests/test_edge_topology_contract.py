@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Final
+from typing import Any, Final, cast
 
 import yaml
 
@@ -23,7 +23,7 @@ def _compose_tag(
     loader: ComposeLoader,
     tag_suffix: str,
     node: yaml.Node,
-) -> str | list[str] | dict[str, str] | None:
+) -> Any:
     del tag_suffix
     if isinstance(node, yaml.ScalarNode):
         return loader.construct_scalar(node)
@@ -37,12 +37,12 @@ def _compose_tag(
 ComposeLoader.add_multi_constructor("!", _compose_tag)
 
 
-def _compose_services(compose_file: str) -> dict[str, dict[str, str]]:
+def _compose_services(compose_file: str) -> dict[str, dict[str, Any]]:
     compose = yaml.load(
         (REPO_ROOT / compose_file).read_text(encoding="utf-8"),
         Loader=ComposeLoader,
     )
-    return compose.get("services", {})
+    return cast(dict[str, dict[str, Any]], compose.get("services", {}))
 
 
 def test_host_compose_services_are_ml_free() -> None:
@@ -216,3 +216,18 @@ def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     assert "API_BACKEND_EVENTS_URL" not in worker_env
     assert "API_" + "INGEST_" + "KEY_ID" not in worker_env
     assert "API_" + "INGEST_" + "SECRET" not in worker_env
+
+
+def test_edge_compose_wires_worker_overlay_stream_to_ml_api_only() -> None:
+    services = _compose_services(EDGE_COMPOSE_FILE)
+    api_env = services["ml-api"].get("environment", {})
+    worker_env = services["ml-worker"].get("environment", {})
+    worker_ports = services["ml-worker"].get("ports", [])
+
+    assert api_env["ML_API_WORKER_STREAM_ORIGIN"] == (
+        "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    )
+    assert worker_env["ML_WORKER_DEV_MJPEG"] == "${ML_WORKER_DEV_MJPEG:-true}"
+    assert worker_env["ML_WORKER_DEV_MJPEG_HOST"] == "0.0.0.0"
+    assert worker_env["ML_WORKER_DEV_MJPEG_PORT"] == "${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    assert worker_ports == []
