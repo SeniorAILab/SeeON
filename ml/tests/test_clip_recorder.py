@@ -26,7 +26,22 @@ def _frame(index: int, time_sec: float | None = None) -> Frame:
     )
 
 
+def _low_disk_usage(_path: Path) -> DiskUsage:
+    return DiskUsage(total=100, used=10, free=90)
+
+
 def _recorder(tmp_path: Path, **overrides: object) -> ClipRecorder:
+    # Default to a fake, always-low disk_usage_provider: _rotate() runs the
+    # real shutil.disk_usage on every finalize, and treats the store as
+    # over-watermark whenever the HOST machine's actual disk is more than
+    # disk_high_watermark full — unrelated to anything this test wrote. On a
+    # GitHub Actions runner (commonly >80% used out of the box from
+    # preinstalled toolchains) that silently rmtree's the clip this test just
+    # finalized moments earlier, while a spacious dev machine never crosses
+    # the watermark and never notices. Tests that want to exercise real
+    # disk-pressure eviction pass disk_usage_provider explicitly (see
+    # test_clip_recorder_rotation_deletes_retention_and_oldest_over_disk_limit).
+    disk_usage_provider = overrides.pop("disk_usage_provider", _low_disk_usage)
     config = ClipRecorderConfig(
         store_dir=tmp_path,
         segment_seconds=float(overrides.pop("segment_seconds", 2.0)),
@@ -38,7 +53,7 @@ def _recorder(tmp_path: Path, **overrides: object) -> ClipRecorder:
         max_queue_size=int(overrides.pop("max_queue_size", 128)),
     )
     assert overrides == {}
-    return ClipRecorder(config)
+    return ClipRecorder(config, disk_usage_provider=disk_usage_provider)
 
 
 def test_clip_recorder_finalizes_atomic_manifest_with_pre_and_post_window(tmp_path: Path) -> None:
@@ -133,7 +148,7 @@ def test_clip_recorder_writes_manifest_when_video_append_fails(
         for index in range(8):
             assert recorder.on_frame("cam-1", _frame(index, index * 0.5))
             if index == 2:
-                clip_id = recorder.on_event("cam-1", "evt-video-failed")
+                clip_id = recorder.on_event("cam-1", "evt-video-failed", "bed-exit")
                 assert clip_id is not None
         assert recorder.flush()
     finally:
@@ -144,6 +159,7 @@ def test_clip_recorder_writes_manifest_when_video_append_fails(
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["event_ref"] == "evt-video-failed"
+    assert manifest["event_type"] == "bed-exit"
     assert manifest["video_available"] is False
     assert manifest["path"] is None
     assert "decode failed" in manifest["video_error"]
@@ -167,7 +183,7 @@ def test_clip_recorder_writes_manifest_when_no_codec_opens(
         for index in range(8):
             recorder.on_frame("cam-1", _frame(index, index * 0.5))
             if index == 2:
-                clip_id = recorder.on_event("cam-1", "evt-no-codec")
+                clip_id = recorder.on_event("cam-1", "evt-no-codec", "bed-exit")
                 assert clip_id is not None
         assert recorder.flush()
     finally:
@@ -178,6 +194,7 @@ def test_clip_recorder_writes_manifest_when_no_codec_opens(
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["event_ref"] == "evt-no-codec"
+    assert manifest["event_type"] == "bed-exit"
     assert manifest["video_available"] is False
     assert manifest["path"] is None
 
@@ -252,13 +269,15 @@ class _Sink:
 class _RecorderSpy:
     frames: list[tuple[str, int]] = field(default_factory=list)
     events: list[tuple[str, str]] = field(default_factory=list)
+    event_types: list[str | None] = field(default_factory=list)
 
     def on_frame(self, camera_id: str, frame: Frame) -> bool:
         self.frames.append((camera_id, frame.index))
         return True
 
-    def on_event(self, camera_id: str, event_ref: str) -> str:
+    def on_event(self, camera_id: str, event_ref: str, event_type: str | None = None) -> str:
         self.events.append((camera_id, event_ref))
+        self.event_types.append(event_type)
         return "clip-id"
 
 
@@ -285,6 +304,7 @@ def test_camera_worker_records_frames_and_admitted_events_without_blocking() -> 
 
     assert recorder.frames == [("cam-1", 7)]
     assert recorder.events == [("cam-1", "evt-7.0")]
+    assert recorder.event_types == ["other"]
     assert sink.events[0]["camera_id"] == "cam-1"
 
 

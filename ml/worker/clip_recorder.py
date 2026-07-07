@@ -80,6 +80,7 @@ class _FrameMessage:
 class _EventMessage:
     camera_id: str
     event_ref: str
+    event_type: str | None
     clip_id: str
 
 
@@ -132,6 +133,7 @@ class _CameraState:
 class _ActiveClip:
     camera_id: str
     event_ref: str
+    event_type: str | None
     clip_id: str
     event_time_sec: float
     cutoff_time_sec: float
@@ -214,11 +216,16 @@ class ClipRecorder:
             return False
         return True
 
-    def on_event(self, camera_id: str, event_ref: str) -> str | None:
+    def on_event(self, camera_id: str, event_ref: str, event_type: str | None = None) -> str | None:
         clip_id = _clip_id(camera_id)
         try:
             self._queue.put_nowait(
-                _EventMessage(camera_id=camera_id, event_ref=event_ref, clip_id=clip_id)
+                _EventMessage(
+                    camera_id=camera_id,
+                    event_ref=event_ref,
+                    event_type=event_type,
+                    clip_id=clip_id,
+                )
             )
         except queue.Full:
             with self._lock:
@@ -395,6 +402,7 @@ class ClipRecorder:
         return _ActiveClip(
             camera_id=message.camera_id,
             event_ref=message.event_ref,
+            event_type=message.event_type,
             clip_id=message.clip_id,
             event_time_sec=event_time_sec,
             cutoff_time_sec=event_time_sec + self.config.post_event_seconds,
@@ -485,6 +493,8 @@ class ClipRecorder:
             "finalized": True,
             "video_available": video_available,
         }
+        if clip.event_type is not None:
+            manifest["event_type"] = clip.event_type
         if video_error is not None:
             manifest["video_error"] = video_error
         _atomic_write_json(clip.final_dir / "manifest.json", manifest)
@@ -569,7 +579,9 @@ def _codec_candidates(preferred: str) -> list[_CodecSpec]:
 
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
-    def on_event(self, camera_id: str, event_ref: str) -> str | None: ...
+    def on_event(
+        self, camera_id: str, event_ref: str, event_type: str | None = None
+    ) -> str | None: ...
 
 
 def _open_writer(

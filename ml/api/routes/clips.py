@@ -23,6 +23,7 @@ class ClipManifestResponse(BaseModel):
     clip_id: str = Field(min_length=1)
     camera_id: str = Field(min_length=1)
     event_ref: str = Field(min_length=1)
+    event_type: str | None = Field(default=None, min_length=1)
     started_at: str = Field(min_length=1)
     duration_s: float = Field(ge=0)
     codec: str = Field(min_length=1)

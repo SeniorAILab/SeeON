@@ -53,7 +53,9 @@ class PublishEventSinkProtocol(Protocol):
 
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
-    def on_event(self, camera_id: str, event_ref: str) -> str | None: ...
+    def on_event(
+        self, camera_id: str, event_ref: str, event_type: str | None = None
+    ) -> str | None: ...
 
 
 class OverlaySinkProtocol(Protocol):
@@ -329,7 +331,9 @@ class CameraWorker:
         if self.clip_recorder is None:
             return None
         try:
-            return self.clip_recorder.on_event(self.camera_id, _event_ref(event))
+            return self.clip_recorder.on_event(
+                self.camera_id, _event_ref(event), _event_type(event)
+            )
         except Exception:  # noqa: BLE001 - recorder finalize failure must not block alert emit
             return None
 
@@ -424,6 +428,13 @@ def _event_ref(event: EventPayload) -> str:
         if value is not None and str(value) != "":
             return str(value)
     return str(event.get("event_type", "event"))
+
+
+def _event_type(event: EventPayload) -> str | None:
+    value = event.get("event_type")
+    if value is None or str(value) == "":
+        return None
+    return str(value)
 
 def _with_camera_identity(
     event: EventPayload,
