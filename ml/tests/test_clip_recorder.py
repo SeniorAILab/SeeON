@@ -68,16 +68,86 @@ def test_clip_recorder_finalizes_atomic_manifest_with_pre_and_post_window(tmp_pa
     assert manifest == {
         "camera_id": "cam-1",
         "clip_id": clip_id,
-        "codec": "mp4v",
+        "codec": manifest["codec"],
         "duration_s": manifest["duration_s"],
         "event_ref": "evt-1",
         "finalized": True,
-        "path": f"clips/{clip_id}/clip.mp4",
+        "path": f"clips/{clip_id}/{video_path.name}",
         "started_at": manifest["started_at"],
+        "video_available": True,
     }
     assert manifest["started_at"].endswith("Z")
     assert 29.0 <= manifest["duration_s"] <= 31.5
     assert recorder.stats.finalized_clips == 1
+
+
+def test_clip_recorder_falls_back_to_next_codec_once_per_camera(
+    tmp_path: Path, monkeypatch
+) -> None:
+    recorder = _recorder(tmp_path)
+    calls: list[str] = []
+
+    class _Writer:
+        def isOpened(self) -> bool:
+            return True
+
+        def release(self) -> None:
+            return None
+
+    def _fake_open_writer(path: Path, _frame_size, _fps: float, codec: str):
+        calls.append(codec)
+        if codec == "avc1":
+            raise RuntimeError("avc1 unavailable")
+        return _Writer()
+
+    monkeypatch.setattr("worker.clip_recorder._open_writer", _fake_open_writer)
+
+    first_path, _first_writer, first_codec = recorder._open_writer_for_camera(
+        "cam-1", tmp_path, "clip.tmp", (16, 16)
+    )
+    second_path, _second_writer, second_codec = recorder._open_writer_for_camera(
+        "cam-1", tmp_path, "seg", (16, 16)
+    )
+
+    assert first_codec == "mp4v"
+    assert first_path.name == "clip.tmp.mp4"
+    assert second_codec == "mp4v"
+    assert second_path.name == "seg.mp4"
+    assert calls == ["avc1", "mp4v", "mp4v"]
+
+
+def test_clip_recorder_writes_manifest_when_video_append_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    recorder = _recorder(tmp_path, pre_event_seconds=0.0, post_event_seconds=1.0)
+
+    def _fail_append(_path: Path, _writer) -> int:
+        raise RuntimeError("decode failed")
+
+    monkeypatch.setattr("worker.clip_recorder._append_video", _fail_append)
+
+    recorder.start()
+    try:
+        clip_id: str | None = None
+        for index in range(8):
+            assert recorder.on_frame("cam-1", _frame(index, index * 0.5))
+            if index == 2:
+                clip_id = recorder.on_event("cam-1", "evt-video-failed")
+                assert clip_id is not None
+        assert recorder.flush()
+    finally:
+        recorder.stop()
+
+    assert clip_id is not None
+    manifest_path = tmp_path / "clips" / clip_id / "manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["event_ref"] == "evt-video-failed"
+    assert manifest["video_available"] is False
+    assert manifest["path"] is None
+    assert "decode failed" in manifest["video_error"]
+    assert recorder.stats.finalized_clips == 1
+    assert recorder.stats.video_unavailable_clips == 1
 
 
 def test_clip_recorder_uses_tmp_then_rename_for_manifest_finalize(
@@ -201,6 +271,7 @@ def _finalized_clip_dir(root: Path, clip_id: str, started_at: datetime) -> Path:
                 "codec": "mp4v",
                 "path": f"clips/{clip_id}/clip.mp4",
                 "finalized": True,
+                "video_available": True,
             }
         ),
         encoding="utf-8",
