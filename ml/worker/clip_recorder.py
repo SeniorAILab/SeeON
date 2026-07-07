@@ -42,7 +42,7 @@ class ClipRecorderConfig:
     retention_days: int = field(default_factory=lambda: _env_retention_days())
     disk_high_watermark: float = field(default_factory=lambda: _env_disk_high_watermark())
     max_queue_size: int = 128
-    codec: str = "mp4v"
+    codec: str = "avc1"
 
 
 @dataclass(slots=True)
@@ -51,6 +51,20 @@ class ClipRecorderStats:
     dropped_events: int = 0
     finalized_clips: int = 0
     failed_writes: int = 0
+    video_unavailable_clips: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _CodecSpec:
+    codec: str
+    suffix: str
+
+
+DEFAULT_CODEC_CANDIDATES = (
+    _CodecSpec("avc1", ".mp4"),
+    _CodecSpec("mp4v", ".mp4"),
+    _CodecSpec("MJPG", ".avi"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +110,7 @@ class _OpenSegment:
     start_time_sec: float
     started_at: datetime
     writer: cv2.VideoWriter
+    codec: str
     frame_count: int = 0
     end_time_sec: float = 0.0
 
@@ -120,12 +135,14 @@ class _ActiveClip:
     staging_dir: Path
     final_dir: Path
     tmp_video_path: Path
-    final_video_path: Path
+    final_video_path: Path | None
     manifest_path: Path
-    writer: cv2.VideoWriter
+    writer: cv2.VideoWriter | None
+    codec: str | None
     started_at: datetime
     start_time_sec: float
     last_time_sec: float
+    video_error: str | None = None
     appended_paths: set[Path] = field(default_factory=set)
     frame_count: int = 0
 
@@ -154,6 +171,7 @@ class ClipRecorder:
             shutil.disk_usage if disk_usage_provider is None else disk_usage_provider
         )
         self._lock = threading.Lock()
+        self._codec_by_camera: dict[str, _CodecSpec] = {}
 
     @classmethod
     def from_env(cls) -> ClipRecorder:
@@ -295,8 +313,10 @@ class ClipRecorder:
     def _open_segment(
         self, state: _CameraState, start_time_sec: float, frame_size: tuple[int, int]
     ) -> _OpenSegment:
-        path = state.segment_dir / f"seg-{_utc_compact()}-{uuid.uuid4().hex[:8]}.mp4"
-        writer = _open_writer(path, frame_size, self.config.fps, self.config.codec)
+        segment_stem = f"seg-{_utc_compact()}-{uuid.uuid4().hex[:8]}"
+        path, writer, codec = self._open_writer_for_camera(
+            state.camera_id, state.segment_dir, segment_stem, frame_size
+        )
         return _OpenSegment(
             camera_id=state.camera_id,
             path=path,
@@ -304,6 +324,7 @@ class ClipRecorder:
             end_time_sec=start_time_sec,
             started_at=datetime.now(UTC),
             writer=writer,
+            codec=codec,
         )
 
     def _close_segment(self, state: _CameraState) -> _Segment | None:
@@ -336,9 +357,19 @@ class ClipRecorder:
         final_dir = self.config.store_dir / "clips" / message.clip_id
         staging_dir = self.config.store_dir / "clips" / ".staging" / message.clip_id
         staging_dir.mkdir(parents=True, exist_ok=False)
+        writer: cv2.VideoWriter | None = None
         tmp_video_path = staging_dir / "clip.tmp.mp4"
-        final_video_path = staging_dir / "clip.mp4"
-        writer = _open_writer(tmp_video_path, frame_size, self.config.fps, self.config.codec)
+        final_video_path: Path | None = staging_dir / "clip.mp4"
+        codec: str | None = None
+        video_error: str | None = None
+        try:
+            tmp_video_path, writer, codec = self._open_writer_for_camera(
+                message.camera_id, staging_dir, "clip.tmp", frame_size
+            )
+            final_video_path = staging_dir / f"clip{tmp_video_path.suffix}"
+        except Exception as exc:  # noqa: BLE001 - manifest must survive encoder loss
+            video_error = str(exc)
+            final_video_path = None
         start_time_sec = event_time_sec
         started_at = datetime.now(UTC)
         pre_start = event_time_sec - self.config.pre_event_seconds
@@ -361,6 +392,8 @@ class ClipRecorder:
             final_video_path=final_video_path,
             manifest_path=staging_dir / "manifest.json",
             writer=writer,
+            codec=codec,
+            video_error=video_error,
             started_at=started_at,
             start_time_sec=start_time_sec,
             last_time_sec=start_time_sec,
@@ -377,9 +410,16 @@ class ClipRecorder:
         window_start = clip.event_time_sec - self.config.pre_event_seconds
         if segment.end_time_sec < window_start or segment.start_time_sec > clip.cutoff_time_sec:
             return
-        frames = _append_video(segment.path, clip.writer)
+        if clip.writer is not None:
+            try:
+                frames = _append_video(segment.path, clip.writer)
+            except Exception as exc:  # noqa: BLE001 - finalize manifest without video
+                clip.writer.release()
+                clip.writer = None
+                clip.video_error = str(exc)
+            else:
+                clip.frame_count += frames
         clip.appended_paths.add(segment.path)
-        clip.frame_count += frames
         clip.last_time_sec = max(
             clip.last_time_sec, min(segment.end_time_sec, clip.cutoff_time_sec)
         )
@@ -392,12 +432,9 @@ class ClipRecorder:
         finalized = False
         for clip in self._active_clips:
             ready = force or clip.last_time_sec >= clip.cutoff_time_sec
-            if ready and clip.frame_count > 0:
+            if ready:
                 self._finalize_clip(clip)
                 finalized = True
-            elif ready:
-                clip.writer.release()
-                shutil.rmtree(clip.staging_dir, ignore_errors=True)
             else:
                 remaining.append(clip)
         self._active_clips = remaining
@@ -405,23 +442,66 @@ class ClipRecorder:
             self._rotate()
 
     def _finalize_clip(self, clip: _ActiveClip) -> None:
-        clip.writer.release()
-        os.replace(clip.tmp_video_path, clip.final_video_path)
+        video_available = clip.writer is not None and clip.frame_count > 0
+        video_error = clip.video_error
+        if clip.writer is not None:
+            clip.writer.release()
+        if video_available and clip.final_video_path is not None:
+            try:
+                os.replace(clip.tmp_video_path, clip.final_video_path)
+            except Exception as exc:  # noqa: BLE001 - manifest records video failure
+                video_available = False
+                video_error = str(exc)
         duration_s = round(max(0.0, clip.last_time_sec - clip.start_time_sec), 3)
+        video_path = (
+            f"clips/{clip.clip_id}/{clip.final_video_path.name}"
+            if video_available and clip.final_video_path is not None
+            else None
+        )
         manifest = {
             "clip_id": clip.clip_id,
             "camera_id": clip.camera_id,
             "event_ref": clip.event_ref,
             "started_at": _utc_iso(clip.started_at),
             "duration_s": duration_s,
-            "codec": self.config.codec,
-            "path": f"clips/{clip.clip_id}/clip.mp4",
+            "codec": clip.codec,
+            "path": video_path,
             "finalized": True,
+            "video_available": video_available,
         }
+        if video_error is not None:
+            manifest["video_error"] = video_error
         _atomic_write_json(clip.manifest_path, manifest)
         os.replace(clip.staging_dir, clip.final_dir)
         with self._lock:
             self.stats.finalized_clips += 1
+            if not video_available:
+                self.stats.video_unavailable_clips += 1
+
+    def _open_writer_for_camera(
+        self,
+        camera_id: str,
+        directory: Path,
+        stem: str,
+        frame_size: tuple[int, int],
+    ) -> tuple[Path, cv2.VideoWriter, str]:
+        cached = self._codec_by_camera.get(camera_id)
+        candidates = _codec_candidates(self.config.codec)
+        if cached is not None:
+            candidates = [cached, *(spec for spec in candidates if spec != cached)]
+        last_error: Exception | None = None
+        for spec in candidates:
+            path = directory / f"{stem}{spec.suffix}"
+            try:
+                writer = _open_writer(path, frame_size, self.config.fps, spec.codec)
+            except Exception as exc:  # noqa: BLE001 - try the next encoder
+                last_error = exc
+                continue
+            self._codec_by_camera[camera_id] = spec
+            return path, writer, spec.codec
+        raise RuntimeError(f"failed to open clip writer for camera {camera_id}: {last_error}")
+
+
 
     def _close_all_open_segments(self) -> None:
         for state in self._states.values():
@@ -459,6 +539,17 @@ class ClipRecorder:
                 break
             shutil.rmtree(clip_dir, ignore_errors=True)
 
+def _codec_candidates(preferred: str) -> list[_CodecSpec]:
+    specs = [_CodecSpec(preferred, ".avi" if preferred == "MJPG" else ".mp4")]
+    specs.extend(DEFAULT_CODEC_CANDIDATES)
+    unique: list[_CodecSpec] = []
+    seen: set[str] = set()
+    for spec in specs:
+        if spec.codec in seen:
+            continue
+        seen.add(spec.codec)
+        unique.append(spec)
+    return unique
 
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
