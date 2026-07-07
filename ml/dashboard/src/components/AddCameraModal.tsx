@@ -21,7 +21,7 @@ const initialRtspForm: RtspForm = {
   scheme: 'rtsp',
   host: '',
   port: '554',
-  path: '/stream',
+  path: '/trackID=1',
   username: '',
   password: '',
   query: '',
@@ -39,7 +39,7 @@ function formatTestResult(result: CameraTestResult): string {
 
 function normalizePath(path: string): string {
   const trimmed = path.trim();
-  if (!trimmed) return '/stream';
+  if (!trimmed) return '/trackID=1';
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
@@ -184,11 +184,11 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm font-bold text-slate-700">
-              아이디
+              RTSP 아이디
               <input name="rtspUsername" value={rtspForm.username} onChange={(event) => updateRtspField('username', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
             </label>
             <label className="block text-sm font-bold text-slate-700">
-              비밀번호
+              RTSP 비밀번호
               <input name="rtspPassword" type="password" value={rtspForm.password} onChange={(event) => updateRtspField('password', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
             </label>
           </div>
@@ -196,7 +196,7 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm font-bold text-slate-700">
               경로
-              <input name="rtspPath" value={rtspForm.path} onChange={(event) => updateRtspField('path', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" placeholder="/stream" />
+              <input name="rtspPath" value={rtspForm.path} onChange={(event) => updateRtspField('path', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" placeholder="/trackID=1" />
             </label>
             <label className="block text-sm font-bold text-slate-700">
               추가 인자

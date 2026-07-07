@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearRelayToken, createCamera, fetchClips, getApiBase, getConfiguredRelayToken, setRelayToken, testCamera, updateCamera } from './client';
+import { clearRelayToken, createCamera, fetchClips, getApiBase, getCameraStreamUrl, getConfiguredRelayToken, setRelayToken, testCamera, updateCamera } from './client';
 
 afterEach(() => {
   clearRelayToken();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -32,8 +33,10 @@ describe('api client contracts', () => {
     expect(getApiBase()).toBe('/api/v1');
   });
 
-  it('exposes a configured relay token that is separate from the local admin password', () => {
-    expect(getConfiguredRelayToken()).toBe('local-edge-relay-token');
+  it('uses only an explicitly configured relay token, separate from the local admin password', () => {
+    expect(getConfiguredRelayToken()).toBeNull();
+    vi.stubEnv('VITE_ML_API_RELAY_TOKEN', 'configured-relay-token');
+    expect(getConfiguredRelayToken()).toBe('configured-relay-token');
     expect(getConfiguredRelayToken()).not.toBe('admin');
   });
 
@@ -62,6 +65,27 @@ describe('api client contracts', () => {
     const clips = await fetchClips();
 
     expect(clips[0]?.video_path).toBe('/api/v1/clips/clip%2F1/video?token=relay%20token%3A%2F%2B');
+  });
+
+  it('fetches clips scoped to the selected camera', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ clips: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchClips('cam/1');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/clips?camera_id=cam%2F1', expect.objectContaining({
+      headers: expect.objectContaining({ Accept: 'application/json' }),
+    }));
+  });
+
+  it('builds the real ml-api camera stream URL with a query token for img usage', () => {
+    setRelayToken('relay token:/+');
+
+    expect(getCameraStreamUrl('cam/1')).toBe('/api/v1/streams/cam%2F1?token=relay%20token%3A%2F%2B');
   });
 
   it('normalizes the real ml-api clip manifest shape for bed-exit playback', async () => {

@@ -50,7 +50,7 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
       <dl className="mt-5 space-y-3 text-sm">
         <div>
           <dt className="font-semibold text-slate-400">RTSP</dt>
-          <dd className="mt-1 break-all rounded-2xl bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600">{camera.rtsp_url_masked}</dd>
+          <dd className="mt-1 break-words rounded-2xl bg-slate-50 px-3 py-2 font-mono text-xs leading-5 text-slate-600">{camera.rtsp_url_masked}</dd>
         </div>
         <div className="flex items-center justify-between rounded-2xl bg-indigo-50 px-3 py-2">
           <dt className="font-semibold text-slate-600">병실 매핑</dt>

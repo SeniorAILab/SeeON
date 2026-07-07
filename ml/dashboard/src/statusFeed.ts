@@ -1,6 +1,8 @@
 export type FeedEvent = {
   id: string;
+  cameraId: string | null;
   cameraLabel: string;
+  eventType: string;
   title: string;
   detail: string;
   timestamp: string | null;
@@ -42,20 +44,39 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null;
 }
 
+function normalizeEventType(value: string | null): string {
+  if (!value) {
+    return 'event';
+  }
+  const normalized = value.trim().toLowerCase().replace(/[\s_]+/g, '-');
+  if (normalized.includes('bed-exit') || normalized.includes('침대-이탈')) {
+    return 'bed-exit';
+  }
+  if (normalized.includes('fall') || normalized.includes('낙상')) {
+    return 'fall';
+  }
+  return normalized || 'event';
+}
+
 function normalizeEvent(value: unknown, index: number): FeedEvent | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  const cameraLabel = pickString(value, ['camera_label', 'cameraId', 'camera_id', 'camera', 'label']) ?? '카메라 미상';
+  const cameraId = pickString(value, ['camera_id', 'cameraId', 'source_camera_id', 'sourceCameraId']);
+  const cameraLabel = pickString(value, ['camera_label', 'cameraLabel', 'camera', 'label']) ?? '카메라 미상';
+  const rawEventType = pickString(value, ['event_type', 'eventType', 'type', 'kind', 'title', 'status']);
+  const eventType = normalizeEventType(rawEventType);
   const title = pickString(value, ['title', 'type', 'event_type', 'kind', 'status']) ?? '상태 이벤트';
   const timestamp = pickString(value, ['created_at', 'timestamp', 'ts', 'time', 'last_seen_at']);
   const detail = pickString(value, ['message', 'detail', 'summary', 'description']) ?? summarize(value.payload ?? value.data ?? value);
-  const eventId = pickString(value, ['id', 'event_id']) ?? `${cameraLabel}-${title}-${timestamp ?? index}`;
+  const eventId = pickString(value, ['id', 'event_id']) ?? `${cameraId ?? cameraLabel}-${eventType}-${timestamp ?? index}`;
 
   return {
     id: eventId,
+    cameraId,
     cameraLabel,
+    eventType,
     title,
     detail,
     timestamp,

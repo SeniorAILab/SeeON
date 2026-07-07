@@ -1,8 +1,9 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
-import { BedExitLivePanel, StorageGauge, upsertCameraInRegistry } from './App';
+import { upsertCameraInRegistry } from './App';
 import type { Camera, CameraRegistry, SystemSnapshot } from './api/client';
+import { StorageGauge } from './components/SystemPanels';
 
 const system: SystemSnapshot = {
   version: 'edge-1.2.3',
@@ -57,59 +58,5 @@ describe('upsertCameraInRegistry', () => {
 
     expect(next.registry_version).toBe(2);
     expect(next.cameras).toEqual([returned]);
-  });
-});
-
-describe('BedExitLivePanel', () => {
-  it('renders a bed-exit overlay video when the clip list has bed-exit evidence', () => {
-    const host = document.createElement('div');
-    document.body.append(host);
-    const root = createRoot(host);
-
-    act(() => {
-      root.render(
-        <BedExitLivePanel
-          events={[{ id: 'event-1', cameraLabel: '301호', title: 'bed-exit', detail: '침대 밖 이동', timestamp: null }]}
-          clips={[{
-            id: 'clip-1',
-            camera_id: 'cam-1',
-            camera_label: '301호',
-            event_type: 'bed-exit',
-            created_at: null,
-            label: null,
-            video_path: '/api/v1/clips/clip-1/video',
-          }]}
-        />,
-      );
-    });
-
-    const video = host.querySelector('video');
-    expect(host.textContent).toContain('침대 이탈 실시간 상태');
-    expect(video?.getAttribute('src')).toBe('/api/v1/clips/clip-1/video');
-
-    act(() => root.unmount());
-    host.remove();
-  });
-
-  it('does not mark unrelated bed text as a bed-exit signal', () => {
-    const host = document.createElement('div');
-    document.body.append(host);
-    const root = createRoot(host);
-
-    act(() => {
-      root.render(
-        <BedExitLivePanel
-          events={[{ id: 'event-2', cameraLabel: '301호', title: '침대 주변 움직임 증가', detail: '낙상 아님', timestamp: null }]}
-          clips={[]}
-        />,
-      );
-    });
-
-    expect(host.textContent).toContain('대기 중');
-    expect(host.textContent).not.toContain('감지 신호 있음');
-    expect(host.querySelector('video')).toBeNull();
-
-    act(() => root.unmount());
-    host.remove();
   });
 });

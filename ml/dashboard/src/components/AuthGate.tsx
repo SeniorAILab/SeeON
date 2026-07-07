@@ -37,8 +37,8 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
 
   if (authorized) {
     return (
-      <div>
-        <div className="fixed right-5 top-5 z-40">
+      <div className="min-h-screen bg-[#eef2ff]">
+        <div className="relative z-40 flex justify-end bg-[#eef2ff] px-5 py-3 lg:fixed lg:right-5 lg:top-5 lg:block lg:bg-transparent lg:p-0">
           <button
             type="button"
             onClick={handleLogout}
@@ -76,7 +76,7 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
                 value={loginId}
                 onChange={(event) => setLoginId(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-200 focus:ring-4"
-                placeholder="admin"
+                placeholder="관리자 아이디"
                 autoComplete="username"
               />
             </label>
@@ -88,7 +88,7 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-200 focus:ring-4"
-                placeholder="admin"
+                placeholder="관리자 비밀번호"
                 autoComplete="current-password"
               />
             </label>
