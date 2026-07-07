@@ -60,7 +60,10 @@ services:
               count: all
               capabilities: [gpu]
     environment:
-      EDGE_CAMERA_CONFIG: /run/secrets/ml-worker.yaml
+      # Optional offline-dev escape hatch:
+      # set EDGE_CAMERA_CONFIG=/run/secrets/ml-worker.yaml and mount the secret below
+      # to bypass ml-api config pull.
+      EDGE_CAMERA_CONFIG: ${EDGE_CAMERA_CONFIG:-}
       RELAY_URL: http://ml-api:8000
       RELAY_TOKEN: ${API_EDGE_RELAY_TOKEN:?edge worker requires relay token shared with ml-api}
       ML_WORKER_STATE_DIR: /var/lib/ml-worker
@@ -68,9 +71,10 @@ services:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
       - ml-worker-state:/var/lib/ml-worker
       - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:rw
-    secrets:
-      - source: ml-worker-config
-        target: ml-worker.yaml
+    # Optional offline-dev YAML bootstrap; production should pull config from ml-api.
+    # secrets:
+    #   - source: ml-worker-config
+    #     target: ml-worker.yaml
     depends_on:
       ml-api:
         condition: service_healthy
@@ -78,13 +82,12 @@ services:
       - python
       - -m
       - worker.edge_worker
-      - --config
-      - /run/secrets/ml-worker.yaml
       - --heartbeat-on-start
 
-secrets:
-  ml-worker-config:
-    file: ${EDGE_CAMERA_CONFIG:?edge requires a local ml-worker YAML config}
+# Optional offline-dev YAML bootstrap:
+# secrets:
+#   ml-worker-config:
+#     file: ${EDGE_CAMERA_CONFIG_FILE:-./ml-worker.yaml}
 volumes:
   ml-worker-state: {}
   clip-store: {}

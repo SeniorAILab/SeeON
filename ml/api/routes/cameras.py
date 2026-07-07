@@ -86,20 +86,32 @@ class WorkerConfigResponse(BaseModel):
 
 
 @router.get("", response_model=ListCamerasResponse)
-def list_cameras(request: Request) -> dict[str, object]:
+def list_cameras(
+    request: Request,
+    relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, object]:
+    _authorize(request, relay_token, authorization)
     return _public_snapshot(_store(request).snapshot())
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=CameraResponse)
-def create_camera(payload: CreateCameraRequest, request: Request) -> dict[str, object]:
+def create_camera(
+    payload: CreateCameraRequest,
+    request: Request,
+    relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, object]:
+    _authorize(request, relay_token, authorization)
     probe = probe_rtsp_url(payload.rtsp_url)
-    camera_id = str(uuid.uuid4())
+    provisional_id = str(uuid.uuid4())
     mapping = _map_backend(
         request,
-        camera_id=camera_id,
+        camera_id=provisional_id,
         label=payload.label,
         space_id=payload.space_id,
     )
+    camera_id = mapping.backend_camera_id or provisional_id
     record = _store(request).create(
         camera_id=camera_id,
         label=payload.label,
@@ -117,7 +129,13 @@ def create_camera(payload: CreateCameraRequest, request: Request) -> dict[str, o
     response_model=TestCameraResponse,
     response_model_exclude_none=True,
 )
-def test_camera(camera_id: str, request: Request) -> dict[str, object]:
+def test_camera(
+    camera_id: str,
+    request: Request,
+    relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, object]:
+    _authorize(request, relay_token, authorization)
     record = _store(request).get(camera_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="camera not found")
@@ -130,13 +148,15 @@ def update_camera(
     camera_id: str,
     payload: UpdateCameraRequest,
     request: Request,
+    relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
+    authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, object]:
+    _authorize(request, relay_token, authorization)
     current = _store(request).get(camera_id)
     if current is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="camera not found")
     if not payload.model_fields_set:
         return public_camera(current)
-
     updates: dict[str, object] = {}
     next_label = str(current.get("label", ""))
     next_space_id = current.get("space_id") if current.get("space_id") is not None else None
@@ -157,7 +177,11 @@ def update_camera(
             label=next_label,
             space_id=next_space_id if isinstance(next_space_id, str) else None,
         )
-        updates["backend_camera_id"] = mapping.backend_camera_id
+        if mapping.backend_camera_id is not None:
+            updates["id"] = mapping.backend_camera_id
+            updates["backend_camera_id"] = mapping.backend_camera_id
+        elif current.get("backend_camera_id") is None:
+            updates["backend_camera_id"] = None
         updates["mapping_pending"] = mapping.pending
 
     updated = _store(request).update(camera_id, updates)
@@ -167,7 +191,13 @@ def update_camera(
 
 
 @router.delete("/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_camera(camera_id: str, request: Request) -> Response:
+def delete_camera(
+    camera_id: str,
+    request: Request,
+    relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> Response:
+    _authorize(request, relay_token, authorization)
     if not _store(request).delete(camera_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="camera not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -187,9 +217,10 @@ def worker_config(
         rtsp_url = record.get("rtsp_url")
         if not isinstance(rtsp_url, str) or not rtsp_url.strip():
             continue
+        canonical_id = record.get("backend_camera_id") or record.get("id", "")
         cameras.append(
             {
-                "camera_id": str(record.get("id", "")),
+                "camera_id": str(canonical_id),
                 "facility_id": facility_id,
                 "rtsp_url": rtsp_url,
             }

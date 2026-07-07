@@ -129,7 +129,17 @@ class CameraRegistryStore:
             json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
             encoding="utf-8",
         )
+        # RTSP credentials are stored in local edge JSON by design; API responses
+        # and logs must use mask_rtsp_url(), and the store is best-effort 0600.
+        try:
+            os.chmod(tmp_path, 0o600)
+        except OSError:
+            pass
         os.replace(tmp_path, self.path)
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError:
+            pass
 
 
 def public_camera(record: dict[str, object]) -> dict[str, object]:

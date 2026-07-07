@@ -96,11 +96,14 @@ def test_streams_manifest_video_and_appends_audit(clip_env) -> None:
 
     with TestClient(create_app(lifespan=no_lifespan)) as client:
         video = client.get("/api/v1/clips/clip-1/video", headers=AUTH)
+        query_video = client.get("/api/v1/clips/clip-1/video", params={"token": "relay-token"})
         audit = client.get("/api/v1/audit", headers=AUTH)
 
     assert video.status_code == 200
     assert video.content == b"video:clip-1"
     assert video.headers["content-type"].startswith("video/mp4")
+    assert query_video.status_code == 200
+    assert query_video.content == b"video:clip-1"
     assert audit.status_code == 200
     assert audit.json()["entries"] == [
         {
@@ -108,7 +111,13 @@ def test_streams_manifest_video_and_appends_audit(clip_env) -> None:
             "actor": "bearer",
             "action": "play",
             "clip_id": "clip-1",
-        }
+        },
+        {
+            "ts": audit.json()["entries"][1]["ts"],
+            "actor": "operator",
+            "action": "play",
+            "clip_id": "clip-1",
+        },
     ]
 
 
@@ -128,21 +137,29 @@ def test_label_clip_saves_sidecar_and_audit(clip_env) -> None:
             headers=AUTH,
             json={"label": None, "reviewer": "reviewer-2"},
         )
+        default_reviewer = client.put(
+            "/api/v1/clips/clip-1/label",
+            headers=AUTH,
+            json={"label": "FALSE_POSITIVE"},
+        )
         audit = client.get("/api/v1/audit", headers=AUTH)
 
     assert response.status_code == 200
     assert response.json()["label"] == "TRUE_POSITIVE"
     assert clear_response.status_code == 200
     assert clear_response.json()["label"] is None
+    assert default_reviewer.status_code == 200
+    assert default_reviewer.json()["reviewer"] == "bearer"
     saved = json.loads((label_store / "labels" / "clip-1.json").read_text(encoding="utf-8"))
-    assert saved["label"] is None
-    assert saved["reviewer"] == "reviewer-2"
+    assert saved["label"] == "FALSE_POSITIVE"
+    assert saved["reviewer"] == "bearer"
     audit_rows = [
         (entry["actor"], entry["action"], entry["clip_id"]) for entry in audit.json()["entries"]
     ]
     assert audit_rows == [
         ("reviewer-1", "label", "clip-1"),
         ("reviewer-2", "label", "clip-1"),
+        ("bearer", "label", "clip-1"),
     ]
 
 

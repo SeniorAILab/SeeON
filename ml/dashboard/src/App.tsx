@@ -47,16 +47,18 @@ function formatBytes(value: number): string {
   return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
-function StorageGauge({ system }: { system: SystemSnapshot | null }): JSX.Element {
-  const used = system?.storage?.clips_used_bytes;
-  const limit = system?.storage?.clips_limit_bytes;
-  if (typeof used !== 'number' || typeof limit !== 'number' || limit <= 0) {
+export function StorageGauge({ system }: { system: SystemSnapshot | null }): JSX.Element {
+  const clipStore = system?.storage?.clip_store;
+  const usedPct = clipStore?.used_pct;
+  const usedBytes = clipStore?.used_bytes;
+  const totalBytes = clipStore?.total_bytes;
+  if (typeof usedPct !== 'number' || !Number.isFinite(usedPct)) {
     return (
       <div className="rounded-3xl bg-white p-5 shadow-soft">
         <p className="text-sm font-black text-indigo-500">스토리지 게이지</p>
         <h3 className="mt-1 text-xl font-black text-slate-950">클립 스토어 사용량</h3>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          현재 /api/v1/system 응답에 클립 스토리지 사용량 필드가 없습니다. README에 system API 확장 제안을 기록했습니다.
+          현재 /api/v1/system 응답에 storage.clip_store.used_pct 값이 없습니다. 스토리지 사용률이 연결되면 이 영역에 표시됩니다.
         </p>
         <div className="mt-4 h-3 rounded-full bg-slate-100">
           <div className="h-3 w-1/3 rounded-full bg-slate-300" />
@@ -64,15 +66,19 @@ function StorageGauge({ system }: { system: SystemSnapshot | null }): JSX.Elemen
       </div>
     );
   }
-  const percent = Math.min(100, Math.round((used / limit) * 100));
+  const percent = Math.max(0, Math.min(100, usedPct));
+  const usageText =
+    typeof usedBytes === 'number' && typeof totalBytes === 'number'
+      ? `${formatBytes(usedBytes)} / ${formatBytes(totalBytes)} · ${percent.toFixed(1)}%`
+      : `${percent.toFixed(1)}%`;
   return (
     <div className="rounded-3xl bg-white p-5 shadow-soft">
       <p className="text-sm font-black text-indigo-500">스토리지 게이지</p>
       <h3 className="mt-1 text-xl font-black text-slate-950">클립 스토어 사용량</h3>
-      <div className="mt-4 h-3 rounded-full bg-slate-100">
+      <div className="mt-4 h-3 rounded-full bg-slate-100" role="meter" aria-label="클립 스토어 사용률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
         <div className="h-3 rounded-full bg-indigo-500" style={{ width: `${percent}%` }} />
       </div>
-      <p className="mt-3 text-sm font-bold text-slate-600">{formatBytes(used)} / {formatBytes(limit)} · {percent}%</p>
+      <p className="mt-3 text-sm font-bold text-slate-600">{usageText}</p>
     </div>
   );
 }
@@ -352,6 +358,11 @@ function Dashboard(): JSX.Element {
         {systemError ? <p className="mt-3 text-sm font-bold text-rose-600">{systemError}</p> : null}
         {system ? (
           <p className="mt-3 text-sm text-slate-500">API 버전 {system.version} · 마지막 백엔드 성공 {formatTime(system.backend.last_ok_at)}</p>
+        ) : null}
+        {system?.image_digests ? (
+          <p className="mt-2 text-xs font-bold text-slate-500">
+            ml-api digest {system.image_digests.ml_api ?? '미제공'} · ml-worker digest {system.image_digests.ml_worker ?? '미제공'}
+          </p>
         ) : null}
         <span className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-black ring-1 ${backendStatus.className}`}>{backendStatus.label}</span>
       </div>

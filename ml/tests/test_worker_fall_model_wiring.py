@@ -70,6 +70,7 @@ def test_worker_emits_fall_event_when_pose_window_reaches_fall_model_threshold()
             "time_sec": 2.0,
             "camera_id": "camera-1",
             "facility_id": "facility-1",
+            "clip_id": None,
             "audit": {
                 "clock_source": "edge_wall_clock",
                 "operating_threshold": 0.5,

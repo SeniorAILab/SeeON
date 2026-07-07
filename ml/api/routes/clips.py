@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 from typing import Literal
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,7 +40,7 @@ class LabelClipRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: Literal["TRUE_POSITIVE", "FALSE_POSITIVE"] | None
-    reviewer: str = Field(min_length=1)
+    reviewer: str | None = Field(default=None, min_length=1)
 
 
 class LabelClipResponse(BaseModel):
@@ -73,8 +74,9 @@ def clip_video(
     clip_id: str,
     request: Request,
     authorization: str | None = Header(default=None, alias="Authorization"),
+    token: str | None = Query(default=None),
 ) -> FileResponse:
-    actor = _authorize(request, authorization)
+    actor = _authorize(request, authorization, query_token=token)
     manifest = _get_manifest_or_404(request, clip_id)
     try:
         video_path = _clip_store(request).resolve_video_path(manifest)
@@ -96,17 +98,18 @@ def label_clip(
     request: Request,
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, object]:
-    _authorize(request, authorization)
+    actor = _authorize(request, authorization)
     manifest = _get_manifest_or_404(request, clip_id)
+    reviewer = payload.reviewer or actor
     record = LabelRecord(
         clip_id=manifest.clip_id,
         label=payload.label,
-        reviewer=payload.reviewer,
+        reviewer=reviewer,
         reviewed_at=utc_now_iso(),
     )
     _label_store(request).save(record)
     post_backend_backup("clip_label", record.as_response())
-    _audit_store(request).append(actor=payload.reviewer, action="label", clip_id=manifest.clip_id)
+    _audit_store(request).append(actor=reviewer, action="label", clip_id=manifest.clip_id)
     return record.as_response()
 
 
@@ -153,7 +156,12 @@ def _audit_store(request: Request) -> AuditLogStore:
     return store
 
 
-def _authorize(request: Request, authorization: str | None) -> str:
+def _authorize(
+    request: Request,
+    authorization: str | None,
+    *,
+    query_token: str | None = None,
+) -> str:
     expected = getattr(request.app.state, "edge_relay_token", None) or os.environ.get(
         API_EDGE_RELAY_TOKEN_ENV
     )
@@ -163,14 +171,18 @@ def _authorize(request: Request, authorization: str | None) -> str:
             detail="relay token is not configured",
         )
     supplied = _bearer_token(authorization)
+    actor = "bearer"
+    if supplied is None and query_token is not None:
+        supplied = query_token
+        actor = "operator"
     if supplied is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="bearer token required",
         )
-    if supplied != expected:
+    if not hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="relay token mismatch")
-    return "bearer"
+    return actor
 
 
 def _bearer_token(value: str | None) -> str | None:
