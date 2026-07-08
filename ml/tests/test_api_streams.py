@@ -161,3 +161,104 @@ def test_stream_proxy_reports_connection_failure_as_unavailable(
 
     assert response.status_code == 503
     assert response.json()["detail"] == "worker stream unavailable"
+
+
+def test_snapshot_proxy_forwards_jpeg_with_query_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    body = b"\xff\xd8camera-jpeg\xff\xd9"
+    calls: list[UrlopenCall] = []
+
+    class JpegResponse(FiniteStreamResponse):
+        headers: dict[str, str] = {"Content-Type": "image/jpeg"}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> JpegResponse:
+        calls.append(
+            {
+                "url": request.full_url,
+                "timeout": timeout,
+                "method": request.get_method(),
+            }
+        )
+        return JpegResponse(body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    with TestClient(create_app(lifespan=NO_LIFESPAN)) as client:
+        response = client.get(
+            "/api/v1/streams/cam_sp_201/snapshot", params={"token": "relay-token"}
+        )
+
+    assert response.status_code == 200
+    assert response.content == body
+    assert response.headers["content-type"] == "image/jpeg"
+    assert calls == [
+        {
+            "url": "http://worker.local:8090/snapshot/cam_sp_201",
+            "timeout": 3.0,
+            "method": "GET",
+        }
+    ]
+
+
+def test_snapshot_proxy_accepts_bearer_and_rejects_bad_auth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FiniteStreamResponse:
+        del timeout
+        calls.append(request.full_url)
+        return FiniteStreamResponse(b"\xff\xd8jpeg\xff\xd9")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    with TestClient(create_app(lifespan=NO_LIFESPAN)) as client:
+        missing = client.get("/api/v1/streams/cam_sp_201/snapshot")
+        wrong = client.get(
+            "/api/v1/streams/cam_sp_201/snapshot", params={"token": "wrong"}
+        )
+        header = client.get("/api/v1/streams/cam_sp_201/snapshot", headers=AUTH)
+
+    assert missing.status_code == 401
+    assert wrong.status_code == 403
+    assert header.status_code == 200
+    assert calls == ["http://worker.local:8090/snapshot/cam_sp_201"]
+
+
+@pytest.mark.parametrize("code", [404, 503])
+def test_snapshot_proxy_preserves_upstream_404_and_503(
+    code: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> NoReturn:
+        del timeout
+        raise urllib.error.HTTPError(
+            request.full_url,
+            code,
+            "upstream status",
+            hdrs=Message(),
+            fp=None,
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    with TestClient(create_app(lifespan=NO_LIFESPAN)) as client:
+        response = client.get("/api/v1/streams/missing/snapshot", headers=AUTH)
+
+    assert response.status_code == code
+    assert response.json()["detail"] == "worker stream unavailable"
+
+
+def test_snapshot_proxy_reports_connection_failure_as_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> NoReturn:
+        del request, timeout
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    with TestClient(create_app(lifespan=NO_LIFESPAN)) as client:
+        response = client.get("/api/v1/streams/cam_sp_201/snapshot", headers=AUTH)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "worker stream unavailable"
