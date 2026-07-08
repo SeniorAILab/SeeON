@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hmac
+import json
 import os
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -13,6 +16,7 @@ from contracts.frame import Frame
 from contracts.observation import FrameObservation
 from worker.domains.bed_exit.schema import DomainDebugSnapshot
 from worker.overlay_renderer import OverlayRenderer
+from worker.sources.probe import RTSPProbeError, probe_first_frame
 
 BOUNDARY = b"frame"
 DEV_MJPEG_ENV = "ML_WORKER_DEV_MJPEG"
@@ -90,11 +94,19 @@ class _ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 class MjpegServer:
     def __init__(
-        self, buffer: OverlayFrameBuffer, *, host: str = "127.0.0.1", port: int = 8090
+        self,
+        buffer: OverlayFrameBuffer,
+        *,
+        host: str = "127.0.0.1",
+        port: int = 8090,
+        probe_token: str | None = None,
+        probe: Callable[[str], dict[str, object]] | None = None,
     ) -> None:
         self.buffer = buffer
         self.host = host
         self.port = int(port)
+        self.probe_token = probe_token
+        self.probe = probe if probe is not None else _probe_rtsp_first_frame
         self._server = _ThreadingHTTPServer((self.host, self.port), self._handler())
         self.port = int(self._server.server_port)
         self._thread: threading.Thread | None = None
@@ -114,6 +126,8 @@ class MjpegServer:
 
     def _handler(self) -> type[BaseHTTPRequestHandler]:
         buffer = self.buffer
+        probe_token = self.probe_token
+        probe = self.probe
         poll_interval_seconds = 0.05
         heartbeat_interval_seconds = 1.0
 
@@ -183,9 +197,57 @@ class MjpegServer:
                     self.wfile.write(frame.jpeg)
                 except (TimeoutError, BrokenPipeError, ConnectionResetError):
                     return
+            def do_POST(self) -> None:  # noqa: N802 - stdlib hook
+                path = urlsplit(self.path).path
+                if path != "/probe":
+                    self.send_error(HTTPStatus.NOT_FOUND)
+                    return
+                if not _authorized_probe(self.headers.get("X-Edge-Relay-Token"), probe_token):
+                    self.send_error(HTTPStatus.FORBIDDEN)
+                    return
+                payload = self._read_json()
+                if payload is None:
+                    self.send_error(HTTPStatus.BAD_REQUEST)
+                    return
+                rtsp_url = payload.get("rtsp_url")
+                if not isinstance(rtsp_url, str) or rtsp_url.strip() == "":
+                    self.send_error(HTTPStatus.BAD_REQUEST)
+                    return
+                result: dict[str, object]
+                try:
+                    result = probe(rtsp_url)
+                except RTSPProbeError as exc:
+                    result = {"ok": False, "error_class": exc.error_class}
+                except Exception:  # noqa: BLE001 - probes normalize unexpected decoder errors.
+                    result = {"ok": False, "error_class": "decode"}
+                self._write_json(result)
 
             def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - stdlib signature
                 return
+
+            def _read_json(self) -> dict[str, object] | None:
+                raw_length = self.headers.get("Content-Length")
+                if raw_length is None:
+                    return None
+                try:
+                    length = int(raw_length)
+                except ValueError:
+                    return None
+                if length <= 0 or length > 8192:
+                    return None
+                try:
+                    payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    return None
+                return payload if isinstance(payload, dict) else None
+
+            def _write_json(self, payload: dict[str, object]) -> None:
+                body = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
 
             def _write_part(self, frame: OverlayFrame) -> None:
                 self.wfile.write(b"--" + BOUNDARY + b"\r\n")
@@ -195,6 +257,21 @@ class MjpegServer:
                 self.wfile.write(b"\r\n")
 
         return Handler
+
+
+def _authorized_probe(supplied: str | None, expected: str | None) -> bool:
+    if expected is None or expected.strip() == "" or supplied is None:
+        return False
+    return hmac.compare_digest(supplied.encode("utf-8"), expected.strip().encode("utf-8"))
+
+
+def _probe_rtsp_first_frame(rtsp_url: str) -> dict[str, object]:
+    result = probe_first_frame(rtsp_url)
+    return {
+        "ok": True,
+        "width": result.width,
+        "height": result.height,
+    }
 
 
 def dev_mjpeg_enabled(environ: dict[str, str] | None = None) -> bool:

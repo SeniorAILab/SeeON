@@ -31,7 +31,7 @@ export function EventLivePanel({
           <h3 className="mt-1 text-lg font-black text-white">{selectedOption ? `${selectedOption.label} 실시간 상태 스트림` : '이벤트 실시간 상태 스트림'}</h3>
         </div>
         <span className={`rounded-full px-3 py-2 text-xs font-black ${streamError ? 'bg-rose-300 text-slate-950' : 'bg-emerald-300 text-slate-950'}`}>
-          {streamError ? '사용 불가' : '/api/v1/streams'}
+          {streamError ? '사용 불가' : 'ml-api stream'}
         </span>
       </div>
 
