@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
-import { upsertCameraInRegistry } from './App';
+import { mergeRuntimeCameraStatuses, upsertCameraInRegistry } from './App';
 import type { Camera, CameraRegistry, SystemSnapshot } from './api/client';
 import { StorageGauge } from './components/SystemPanels';
 
@@ -58,5 +58,40 @@ describe('upsertCameraInRegistry', () => {
 
     expect(next.registry_version).toBe(2);
     expect(next.cameras).toEqual([returned]);
+  });
+});
+
+describe('mergeRuntimeCameraStatuses', () => {
+  it('does not keep a TCP-only registry camera online without worker heartbeat', () => {
+    const registry: CameraRegistry = {
+      registry_version: 1,
+      cameras: [
+        {
+          id: 'local-camera-1',
+          label: '205호',
+          rtsp_url_masked: 'rtsp://***:***@redacted-camera/trackID=2',
+          space_id: null,
+          backend_camera_id: 'backend-camera-1',
+          status: 'online',
+          created_at: '2026-07-07T00:00:00Z',
+        },
+      ],
+    };
+
+    const withoutHeartbeat = mergeRuntimeCameraStatuses(registry, { cameras: {} });
+    const neverSeen = mergeRuntimeCameraStatuses(registry, {
+      cameras: { 'backend-camera-1': { status: 'never_seen' } },
+    });
+    const stale = mergeRuntimeCameraStatuses(registry, {
+      cameras: { 'backend-camera-1': { status: 'stale' } },
+    });
+    const online = mergeRuntimeCameraStatuses(registry, {
+      cameras: { 'backend-camera-1': { status: 'online' } },
+    });
+
+    expect(withoutHeartbeat.cameras[0].status).toBe('starting');
+    expect(neverSeen.cameras[0].status).toBe('starting');
+    expect(stale.cameras[0].status).toBe('offline');
+    expect(online.cameras[0].status).toBe('online');
   });
 });

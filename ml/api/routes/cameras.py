@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.request
 import uuid
 from typing import Literal
 
@@ -12,11 +15,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.backend_mapping import BackendCameraMapper, MappingResult, mark_backend_status
 from api.camera_registry import (
     CameraRegistryStore,
+    ProbeErrorClass,
     ProbeResult,
-    probe_rtsp_url,
     public_camera,
     status_from_probe,
 )
+from api.config import get_settings
 from api.lifespan import API_EDGE_RELAY_TOKEN_ENV, API_FACILITY_ID_ENV
 from contracts.worker_config import PulledWorkerConfig
 
@@ -107,7 +111,7 @@ def create_camera(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, object]:
     _authorize(request, relay_token, authorization)
-    probe = probe_rtsp_url(payload.rtsp_url)
+    probe = _probe_rtsp_url(request, payload.rtsp_url)
     provisional_id = str(uuid.uuid4())
     mapping = _map_backend(
         request,
@@ -143,7 +147,7 @@ def test_camera(
     record = _store(request).get(camera_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="camera not found")
-    probe = probe_rtsp_url(str(record.get("rtsp_url", "")))
+    probe = _probe_rtsp_url(request, str(record.get("rtsp_url", "")))
     return _probe_response(probe)
 
 
@@ -169,7 +173,7 @@ def update_camera(
         next_label = payload.label
     if "rtsp_url" in payload.model_fields_set and payload.rtsp_url is not None:
         updates["rtsp_url"] = payload.rtsp_url
-        updates["status"] = status_from_probe(probe_rtsp_url(payload.rtsp_url))
+        updates["status"] = status_from_probe(_probe_rtsp_url(request, payload.rtsp_url))
     if "space_id" in payload.model_fields_set:
         updates["space_id"] = payload.space_id
         next_space_id = payload.space_id
@@ -223,7 +227,7 @@ def worker_config_snapshot(
     snapshot = _store(request).snapshot()
     facility_id = _facility_id()
     cameras = []
-    for record in snapshot["cameras"]:
+    for record in _snapshot_camera_records(snapshot):
         rtsp_url = record.get("rtsp_url")
         if not isinstance(rtsp_url, str) or not rtsp_url.strip():
             continue
@@ -283,14 +287,17 @@ def _live_pulled_config(request: Request, pulled: PulledWorkerConfig) -> PulledW
 def retry_pending_backend_mappings(request: Request) -> int:
     store = _store(request)
     retried = 0
-    for record in store.snapshot()["cameras"]:
+    for record in _snapshot_camera_records(store.snapshot()):
         if not record.get("mapping_pending"):
             continue
         space_id = record.get("space_id")
         label = record.get("label")
         camera_id = record.get("id")
-        values = (space_id, label, camera_id)
-        if not all(isinstance(value, str) and value.strip() for value in values):
+        if not isinstance(space_id, str) or not space_id.strip():
+            continue
+        if not isinstance(label, str) or not label.strip():
+            continue
+        if not isinstance(camera_id, str) or not camera_id.strip():
             continue
         mapping = _map_backend(request, camera_id=camera_id, label=label, space_id=space_id)
         if mapping.backend_camera_id is None:
@@ -307,8 +314,15 @@ def retry_pending_backend_mappings(request: Request) -> int:
 def _public_snapshot(snapshot: dict[str, object]) -> dict[str, object]:
     return {
         "registry_version": snapshot["registry_version"],
-        "cameras": [public_camera(record) for record in snapshot["cameras"]],
+        "cameras": [public_camera(record) for record in _snapshot_camera_records(snapshot)],
     }
+
+
+def _snapshot_camera_records(snapshot: dict[str, object]) -> list[dict[str, object]]:
+    cameras = snapshot.get("cameras")
+    if not isinstance(cameras, list):
+        return []
+    return [record for record in cameras if isinstance(record, dict)]
 
 
 def _store(request: Request) -> CameraRegistryStore:
@@ -371,6 +385,73 @@ def _bearer_token(value: str | None) -> str | None:
 
 def _facility_id() -> str:
     return os.environ.get(API_FACILITY_ID_ENV, "local-facility").strip() or "local-facility"
+
+
+def _probe_rtsp_url(request: Request, rtsp_url: str) -> ProbeResult:
+    settings = get_settings()
+    origin = settings.worker_probe_origin.strip().rstrip("/")
+    if not origin:
+        return ProbeResult(ok=False, error_class="decode")
+    token = _expected_relay_token(request)
+    if token is None:
+        return ProbeResult(ok=False, error_class="decode")
+    body = json.dumps({"rtsp_url": rtsp_url}, separators=(",", ":")).encode("utf-8")
+    probe_request = urllib.request.Request(
+        f"{origin}/probe",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            RELAY_TOKEN_HEADER: token,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(
+            probe_request,
+            timeout=settings.worker_probe_timeout_s,
+        ) as response:
+            payload = json.loads(response.read().decode("utf-8") or "{}")
+    except TimeoutError:
+        return ProbeResult(ok=False, error_class="timeout")
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
+        return ProbeResult(ok=False, error_class="decode")
+    if not isinstance(payload, dict):
+        return ProbeResult(ok=False, error_class="decode")
+    return _probe_result_from_worker(payload)
+
+
+def _probe_result_from_worker(payload: dict[object, object]) -> ProbeResult:
+    raw_error_class = payload.get("error_class")
+    error_class: ProbeErrorClass | None
+    if raw_error_class == "timeout":
+        error_class = "timeout"
+    elif raw_error_class == "decode":
+        error_class = "decode"
+    elif raw_error_class == "auth":
+        error_class = "auth"
+    else:
+        error_class = None
+    width = _optional_positive_int(payload.get("width"))
+    height = _optional_positive_int(payload.get("height"))
+    return ProbeResult(
+        ok=payload.get("ok") is True,
+        error_class=error_class,
+        width=width,
+        height=height,
+    )
+
+
+def _optional_positive_int(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
+def _expected_relay_token(request: Request) -> str | None:
+    expected = getattr(request.app.state, "edge_relay_token", None) or os.environ.get(
+        API_EDGE_RELAY_TOKEN_ENV
+    )
+    return expected if isinstance(expected, str) and expected else None
 
 
 def _probe_response(probe: ProbeResult) -> dict[str, object]:
