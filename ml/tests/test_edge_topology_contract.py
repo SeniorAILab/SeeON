@@ -9,6 +9,7 @@ import yaml
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml")
 EDGE_COMPOSE_FILE: Final = "compose.edge.yaml"
+EDGE_IMAGES_WORKFLOW: Final = ".github/workflows/edge-images.yml"
 EDGE_PREFLIGHT_SCRIPT: Final = "scripts/edge-preflight/check-nvidia-runtime.sh"
 EDGE_SERVICES: Final = {
     "ml-api": "ml/Dockerfile.api",
@@ -56,6 +57,15 @@ def _compose_services(compose_file: str) -> dict[str, dict[str, ComposeValue]]:
         for name, service in services.items()
         if isinstance(service, dict)
     }
+
+
+def _workflow(path: str) -> dict[str, object]:
+    workflow = yaml.load(
+        (REPO_ROOT / path).read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+    assert isinstance(workflow, dict)
+    return workflow
 
 
 def _mapping_field(service: dict[str, ComposeValue], field_name: str) -> dict[str, ComposeValue]:
@@ -119,6 +129,32 @@ def test_edge_services_pin_release_images_with_dockerfiles_for_build() -> None:
             )
 
     assert not failures, "\n".join(failures)
+
+
+def test_edge_image_release_workflow_publishes_digest_env_artifact() -> None:
+    workflow_path = REPO_ROOT / EDGE_IMAGES_WORKFLOW
+    source = workflow_path.read_text(encoding="utf-8")
+    workflow = _workflow(EDGE_IMAGES_WORKFLOW)
+
+    triggers = workflow.get("on")
+    assert isinstance(triggers, dict)
+    assert "release" in triggers
+    assert "workflow_dispatch" in triggers
+
+    permissions = workflow.get("permissions")
+    assert isinstance(permissions, dict)
+    assert permissions["contents"] == "read"
+    assert permissions["packages"] == "write"
+
+    assert "ml/Dockerfile.api" in source
+    assert "ml/Dockerfile.worker" in source
+    assert "docker/build-push-action@v6" in source
+    assert "actions/upload-artifact@v4" in source
+    assert "steps.build-api.outputs.digest" in source
+    assert "steps.build-worker.outputs.digest" in source
+    assert "ML_API_IMAGE=" in source
+    assert "ML_WORKER_IMAGE=" in source
+    assert "edge-ml-image-refs.env" in source
 
 
 def test_legacy_multi_target_ml_dockerfile_is_removed() -> None:
