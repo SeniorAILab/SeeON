@@ -37,4 +37,17 @@ describe('rtsp url redaction via normalizeCamera', () => {
     expect(camera).not.toBeNull();
     expect(camera!.rtsp_url_masked).toBe('RTSP URL 비공개');
   });
+
+  it('falls back to the Korean placeholder for an opaque-path rtsp url instead of leaking credentials', () => {
+    const camera = normalizeCamera({
+      id: 'cam-4',
+      rtsp_url: 'rtsp:user:secret@camera.internal.example/live',
+    });
+
+    expect(camera).not.toBeNull();
+    const masked = camera!.rtsp_url_masked;
+    expect(masked).toBe('RTSP URL 비공개');
+    expect(masked).not.toContain('secret');
+    expect(masked).not.toContain('camera.internal.example');
+  });
 });
