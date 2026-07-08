@@ -28,12 +28,14 @@ class EdgeIngestClient:
     events_url: str
     camera_id: str
     timeout_sec: float = DEFAULT_TIMEOUT_SEC
+    bearer_token: str | None = None
     _failure_count: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def __post_init__(self) -> None:
         self.events_url = _parse_http_url(self.events_url)
         self.camera_id = _required(self.camera_id, "camera_id")
+        self.bearer_token = _clean(self.bearer_token)
 
     @property
     def failure_count(self) -> int:
@@ -78,6 +80,7 @@ class EdgeIngestClient:
             events_url=self.events_url,
             camera_id=camera_id,
             timeout_sec=self.timeout_sec,
+            bearer_token=self.bearer_token,
         )
 
     def emit(self, event: EventPayload) -> None:
@@ -109,7 +112,7 @@ class EdgeIngestClient:
         request = urllib.request.Request(
             url,
             data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **self._auth_headers()},
             method="POST",
         )
         try:
@@ -124,7 +127,7 @@ class EdgeIngestClient:
         request = urllib.request.Request(
             url,
             data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **self._auth_headers()},
             method="POST",
         )
         try:
@@ -144,7 +147,7 @@ class EdgeIngestClient:
         request = urllib.request.Request(
             url,
             data=snapshot_bytes,
-            headers={"Content-Type": "image/jpeg"},
+            headers={"Content-Type": "image/jpeg", **self._auth_headers()},
             method="PUT",
         )
         try:
@@ -152,6 +155,11 @@ class EdgeIngestClient:
                 response.read()
         except (TimeoutError, OSError, urllib.error.URLError, urllib.error.HTTPError) as exc:
             print(f"snapshot upload failed: {exc}", file=sys.stderr)
+
+    def _auth_headers(self) -> dict[str, str]:
+        if self.bearer_token is None:
+            return {}
+        return {"Authorization": f"Bearer {self.bearer_token}"}
 
     def _increment_failure(self) -> None:
         with self._lock:
@@ -163,6 +171,13 @@ def _required(value: str, name: str) -> str:
     if stripped == "":
         raise ValueError(f"{name} must be set")
     return stripped
+
+
+def _clean(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 
 def _parse_http_url(url: str) -> str:
