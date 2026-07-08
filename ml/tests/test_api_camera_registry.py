@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import urllib.error
 from collections.abc import Iterator
-from typing import Self
+from pathlib import Path
+from typing import Self, TypedDict
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.camera_registry import CameraRegistryStore
+from api.camera_registry import CameraRegistryStore, public_camera
 from api.config import get_settings
 from api.main import create_app, no_lifespan
 from contracts.worker_config import PulledCameraConfig, PulledNightWindow, PulledWorkerConfig
@@ -16,6 +17,16 @@ from worker.config_pull import load_edge_worker_config_from_relay
 from worker.edge_worker import _restart_check
 
 AUTH = {"Authorization": "Bearer relay-token"}
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+class CapturedBackendCall(TypedDict):
+    url: str
+    method: str
+    authorization: str | None
+    facility_id: str | None
+    body: dict[str, object]
+    timeout: float
 
 
 class FakeHTTPResponse:
@@ -67,7 +78,7 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
     monkeypatch.setenv("API_BACKEND_EDGE_CAMERAS_URL", "http://backend/api/v1/edge/cameras")
     monkeypatch.setenv("API_FACILITY_TOKEN", "facility-token")
     monkeypatch.setenv("ML_API_WORKER_PROBE_ORIGIN", "http://worker.local:8090")
-    captured: list[dict[str, object]] = []
+    captured: list[CapturedBackendCall] = []
     probe_calls: list[dict[str, object]] = []
 
     def fake_urlopen(request, timeout: float) -> FakeHTTPResponse:
@@ -82,13 +93,15 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
                 }
             )
             return FakeHTTPResponse({"ok": False, "error_class": "timeout"})
+        decoded_body = json.loads(request.data.decode("utf-8"))
+        assert isinstance(decoded_body, dict)
         captured.append(
             {
                 "url": request.full_url,
                 "method": request.get_method(),
                 "authorization": request.headers.get("Authorization"),
                 "facility_id": request.headers.get("X-facility-id"),
-                "body": json.loads(request.data.decode("utf-8")),
+                "body": {str(key): value for key, value in decoded_body.items()},
                 "timeout": timeout,
             }
         )
@@ -315,6 +328,37 @@ def test_worker_config_normalizes_pulled_cameras_when_registry_empty(tmp_path) -
     assert relay_config.json() == expected
     assert set(worker_config.json()["cameras"][0]) == {"camera_id", "facility_id", "rtsp_url"}
 
+
+def test_example_camera_registry_seed_is_loadable_and_sanitized() -> None:
+    seed_path = REPO_ROOT / "api" / "cameras.example.json"
+    snapshot = CameraRegistryStore(seed_path).snapshot()
+
+    assert snapshot["registry_version"] == 1
+    cameras = snapshot["cameras"]
+    assert isinstance(cameras, list)
+    assert len(cameras) == 1
+    loaded_record = cameras[0]
+    assert isinstance(loaded_record, dict)
+    record = {str(key): value for key, value in loaded_record.items()}
+    assert record["id"] == "example-room-camera"
+    assert record["rtsp_url"] == "rtsp://camera.example.invalid/trackID=1"
+
+    public = public_camera(record)
+    assert public == {
+        "id": "example-room-camera",
+        "label": "Example Room Camera",
+        "rtsp_url_masked": "rtsp://redacted-camera/trackID=1",
+        "space_id": "example-room",
+        "backend_camera_id": None,
+        "status": "unknown",
+        "created_at": "2026-01-01T00:00:00.000Z",
+    }
+
+    serialized = json.dumps(snapshot, sort_keys=True).lower()
+    for forbidden in ("10.10.", "@", "admin", "password", "token"):
+        assert forbidden not in serialized
+
+
 def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_BACKEND_URL", "http://backend")
     monkeypatch.setenv("ML_EDGE_VERSION", "2026.07.06")
@@ -322,6 +366,7 @@ def test_system_reports_backend_state_and_version(monkeypatch: pytest.MonkeyPatc
     app = create_app(lifespan=no_lifespan)
     app.state.backend_reachable = True
     app.state.backend_last_ok_at = "2026-07-06T00:00:00.000Z"
+
     with TestClient(app) as client:
         response = client.get("/api/v1/system")
 
