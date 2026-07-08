@@ -68,6 +68,35 @@ def test_mjpeg_server_unknown_empty_and_stream_response() -> None:
         server.stop()
 
 
+def test_snapshot_unknown_empty_and_happy_path() -> None:
+    buffer = OverlayFrameBuffer()
+    buffer.register_camera("empty")
+    buffer.publish_jpeg("cam_sp_201", b"\xff\xd8jpeg\xff\xd9", frame_index=1)
+    server = MjpegServer(buffer, port=0)
+    server.start()
+    base = f"http://127.0.0.1:{server.port}"
+    try:
+        try:
+            urllib.request.urlopen(f"{base}/snapshot/missing", timeout=1)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 404
+        else:  # pragma: no cover
+            raise AssertionError("unknown camera should 404")
+        try:
+            urllib.request.urlopen(f"{base}/snapshot/empty", timeout=1)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 503
+        else:  # pragma: no cover
+            raise AssertionError("empty camera should 503")
+        with urllib.request.urlopen(f"{base}/snapshot/cam_sp_201", timeout=1) as response:
+            body = response.read()
+            assert response.status == 200
+            assert response.headers["Content-Type"] == "image/jpeg"
+            assert body == b"\xff\xd8jpeg\xff\xd9"
+    finally:
+        server.stop()
+
+
 def test_mjpeg_server_probe_requires_token_and_returns_sanitized_result() -> None:
     buffer = OverlayFrameBuffer()
     seen_urls: list[str] = []
