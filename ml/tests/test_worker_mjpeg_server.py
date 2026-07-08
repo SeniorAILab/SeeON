@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 import urllib.error
 import urllib.request
 
 from worker.mjpeg_server import MjpegServer, OverlayFrameBuffer, dev_mjpeg_enabled, dev_mjpeg_host
+from worker.sources.probe import RTSPProbeError
 
 
 def test_mjpeg_buffer_is_camera_keyed_non_consuming() -> None:
@@ -62,6 +64,71 @@ def test_mjpeg_server_unknown_empty_and_stream_response() -> None:
             assert response.status == 200
             assert b"multipart" in response.headers["Content-Type"].encode()
             assert b"\xff\xd8jpeg" in body
+    finally:
+        server.stop()
+
+
+def test_mjpeg_server_probe_requires_token_and_returns_sanitized_result() -> None:
+    buffer = OverlayFrameBuffer()
+    seen_urls: list[str] = []
+
+    def probe(url: str) -> dict[str, object]:
+        seen_urls.append(url)
+        return {"ok": True, "width": 640, "height": 360}
+
+    server = MjpegServer(buffer, port=0, probe_token="relay-token", probe=probe)
+    server.start()
+    base = f"http://127.0.0.1:{server.port}"
+    body = json.dumps({"rtsp_url": "rtsp://user:secret@camera.local/trackID=2"}).encode()
+    try:
+        request = urllib.request.Request(f"{base}/probe", data=body, method="POST")
+        try:
+            urllib.request.urlopen(request, timeout=1)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 403
+        else:  # pragma: no cover
+            raise AssertionError("probe should require relay token")
+
+        request = urllib.request.Request(
+            f"{base}/probe",
+            data=body,
+            headers={"X-Edge-Relay-Token": "relay-token"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=1) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        assert payload == {"height": 360, "ok": True, "width": 640}
+        assert seen_urls == ["rtsp://user:secret@camera.local/trackID=2"]
+        assert "secret" not in json.dumps(payload)
+        assert "camera.local" not in json.dumps(payload)
+    finally:
+        server.stop()
+
+
+def test_mjpeg_server_probe_normalizes_auth_failure_without_leaking_url() -> None:
+    buffer = OverlayFrameBuffer()
+
+    def probe(url: str) -> dict[str, object]:
+        raise RTSPProbeError("auth", f"auth failed for {url}", "rtsp://***:***@camera/track")
+
+    server = MjpegServer(buffer, port=0, probe_token="relay-token", probe=probe)
+    server.start()
+    base = f"http://127.0.0.1:{server.port}"
+    body = json.dumps({"rtsp_url": "rtsp://user:secret@camera.local/trackID=2"}).encode()
+    try:
+        request = urllib.request.Request(
+            f"{base}/probe",
+            data=body,
+            headers={"X-Edge-Relay-Token": "relay-token"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=1) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        assert payload == {"error_class": "auth", "ok": False}
+        assert "secret" not in json.dumps(payload)
+        assert "camera.local" not in json.dumps(payload)
     finally:
         server.stop()
 
