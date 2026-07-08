@@ -1,7 +1,7 @@
-import { API_BASE, getAuthHeaders } from './session';
+import { getApiBase, getAuthHeaders } from './session';
 
 export async function requestJson(path: string, init?: RequestInit): Promise<unknown> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     ...init,
     headers: {
       Accept: 'application/json',
