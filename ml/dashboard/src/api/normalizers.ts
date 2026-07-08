@@ -56,6 +56,9 @@ function maskRtsp(value: string | null): string {
   }
   try {
     const url = new URL(value);
+    if (!url.hostname) {
+      return 'RTSP URL 비공개';
+    }
     url.hostname = 'redacted-camera';
     url.username = url.username ? '***' : '';
     url.password = url.password ? '***' : '';
