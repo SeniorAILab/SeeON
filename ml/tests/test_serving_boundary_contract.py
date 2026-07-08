@@ -29,6 +29,7 @@ ALLOWED_PATHS: Final = {
     "/api/v1/clips/{clip_id}/video",
     "/api/v1/status",
     "/api/v1/streams/{camera_id}",
+    "/api/v1/streams/{camera_id}/snapshot",
     "/api/v1/system",
     "/docs",
     "/docs/oauth2-redirect",
