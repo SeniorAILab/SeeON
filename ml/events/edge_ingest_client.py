@@ -28,7 +28,7 @@ class EdgeIngestClient:
     events_url: str
     camera_id: str
     timeout_sec: float = DEFAULT_TIMEOUT_SEC
-    bearer_token: str | None = None
+    bearer_token: str | None = field(default=None, repr=False)
     _failure_count: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
