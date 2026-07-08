@@ -109,8 +109,10 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
         assert created.status_code == 201
         camera = created.json()
         assert camera["label"] == "Lobby"
-        assert camera["rtsp_url_masked"] == "rtsp://***:***@camera.local:8554/live"
-        assert "secret" not in json.dumps(camera)
+        assert camera["rtsp_url_masked"] == "rtsp://***:***@redacted-camera:8554/live"
+        camera_json = json.dumps(camera)
+        assert "secret" not in camera_json
+        assert "camera.local" not in camera_json
         assert camera["backend_camera_id"] == "backend-camera-1"
         assert camera["id"] == "backend-camera-1"
         assert camera["status"] == "offline"
