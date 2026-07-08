@@ -33,6 +33,34 @@ describe('api client contracts', () => {
     expect(getApiBase()).toBe('/api/v1');
   });
 
+  it('routes requests, stream URLs, and clip URLs through the configured ML API base', async () => {
+    vi.stubEnv('VITE_ML_API_BASE_URL', ' http://edge-ml-api.local:8000/api/v1/ ');
+    setRelayToken('relay token:/+');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ clips: [{ clip_id: 'clip/1', camera_id: 'cam/1', event_type: 'bed-exit' }] }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await testCamera('cam/1');
+    const clips = await fetchClips('cam/1');
+
+    expect(getApiBase()).toBe('http://edge-ml-api.local:8000/api/v1');
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://edge-ml-api.local:8000/api/v1/cameras/cam%2F1/test', expect.objectContaining({ method: 'POST' }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'http://edge-ml-api.local:8000/api/v1/clips?camera_id=cam%2F1', expect.objectContaining({
+      headers: expect.objectContaining({ Accept: 'application/json' }),
+    }));
+    expect(getCameraStreamUrl('cam/1')).toBe('http://edge-ml-api.local:8000/api/v1/streams/cam%2F1?token=relay%20token%3A%2F%2B');
+    expect(clips[0]?.video_path).toBe('http://edge-ml-api.local:8000/api/v1/clips/clip%2F1/video?token=relay%20token%3A%2F%2B');
+  });
+
   it('uses only an explicitly configured relay token, separate from the local admin password', () => {
     expect(getConfiguredRelayToken()).toBeNull();
     vi.stubEnv('VITE_ML_API_RELAY_TOKEN', 'configured-relay-token');

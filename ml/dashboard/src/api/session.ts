@@ -1,9 +1,9 @@
-export const API_BASE = '/api/v1';
+export const DEFAULT_API_BASE = '/api/v1';
 
 let relayToken: string | null = null;
 
 export function getApiBase(): string {
-  return API_BASE;
+  return normalizeApiBase(import.meta.env.VITE_ML_API_BASE_URL);
 }
 
 export function getConfiguredRelayToken(): string | null {
@@ -25,14 +25,20 @@ export function getRelayToken(): string | null {
 
 export function getCameraStreamUrl(cameraId: string): string {
   const tokenQuery = relayToken ? `?token=${encodeURIComponent(relayToken)}` : '';
-  return `${API_BASE}/streams/${encodeURIComponent(cameraId)}${tokenQuery}`;
+  return `${getApiBase()}/streams/${encodeURIComponent(cameraId)}${tokenQuery}`;
 }
 
 export function getClipVideoUrl(clipId: string): string {
   const tokenQuery = relayToken ? `?token=${encodeURIComponent(relayToken)}` : '';
-  return `${API_BASE}/clips/${encodeURIComponent(clipId)}/video${tokenQuery}`;
+  return `${getApiBase()}/clips/${encodeURIComponent(clipId)}/video${tokenQuery}`;
 }
 
 export function getAuthHeaders(): Record<string, string> {
   return relayToken ? { Authorization: `Bearer ${relayToken}` } : {};
+}
+
+function normalizeApiBase(value: string | undefined): string {
+  const configured = value?.trim() || DEFAULT_API_BASE;
+  if (configured === '/') return '';
+  return configured.replace(/\/+$/, '');
 }

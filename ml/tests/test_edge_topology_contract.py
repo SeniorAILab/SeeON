@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Final
+from typing import Final, TypeAlias
 
 import yaml
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 HOST_COMPOSE_FILES: Final = ("compose.yaml", "compose.prod.yaml")
 EDGE_COMPOSE_FILE: Final = "compose.edge.yaml"
+EDGE_PREFLIGHT_SCRIPT: Final = "scripts/edge-preflight/check-nvidia-runtime.sh"
 EDGE_SERVICES: Final = {
     "ml-api": "ml/Dockerfile.api",
     "ml-worker": "ml/Dockerfile.worker",
 }
+ComposeValue: TypeAlias = (
+    str | int | float | bool | None | list["ComposeValue"] | dict[str, "ComposeValue"]
+)
 
 
 class ComposeLoader(yaml.SafeLoader):
@@ -23,26 +27,49 @@ def _compose_tag(
     loader: ComposeLoader,
     tag_suffix: str,
     node: yaml.Node,
-) -> str | list[str] | dict[str, str] | None:
+) -> ComposeValue:
     del tag_suffix
     if isinstance(node, yaml.ScalarNode):
         return loader.construct_scalar(node)
     if isinstance(node, yaml.SequenceNode):
-        return loader.construct_sequence(node)
+        return [item for item in loader.construct_sequence(node)]
     if isinstance(node, yaml.MappingNode):
-        return loader.construct_mapping(node)
+        return {str(key): value for key, value in loader.construct_mapping(node).items()}
     return None
 
 
 ComposeLoader.add_multi_constructor("!", _compose_tag)
 
 
-def _compose_services(compose_file: str) -> dict[str, dict[str, str]]:
+def _compose_services(compose_file: str) -> dict[str, dict[str, ComposeValue]]:
     compose = yaml.load(
         (REPO_ROOT / compose_file).read_text(encoding="utf-8"),
         Loader=ComposeLoader,
     )
-    return compose.get("services", {})
+    if not isinstance(compose, dict):
+        return {}
+    services = compose.get("services", {})
+    if not isinstance(services, dict):
+        return {}
+    return {
+        str(name): {str(key): value for key, value in service.items()}
+        for name, service in services.items()
+        if isinstance(service, dict)
+    }
+
+
+def _mapping_field(service: dict[str, ComposeValue], field_name: str) -> dict[str, ComposeValue]:
+    value = service.get(field_name, {})
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _list_field(service: dict[str, ComposeValue], field_name: str) -> list[ComposeValue]:
+    value = service.get(field_name, [])
+    if not isinstance(value, list):
+        return []
+    return list(value)
 
 
 def test_host_compose_services_are_ml_free() -> None:
@@ -50,11 +77,11 @@ def test_host_compose_services_are_ml_free() -> None:
     for compose_file in HOST_COMPOSE_FILES:
         services = _compose_services(compose_file)
         for service_name, service in services.items():
-            build = service.get("build", {})
-            dockerfile = build.get("dockerfile", "") if isinstance(build, dict) else ""
+            build = _mapping_field(service, "build")
+            dockerfile = build.get("dockerfile", "")
             image = service.get("image", "")
             fields = (service_name, dockerfile, image)
-            if any("ml" in field.lower() for field in fields):
+            if any("ml" in str(field).lower() for field in fields):
                 failures.append(f"{compose_file}:{service_name} contains ML topology: {fields}")
 
     assert not failures, "\n".join(failures)
@@ -100,9 +127,21 @@ def test_legacy_multi_target_ml_dockerfile_is_removed() -> None:
 
 def test_edge_api_host_port_is_loopback_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
-    ports = services["ml-api"].get("ports", [])
+    ports = _list_field(services["ml-api"], "ports")
 
     assert ports == ["127.0.0.1:${ML_SERVING_PORT:-8000}:8000"]
+
+
+def test_edge_api_persists_runtime_camera_registry_state() -> None:
+    services = _compose_services(EDGE_COMPOSE_FILE)
+    api_volumes = _list_field(services["ml-api"], "volumes")
+    compose = yaml.load(
+        (REPO_ROOT / EDGE_COMPOSE_FILE).read_text(encoding="utf-8"),
+        Loader=ComposeLoader,
+    )
+
+    assert "ml-api-state:/var/lib/ml-api" in api_volumes
+    assert "ml-api-state" in compose.get("volumes", {})
 
 
 def test_native_ml_dev_server_binds_loopback_only() -> None:
@@ -119,11 +158,25 @@ def test_edge_service_builds_do_not_depend_on_dockerfile_targets() -> None:
 
     failures: list[str] = []
     for service_name in EDGE_SERVICES:
-        build = services[service_name].get("build", {})
-        if isinstance(build, dict) and "target" in build:
+        build = _mapping_field(services[service_name], "build")
+        if "target" in build:
             failures.append(f"{service_name} build target is {build['target']!r}")
 
     assert not failures, "\n".join(failures)
+
+
+def test_edge_compose_has_gpu_runtime_preflight_guard() -> None:
+    script = REPO_ROOT / EDGE_PREFLIGHT_SCRIPT
+    package_json = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert script.exists()
+    source = script.read_text(encoding="utf-8")
+    assert package_json["scripts"]["edge:preflight"] == f"sh {EDGE_PREFLIGHT_SCRIPT}"
+    assert "nvidia-ctk runtime configure --runtime=docker" in source
+    assert "docker info" in source
+    assert "nvidia-container-runtime" in source
+    assert "docker compose pull" not in source
+    assert "docker compose up" not in source
 
 
 def test_api_image_does_not_copy_worker_package() -> None:
@@ -202,8 +255,8 @@ def test_worker_imports_no_api_or_serving_packages() -> None:
 
 def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
-    api_env = services["ml-api"].get("environment", {})
-    worker_env = services["ml-worker"].get("environment", {})
+    api_env = _mapping_field(services["ml-api"], "environment")
+    worker_env = _mapping_field(services["ml-worker"], "environment")
 
     assert "API_BACKEND_EVENTS_URL" in api_env
     assert "API_BACKEND_" + "ALERT_URL" not in api_env
@@ -216,3 +269,12 @@ def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     assert "API_BACKEND_EVENTS_URL" not in worker_env
     assert "API_" + "INGEST_" + "KEY_ID" not in worker_env
     assert "API_" + "INGEST_" + "SECRET" not in worker_env
+
+
+def test_edge_compose_wires_worker_probe_origin_to_ml_api_only() -> None:
+    services = _compose_services(EDGE_COMPOSE_FILE)
+    api_env = services["ml-api"].get("environment", {})
+
+    assert api_env["ML_API_WORKER_PROBE_ORIGIN"] == (
+        "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    )
