@@ -159,10 +159,10 @@ def mask_rtsp_url(rtsp_url: str) -> str:
         parsed = urlsplit(rtsp_url)
         port = parsed.port
     except ValueError:
-        return rtsp_url
+        return "RTSP URL masked"
     if not parsed.hostname:
-        return rtsp_url
-    host = parsed.hostname
+        return "RTSP URL masked"
+    host = "redacted-camera"
     if port is not None:
         host = f"{host}:{port}"
     if parsed.username is None and parsed.password is None:

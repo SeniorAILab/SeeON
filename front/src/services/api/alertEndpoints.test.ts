@@ -159,7 +159,7 @@ describe("alerts API seam", () => {
     const alert = mapAlert(baseDto);
 
     expect(alert.status).toBe("NEW");
-    expect(alert.kakaoAlertStatus).toBe("SENT");
+    expect(alert.kakaoAlertStatus).toBe("PENDING");
   });
 
   it("maps an ACKED alert with legacy acknowledged badge and actor name", () => {
@@ -219,5 +219,52 @@ describe("alerts API seam", () => {
     requestJsonMock.mockResolvedValue([{ ...baseDto, id: 123 }]);
 
     await expect(listAlertsEndpoint()).rejects.toThrow("Malformed alert response");
+  });
+});
+
+describe("mapAlertDto/mapAlert kakaoAlertStatus equivalence", () => {
+  const baseBackendDto = {
+    alertSeq: "10",
+    id: "a1",
+    facilityId: "fac_happy_nokyang",
+    residentId: "r1",
+    cameraId: "cam_sp_201",
+    spaceId: "sp_201",
+    room: "201호",
+    type: "bed-exit",
+    probability: 0.91,
+    snapshotKey: null,
+    detectedAt: "2026-06-22T00:00:00.000Z",
+  };
+
+  const baseAlertDto: AlertDto = {
+    alertSeq: "seq-1",
+    id: "a1",
+    facilityId: "f1",
+    residentId: "r1",
+    cameraId: null,
+    spaceId: "s1",
+    room: "101호",
+    type: "fall",
+    probability: 0.91,
+    snapshotKey: null,
+    detectedAt: "2026-06-27T01:00:00.000Z",
+  };
+
+  // The live dashboard (mapAlertDto) and the staff alert-history page (mapAlert)
+  // must agree on kakaoAlertStatus for the same backend status — see #503.
+  // Covers the full Prisma AlertStatus enum (NEW/ACKED/RESOLVED); mapAlertDto's
+  // extra SENDING/SENT/FAILED branches are defensive and unreachable via the
+  // real Alert.status contract on either path.
+  it.each([
+    ["NEW", "PENDING"],
+    ["ACKED", "ACKNOWLEDGED"],
+    ["RESOLVED", "ACKNOWLEDGED"],
+  ] as const)("status %s maps to %s on both parsers", (backendStatus, expected) => {
+    const dashboardAlert = mapAlertDto({ ...baseBackendDto, status: backendStatus });
+    const historyAlert = mapAlert({ ...baseAlertDto, status: backendStatus });
+
+    expect(dashboardAlert.kakaoAlertStatus).toBe(expected);
+    expect(historyAlert.kakaoAlertStatus).toBe(expected);
   });
 });

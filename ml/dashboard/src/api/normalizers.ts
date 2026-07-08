@@ -54,7 +54,18 @@ function maskRtsp(value: string | null): string {
   if (!value) {
     return 'RTSP URL 비공개';
   }
-  return value.replace(/(rtsp[s]?:\/\/)([^:@/]+):([^@/]+)@/i, '$1$2:***@');
+  try {
+    const url = new URL(value);
+    if (!url.hostname) {
+      return 'RTSP URL 비공개';
+    }
+    url.hostname = 'redacted-camera';
+    url.username = url.username ? '***' : '';
+    url.password = url.password ? '***' : '';
+    return url.toString();
+  } catch {
+    return 'RTSP URL 비공개';
+  }
 }
 
 export function normalizeCamera(value: unknown): Camera | null {

@@ -1,3 +1,5 @@
+import type { CameraStatus } from './api/client';
+
 export type FeedEvent = {
   id: string;
   cameraId: string | null;
@@ -143,4 +145,41 @@ export function extractHeartbeat(status: unknown): string {
   }
 
   return summarize(status);
+}
+
+export function extractCameraRuntimeStatuses(status: unknown): Record<string, CameraStatus> | null {
+  if (!isRecord(status) || !isRecord(status.cameras)) {
+    return null;
+  }
+
+  const statuses: Record<string, CameraStatus> = {};
+  for (const [cameraId, value] of Object.entries(status.cameras)) {
+    if (!isRecord(value)) {
+      continue;
+    }
+    const runtimeStatus = normalizeRuntimeStatus(pickString(value, ['status']));
+    if (runtimeStatus !== null) {
+      statuses[cameraId] = runtimeStatus;
+    }
+  }
+  return statuses;
+}
+
+function normalizeRuntimeStatus(status: string | null): CameraStatus | null {
+  if (status === 'online') {
+    return 'online';
+  }
+  if (status === 'stale' || status === 'offline' || status === 'DEGRADED' || status === 'OFFLINE') {
+    return 'offline';
+  }
+  if (status === 'never_seen' || status === 'starting' || status === 'STARTING') {
+    return 'starting';
+  }
+  if (status === 'READY') {
+    return 'online';
+  }
+  if (status === 'unknown') {
+    return 'unknown';
+  }
+  return null;
 }
