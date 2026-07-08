@@ -189,7 +189,8 @@ export function mapAlert(dto: AlertDto): AlertView {
     resolvedAt: dto.resolvedAt ?? null,
     resolvedByName: dto.resolvedBy?.nickname ?? null,
     residentName: dto.resident?.name ?? null,
-    kakaoAlertStatus: (dto.status ?? "NEW") === "NEW" ? "SENT" : "ACKNOWLEDGED",
+    // Canonical status mapping (shared with mapAlertDto) — see mapStatus; NEW -> PENDING.
+    kakaoAlertStatus: mapStatus(dto.status ?? "NEW"),
   };
 }
 

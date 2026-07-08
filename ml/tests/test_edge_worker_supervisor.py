@@ -33,6 +33,12 @@ class _FailingSource:
         yield
 
 
+class _EmptySource:
+    def __iter__(self) -> Iterator[Frame]:
+        return
+        yield
+
+
 class _RecoveringSource:
     def __init__(self) -> None:
         self._on_reconnecting = None
@@ -77,6 +83,15 @@ class _ObservationRecorder:
         self.observations.append(observation)
 
 
+class _HeartbeatSink:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def send_heartbeat(self) -> bool:
+        self.calls += 1
+        return True
+
+
 def test_one_offline_camera_does_not_stop_other_three() -> None:
     status_store = StatusStore()
     workers = [
@@ -94,6 +109,46 @@ def test_one_offline_camera_does_not_stop_other_three() -> None:
     assert _camera_status(status_store, "camera-1") == CameraStatus.READY
     assert _camera_status(status_store, "camera-2") == CameraStatus.READY
     assert _camera_status(status_store, "camera-4") == CameraStatus.READY
+
+
+def test_heartbeats_are_sent_only_for_ready_cameras() -> None:
+    status_store = StatusStore()
+    ready_sink = _HeartbeatSink()
+    degraded_sink = _HeartbeatSink()
+    starting_sink = _HeartbeatSink()
+    workers = [
+        _worker("ready-camera", _FiniteSource(10), status_store),
+        _worker("degraded-camera", _FiniteSource(20), status_store),
+        _worker("starting-camera", _FiniteSource(30), status_store),
+        _worker("unknown-camera", _FiniteSource(40), status_store),
+    ]
+    supervisor = EdgeWorkerSupervisor.from_workers(
+        workers,
+        status_store=status_store,
+        heartbeat_sinks={
+            "ready-camera": ready_sink,
+            "degraded-camera": degraded_sink,
+            "starting-camera": starting_sink,
+        },
+    )
+    status_store.set_status("ready-camera", "facility-1", CameraStatus.READY)
+    status_store.set_status("degraded-camera", "facility-1", CameraStatus.DEGRADED)
+    status_store.set_status("starting-camera", "facility-1", CameraStatus.STARTING)
+
+    supervisor._send_heartbeats()
+
+    assert ready_sink.calls == 1
+    assert degraded_sink.calls == 0
+    assert starting_sink.calls == 0
+
+
+def test_source_without_decoded_frames_never_marks_camera_ready() -> None:
+    status_store = StatusStore()
+    worker = _worker("camera-1", _EmptySource(), status_store)
+    supervisor = EdgeWorkerSupervisor.from_workers((worker,), status_store=status_store)
+
+    assert supervisor.run(max_frames_per_camera=1) == {"camera-1": 0}
+    assert _camera_status(status_store, "camera-1") == CameraStatus.STARTING
 
 
 def test_rtsp_liveness_transitions_degraded_to_ready_on_recovery() -> None:
