@@ -307,9 +307,24 @@ def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     assert "API_" + "INGEST_" + "SECRET" not in worker_env
 
 
+def test_edge_compose_wires_worker_overlay_stream_to_ml_api_only() -> None:
+    services = _compose_services(EDGE_COMPOSE_FILE)
+    api_env = _mapping_field(services["ml-api"], "environment")
+    worker_env = _mapping_field(services["ml-worker"], "environment")
+    worker_ports = _list_field(services["ml-worker"], "ports")
+
+    assert api_env["ML_API_WORKER_STREAM_ORIGIN"] == (
+        "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    )
+    assert worker_env["ML_WORKER_DEV_MJPEG"] == "${ML_WORKER_DEV_MJPEG:-true}"
+    assert worker_env["ML_WORKER_DEV_MJPEG_HOST"] == "0.0.0.0"
+    assert worker_env["ML_WORKER_DEV_MJPEG_PORT"] == "${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    assert worker_ports == []
+
+
 def test_edge_compose_wires_worker_probe_origin_to_ml_api_only() -> None:
     services = _compose_services(EDGE_COMPOSE_FILE)
-    api_env = services["ml-api"].get("environment", {})
+    api_env = _mapping_field(services["ml-api"], "environment")
 
     assert api_env["ML_API_WORKER_PROBE_ORIGIN"] == (
         "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
