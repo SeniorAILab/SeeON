@@ -23,6 +23,10 @@ from events.edge_ingest_client import DEFAULT_TIMEOUT_SEC, EdgeIngestClient
 
 API_BACKEND_EVENTS_URL_ENV = "API_BACKEND_EVENTS_URL"
 API_EDGE_RELAY_TOKEN_ENV = "API_EDGE_RELAY_TOKEN"
+# Shared secret for the ml-api -> backend Event API bearer auth (issue #552).
+# Name matches the backend's EdgeFacilityTokenGuard config key exactly so the
+# same value can be copied verbatim across the edge and host env files.
+EDGE_FACILITY_TOKEN_ENV = "EDGE_FACILITY_TOKEN"
 API_CAMERA_INVENTORY_ENV = "API_CAMERA_INVENTORY"
 API_FACILITY_ID_ENV = "API_FACILITY_ID"
 API_BACKEND_CONFIG_URL_ENV = "API_BACKEND_CONFIG_URL"
@@ -78,6 +82,7 @@ def _configure_backend_ingest(app: FastAPI) -> None:
         events_url=events_url,
         camera_id=str(first_camera.get("camera_id", "api-relay")),
         timeout_sec=_backend_ingest_timeout_sec(),
+        bearer_token=os.environ.get(EDGE_FACILITY_TOKEN_ENV),
     )
 
 
