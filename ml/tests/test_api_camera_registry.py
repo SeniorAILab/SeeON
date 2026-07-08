@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Self, TypedDict
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.camera_registry import CameraRegistryStore, ProbeResult, public_camera
+from api.camera_registry import CameraRegistryStore, public_camera
+from api.config import get_settings
 from api.main import create_app, no_lifespan
 from contracts.worker_config import PulledCameraConfig, PulledNightWindow, PulledWorkerConfig
 from worker.config_pull import load_edge_worker_config_from_relay
@@ -43,7 +45,7 @@ class FakeHTTPResponse:
 
 
 @pytest.fixture(autouse=True)
-def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def clear_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for name in (
         "API_CAMERA_STORE",
         "API_EDGE_RELAY_TOKEN",
@@ -58,8 +60,12 @@ def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "ML_WORKER_STATE_DIR",
         "RELAY_TOKEN",
         "RELAY_URL",
+        "ML_API_WORKER_PROBE_ORIGIN",
     ):
         monkeypatch.delenv(name, raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
@@ -71,13 +77,22 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
     monkeypatch.setenv("API_FACILITY_ID", "facility-1")
     monkeypatch.setenv("API_BACKEND_EDGE_CAMERAS_URL", "http://backend/api/v1/edge/cameras")
     monkeypatch.setenv("API_FACILITY_TOKEN", "facility-token")
-    monkeypatch.setattr(
-        "api.routes.cameras.probe_rtsp_url",
-        lambda rtsp_url: ProbeResult(ok=False, error_class="timeout"),
-    )
+    monkeypatch.setenv("ML_API_WORKER_PROBE_ORIGIN", "http://worker.local:8090")
     captured: list[CapturedBackendCall] = []
+    probe_calls: list[dict[str, object]] = []
 
     def fake_urlopen(request, timeout: float) -> FakeHTTPResponse:
+        if request.full_url == "http://worker.local:8090/probe":
+            probe_calls.append(
+                {
+                    "url": request.full_url,
+                    "method": request.get_method(),
+                    "relay_token": request.headers.get("X-edge-relay-token"),
+                    "body": json.loads(request.data.decode("utf-8")),
+                    "timeout": timeout,
+                }
+            )
+            return FakeHTTPResponse({"ok": False, "error_class": "timeout"})
         decoded_body = json.loads(request.data.decode("utf-8"))
         assert isinstance(decoded_body, dict)
         captured.append(
@@ -107,8 +122,10 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
         assert created.status_code == 201
         camera = created.json()
         assert camera["label"] == "Lobby"
-        assert camera["rtsp_url_masked"] == "rtsp://***:***@camera.local:8554/live"
-        assert "secret" not in json.dumps(camera)
+        assert camera["rtsp_url_masked"] == "rtsp://***:***@redacted-camera:8554/live"
+        camera_json = json.dumps(camera)
+        assert "secret" not in camera_json
+        assert "camera.local" not in camera_json
         assert camera["backend_camera_id"] == "backend-camera-1"
         assert camera["id"] == "backend-camera-1"
         assert camera["status"] == "offline"
@@ -165,18 +182,36 @@ def test_camera_registry_crud_masks_rtsp_versions_and_worker_config_auth(
         after_delete = client.get("/api/v1/cameras", headers=AUTH).json()
         assert after_delete == {"registry_version": 3, "cameras": []}
 
+    captured_body = captured[0]["body"]
+    assert isinstance(captured_body, dict)
     assert captured[0] == {
         "url": "http://backend/api/v1/edge/cameras",
         "method": "PUT",
         "authorization": "Bearer facility-token",
         "facility_id": "facility-1",
         "body": {
-            "edge_camera_ref": captured[0]["body"]["edge_camera_ref"],
+            "edge_camera_ref": captured_body["edge_camera_ref"],
             "label": "Lobby",
             "spaceId": "space-1",
         },
         "timeout": 0.5,
     }
+    assert probe_calls == [
+        {
+            "url": "http://worker.local:8090/probe",
+            "method": "POST",
+            "relay_token": "relay-token",
+            "body": {"rtsp_url": "rtsp://user:secret@camera.local:8554/live"},
+            "timeout": 5.0,
+        },
+        {
+            "url": "http://worker.local:8090/probe",
+            "method": "POST",
+            "relay_token": "relay-token",
+            "body": {"rtsp_url": "rtsp://user:secret@camera.local:8554/live"},
+            "timeout": 5.0,
+        },
+    ]
 
 
 def test_worker_config_uses_registry_first_and_metadata_from_backend_pull(tmp_path) -> None:
@@ -312,7 +347,7 @@ def test_example_camera_registry_seed_is_loadable_and_sanitized() -> None:
     assert public == {
         "id": "example-room-camera",
         "label": "Example Room Camera",
-        "rtsp_url_masked": "rtsp://camera.example.invalid/trackID=1",
+        "rtsp_url_masked": "rtsp://redacted-camera/trackID=1",
         "space_id": "example-room",
         "backend_camera_id": None,
         "status": "unknown",

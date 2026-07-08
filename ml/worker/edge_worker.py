@@ -115,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
 
     status_store = StatusStore()
     mjpeg_server: MjpegServer | None = None
+    effective_relay_token = _effective_relay_token(effective_config, relay_token)
     if effective_config.dev_mjpeg.enabled or dev_mjpeg_enabled():
         overlay_buffer = OverlayFrameBuffer()
         for camera in effective_config.cameras:
@@ -131,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
                 if effective_config.dev_mjpeg.enabled
                 else dev_mjpeg_port()
             ),
+            probe_token=effective_relay_token,
         )
         mjpeg_server.start()
         overlay_publisher = OverlayPublisher(overlay_buffer)
@@ -148,11 +150,11 @@ def main(argv: list[str] | None = None) -> int:
             status_store,
             overlay_publisher=overlay_publisher,
             config_version=config_version,
-            restart_check=_restart_check(relay_url, relay_token, boot_registry_version),
+            restart_check=_restart_check(relay_url, effective_relay_token, boot_registry_version),
             yaml_config=startup.yaml_config,
             pulled=startup.pulled,
             relay_url=relay_url,
-            relay_token=relay_token,
+            relay_token=effective_relay_token,
             clip_recorder=clip_recorder,
         )
     except (ModelLoadError, TypeError) as exc:
@@ -213,6 +215,11 @@ def _parse_args(args: list[str]) -> _Options:
         max_frames_per_camera=max_frames_per_camera,
         heartbeat_on_start=heartbeat_on_start,
     )
+
+
+def _effective_relay_token(config: EdgeWorkerConfig, relay_token: str | None) -> str:
+    env_token = relay_token.strip() if relay_token is not None else ""
+    return env_token or config.relay.token.get_secret_value()
 
 
 def _load_startup_config(options: _Options) -> _StartupConfig:
