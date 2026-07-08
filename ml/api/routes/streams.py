@@ -99,7 +99,7 @@ def camera_snapshot(
     finally:
         upstream.close()
 
-    return Response(content=body, media_type=content_type)
+    return Response(content=body, media_type=content_type, headers={"Cache-Control": "no-store"})
 
 
 def _worker_url(origin: str, segment: str, camera_id: str) -> str:

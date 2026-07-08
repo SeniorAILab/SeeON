@@ -190,6 +190,7 @@ def test_snapshot_proxy_forwards_jpeg_with_query_token(monkeypatch: pytest.Monke
     assert response.status_code == 200
     assert response.content == body
     assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "no-store"
     assert calls == [
         {
             "url": "http://worker.local:8090/snapshot/cam_sp_201",
