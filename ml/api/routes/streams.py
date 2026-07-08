@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from typing import Annotated, Protocol
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from api.config import get_settings
 from api.lifespan import API_EDGE_RELAY_TOKEN_ENV
@@ -66,7 +66,43 @@ def camera_stream(
     )
 
 
-def _stream_url(origin: str, camera_id: str) -> str:
+@router.get("/streams/{camera_id}/snapshot")
+def camera_snapshot(
+    camera_id: str,
+    request: Request,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    token: Annotated[str | None, Query()] = None,
+) -> Response:
+    _authorize(request, authorization, query_token=token)
+    settings = get_settings()
+    upstream_url = _snapshot_url(settings.worker_stream_origin, camera_id)
+    upstream_request = urllib.request.Request(upstream_url, method="GET")
+
+    try:
+        upstream: _ReadableResponse = urllib.request.urlopen(
+            upstream_request,
+            timeout=settings.worker_stream_timeout_s,
+        )
+    except urllib.error.HTTPError as exc:
+        raise _upstream_unavailable(exc.code) from exc
+    except urllib.error.URLError as exc:
+        raise _upstream_unavailable(status.HTTP_503_SERVICE_UNAVAILABLE) from exc
+
+    upstream_status = int(getattr(upstream, "status", status.HTTP_200_OK))
+    if upstream_status != status.HTTP_200_OK:
+        upstream.close()
+        raise _upstream_unavailable(upstream_status)
+
+    try:
+        body = upstream.read()
+        content_type = _content_type(upstream)
+    finally:
+        upstream.close()
+
+    return Response(content=body, media_type=content_type, headers={"Cache-Control": "no-store"})
+
+
+def _worker_url(origin: str, segment: str, camera_id: str) -> str:
     base = origin.strip().rstrip("/")
     if not base:
         raise HTTPException(
@@ -74,7 +110,15 @@ def _stream_url(origin: str, camera_id: str) -> str:
             detail="worker stream origin is not configured",
         )
     encoded_camera_id = urllib.parse.quote(camera_id, safe="")
-    return f"{base}/stream/{encoded_camera_id}"
+    return f"{base}/{segment}/{encoded_camera_id}"
+
+
+def _stream_url(origin: str, camera_id: str) -> str:
+    return _worker_url(origin, "stream", camera_id)
+
+
+def _snapshot_url(origin: str, camera_id: str) -> str:
+    return _worker_url(origin, "snapshot", camera_id)
 
 
 def _iter_upstream(upstream: _ReadableResponse) -> Iterator[bytes]:

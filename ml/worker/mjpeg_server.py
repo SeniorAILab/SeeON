@@ -134,17 +134,28 @@ class MjpegServer:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802 - stdlib hook
                 path = urlsplit(self.path).path
-                prefix = "/stream/"
-                if not path.startswith(prefix):
+                stream_prefix = "/stream/"
+                snapshot_prefix = "/snapshot/"
+                if path.startswith(stream_prefix):
+                    self._handle_stream(unquote(path[len(stream_prefix) :]))
+                elif path.startswith(snapshot_prefix):
+                    self._handle_snapshot(unquote(path[len(snapshot_prefix) :]))
+                else:
                     self.send_error(HTTPStatus.NOT_FOUND)
-                    return
-                camera_id = unquote(path[len(prefix) :])
+
+            def _resolve_frame(self, camera_id: str) -> OverlayFrame | None:
                 if camera_id == "" or not buffer.is_known(camera_id):
                     self.send_error(HTTPStatus.NOT_FOUND)
-                    return
+                    return None
                 frame = buffer.get_latest(camera_id)
                 if frame is None:
                     self.send_error(HTTPStatus.SERVICE_UNAVAILABLE)
+                    return None
+                return frame
+
+            def _handle_stream(self, camera_id: str) -> None:
+                frame = self._resolve_frame(camera_id)
+                if frame is None:
                     return
                 self.send_response(HTTPStatus.OK)
                 self.send_header(
@@ -173,6 +184,19 @@ class MjpegServer:
                     last_sent = frame
                     last_send_at = now
 
+            def _handle_snapshot(self, camera_id: str) -> None:
+                frame = self._resolve_frame(camera_id)
+                if frame is None:
+                    return
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", frame.content_type)
+                self.send_header("Content-Length", str(len(frame.jpeg)))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                try:
+                    self.wfile.write(frame.jpeg)
+                except (TimeoutError, BrokenPipeError, ConnectionResetError):
+                    return
             def do_POST(self) -> None:  # noqa: N802 - stdlib hook
                 path = urlsplit(self.path).path
                 if path != "/probe":
