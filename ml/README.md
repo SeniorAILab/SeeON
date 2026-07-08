@@ -82,6 +82,20 @@ the `ml-api-state` volume so operator-created camera registry state survives
 container recreates. Treat this as edge-local state: back it up for manual edge
 operation, or replace it with backend config pull for managed production rollout.
 
+For first-stream QA before the backend camera config API is populated, seed the
+ml-api camera registry from the sanitized example and then edit only the private
+runtime copy:
+
+```bash
+mkdir -p ml/.runtime/ml-api
+cp ml/api/cameras.example.json ml/.runtime/ml-api/cameras.json
+API_CAMERA_STORE=$PWD/ml/.runtime/ml-api/cameras.json pnpm dev:ml
+```
+
+The example uses the reserved `.invalid` domain and contains no credentials,
+real camera IPs, or tokens. Replace its `rtsp_url` only inside
+`ml/.runtime/ml-api/cameras.json`; that runtime directory is gitignored.
+
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future
 NVIDIA dGPU support needs release-matrix pinning before operators can rely on it.
