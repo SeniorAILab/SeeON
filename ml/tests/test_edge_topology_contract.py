@@ -254,3 +254,12 @@ def test_edge_compose_keeps_backend_event_url_on_api_only() -> None:
     assert "API_BACKEND_EVENTS_URL" not in worker_env
     assert "API_" + "INGEST_" + "KEY_ID" not in worker_env
     assert "API_" + "INGEST_" + "SECRET" not in worker_env
+
+
+def test_edge_compose_wires_worker_probe_origin_to_ml_api_only() -> None:
+    services = _compose_services(EDGE_COMPOSE_FILE)
+    api_env = services["ml-api"].get("environment", {})
+
+    assert api_env["ML_API_WORKER_PROBE_ORIGIN"] == (
+        "http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}"
+    )
