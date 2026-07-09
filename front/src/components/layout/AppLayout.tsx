@@ -10,6 +10,7 @@ import {
   X,
   LayoutGrid,
   MonitorPlay,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
@@ -84,6 +85,7 @@ export function AppLayout() {
     { to: routeFacilityId ? adminPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "상세 대시보드", Icon: LayoutGrid, show: true },
     { to: routeFacilityId ? adminPath(routeFacilityId, "events") : FACILITIES_PICKER_PATH, label: "이벤트", Icon: Bell, show: true },
     { to: routeFacilityId ? adminPath(routeFacilityId, "monitor-settings") : FACILITIES_PICKER_PATH, label: "모니터 설정", Icon: MonitorPlay, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "alert-settings") : FACILITIES_PICKER_PATH, label: "이메일 알림 설정", Icon: Mail, show: canAdmin(user) },
     { to: routeFacilityId ? adminPath(routeFacilityId, "facility") : FACILITIES_PICKER_PATH, label: "시설 설정", Icon: Building2, show: canAdmin(user) },
     { to: routeFacilityId ? adminPath(routeFacilityId, "spaces") : FACILITIES_PICKER_PATH, label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
     { to: routeFacilityId ? adminPath(routeFacilityId, "users") : FACILITIES_PICKER_PATH, label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
