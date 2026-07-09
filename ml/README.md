@@ -102,4 +102,4 @@ NVIDIA dGPU support needs release-matrix pinning before operators can rely on it
 
 ## Boundaries
 
-ML returns **predictions/facts only** (`fall_probability`, heartbeat, camera facts). Product-level alert decisions - policy, persistence, dedup, Kakao delivery - belong to `backend/`.
+ML returns **predictions/facts only** (`fall_probability`, heartbeat, camera facts). Product-level alert decisions - policy, persistence, dedup, email delivery - belong to `backend/`.
