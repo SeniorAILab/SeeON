@@ -60,7 +60,7 @@ def _recorder(tmp_path: Path, **overrides: object) -> ClipRecorder:
 
 _REQUIRES_FFMPEG = pytest.mark.skipif(
     shutil.which("ffmpeg") is None,
-    reason="clip recorder now encodes via ffmpeg; skip real-encode tests where the binary is absent",
+    reason="requires the ffmpeg binary for real-encode clip tests",
 )
 
 
