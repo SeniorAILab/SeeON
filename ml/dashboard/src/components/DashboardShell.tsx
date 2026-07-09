@@ -1,3 +1,5 @@
+import { useDarkMode } from '../useDarkMode';
+
 export type ScreenId = 'home' | 'cameras' | 'events' | 'system' | 'settings';
 
 type BackendStatusView = {
@@ -32,6 +34,7 @@ export function DashboardShell({
   onAddCamera: () => void;
   children: JSX.Element;
 }): JSX.Element {
+  const { dark, toggle } = useDarkMode();
   return (
     <main className="min-h-screen bg-[#eef2ff] text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-7xl gap-6 p-5 lg:p-8">
@@ -65,6 +68,15 @@ export function DashboardShell({
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className={`rounded-full px-4 py-2 text-sm font-black ring-1 ${backendStatus.className}`}>{backendStatus.label}</span>
+                <button
+                  type="button"
+                  onClick={toggle}
+                  aria-pressed={dark}
+                  aria-label={dark ? '라이트 모드로 전환' : '다크 모드로 전환'}
+                  className="rounded-full border border-border bg-surface px-4 py-3 text-sm font-black text-ink shadow-soft hover:bg-surface2"
+                >
+                  {dark ? '☀️ 라이트' : '🌙 다크'}
+                </button>
                 <button type="button" onClick={onAddCamera} className="rounded-full bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-soft hover:bg-indigo-700">
                   + 카메라 추가
                 </button>
