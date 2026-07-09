@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import shutil
 from collections import namedtuple
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from contracts.event import EventPayload
 from contracts.frame import Frame
@@ -56,6 +58,13 @@ def _recorder(tmp_path: Path, **overrides: object) -> ClipRecorder:
     return ClipRecorder(config, disk_usage_provider=disk_usage_provider)
 
 
+_REQUIRES_FFMPEG = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None,
+    reason="clip recorder now encodes via ffmpeg; skip real-encode tests where the binary is absent",
+)
+
+
+@_REQUIRES_FFMPEG
 def test_clip_recorder_finalizes_atomic_manifest_with_pre_and_post_window(tmp_path: Path) -> None:
     recorder = _recorder(tmp_path)
     recorder.start()
@@ -134,6 +143,7 @@ def test_clip_recorder_ffmpeg_args_enforce_browser_playable_h264() -> None:
     assert args[-1] == "/tmp/clip.mp4"
 
 
+@_REQUIRES_FFMPEG
 def test_clip_recorder_writes_manifest_when_video_append_fails(
     tmp_path: Path, monkeypatch
 ) -> None:
