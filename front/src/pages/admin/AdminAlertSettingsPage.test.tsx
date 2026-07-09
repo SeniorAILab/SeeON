@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminAlertSettingsPage } from "./AdminAlertSettingsPage";
-import { getAlertSettings, updateAlertSettings } from "@/services/api/alertSettings";
+import { getAlertSettings, updateAlertSettings } from "@/services/alertSettingsService";
 
-vi.mock("@/services/api/alertSettings", () => ({
+vi.mock("@/services/alertSettingsService", () => ({
   getAlertSettings: vi.fn(async () => ({
     notificationEmail: null,
     emailAlertsEnabled: true,
