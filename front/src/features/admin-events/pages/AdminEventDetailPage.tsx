@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Film } from "lucide-react";
 import { Card, Button, Textarea } from "@/components/ui/primitives";
 import { RiskBadge } from "@/components/RiskBadge";
-import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
+import { AlertStatusBadge } from "@/components/AlertStatusBadge";
 import { AIInsightBox } from "@/features/admin-events/components/AIInsightBox";
 import { EventTimeline } from "@/features/admin-events/components/EventTimeline";
 import { ActionLogForm } from "@/features/admin-events/components/ActionLogForm";
@@ -18,7 +18,7 @@ import { videoService } from "@/features/admin-events/services/videoService";
 import { useAuthStore } from "@/stores/authStore";
 import { canAcknowledge } from "@/lib/roles";
 import { formatDateTime } from "@/lib/format";
-import { displayEventTypeLabel, kakaoLabel } from "@/lib/labels";
+import { displayEventTypeLabel, alertLabel } from "@/lib/labels";
 import type {
   ActionType,
   DetectionEvent,
@@ -95,7 +95,7 @@ export function AdminEventDetailPage() {
 
   const spaceName = space?.name ?? event.room ?? event.spaceId;
   const floorName = floor?.name ?? "층 정보 없음";
-  const acked = event.kakaoAlertStatus === "ACKNOWLEDGED";
+  const acked = event.alertStatus === "ACKNOWLEDGED";
 
   async function handleAction(type: ActionType, note: string) {
     if (!user || !event) return;
@@ -246,8 +246,8 @@ export function AdminEventDetailPage() {
       <Card className="p-5">
         <div className="mb-3 flex items-center gap-2">
           <h2 className="text-base font-semibold text-ink">알림 / 접근 기록</h2>
-          <KakaoAlertStatusBadge status={event.kakaoAlertStatus} />
-          <span className="text-xs text-ink-faint">{kakaoLabel[event.kakaoAlertStatus]}</span>
+          <AlertStatusBadge status={event.alertStatus} />
+          <span className="text-xs text-ink-faint">{alertLabel[event.alertStatus]}</span>
         </div>
         {clip ? (
           <VideoAccessLogTable videoClipId={clip.id} refreshKey={logKey} />

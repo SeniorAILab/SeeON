@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
-import { kakaoLabel } from "@/lib/labels";
+import { alertLabel } from "@/lib/labels";
 import { MessageCircle, CheckCircle2, Clock, Send, AlertTriangle } from "lucide-react";
-import type { KakaoAlertStatus } from "@/types";
+import type { AlertLifecycleStatus } from "@/types";
 
 const config: Record<
-  KakaoAlertStatus,
+  AlertLifecycleStatus,
   { chip: string; Icon: typeof MessageCircle } | null
 > = {
   NONE: null,
@@ -15,11 +15,11 @@ const config: Record<
   FAILED: { chip: "bg-status-dangerBg text-status-danger", Icon: AlertTriangle },
 };
 
-export function KakaoAlertStatusBadge({
+export function AlertStatusBadge({
   status,
   className,
 }: {
-  status: KakaoAlertStatus;
+  status: AlertLifecycleStatus;
   className?: string;
 }) {
   const c = config[status];
@@ -32,10 +32,10 @@ export function KakaoAlertStatusBadge({
         c.chip,
         className
       )}
-      title="카카오톡 알림 상태"
+      title="알림 상태"
     >
       <Icon className="h-3 w-3" />
-      {kakaoLabel[status]}
+      {alertLabel[status]}
     </span>
   );
 }

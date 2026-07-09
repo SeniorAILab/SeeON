@@ -69,7 +69,7 @@ function statusFromSpace(space: Space): SpaceStatus {
     status: "STABLE",
     aiSummary: "",
     lastDetectedAt: "",
-    kakaoAlertStatus: "NONE",
+    alertStatus: "NONE",
     emergency: false,
   };
 }

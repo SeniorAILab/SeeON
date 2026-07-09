@@ -37,7 +37,7 @@ describe("alertEndpoints", () => {
       eventType: "BED_EXIT",
       riskLevel: "HIGH",
       confidence: 0.91,
-      kakaoAlertStatus: "PENDING",
+      alertStatus: "PENDING",
       room: "201호",
       backendStatus: "NEW",
       backendType: "bed-exit",
@@ -103,7 +103,7 @@ describe("alertEndpoints", () => {
     });
 
     expect(mapped.backendStatus).toBe("RESOLVED");
-    expect(mapped.kakaoAlertStatus).toBe("ACKNOWLEDGED");
+    expect(mapped.alertStatus).toBe("ACKNOWLEDGED");
   });
 
   it("keeps the backend event type string when the frontend domain maps it to OTHER", () => {
@@ -159,7 +159,7 @@ describe("alerts API seam", () => {
     const alert = mapAlert(baseDto);
 
     expect(alert.status).toBe("NEW");
-    expect(alert.kakaoAlertStatus).toBe("PENDING");
+    expect(alert.alertStatus).toBe("PENDING");
   });
 
   it("maps an ACKED alert with legacy acknowledged badge and actor name", () => {
@@ -172,7 +172,7 @@ describe("alerts API seam", () => {
     });
 
     expect(alert.status).toBe("ACKED");
-    expect(alert.kakaoAlertStatus).toBe("ACKNOWLEDGED");
+    expect(alert.alertStatus).toBe("ACKNOWLEDGED");
     expect(alert.ackedByName).toBe("간호사A");
   });
 
@@ -186,7 +186,7 @@ describe("alerts API seam", () => {
     });
 
     expect(alert.status).toBe("RESOLVED");
-    expect(alert.kakaoAlertStatus).toBe("ACKNOWLEDGED");
+    expect(alert.alertStatus).toBe("ACKNOWLEDGED");
   });
   it("accepts a room-level alert without resident fields and omits residentId query", async () => {
     requestJsonMock.mockResolvedValue([
@@ -222,7 +222,7 @@ describe("alerts API seam", () => {
   });
 });
 
-describe("mapAlertDto/mapAlert kakaoAlertStatus equivalence", () => {
+describe("mapAlertDto/mapAlert alertStatus equivalence", () => {
   const baseBackendDto = {
     alertSeq: "10",
     id: "a1",
@@ -252,7 +252,7 @@ describe("mapAlertDto/mapAlert kakaoAlertStatus equivalence", () => {
   };
 
   // The live dashboard (mapAlertDto) and the staff alert-history page (mapAlert)
-  // must agree on kakaoAlertStatus for the same backend status — see #503.
+  // must agree on alertStatus for the same backend status — see #503.
   // Covers the full Prisma AlertStatus enum (NEW/ACKED/RESOLVED); mapAlertDto's
   // extra SENDING/SENT/FAILED branches are defensive and unreachable via the
   // real Alert.status contract on either path.
@@ -264,7 +264,7 @@ describe("mapAlertDto/mapAlert kakaoAlertStatus equivalence", () => {
     const dashboardAlert = mapAlertDto({ ...baseBackendDto, status: backendStatus });
     const historyAlert = mapAlert({ ...baseAlertDto, status: backendStatus });
 
-    expect(dashboardAlert.kakaoAlertStatus).toBe(expected);
-    expect(historyAlert.kakaoAlertStatus).toBe(expected);
+    expect(dashboardAlert.alertStatus).toBe(expected);
+    expect(historyAlert.alertStatus).toBe(expected);
   });
 });

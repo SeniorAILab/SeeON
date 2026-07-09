@@ -16,7 +16,6 @@ interface AuthState {
   init: () => Promise<void>;
   login: (input: LoginInput) => Promise<User>;
   register: (input: RegisterInput) => Promise<User>;
-  kakaoLogin: () => void;
   createFacility: (input: CreateFacilityInput) => Promise<User>;
   logout: () => Promise<void>;
 }
@@ -55,16 +54,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const session = await authService.register(input);
       set({ user: session.user, loading: false });
       return session.user;
-    } catch (error) {
-      set({ error: errorMessage(error), loading: false });
-      throw error;
-    }
-  },
-
-  kakaoLogin: () => {
-    set({ loading: true, error: null });
-    try {
-      authService.startKakaoLogin();
     } catch (error) {
       set({ error: errorMessage(error), loading: false });
       throw error;

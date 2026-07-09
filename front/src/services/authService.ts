@@ -1,6 +1,5 @@
 import {
   createFacilityEndpoint,
-  kakaoLoginUrl,
   loginEndpoint,
   logoutEndpoint,
   registerEndpoint,
@@ -20,10 +19,6 @@ export type {
 } from "./api/authEndpoints";
 
 export const authService = {
-  startKakaoLogin(): void {
-    window.location.assign(kakaoLoginUrl());
-  },
-
   async login(input: LoginInput): Promise<AuthSession> {
     return loginEndpoint(input);
   },

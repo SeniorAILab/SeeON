@@ -19,7 +19,7 @@ function status(spaceId: string, level: SpaceStatus["status"], aiSummary: string
     status: level,
     aiSummary,
     lastDetectedAt: "2026-07-04T00:00:00.000Z",
-    kakaoAlertStatus: level === "STABLE" ? "NONE" : "PENDING",
+    alertStatus: level === "STABLE" ? "NONE" : "PENDING",
   };
 }
 

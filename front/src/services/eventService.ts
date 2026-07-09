@@ -19,7 +19,7 @@ export const eventService = {
   openForSpace(spaceId: string): DetectionEvent | undefined {
     const events = alertCache;
     return events
-      .filter((e) => e.spaceId === spaceId && e.kakaoAlertStatus !== "ACKNOWLEDGED" && e.riskLevel !== "LOW")
+      .filter((e) => e.spaceId === spaceId && e.alertStatus !== "ACKNOWLEDGED" && e.riskLevel !== "LOW")
       .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))[0];
   },
 

@@ -55,7 +55,7 @@ describe("eventService real mode actions", () => {
     );
     expect(event).toMatchObject({
       id: "alert_201",
-      kakaoAlertStatus: "ACKNOWLEDGED",
+      alertStatus: "ACKNOWLEDGED",
       acknowledgedBy: "Care Staff",
     });
   });

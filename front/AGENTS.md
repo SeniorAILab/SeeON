@@ -34,10 +34,9 @@ See `src/AGENTS.md` before changing frontend application code.
 - `src/types/index.ts` mirrors the PRD/API contract for frontend code.
 - Dev/prod/test runtime uses the real backend API seam. Do not reintroduce
   frontend mock auth users, localStorage auth sessions, or runtime demo branches.
-- Login in dev/prod is backend-owned for both email/password and Kakao OAuth.
-  Both paths must mint the same httpOnly backend JWT cookie and restore via
-  `/api/v1/auth/me`. Do not reintroduce frontend mock auth users or localStorage
-  auth sessions.
+- Login in dev/prod is backend-owned email/password auth. It must mint the
+  same httpOnly backend JWT cookie and restore via `/api/v1/auth/me`. Do not
+  reintroduce frontend mock auth users or localStorage auth sessions.
 - `src/data/mockData.ts`, `src/services/db.ts`, and services that import them are
   inactive fixtures kept only for reversibly hidden pages. Do not route live
   runtime code through them; reactivation requires real backend wiring or deletion

@@ -27,7 +27,7 @@ function status(id: string, level: SpaceStatus["status"]): SpaceStatus {
     status: level,
     aiSummary: "확인이 필요합니다.",
     lastDetectedAt: "2026-07-03T00:00:00.000Z",
-    kakaoAlertStatus: "PENDING",
+    alertStatus: "PENDING",
   };
 }
 

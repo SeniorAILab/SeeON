@@ -35,7 +35,7 @@ function status(id: string, level: SpaceStatus["status"]): SpaceStatus {
     status: level,
     aiSummary: "확인이 필요합니다.",
     lastDetectedAt: "2026-07-03T00:00:00.000Z",
-    kakaoAlertStatus: "PENDING",
+    alertStatus: "PENDING",
   };
 }
 
@@ -49,7 +49,7 @@ function alert(overrides: Partial<DetectionEvent> = {}): DetectionEvent {
     message: "낙상 위험",
     aiSummary: "낙상 위험이 감지되었습니다.",
     detectedAt: "2026-07-03T00:00:00.000Z",
-    kakaoAlertStatus: "PENDING",
+    alertStatus: "PENDING",
     actions: [],
     ...overrides,
   };

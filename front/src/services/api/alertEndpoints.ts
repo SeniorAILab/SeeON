@@ -1,5 +1,5 @@
 import { requestJson } from "@/services/apiClient";
-import type { AlertStatus, AlertView, DetectionEvent, DetectionEventType, KakaoAlertStatus, Level } from "@/types";
+import type { AlertLifecycleStatus, AlertStatus, AlertView, DetectionEvent, DetectionEventType, Level } from "@/types";
 
 export interface BackendAlertDto {
   alertSeq: string | number;
@@ -42,7 +42,7 @@ function mapEventType(type: string): DetectionEventType {
   return "OTHER";
 }
 
-function mapStatus(status: string): KakaoAlertStatus {
+function mapStatus(status: string): AlertLifecycleStatus {
   switch (status) {
     case "RESOLVED":
     case "ACKED":
@@ -77,7 +77,7 @@ export function mapAlertDto(dto: BackendAlertDto): FrontendAlert {
   const spaceId = asNullableString(dto.spaceId) ?? "";
   if (!spaceId) throw new Error("Invalid alert spaceId");
   const eventType = mapEventType(type);
-  const kakaoAlertStatus = mapStatus(dto.status);
+  const alertStatus = mapStatus(dto.status);
 
   return {
     id,
@@ -92,8 +92,8 @@ export function mapAlertDto(dto: BackendAlertDto): FrontendAlert {
     message: eventType === "BED_EXIT" ? `${room ?? "호실"} 침상 이탈 감지` : `${room ?? "공간"} 위험 이벤트 감지`,
     aiSummary: eventType === "BED_EXIT" ? "침상 이탈이 감지되었습니다." : "위험 이벤트가 감지되었습니다.",
     detectedAt: asString(dto.detectedAt, "detectedAt"),
-    kakaoAlertStatus,
-    acknowledgedAt: kakaoAlertStatus === "ACKNOWLEDGED" ? new Date().toISOString() : undefined,
+    alertStatus,
+    acknowledgedAt: alertStatus === "ACKNOWLEDGED" ? new Date().toISOString() : undefined,
     actions: [],
     confidence: probability,
     emergency: eventType === "BED_EXIT" || eventType === "FALL_RISK",
@@ -190,7 +190,7 @@ export function mapAlert(dto: AlertDto): AlertView {
     resolvedByName: dto.resolvedBy?.nickname ?? null,
     residentName: dto.resident?.name ?? null,
     // Canonical status mapping (shared with mapAlertDto) — see mapStatus; NEW -> PENDING.
-    kakaoAlertStatus: mapStatus(dto.status ?? "NEW"),
+    alertStatus: mapStatus(dto.status ?? "NEW"),
   };
 }
 

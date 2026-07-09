@@ -22,8 +22,8 @@ export type SpaceStatusLevel = "STABLE" | "CAUTION" | "DANGER" | "CHECK_NEEDED";
 /** 움직임 수준 / 낙상 위험도 공용 3단계 */
 export type Level = "LOW" | "MEDIUM" | "HIGH";
 
-/** 카카오톡 알림 발송 상태 */
-export type KakaoAlertStatus =
+/** 알림 발송 상태 */
+export type AlertLifecycleStatus =
   | "NONE" // 알림 불필요
   | "PENDING" // 알림 필요(발송 대기)
   | "SENDING" // 발송 처리 중
@@ -89,7 +89,7 @@ export interface SpaceStatus {
   status: SpaceStatusLevel;
   aiSummary?: string;
   lastDetectedAt: string; // ISO8601
-  kakaoAlertStatus: KakaoAlertStatus;
+  alertStatus: AlertLifecycleStatus;
   // 상세 패널용 부가 신호
   bedsideActivity?: boolean; // 침대 주변 활동 여부
   prolongedInactivity?: boolean; // 장시간 미움직임 여부
@@ -110,7 +110,7 @@ export interface DetectionEvent {
   message: string;
   aiSummary: string;
   detectedAt: string; // ISO8601
-  kakaoAlertStatus: KakaoAlertStatus;
+  alertStatus: AlertLifecycleStatus;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
   actions: ActionLog[];
@@ -131,7 +131,7 @@ export interface AlertRule {
   facilityId: string;
   spaceId: string | null; // null = 시설 전체 기본 규칙
   minRiskLevel: Level; // 이 위험도 이상이면 알림
-  kakaoEnabled: boolean;
+  emailEnabled: boolean;
   recipients: string[]; // 수신 대상(이름 또는 연락처)
   dayModeEnabled: boolean;
   nightModeEnabled: boolean;
@@ -268,5 +268,5 @@ export interface AlertView {
   resolvedByName: string | null;
   residentName: string | null;
   /** Legacy display compatibility (B1) — derived; never the lifecycle SSOT. */
-  kakaoAlertStatus: KakaoAlertStatus;
+  alertStatus: AlertLifecycleStatus;
 }
