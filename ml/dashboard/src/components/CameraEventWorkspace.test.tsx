@@ -67,6 +67,8 @@ describe('CameraEventLivePanel', () => {
     created_at: null,
     label: null,
     video_path: '/api/v1/clips/clip-1/video',
+    video_available: true,
+    video_error: null,
   };
 
   it('renders the real ml-api stream image for the selected camera and event', () => {
@@ -172,6 +174,8 @@ describe('camera event filtering', () => {
         created_at: null,
         label: null,
         video_path: '/api/v1/clips/clip-2025/video',
+        video_available: true,
+        video_error: null,
       },
       {
         id: 'clip-other',
@@ -181,6 +185,8 @@ describe('camera event filtering', () => {
         created_at: null,
         label: null,
         video_path: '/api/v1/clips/clip-other/video',
+        video_available: true,
+        video_error: null,
       },
     ];
 

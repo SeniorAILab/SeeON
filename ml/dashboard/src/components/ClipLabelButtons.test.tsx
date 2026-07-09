@@ -12,6 +12,8 @@ const clip: Clip = {
   created_at: '2026-07-06T00:00:00.000Z',
   label: null,
   video_path: '/api/v1/clips/clip-1/video',
+  video_available: true,
+  video_error: null,
 };
 
 afterEach(() => {
