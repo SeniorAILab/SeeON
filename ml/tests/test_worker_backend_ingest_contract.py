@@ -343,6 +343,6 @@ def _backend_policy_fields() -> set[str]:
         "dedup_key",
         "deduplication_key",
         "outbox_id",
-        "kakao_template",
-        "kakao_delivery_id",
+        "email_template",
+        "email_delivery_id",
     }
