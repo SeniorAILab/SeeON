@@ -4,7 +4,7 @@ import { labelClip, type Clip, type ClipLabel } from '../api/client';
 const LABELS: Array<{ value: ClipLabel; text: string; className: string }> = [
   { value: 'TRUE_POSITIVE', text: '진짜 낙상', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' },
   { value: 'FALSE_POSITIVE', text: '오탐', className: 'bg-rose-100 text-rose-700 hover:bg-rose-200' },
-  { value: 'UNREVIEWED', text: '미검토', className: 'bg-slate-100 text-slate-700 hover:bg-slate-200' },
+  { value: 'UNREVIEWED', text: '미검토', className: 'bg-surface2 text-ink-soft hover:bg-surface2' },
 ];
 
 type ClipLabelButtonsProps = {
@@ -48,7 +48,7 @@ export function ClipLabelButtons({ clip, onChanged }: ClipLabelButtonsProps): JS
             disabled={busyLabel !== null}
             aria-pressed={clip.label === entry.value}
             className={`rounded-full px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${entry.className} ${
-              clip.label === entry.value ? 'ring-2 ring-indigo-500' : ''
+              clip.label === entry.value ? 'ring-2 ring-brand' : ''
             }`}
           >
             {busyLabel === entry.value ? '저장 중...' : entry.text}
@@ -56,7 +56,7 @@ export function ClipLabelButtons({ clip, onChanged }: ClipLabelButtonsProps): JS
         ))}
       </div>
       {message ? (
-        <p className="mt-2 text-xs font-bold text-slate-500" role="status">
+        <p className="mt-2 text-xs font-bold text-ink-soft" role="status">
           {message}
         </p>
       ) : null}
