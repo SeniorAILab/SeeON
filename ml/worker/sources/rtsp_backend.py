@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Protocol, runtime_checkable
 
 import cv2
@@ -39,6 +40,7 @@ class OpenCVRTSPBackend:
         open_timeout_ms: int,
         read_timeout_ms: int,
     ) -> RTSPCapture:
+        _ensure_rtsp_over_tcp()
         params = [
             cv2.CAP_PROP_OPEN_TIMEOUT_MSEC,
             open_timeout_ms,
@@ -71,5 +73,26 @@ def set_capture_property(capture: RTSPCapture, name: str, value: int) -> None:
     if prop is not None:
         capture.set(prop, value)
 
+_RTSP_OVER_TCP_OPTION = "rtsp_transport;tcp"
 
-__all__ = ["OpenCVRTSPBackend", "RTSPBackend", "RTSPCapture", "set_capture_property"]
+
+def _ensure_rtsp_over_tcp() -> None:
+    """Default OpenCV's FFmpeg RTSP transport to TCP.
+
+    Live H.265 (HEVC) NVR substreams over the default UDP transport drop
+    packets, corrupting reference frames and flooding the decoder with
+    "First slice in a frame missing" / "Could not find ref with POC" /
+    "Error constructing the frame RPS" errors that degrade detection. TCP
+    trades a little latency for a lossless stream. Operators can override
+    the whole option string via OPENCV_FFMPEG_CAPTURE_OPTIONS.
+    """
+    if not os.environ.get("OPENCV_FFMPEG_CAPTURE_OPTIONS"):
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = _RTSP_OVER_TCP_OPTION
+
+
+__all__ = [
+    "OpenCVRTSPBackend",
+    "RTSPBackend",
+    "RTSPCapture",
+    "set_capture_property",
+]
