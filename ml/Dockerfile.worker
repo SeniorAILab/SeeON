@@ -10,6 +10,14 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /app
 
+# ffmpeg is required by the clip recorder for H.264 encoding (h264_nvenc on the
+# edge GPU, libx264 fallback). --no-install-recommends keeps the image lean; the
+# version probe fails the build early if the binary is missing.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && ffmpeg -version
+
 COPY ml/pyproject.toml ml/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-default-groups --group worker --no-install-project

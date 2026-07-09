@@ -96,40 +96,42 @@ def test_clip_recorder_finalizes_atomic_manifest_with_pre_and_post_window(tmp_pa
     assert recorder.stats.finalized_clips == 1
 
 
-def test_clip_recorder_falls_back_to_next_codec_once_per_camera(
-    tmp_path: Path, monkeypatch
-) -> None:
-    recorder = _recorder(tmp_path)
-    calls: list[str] = []
+def test_clip_recorder_selects_nvenc_when_probe_succeeds(monkeypatch) -> None:
+    import worker.clip_recorder as recorder_mod
 
-    class _Writer:
-        def isOpened(self) -> bool:
-            return True
+    monkeypatch.setattr(recorder_mod, "_resolved_encoder", None)
+    monkeypatch.setattr(recorder_mod, "_probe_nvenc", lambda _bin: True)
+    assert recorder_mod._resolve_encoder() == "h264_nvenc"
+    # Resolution is cached per process: a later probe change does not re-resolve.
+    monkeypatch.setattr(recorder_mod, "_probe_nvenc", lambda _bin: False)
+    assert recorder_mod._resolve_encoder() == "h264_nvenc"
 
-        def release(self) -> None:
-            return None
 
-    def _fake_open_writer(path: Path, _frame_size, _fps: float, codec: str):
-        calls.append(codec)
-        if codec == "mp4v":
-            raise RuntimeError("mp4v unavailable")
-        return _Writer()
+def test_clip_recorder_falls_back_to_libx264_when_nvenc_probe_fails(monkeypatch) -> None:
+    import worker.clip_recorder as recorder_mod
 
-    monkeypatch.setattr("worker.clip_recorder._open_writer", _fake_open_writer)
+    monkeypatch.setattr(recorder_mod, "_resolved_encoder", None)
+    monkeypatch.setattr(recorder_mod, "_probe_nvenc", lambda _bin: False)
+    assert recorder_mod._resolve_encoder() == "libx264"
 
-    first_path, _first_writer, first_codec = recorder._open_writer_for_camera(
-        "cam-1", tmp_path, "clip.tmp", (16, 16)
+
+def test_clip_recorder_ffmpeg_args_enforce_browser_playable_h264() -> None:
+    import worker.clip_recorder as recorder_mod
+
+    args = recorder_mod._ffmpeg_encode_args(
+        "ffmpeg", Path("/tmp/clip.mp4"), (640, 360), 5.0, "h264_nvenc"
     )
-    second_path, _second_writer, second_codec = recorder._open_writer_for_camera(
-        "cam-1", tmp_path, "seg", (16, 16)
-    )
-
-    assert first_codec == "MJPG"
-    assert first_path.name == "clip.tmp.avi"
-    assert second_codec == "MJPG"
-    assert second_path.name == "seg.avi"
-    # mp4v is tried once, fails, MJPG is cached; the second open reuses MJPG only.
-    assert calls == ["mp4v", "MJPG", "MJPG"]
+    assert args[0] == "ffmpeg"
+    # rawvideo BGR input contract for the raw-frame stdin pipe.
+    assert "-f" in args and args[args.index("-f") + 1] == "rawvideo"
+    assert "-pix_fmt" in args and "bgr24" in args
+    assert "-i" in args and args[args.index("-i") + 1] == "pipe:0"
+    # Browser-playable output contract, regardless of encoder.
+    assert "-c:v" in args and args[args.index("-c:v") + 1] == "h264_nvenc"
+    assert "-movflags" in args and "+faststart" in args
+    assert "yuv420p" in args
+    assert "640x360" in args
+    assert args[-1] == "/tmp/clip.mp4"
 
 
 def test_clip_recorder_writes_manifest_when_video_append_fails(

@@ -5,6 +5,7 @@ import logging
 import os
 import queue
 import shutil
+import subprocess
 import threading
 import uuid
 from collections.abc import Callable
@@ -28,6 +29,19 @@ CLIP_DISK_HIGH_WATERMARK_ENV = "CLIP_DISK_HIGH_WATERMARK"
 DEFAULT_CLIP_STORE_DIR = "/var/lib/clip-store"
 DEFAULT_RETENTION_DAYS = 30
 DEFAULT_DISK_HIGH_WATERMARK = 0.80
+
+CLIP_FFMPEG_BIN_ENV = "CLIP_FFMPEG_BIN"
+DEFAULT_FFMPEG_BIN = "ffmpeg"
+NVENC_ENCODER = "h264_nvenc"
+SOFTWARE_ENCODER = "libx264"
+
+# Resolved once per process: the FFmpeg H.264 encoder used for every clip.
+# h264_nvenc (NVIDIA hardware) is preferred on the edge GPU; libx264 (software)
+# is the CI / no-GPU fallback. Both always produce H.264 + yuv420p + faststart
+# MP4 so the dashboard <video> tag can play clips in any browser.
+_encoder_lock = threading.Lock()
+_resolved_encoder: str | None = None
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,14 +74,12 @@ class _CodecSpec:
     suffix: str
 
 
-# mp4v (software MPEG-4 in bundled ffmpeg) is browser-playable and reliable on
-# headless OpenCV. avc1 is intentionally excluded: on CI/edge headless builds it
-# resolves to the h264_v4l2m2m hardware encoder, which fails to initialize on
-# machines without a V4L2 device. MJPG/.avi is the last-resort always-works fallback.
-DEFAULT_CODEC_CANDIDATES = (
-    _CodecSpec("mp4v", ".mp4"),
-    _CodecSpec("MJPG", ".avi"),
-)
+# The clip encoder is FFmpeg (see _resolve_encoder). cv2.VideoWriter is not used:
+# on headless CI/edge builds OpenCV cannot emit browser-playable H.264 (avc1
+# resolves to h264_v4l2m2m, which fails without a V4L2 device). FFmpeg with
+# h264_nvenc (edge GPU) or libx264 (fallback) produces a real H.264 MP4 instead.
+# cv2 is still used for frame color conversion and segment decode on the
+# append path, never for encoding.
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +125,7 @@ class _OpenSegment:
     path: Path
     start_time_sec: float
     started_at: datetime
-    writer: cv2.VideoWriter
+    writer: _FfmpegWriter
     codec: str
     frame_count: int = 0
     end_time_sec: float = 0.0
@@ -142,7 +154,7 @@ class _ActiveClip:
     tmp_video_path: Path
     final_video_path: Path | None
     manifest_path: Path
-    writer: cv2.VideoWriter | None
+    writer: _FfmpegWriter | None
     codec: str | None
     started_at: datetime
     start_time_sec: float
@@ -376,7 +388,7 @@ class ClipRecorder:
         final_dir = self.config.store_dir / "clips" / message.clip_id
         staging_dir = self.config.store_dir / "clips" / ".staging" / message.clip_id
         staging_dir.mkdir(parents=True, exist_ok=False)
-        writer: cv2.VideoWriter | None = None
+        writer: _FfmpegWriter | None = None
         tmp_video_path = staging_dir / "clip.tmp.mp4"
         final_video_path: Path | None = staging_dir / "clip.mp4"
         codec: str | None = None
@@ -462,10 +474,15 @@ class ClipRecorder:
             self._rotate()
 
     def _finalize_clip(self, clip: _ActiveClip) -> None:
-        video_available = clip.writer is not None and clip.frame_count > 0
+        writer = clip.writer
         video_error = clip.video_error
-        if clip.writer is not None:
-            clip.writer.release()
+        if writer is not None:
+            writer.release()
+            if writer.failed and video_error is None:
+                video_error = writer.error
+        video_available = (
+            writer is not None and clip.frame_count > 0 and not writer.failed
+        )
         # Write the manifest straight into the final dir and move only the video
         # file. The old approach renamed the whole staging dir onto final_dir,
         # whose directory-rename semantics were environment-fragile (a leftover
@@ -510,22 +527,12 @@ class ClipRecorder:
         directory: Path,
         stem: str,
         frame_size: tuple[int, int],
-    ) -> tuple[Path, cv2.VideoWriter, str]:
-        cached = self._codec_by_camera.get(camera_id)
-        candidates = _codec_candidates(self.config.codec)
-        if cached is not None:
-            candidates = [cached, *(spec for spec in candidates if spec != cached)]
-        last_error: Exception | None = None
-        for spec in candidates:
-            path = directory / f"{stem}{spec.suffix}"
-            try:
-                writer = _open_writer(path, frame_size, self.config.fps, spec.codec)
-            except Exception as exc:  # noqa: BLE001 - try the next encoder
-                last_error = exc
-                continue
-            self._codec_by_camera[camera_id] = spec
-            return path, writer, spec.codec
-        raise RuntimeError(f"failed to open clip writer for camera {camera_id}: {last_error}")
+    ) -> tuple[Path, _FfmpegWriter, str]:
+        encoder = _resolve_encoder()
+        path = directory / f"{stem}.mp4"
+        writer = _open_writer(path, frame_size, self.config.fps, encoder)
+        self._codec_by_camera[camera_id] = _CodecSpec(encoder, ".mp4")
+        return path, writer, encoder
 
 
 
@@ -565,17 +572,6 @@ class ClipRecorder:
                 break
             shutil.rmtree(clip_dir, ignore_errors=True)
 
-def _codec_candidates(preferred: str) -> list[_CodecSpec]:
-    specs = [_CodecSpec(preferred, ".avi" if preferred == "MJPG" else ".mp4")]
-    specs.extend(DEFAULT_CODEC_CANDIDATES)
-    unique: list[_CodecSpec] = []
-    seen: set[str] = set()
-    for spec in specs:
-        if spec.codec in seen:
-            continue
-        seen.add(spec.codec)
-        unique.append(spec)
-    return unique
 
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
@@ -584,18 +580,175 @@ class ClipRecorderProtocol(Protocol):
     ) -> str | None: ...
 
 
+def _ffmpeg_bin() -> str:
+    return _env_str(CLIP_FFMPEG_BIN_ENV, DEFAULT_FFMPEG_BIN)
+
+
+def _ffmpeg_encode_args(
+    ffmpeg_bin: str, path: Path, frame_size: tuple[int, int], fps: float, encoder: str
+) -> list[str]:
+    width, height = frame_size
+    return [
+        ffmpeg_bin,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "bgr24",
+        "-s",
+        f"{width}x{height}",
+        "-r",
+        f"{max(fps, 1.0):g}",
+        "-i",
+        "pipe:0",
+        "-an",
+        "-c:v",
+        encoder,
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(path),
+    ]
+
+
+def _probe_nvenc(ffmpeg_bin: str) -> bool:
+    """Prove NVENC actually encodes, not merely that the encoder is listed.
+
+    Encoder-list presence does not guarantee runtime success: libnvidia-encode
+    may be absent (missing the ``video`` driver capability), the driver may
+    mismatch, or NVENC sessions may be exhausted. A one-frame synthetic encode
+    is the only reliable readiness signal.
+    """
+    cmd = [
+        ffmpeg_bin,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=64x64:r=25:d=0.08",
+        "-frames:v",
+        "1",
+        "-c:v",
+        NVENC_ENCODER,
+        "-f",
+        "null",
+        "-",
+    ]
+    try:
+        completed = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0
+
+
+def _resolve_encoder() -> str:
+    global _resolved_encoder
+    with _encoder_lock:
+        if _resolved_encoder is not None:
+            return _resolved_encoder
+        ffmpeg_bin = _ffmpeg_bin()
+        encoder = NVENC_ENCODER if _probe_nvenc(ffmpeg_bin) else SOFTWARE_ENCODER
+        LOGGER.info("clip recorder using ffmpeg encoder: %s", encoder)
+        _resolved_encoder = encoder
+        return encoder
+
+
+class _FfmpegWriter:
+    """Duck-typed replacement for cv2.VideoWriter backed by an ffmpeg process.
+
+    Exposes only the ``write``/``release`` surface the recorder uses. Frames are
+    piped in as raw bgr24 bytes and muxed to an H.264 + yuv420p + faststart MP4.
+    Any failure is captured on ``failed``/``error`` instead of raised, so a lost
+    encoder degrades a clip to ``video_available=false`` rather than crashing the
+    recorder thread (matching the existing cv2 error-handling seams).
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        frame_size: tuple[int, int],
+        fps: float,
+        encoder: str,
+        ffmpeg_bin: str,
+    ) -> None:
+        self.path = path
+        self.encoder = encoder
+        self.failed = False
+        self.error: str | None = None
+        self._frame_size = frame_size
+        path.parent.mkdir(parents=True, exist_ok=True)
+        args = _ffmpeg_encode_args(ffmpeg_bin, path, frame_size, fps, encoder)
+        try:
+            self._proc: subprocess.Popen[bytes] | None = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as exc:
+            self._proc = None
+            self.failed = True
+            self.error = str(exc)
+            raise RuntimeError(f"failed to start ffmpeg encoder: {exc}") from exc
+
+    def write(self, frame) -> None:  # noqa: ANN001 - numpy dtype carried by Frame
+        proc = self._proc
+        if proc is None or proc.stdin is None or self.failed:
+            return
+        height, width = frame.shape[:2]
+        if (width, height) != self._frame_size:
+            # Rawvideo has no per-frame size; a mismatched frame would desync the
+            # whole stream, so drop it rather than corrupt every later frame.
+            return
+        try:
+            proc.stdin.write(frame.tobytes())
+        except (BrokenPipeError, ValueError, OSError) as exc:
+            self.failed = True
+            self.error = str(exc)
+
+    def release(self) -> None:
+        proc = self._proc
+        if proc is None:
+            return
+        self._proc = None
+        if proc.stdin is not None:
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
+        try:
+            proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+        if proc.returncode not in (0, None) and not self.failed:
+            self.failed = True
+            self.error = f"ffmpeg exited with code {proc.returncode}"
+
+
 def _open_writer(
-    path: Path, frame_size: tuple[int, int], fps: float, codec: str
-) -> cv2.VideoWriter:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*codec), fps, frame_size)
-    if not writer.isOpened():
-        writer.release()
-        raise RuntimeError(f"failed to open clip writer: {path}")
-    return writer
+    path: Path, frame_size: tuple[int, int], fps: float, encoder: str
+) -> _FfmpegWriter:
+    return _FfmpegWriter(path, frame_size, fps, encoder, _ffmpeg_bin())
 
 
-def _append_video(path: Path, writer: cv2.VideoWriter) -> int:
+def _append_video(path: Path, writer: _FfmpegWriter) -> int:
     capture = cv2.VideoCapture(str(path))
     frames = 0
     try:
