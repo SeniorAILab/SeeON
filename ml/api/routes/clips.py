@@ -16,6 +16,15 @@ from api.lifespan import API_EDGE_RELAY_TOKEN_ENV
 
 router = APIRouter(tags=["clips"])
 
+_MEDIA_TYPES = {
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mkv": "video/x-matroska",
+    ".avi": "video/x-msvideo",
+    ".mov": "video/quicktime",
+    ".m4v": "video/x-m4v",
+}
+
 
 class ClipManifestResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -26,8 +35,10 @@ class ClipManifestResponse(BaseModel):
     event_type: str | None = Field(default=None, min_length=1)
     started_at: str = Field(min_length=1)
     duration_s: float = Field(ge=0)
-    codec: str = Field(min_length=1)
-    path: str = Field(min_length=1)
+    codec: str = Field(default="")
+    path: str | None = Field(default=None)
+    video_available: bool
+    video_error: str | None = Field(default=None)
     finalized: bool
 
 
@@ -79,6 +90,11 @@ def clip_video(
 ) -> FileResponse:
     actor = _authorize(request, authorization, query_token=token)
     manifest = _get_manifest_or_404(request, clip_id)
+    if not manifest.video_available or manifest.path is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="clip video not available",
+        )
     try:
         video_path = _clip_store(request).resolve_video_path(manifest)
     except ValueError as exc:
@@ -198,11 +214,7 @@ def _bearer_token(value: str | None) -> str | None:
 
 def _media_type(filename: str) -> str:
     suffix = filename.rsplit(".", maxsplit=1)[-1].lower() if "." in filename else ""
-    if suffix == "webm":
-        return "video/webm"
-    if suffix == "mkv":
-        return "video/x-matroska"
-    return "video/mp4"
+    return _MEDIA_TYPES.get(f".{suffix}", "application/octet-stream")
 
 
 __all__ = ["router"]

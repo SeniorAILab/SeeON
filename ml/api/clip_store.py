@@ -29,7 +29,9 @@ class ClipManifest:
     started_at: str
     duration_s: float
     codec: str
-    path: str
+    path: str | None
+    video_available: bool
+    video_error: str | None
     finalized: bool
 
     def as_response(self) -> dict[str, object]:
@@ -42,6 +44,8 @@ class ClipManifest:
             "duration_s": self.duration_s,
             "codec": self.codec,
             "path": self.path,
+            "video_available": self.video_available,
+            "video_error": self.video_error,
             "finalized": self.finalized,
         }
 
@@ -97,6 +101,8 @@ class ClipStore:
         return manifest
 
     def resolve_video_path(self, manifest: ClipManifest) -> Path:
+        if manifest.path is None:
+            raise FileNotFoundError(str(self.root))
         raw_path = Path(manifest.path)
         candidate = raw_path if raw_path.is_absolute() else self.root / raw_path
         resolved = candidate.resolve(strict=False)
@@ -169,10 +175,14 @@ def _manifest_from_mapping(data: dict[str, object]) -> ClipManifest | None:
     event_type = _text(data.get("event_type")) or None
     started_at = _text(data.get("started_at"))
     codec = _text(data.get("codec"))
-    path = _text(data.get("path"))
+    path = _text(data.get("path")) or None
+    video_error = _text(data.get("video_error")) or None
+    video_available_raw = data.get("video_available")
     finalized = data.get("finalized")
     duration_s = data.get("duration_s")
-    if not all((clip_id, camera_id, event_ref, started_at, codec, path)):
+    # Path-less manifests are kept as diagnostic rows so the event->clip
+    # correlation survives even when the encoder produced no playable video.
+    if not all((clip_id, camera_id, event_ref, started_at)):
         return None
     if not is_valid_clip_id(clip_id):
         return None
@@ -180,6 +190,11 @@ def _manifest_from_mapping(data: dict[str, object]) -> ClipManifest | None:
         return None
     if isinstance(duration_s, bool) or not isinstance(duration_s, int | float):
         return None
+    if isinstance(video_available_raw, bool):
+        video_available = video_available_raw
+    else:
+        # Legacy manifests predate the field: assume playable when a path exists.
+        video_available = path is not None
     return ClipManifest(
         clip_id=clip_id,
         camera_id=camera_id,
@@ -189,6 +204,8 @@ def _manifest_from_mapping(data: dict[str, object]) -> ClipManifest | None:
         duration_s=float(duration_s),
         codec=codec,
         path=path,
+        video_available=video_available,
+        video_error=video_error,
         finalized=finalized,
     )
 
