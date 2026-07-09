@@ -53,11 +53,11 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
   }
 
   return (
-    <main className="min-h-screen bg-[#eef2ff] p-5 text-slate-900">
+    <main className="min-h-screen bg-[#eef2ff] p-5 text-ink">
       <section className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-5xl items-center justify-center">
-        <div className="grid w-full overflow-hidden rounded-4xl bg-white shadow-glow lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid w-full overflow-hidden rounded-4xl bg-surface shadow-glow lg:grid-cols-[0.9fr_1.1fr]">
           <aside className="bg-slate-950 p-8 text-white">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500 text-xl font-black">E</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-xl font-black">E</div>
             <h1 className="mt-8 text-3xl font-black leading-tight">엣지 카메라 대시보드</h1>
             <p className="mt-4 text-sm leading-6 text-slate-300">
               로컬 운영 화면은 단순 관리자 계정으로 보호합니다.
@@ -67,37 +67,37 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
             </p>
           </aside>
           <form className="p-8" onSubmit={handleSubmit} noValidate>
-            <p className="text-sm font-black uppercase tracking-[0.24em] text-indigo-500">Protected login</p>
-            <h2 className="mt-2 text-3xl font-black text-slate-950">관리자 로그인</h2>
-            <label className="mt-8 block text-sm font-bold text-slate-700">
+            <p className="text-sm font-black uppercase tracking-[0.24em] text-brand">Protected login</p>
+            <h2 className="mt-2 text-3xl font-black text-ink">관리자 로그인</h2>
+            <label className="mt-8 block text-sm font-bold text-ink-soft">
               아이디
               <input
                 name="loginId"
                 value={loginId}
                 onChange={(event) => setLoginId(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-sm text-ink outline-none ring-brand focus:ring-4"
                 placeholder="관리자 아이디"
                 autoComplete="username"
               />
             </label>
-            <label className="mt-4 block text-sm font-bold text-slate-700">
+            <label className="mt-4 block text-sm font-bold text-ink-soft">
               비밀번호
               <input
                 name="password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-sm text-ink outline-none ring-brand focus:ring-4"
                 placeholder="관리자 비밀번호"
                 autoComplete="current-password"
               />
             </label>
-            <p className="mt-4 rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700" role="status">
+            <p className="mt-4 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-bold text-brand" role="status">
               {message}
             </p>
             <button
               type="submit"
-              className="mt-6 rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-soft hover:bg-indigo-700"
+              className="mt-6 rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-soft hover:bg-brand"
             >
               로그인
             </button>

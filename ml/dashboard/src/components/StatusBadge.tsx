@@ -7,7 +7,7 @@ const cameraStatusMeta: Record<CameraStatus, { label: string; className: string 
   },
   offline: {
     label: '오프라인',
-    className: 'bg-slate-200 text-slate-600 ring-slate-300',
+    className: 'bg-surface2 text-ink-soft ring-border',
   },
   starting: {
     label: '시작 중',
@@ -42,7 +42,7 @@ export function getBackendStatus(system: SystemSnapshot | null): { label: string
   if (!system) {
     return {
       label: '백엔드 확인 중',
-      className: 'bg-slate-700 text-slate-100 ring-slate-500',
+      className: 'bg-slate-700 text-slate-100 ring-border',
     };
   }
 
@@ -69,6 +69,6 @@ export function getBackendStatus(system: SystemSnapshot | null): { label: string
 
   return {
     label: '백엔드 대기 중',
-    className: 'bg-indigo-100 text-indigo-800 ring-indigo-200',
+    className: 'bg-brand-soft text-brand ring-brand',
   };
 }

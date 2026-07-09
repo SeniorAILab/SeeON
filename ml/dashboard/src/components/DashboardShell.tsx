@@ -36,10 +36,10 @@ export function DashboardShell({
 }): JSX.Element {
   const { dark, toggle } = useDarkMode();
   return (
-    <main className="min-h-screen bg-[#eef2ff] text-slate-900">
+    <main className="min-h-screen bg-[#eef2ff] text-ink">
       <div className="mx-auto flex min-h-screen max-w-7xl gap-6 p-5 lg:p-8">
         <aside className="hidden w-72 shrink-0 flex-col rounded-4xl bg-slate-950 p-7 text-white shadow-glow lg:flex">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500 text-xl font-black">E</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-xl font-black">E</div>
           <h1 className="mt-8 break-keep text-2xl font-black leading-snug">엣지 카메라 대시보드</h1>
           <p className="mt-4 text-sm leading-6 text-slate-300">요양원 RTSP 레지스트리, 이벤트, 시스템, 탐지 설정을 운영합니다.</p>
           <nav className="mt-10 space-y-3 text-sm font-bold text-slate-300">
@@ -60,11 +60,11 @@ export function DashboardShell({
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col gap-6">
-          <header className="rounded-4xl bg-white/85 p-6 shadow-soft backdrop-blur">
+          <header className="rounded-4xl bg-surface/85 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm font-black tracking-[0.24em] text-indigo-500">ML API {apiBase}</p>
-                <h2 className="mt-2 text-3xl font-black text-slate-950 md:text-4xl">{getScreenLabel(screen)}</h2>
+                <p className="text-sm font-black tracking-[0.24em] text-brand">ML API {apiBase}</p>
+                <h2 className="mt-2 text-3xl font-black text-ink md:text-4xl">{getScreenLabel(screen)}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className={`rounded-full px-4 py-2 text-sm font-black ring-1 ${backendStatus.className}`}>{backendStatus.label}</span>
@@ -77,16 +77,16 @@ export function DashboardShell({
                 >
                   {dark ? '☀️ 라이트' : '🌙 다크'}
                 </button>
-                <button type="button" onClick={onAddCamera} className="rounded-full bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-soft hover:bg-indigo-700">
+                <button type="button" onClick={onAddCamera} className="rounded-full bg-brand px-5 py-3 text-sm font-black text-white shadow-soft hover:bg-brand">
                   + 카메라 추가
                 </button>
               </div>
             </div>
           </header>
 
-          <nav className="grid gap-2 rounded-3xl bg-white/60 p-2 shadow-sm lg:hidden sm:grid-cols-5">
+          <nav className="grid gap-2 rounded-3xl bg-surface/60 p-2 shadow-sm lg:hidden sm:grid-cols-5">
             {screens.map((entry) => (
-              <button key={entry.id} type="button" onClick={() => onScreenChange(entry.id)} className={`rounded-2xl px-3 py-2 text-sm font-black ${screen === entry.id ? 'bg-slate-950 text-white' : 'text-slate-600'}`}>
+              <button key={entry.id} type="button" onClick={() => onScreenChange(entry.id)} className={`rounded-2xl px-3 py-2 text-sm font-black ${screen === entry.id ? 'bg-slate-950 text-white' : 'text-ink-soft'}`}>
                 {entry.label}
               </button>
             ))}

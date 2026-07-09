@@ -30,7 +30,7 @@ export function EventLivePanel({
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-200">Worker MJPEG</p>
           <h3 className="mt-1 text-lg font-black text-white">{selectedOption ? `${selectedOption.label} 실시간 상태 스트림` : '이벤트 실시간 상태 스트림'}</h3>
         </div>
-        <span className={`rounded-full px-3 py-2 text-xs font-black ${streamError ? 'bg-rose-300 text-slate-950' : 'bg-emerald-300 text-slate-950'}`}>
+        <span className={`rounded-full px-3 py-2 text-xs font-black ${streamError ? 'bg-rose-300 text-ink' : 'bg-emerald-300 text-ink'}`}>
           {streamError ? '사용 불가' : 'ml-api stream'}
         </span>
       </div>
@@ -43,7 +43,7 @@ export function EventLivePanel({
               type="button"
               onClick={() => onSelectEvent(option.type)}
               data-testid={`event-row-${option.type}`}
-              className={`rounded-full px-4 py-2 text-xs font-black ${selectedEventType === option.type ? 'bg-white text-slate-950' : 'bg-white/10 text-slate-200 hover:bg-white/20'}`}
+              className={`rounded-full px-4 py-2 text-xs font-black ${selectedEventType === option.type ? 'bg-surface text-ink' : 'bg-white/10 text-slate-200 hover:bg-white/20'}`}
             >
               {option.label}
             </button>

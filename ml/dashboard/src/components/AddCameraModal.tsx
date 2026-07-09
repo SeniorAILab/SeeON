@@ -124,98 +124,98 @@ export function AddCameraModal({ open, onClose, onCreated }: AddCameraModalProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
-      <div className="w-full max-w-2xl rounded-4xl bg-white p-6 shadow-glow">
+      <div className="w-full max-w-2xl rounded-4xl bg-surface p-6 shadow-glow">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-bold text-indigo-500">새 스트림</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">카메라 추가</h2>
+            <p className="text-sm font-bold text-brand">새 스트림</p>
+            <h2 className="mt-1 text-2xl font-black text-ink">카메라 추가</h2>
           </div>
-          <button type="button" onClick={closeAndReset} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200">
+          <button type="button" onClick={closeAndReset} className="rounded-full bg-surface2 px-4 py-2 text-sm font-bold text-ink-soft hover:bg-surface2">
             닫기
           </button>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={(event) => void handleCreate(event)} noValidate>
-          <label className="block text-sm font-bold text-slate-700">
+          <label className="block text-sm font-bold text-ink-soft">
             카메라 이름
             <input
               name="label"
               value={label}
               onChange={(event) => setLabel(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4"
+              className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4"
               placeholder="예: 301호 침대 A"
             />
           </label>
 
           <div className="grid gap-3 sm:grid-cols-[120px_minmax(0,1fr)_120px]">
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               방식
               <select
                 name="rtspScheme"
                 value={rtspForm.scheme}
                 onChange={(event) => updateRtspField('scheme', event.target.value === 'rtsps' ? 'rtsps' : 'rtsp')}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4"
               >
                 <option value="rtsp">rtsp</option>
                 <option value="rtsps">rtsps</option>
               </select>
             </label>
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               카메라 IP/호스트
               <input
                 name="rtspHost"
                 value={rtspForm.host}
                 onChange={(event) => updateRtspField('host', event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4"
                 placeholder="10.0.0.5"
               />
             </label>
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               포트
               <input
                 name="rtspPort"
                 inputMode="numeric"
                 value={rtspForm.port}
                 onChange={(event) => updateRtspField('port', event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4"
               />
             </label>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               RTSP 아이디
-              <input name="rtspUsername" value={rtspForm.username} onChange={(event) => updateRtspField('username', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
+              <input name="rtspUsername" value={rtspForm.username} onChange={(event) => updateRtspField('username', event.target.value)} className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4" />
             </label>
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               RTSP 비밀번호
-              <input name="rtspPassword" type="password" value={rtspForm.password} onChange={(event) => updateRtspField('password', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" />
+              <input name="rtspPassword" type="password" value={rtspForm.password} onChange={(event) => updateRtspField('password', event.target.value)} className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4" />
             </label>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               경로
-              <input name="rtspPath" value={rtspForm.path} onChange={(event) => updateRtspField('path', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" placeholder="/trackID=1" />
+              <input name="rtspPath" value={rtspForm.path} onChange={(event) => updateRtspField('path', event.target.value)} className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4" placeholder="/trackID=1" />
             </label>
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-bold text-ink-soft">
               추가 인자
-              <input name="rtspQuery" value={rtspForm.query} onChange={(event) => updateRtspField('query', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none ring-indigo-200 focus:ring-4" placeholder="profile=main" />
+              <input name="rtspQuery" value={rtspForm.query} onChange={(event) => updateRtspField('query', event.target.value)} className="mt-2 w-full rounded-2xl border border-border bg-surface2 px-4 py-3 text-ink outline-none ring-brand focus:ring-4" placeholder="profile=main" />
             </label>
           </div>
 
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">RTSP 미리보기</p>
-            <p className="mt-2 break-all font-mono text-xs text-slate-600">{rtspPreview}</p>
+          <div className="rounded-2xl bg-surface2 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ink-faint">RTSP 미리보기</p>
+            <p className="mt-2 break-all font-mono text-xs text-ink-soft">{rtspPreview}</p>
           </div>
 
-          <button type="submit" disabled={busy} className="rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-soft hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="submit" disabled={busy} className="rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-soft hover:bg-brand disabled:cursor-not-allowed disabled:opacity-60">
             {busy ? '등록 중...' : '카메라 등록'}
           </button>
         </form>
 
         {message ? (
-          <p className="mt-5 rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700" role="status">
+          <p className="mt-5 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-bold text-brand" role="status">
             {message}
           </p>
         ) : null}

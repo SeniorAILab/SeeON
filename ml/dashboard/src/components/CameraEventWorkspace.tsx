@@ -77,7 +77,7 @@ export function CameraEventWorkspace({
             type="button"
             onClick={() => selectCamera(camera.id)}
             data-testid={`camera-tile-${camera.id}`}
-            className={`min-h-24 rounded-3xl border px-4 py-3 text-left transition ${selectedCamera?.id === camera.id ? 'border-emerald-300 bg-white text-slate-950' : 'border-white/10 bg-white/10 text-white hover:bg-white/15'}`}
+            className={`min-h-24 rounded-3xl border px-4 py-3 text-left transition ${selectedCamera?.id === camera.id ? 'border-emerald-300 bg-surface text-ink' : 'border-white/10 bg-white/10 text-white hover:bg-white/15'}`}
           >
             <span className="block text-xs font-black uppercase tracking-[0.18em] opacity-60">Camera</span>
             <span className="mt-2 block text-base font-black">{camera.label}</span>
@@ -101,33 +101,33 @@ export function CameraEventWorkspace({
         onStreamError={() => setStreamError('라이브 스트림을 사용할 수 없습니다. worker 연결 또는 카메라 프레임 상태를 확인하세요.')}
       />
       <div className="mt-5 rounded-3xl bg-white/10 p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Heartbeat</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-faint">Heartbeat</p>
         <p className="mt-2 text-sm font-bold text-white">{heartbeat}</p>
       </div>
       {statusError ? <p className="mt-4 rounded-2xl bg-rose-500/15 px-4 py-3 text-sm font-bold text-rose-100">{statusError}</p> : null}
       {clipsError ? <p className="mt-4 rounded-2xl bg-rose-500/15 px-4 py-3 text-sm font-bold text-rose-100">{clipsError}</p> : null}
-      <section className="mt-5 rounded-3xl bg-white p-4 text-slate-900" data-testid="clip-history">
+      <section className="mt-5 rounded-3xl bg-surface p-4 text-ink" data-testid="clip-history">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-black">클립 이력</h3>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{selectedEventClips.length}개</span>
+          <span className="rounded-full bg-surface2 px-3 py-1 text-xs font-black text-ink-soft">{selectedEventClips.length}개</span>
         </div>
         {selectedEventClips.length > 0 ? (
           <div className="mt-3 space-y-3">
             {selectedEventClips.map((clip) => (
-              <article key={clip.id} className="rounded-2xl bg-slate-50 px-4 py-3">
+              <article key={clip.id} className="rounded-2xl bg-surface2 px-4 py-3">
                 {clip.video_available ? (
                   <video src={clip.video_path} controls className="aspect-video w-full rounded-2xl bg-slate-950" />
                 ) : (
-                  <div className="flex aspect-video w-full items-center justify-center rounded-2xl bg-slate-100 px-4 text-center text-xs font-bold text-slate-500" data-testid="clip-unplayable">
+                  <div className="flex aspect-video w-full items-center justify-center rounded-2xl bg-surface2 px-4 text-center text-xs font-bold text-ink-soft" data-testid="clip-unplayable">
                     영상 없음{clip.video_error ? `: ${clip.video_error}` : ''}
                   </div>
                 )}
                 <div className="mt-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-black text-slate-900">{eventLabel(clip.event_type)}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{clip.camera_label} · {formatEventTime(clip.created_at)}</p>
+                    <p className="text-sm font-black text-ink">{eventLabel(clip.event_type)}</p>
+                    <p className="mt-1 text-xs font-bold text-ink-soft">{clip.camera_label} · {formatEventTime(clip.created_at)}</p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">{koreanClipLabel(clip.label)}</span>
+                  <span className="rounded-full bg-surface2 px-3 py-2 text-xs font-black text-ink-soft">{koreanClipLabel(clip.label)}</span>
                 </div>
                 <div className="mt-3">
                   <ClipLabelButtons clip={clip} onChanged={onClipChanged} />
@@ -136,7 +136,7 @@ export function CameraEventWorkspace({
             ))}
           </div>
         ) : (
-          <p className="mt-3 break-keep rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">선택 이벤트의 증거 클립이 없습니다.</p>
+          <p className="mt-3 break-keep rounded-2xl bg-surface2 p-4 text-sm font-bold text-ink-soft">선택 이벤트의 증거 클립이 없습니다.</p>
         )}
       </section>
     </section>

@@ -15,16 +15,16 @@ export function CameraManagementPanel({
   onDelete: (camera: Camera) => void;
 }): JSX.Element {
   return (
-    <section className="rounded-4xl bg-white/55 p-5 shadow-soft">
+    <section className="rounded-4xl bg-surface/55 p-5 shadow-soft">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-indigo-500">Registry v{registry.registry_version}</p>
-          <h2 className="text-2xl font-black text-slate-950">카메라 관리</h2>
+          <p className="text-sm font-black text-brand">Registry v{registry.registry_version}</p>
+          <h2 className="text-2xl font-black text-ink">카메라 관리</h2>
         </div>
         <button
           type="button"
           onClick={onAddCamera}
-          className="rounded-full bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-soft hover:bg-indigo-700"
+          className="rounded-full bg-brand px-5 py-3 text-sm font-black text-white shadow-soft hover:bg-brand"
         >
           + 카메라 추가
         </button>
@@ -37,7 +37,7 @@ export function CameraManagementPanel({
           ))}
         </div>
       ) : (
-        <div className="rounded-4xl border border-dashed border-indigo-200 bg-white p-8 text-center text-slate-500">
+        <div className="rounded-4xl border border-dashed border-brand bg-surface p-8 text-center text-ink-soft">
           등록된 카메라가 없습니다. 첫 RTSP 스트림을 추가하세요.
         </div>
       )}
