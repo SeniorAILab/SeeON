@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
-import { getAlertSettings, updateAlertSettings } from "@/services/api/alertSettings";
-import type { AlertSettings } from "@/services/api/alertSettings";
+import { getAlertSettings, updateAlertSettings } from "@/services/alertSettingsService";
+import type { AlertSettings } from "@/services/alertSettingsService";
 
 export function AdminAlertSettingsPage() {
   const [settings, setSettings] = useState<AlertSettings | null>(null);
