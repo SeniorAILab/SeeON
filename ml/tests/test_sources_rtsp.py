@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import cv2
 import numpy as np
 import pytest
@@ -312,6 +314,29 @@ def test_opencv_rtsp_backend_sets_timeout_and_buffer_properties(monkeypatch) -> 
     ]
     assert (cv2.CAP_PROP_BUFFERSIZE, 1) in capture.set_calls
     assert (cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5678) in capture.set_calls
+
+
+def test_opencv_rtsp_backend_defaults_rtsp_transport_to_tcp(monkeypatch) -> None:
+    monkeypatch.delenv("OPENCV_FFMPEG_CAPTURE_OPTIONS", raising=False)
+    monkeypatch.setattr(cv2, "VideoCapture", lambda *args: _FakeCapture())
+
+    OpenCVRTSPBackend().open("rtsp://camera/trackID=2", 1234, 5678)
+
+    assert os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] == "rtsp_transport;tcp"
+
+
+def test_opencv_rtsp_backend_preserves_operator_capture_options(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;udp|max_delay;500000"
+    )
+    monkeypatch.setattr(cv2, "VideoCapture", lambda *args: _FakeCapture())
+
+    OpenCVRTSPBackend().open("rtsp://camera/trackID=2", 1234, 5678)
+
+    assert (
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]
+        == "rtsp_transport;udp|max_delay;500000"
+    )
 
 
 def test_opencv_rtsp_backend_read_returns_rgb_frame() -> None:
