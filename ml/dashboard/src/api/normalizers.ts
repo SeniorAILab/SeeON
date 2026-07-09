@@ -121,6 +121,8 @@ export function normalizeClip(value: unknown): Clip | null {
     return null;
   }
   const label = pickString(value, ['label', 'review_label']);
+  // Legacy manifests predate video_available: assume playable unless told otherwise.
+  const videoAvailable = pickBoolean(value, ['video_available', 'videoAvailable']);
   return {
     id,
     camera_id: pickNullableString(value, ['camera_id', 'cameraId']),
@@ -129,6 +131,8 @@ export function normalizeClip(value: unknown): Clip | null {
     created_at: pickNullableString(value, ['created_at', 'createdAt', 'timestamp', 'started_at', 'startedAt']),
     label: normalizeClipLabel(label),
     video_path: getClipVideoUrl(id),
+    video_available: videoAvailable ?? true,
+    video_error: pickNullableString(value, ['video_error', 'videoError']),
   };
 }
 

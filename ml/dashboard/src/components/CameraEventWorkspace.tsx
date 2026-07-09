@@ -115,7 +115,13 @@ export function CameraEventWorkspace({
           <div className="mt-3 space-y-3">
             {selectedEventClips.map((clip) => (
               <article key={clip.id} className="rounded-2xl bg-slate-50 px-4 py-3">
-                <video src={clip.video_path} controls className="aspect-video w-full rounded-2xl bg-slate-950" />
+                {clip.video_available ? (
+                  <video src={clip.video_path} controls className="aspect-video w-full rounded-2xl bg-slate-950" />
+                ) : (
+                  <div className="flex aspect-video w-full items-center justify-center rounded-2xl bg-slate-100 px-4 text-center text-xs font-bold text-slate-500" data-testid="clip-unplayable">
+                    영상 없음{clip.video_error ? `: ${clip.video_error}` : ''}
+                  </div>
+                )}
                 <div className="mt-3 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-black text-slate-900">{eventLabel(clip.event_type)}</p>

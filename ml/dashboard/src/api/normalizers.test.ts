@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeCamera } from './normalizers';
+import { normalizeCamera, normalizeClip } from './normalizers';
+
+describe('normalizeClip video availability', () => {
+  it('defaults video_available to true and video_error to null for legacy manifests', () => {
+    const clip = normalizeClip({ id: 'cam-1-clip', event_type: 'fall' });
+    expect(clip?.video_available).toBe(true);
+    expect(clip?.video_error).toBeNull();
+  });
+
+  it('surfaces a diagnostic unplayable clip when video_available is false', () => {
+    const clip = normalizeClip({
+      clip_id: 'cam-1-clip',
+      event_type: 'fall',
+      video_available: false,
+      video_error: 'encoder failed: h264_nvenc',
+    });
+    expect(clip?.video_available).toBe(false);
+    expect(clip?.video_error).toBe('encoder failed: h264_nvenc');
+  });
+});
 
 describe('rtsp url redaction via normalizeCamera', () => {
   it('masks host and credentials for an rtsp url with credentials', () => {

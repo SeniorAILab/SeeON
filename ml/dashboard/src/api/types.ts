@@ -74,4 +74,6 @@ export type Clip = {
   created_at: string | null;
   label: ClipLabel | null;
   video_path: string;
+  video_available: boolean;
+  video_error: string | null;
 };
