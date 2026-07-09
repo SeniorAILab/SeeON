@@ -31,10 +31,13 @@ services:
       API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:-}
       ML_API_WORKER_STREAM_ORIGIN: http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}
       ML_API_WORKER_PROBE_ORIGIN: http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}
+      # Fixed container path of the evidence clip store (host bind below).
+      CLIP_STORE_DIR: /var/lib/clip-store
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
       - ml-api-state:/var/lib/ml-api
-      - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:ro
+      # Evidence clips persist on the nursing-home host; worker writes, api reads.
+      - ${CLIP_STORE_HOST_DIR:?edge requires host clip-store dir}:/var/lib/clip-store:ro
     command:
       - uvicorn
       - api.main:app
@@ -77,10 +80,16 @@ services:
       ML_WORKER_DEV_MJPEG: ${ML_WORKER_DEV_MJPEG:-true}
       ML_WORKER_DEV_MJPEG_HOST: 0.0.0.0
       ML_WORKER_DEV_MJPEG_PORT: ${ML_WORKER_DEV_MJPEG_PORT:-8090}
+      # Fixed container path of the evidence clip store (host bind below).
+      CLIP_STORE_DIR: /var/lib/clip-store
+      # NVENC clip encoding needs the `video` driver capability in addition to
+      # the compute/utility default granted by the GPU reservation above.
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
       - ml-worker-state:/var/lib/ml-worker
-      - clip-store:${CLIP_STORE_DIR:-/var/lib/clip-store}:rw
+      # Evidence clips persist on the nursing-home host; worker writes, api reads.
+      - ${CLIP_STORE_HOST_DIR:?edge requires host clip-store dir}:/var/lib/clip-store:rw
     # Optional offline-dev YAML bootstrap; production should pull config from ml-api.
     # secrets:
     #   - source: ml-worker-config
@@ -101,4 +110,3 @@ services:
 volumes:
   ml-api-state: {}
   ml-worker-state: {}
-  clip-store: {}
