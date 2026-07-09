@@ -91,7 +91,7 @@ describe("dashboardEndpoints", () => {
     expect(dashboard.statuses.sp_201).toMatchObject({
       spaceId: "sp_201",
       status: "DANGER",
-      kakaoAlertStatus: "SENT",
+      alertStatus: "SENT",
       bedsideActivity: true,
       emergency: true,
     });

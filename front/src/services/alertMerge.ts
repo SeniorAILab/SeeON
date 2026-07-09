@@ -71,7 +71,7 @@ export function mergeAlertUpdates(state: AlertMergeState, incoming: AlertUpdateD
         alertSeq: incomingSeq,
         spaceId: update.spaceId,
         backendStatus: update.status,
-        kakaoAlertStatus: mapBackendStatusToKakao(update.status),
+        alertStatus: mapBackendStatusToAlertStatus(update.status),
         acknowledgedAt: isResolvedBackendStatus(update.status) ? (update.resolvedAt ?? existing.acknowledgedAt) : existing.acknowledgedAt,
         emergency: isResolvedBackendStatus(update.status) ? false : existing.emergency,
       };
@@ -114,7 +114,7 @@ function isResolvedBackendStatus(status: string): boolean {
   return status === RESOLVED_STATUS;
 }
 
-function mapBackendStatusToKakao(status: string): FrontendAlert["kakaoAlertStatus"] {
+function mapBackendStatusToAlertStatus(status: string): FrontendAlert["alertStatus"] {
   return isResolvedBackendStatus(status) ? "ACKNOWLEDGED" : "PENDING";
 }
 
@@ -128,7 +128,7 @@ function statusFromAlert(previous: SpaceStatus | undefined, alert: FrontendAlert
     status: "DANGER",
     aiSummary: alert.aiSummary,
     lastDetectedAt: alert.detectedAt,
-    kakaoAlertStatus: alert.kakaoAlertStatus,
+    alertStatus: alert.alertStatus,
     bedsideActivity: alert.eventType === "BED_EXIT" ? true : previous?.bedsideActivity,
     emergency: alert.emergency ?? true,
   };
@@ -141,7 +141,7 @@ function stableClearedStatus(status: SpaceStatus): SpaceStatus {
     fallRiskLevel: "LOW",
     status: "STABLE",
     aiSummary: undefined,
-    kakaoAlertStatus: "ACKNOWLEDGED",
+    alertStatus: "ACKNOWLEDGED",
     bedsideActivity: false,
     prolongedInactivity: undefined,
     soloMovementAttempt: undefined,
@@ -158,7 +158,7 @@ function normalStatusFromAlert(previous: SpaceStatus | undefined, alert: Fronten
     fallRiskLevel: "LOW",
     status: "STABLE",
     lastDetectedAt: alert.detectedAt,
-    kakaoAlertStatus: "ACKNOWLEDGED",
+    alertStatus: "ACKNOWLEDGED",
   });
 }
 

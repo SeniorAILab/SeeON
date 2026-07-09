@@ -44,7 +44,7 @@ describe("apiClient.requestJson", () => {
     );
   });
 
-  it("sends the backend session cookie in Kakao login mode", async () => {
+  it("sends the backend session cookie for authenticated requests", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "http://localhost:8080/api/v1");
     const fetchMock = vi
       .fn<typeof fetch>()

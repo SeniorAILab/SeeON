@@ -99,7 +99,7 @@ const dangerStatus: SpaceStatus = {
   status: "DANGER",
   aiSummary: "침상 이탈이 감지되었습니다.",
   lastDetectedAt: "2026-06-22T01:00:00.000Z",
-  kakaoAlertStatus: "SENT",
+  alertStatus: "SENT",
   bedsideActivity: true,
   emergency: true,
 };
@@ -264,7 +264,7 @@ describe("monitorStore live alert merge", () => {
 
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "DANGER",
-      kakaoAlertStatus: "PENDING",
+      alertStatus: "PENDING",
       lastDetectedAt: newerAlertDto.detectedAt,
       emergency: true,
     });
@@ -296,7 +296,7 @@ describe("monitorStore live alert merge", () => {
 
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "DANGER",
-      kakaoAlertStatus: "PENDING",
+      alertStatus: "PENDING",
       lastDetectedAt: newerActive.detectedAt,
       emergency: true,
     });
@@ -326,7 +326,7 @@ describe("monitorStore live alert merge", () => {
 
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "STABLE",
-      kakaoAlertStatus: "ACKNOWLEDGED",
+      alertStatus: "ACKNOWLEDGED",
       emergency: false,
       bedsideActivity: false,
     });
@@ -405,7 +405,7 @@ describe("monitorStore resolve", () => {
     );
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "STABLE",
-      kakaoAlertStatus: "ACKNOWLEDGED",
+      alertStatus: "ACKNOWLEDGED",
       emergency: false,
       bedsideActivity: false,
     });

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, Button } from "@/components/ui/primitives";
 import { RiskBadge } from "@/components/RiskBadge";
-import { KakaoAlertStatusBadge } from "@/components/KakaoAlertStatusBadge";
+import { AlertStatusBadge } from "@/components/AlertStatusBadge";
 import { eventService } from "@/services/eventService";
 import { dashboardService } from "@/services/dashboardService";
 import { useAuthStore } from "@/stores/authStore";
@@ -54,8 +54,8 @@ export function EventsPage() {
   const spaceName = (id: string) => spaceNames[id] ?? id;
 
   const filtered = events.filter((e) => {
-    if (filter === "OPEN") return e.kakaoAlertStatus !== "ACKNOWLEDGED";
-    if (filter === "ACK") return e.kakaoAlertStatus === "ACKNOWLEDGED";
+    if (filter === "OPEN") return e.alertStatus !== "ACKNOWLEDGED";
+    if (filter === "ACK") return e.alertStatus === "ACKNOWLEDGED";
     return true;
   });
 
@@ -92,7 +92,7 @@ export function EventsPage() {
       ) : (
         <div className="space-y-2.5">
           {filtered.map((ev) => {
-            const acked = ev.kakaoAlertStatus === "ACKNOWLEDGED";
+            const acked = ev.alertStatus === "ACKNOWLEDGED";
             return (
               <Card
                 key={ev.id}
@@ -104,7 +104,7 @@ export function EventsPage() {
                     <span className="font-semibold text-ink">{spaceName(ev.spaceId)}</span>
                     <span className="text-sm text-ink-soft">{eventTypeLabel[ev.eventType]}</span>
                     <RiskBadge level={ev.riskLevel} />
-                    <KakaoAlertStatusBadge status={ev.kakaoAlertStatus} />
+                    <AlertStatusBadge status={ev.alertStatus} />
                   </div>
                   <p className="mt-1 text-sm text-ink-soft">{ev.aiSummary}</p>
                   <p className="mt-1 text-xs text-gray-400">
