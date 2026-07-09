@@ -36,7 +36,7 @@ const status = (spaceId: string, level: SpaceStatus["status"]): SpaceStatus => (
   status: level,
   aiSummary: level === "STABLE" ? "안정 상태입니다." : "즉시 확인이 필요합니다.",
   lastDetectedAt: "2026-07-04T00:00:00.000Z",
-  kakaoAlertStatus: level === "STABLE" ? "ACKNOWLEDGED" : "PENDING",
+  alertStatus: level === "STABLE" ? "ACKNOWLEDGED" : "PENDING",
 });
 
 const dashboard: DashboardResponse = {

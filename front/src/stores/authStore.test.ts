@@ -7,7 +7,6 @@ const authServiceMock = vi.hoisted(() => ({
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
-  startKakaoLogin: vi.fn(),
 }));
 
 vi.mock("@/services/authService", () => ({
@@ -17,17 +16,6 @@ vi.mock("@/services/authService", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   useAuthStore.setState({ user: null, loading: false, error: null, initialized: false });
-});
-
-describe("authStore.kakaoLogin", () => {
-  it("starts backend Kakao OAuth without creating a mock user", () => {
-    useAuthStore.getState().kakaoLogin();
-
-    expect(authServiceMock.startKakaoLogin).toHaveBeenCalledTimes(1);
-    expect(useAuthStore.getState().user).toBeNull();
-    expect(useAuthStore.getState().loading).toBe(true);
-    expect(useAuthStore.getState().error).toBeNull();
-  });
 });
 
 describe("authStore.login", () => {

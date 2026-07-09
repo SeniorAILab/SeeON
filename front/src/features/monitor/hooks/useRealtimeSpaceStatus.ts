@@ -42,7 +42,7 @@ export function useRealtimeSpaceStatus(facilityId: string, spaces: Space[]) {
       danger: list.filter((s) => s.status === "DANGER").length,
       checkNeeded: list.filter((s) => s.status === "CHECK_NEEDED").length,
       unacknowledged: list.filter(
-        (s) => s.kakaoAlertStatus === "PENDING" || s.kakaoAlertStatus === "SENT"
+        (s) => s.alertStatus === "PENDING" || s.alertStatus === "SENT"
       ).length,
     };
     return { summary: sum, totalPeople: list.reduce((a, s) => a + s.peopleCount, 0) };

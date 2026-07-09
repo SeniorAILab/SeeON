@@ -17,10 +17,9 @@ pnpm --filter front preview  # 빌드 결과 미리보기
 
 ### 로그인
 
-dev/prod 로그인은 백엔드가 소유합니다. 이메일/비밀번호는 `POST /api/v1/auth/login`,
-Kakao OAuth는 `/api/v1/auth/kakao/login`으로 시작하며, 두 경로 모두 백엔드가 같은
-httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/me`로 복원합니다. 처음
-로그인한 계정이 아직 시설에 연결되지 않았다면 `/onboarding`에서
+dev/prod 로그인은 백엔드가 소유합니다. 이메일/비밀번호는 `POST /api/v1/auth/login`으로
+처리하며, 백엔드가 httpOnly `app_session` JWT 쿠키를 만든 뒤 프론트가 `GET /api/v1/auth/me`로
+복원합니다. 처음 로그인한 계정이 아직 시설에 연결되지 않았다면 `/onboarding`에서
 `POST /api/v1/facilities`로 시설을 등록합니다.
 
 로컬 seed 계정은 `super@sen.ai`, `admin@sen.ai`, `staff@sen.ai`이며 비밀번호는
@@ -80,7 +79,7 @@ src/
 │   ├── eventService.ts     이벤트 확인/조치
 │   └── adminService.ts     가역 숨김 관리자 페이지 전용 비활 fixture
 ├── stores/                 zustand state containers: authStore(권한) · facilityStore(시설 선택) · monitorStore(SSE 상태)
-├── components/             RiskBadge, KakaoAlertStatusBadge, layout/{AppLayout,StaffLayout},
+├── components/             RiskBadge, AlertStatusBadge, layout/{AppLayout,StaffLayout},
 │                           status/{RoomStatusBoard,RoomActionPanel,RoomStatusTreemap}, ui/primitives ...
 ├── features/               bulletproof-react 기능 폴더(components/hooks/pages/services/stores + index.ts):
 │                           dashboard(StatsBar, FloorTabs, DashboardPage) · monitor(MonitorHeader,
@@ -105,7 +104,6 @@ src/
 ### 인증·시설 스코프
 
 - 이메일/비밀번호: `POST /api/v1/auth/login`
-- Kakao OAuth 시작/콜백: `GET /api/v1/auth/kakao/login`, `GET /api/v1/auth/kakao/callback`
 - 부트스트랩: `GET /api/v1/auth/me`
 - 로그아웃: `POST /api/v1/auth/logout`
 - 회원가입/초기 시설 생성: `POST /api/v1/auth/register`

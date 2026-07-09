@@ -1,7 +1,7 @@
 import type {
   ActionType,
+  AlertLifecycleStatus,
   DetectionEventType,
-  KakaoAlertStatus,
   Level,
   SpaceStatusLevel,
   SpaceType,
@@ -37,7 +37,7 @@ export const spaceTypeLabel: Record<SpaceType, string> = {
   ETC: "기타",
 };
 
-export const kakaoLabel: Record<KakaoAlertStatus, string> = {
+export const alertLabel: Record<AlertLifecycleStatus, string> = {
   NONE: "알림 없음",
   PENDING: "알림 필요",
   SENDING: "발송 대기",
