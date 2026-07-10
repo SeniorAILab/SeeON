@@ -3,8 +3,8 @@
 Resolution order (``default_threshold``):
 
 1. ``NH_RECOMMENDED_THRESHOLDS`` — operating points measured on the 19
-   human-confirmed nursing-home falls + 9,158 no-fall windows
-   (``ml/experiments/analysis/phase3-step2-nh-threshold-policy.md``, v2).
+   human-confirmed nursing-home falls + 9,158 no-fall windows before
+   the experiment ledger moved to eldercare-dataset-ops (ADR-0004).
    These live here, committed, because ``metadata.json`` is overwritten on
    every retrain and only ever carries the LE2I-calibrated threshold.
 2. The artifact's own ``metadata.json`` ``operating_threshold`` (LE2I op).
@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from artifact_metadata import artifact_dir, load_metadata
 from demo.temporal_module import _KEY_TO_ARTIFACT
-from training.metadata import artifact_dir, load_metadata
 
 NH_RECOMMENDED_THRESHOLDS: Final[dict[str, float]] = {
     "gcn": 0.30,  # 18/19 catches @ 10.5% FP — recall-first frontier

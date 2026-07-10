@@ -4,17 +4,32 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import urllib.request
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from api.backend_mapping import BackendCameraMapper, backend_status_from_env, mark_backend_status
+from api.camera_registry import CameraRegistryStore
 from api.heartbeat_store import DEFAULT_STALE_AFTER_SEC, HeartbeatStore
+from contracts.worker_config import (
+    PulledCameraConfig,
+    PulledNightWindow,
+    PulledWorkerConfig,
+)
 from events.edge_ingest_client import DEFAULT_TIMEOUT_SEC, EdgeIngestClient
 
 API_BACKEND_EVENTS_URL_ENV = "API_BACKEND_EVENTS_URL"
 API_EDGE_RELAY_TOKEN_ENV = "API_EDGE_RELAY_TOKEN"
+# Shared secret for the ml-api -> backend Event API bearer auth (issue #552).
+# Name matches the backend's EdgeFacilityTokenGuard config key exactly so the
+# same value can be copied verbatim across the edge and host env files.
+EDGE_FACILITY_TOKEN_ENV = "EDGE_FACILITY_TOKEN"
 API_CAMERA_INVENTORY_ENV = "API_CAMERA_INVENTORY"
+API_FACILITY_ID_ENV = "API_FACILITY_ID"
+API_BACKEND_CONFIG_URL_ENV = "API_BACKEND_CONFIG_URL"
 API_BACKEND_INGEST_TIMEOUT_SEC_ENV = "API_BACKEND_INGEST_TIMEOUT_SEC"
 API_HEARTBEAT_STALE_AFTER_SEC_ENV = "API_HEARTBEAT_STALE_AFTER_SEC"
 
@@ -27,7 +42,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if not isinstance(getattr(app.state, "heartbeat_store", None), HeartbeatStore):
         app.state.heartbeat_store = HeartbeatStore(stale_after_sec=_heartbeat_stale_after_sec())
 
+    if not isinstance(getattr(app.state, "camera_registry", None), CameraRegistryStore):
+        app.state.camera_registry = CameraRegistryStore.from_env()
+    if not isinstance(getattr(app.state, "backend_camera_mapper", None), BackendCameraMapper):
+        app.state.backend_camera_mapper = BackendCameraMapper.from_env()
+    backend_status = backend_status_from_env()
+    app.state.backend_configured = backend_status["configured"]
+    app.state.backend_reachable = getattr(
+        app.state, "backend_reachable", backend_status["reachable"]
+    )
+    app.state.backend_last_ok_at = getattr(
+        app.state, "backend_last_ok_at", backend_status["last_ok_at"]
+    )
+
+    app.state.restart_epoch = getattr(app.state, "restart_epoch", 0)
+    app.state.config_version = getattr(app.state, "config_version", 0)
+    app.state.pulled_config = getattr(app.state, "pulled_config", None)
+
     _configure_backend_ingest(app)
+    _pull_backend_config(app)
     app.state.readiness = {"ready": True, "status": "ready"}
     yield
 
@@ -49,7 +82,121 @@ def _configure_backend_ingest(app: FastAPI) -> None:
         events_url=events_url,
         camera_id=str(first_camera.get("camera_id", "api-relay")),
         timeout_sec=_backend_ingest_timeout_sec(),
+        bearer_token=os.environ.get(EDGE_FACILITY_TOKEN_ENV),
     )
+
+
+def _pull_backend_config(app: FastAPI) -> None:
+    """Boot-time backend config pull. On failure leaves pulled_config None so a
+    cold start with the backend unreachable serves /config 503 and the worker
+    falls back to its own LKG/YAML."""
+    cfg = _fetch_backend_config(app)
+    if cfg is None:
+        app.state.pulled_config = None
+        return
+    _apply_backend_config(app, cfg)
+
+
+def refresh_backend_config(app: FastAPI) -> None:
+    """Best-effort re-pull so each worker /config request reflects the latest
+    backend config (e.g. a live night-window change) WITHOUT an ml-api restart.
+    On failure the LAST-GOOD pulled_config is preserved (never blanked), so a
+    transient backend blip does not drop live config."""
+    cfg = _fetch_backend_config(app)
+    if cfg is not None:
+        _apply_backend_config(app, cfg)
+
+
+def _fetch_backend_config(app: FastAPI) -> PulledWorkerConfig | None:
+    facility_id = os.environ.get(API_FACILITY_ID_ENV)
+    base_url = os.environ.get(API_BACKEND_CONFIG_URL_ENV)
+    if not facility_id or not base_url:
+        return None
+    try:
+        url = f'{base_url.rstrip("/")}/{facility_id}'
+        with urllib.request.urlopen(url, timeout=_backend_ingest_timeout_sec()) as response:
+            parsed = _as_mapping(json.loads(response.read().decode("utf-8")))
+        mark_backend_status(app.state, True)
+        return PulledWorkerConfig(
+            config_version=_backend_config_version(parsed),
+            restart_epoch=int(getattr(app.state, "restart_epoch", 0)),
+            night_window=_pulled_night_window(parsed.get("nightWindow")),
+            cameras=_pulled_cameras(parsed.get("cameras")),
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort pull must never crash boot/serve
+        print(f"failed to pull backend ml config: {exc}", file=sys.stderr)
+        mark_backend_status(app.state, False)
+        return None
+
+
+def _apply_backend_config(app: FastAPI, cfg: PulledWorkerConfig) -> None:
+    facility_id = os.environ.get(API_FACILITY_ID_ENV)
+    app.state.pulled_config = cfg
+    app.state.config_version = cfg.config_version
+    app.state.camera_inventory = {
+        camera.camera_id: {
+            "camera_id": camera.camera_id,
+            "facility_id": facility_id,
+            "resident_id": None,
+        }
+        for camera in cfg.cameras
+    }
+
+
+def _as_mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError("backend config response must be an object")
+    return value
+
+def _backend_config_version(data: dict[str, object]) -> int:
+    value = data.get("configVersion")
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError("configVersion must be an integer")
+    return value
+
+
+def _pulled_night_window(value: object) -> PulledNightWindow | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise TypeError("nightWindow must be an object or null")
+    return PulledNightWindow(
+        start=_require_text(value, "start"),
+        end=_require_text(value, "end"),
+        tz=_require_text(value, "tz"),
+    )
+
+
+def _pulled_cameras(value: object) -> tuple[PulledCameraConfig, ...]:
+    if not isinstance(value, list):
+        raise TypeError("cameras must be a list")
+    return tuple(_pulled_camera(item) for item in value if isinstance(item, dict))
+
+
+def _pulled_camera(data: dict[str, object]) -> PulledCameraConfig:
+    return PulledCameraConfig(
+        camera_id=_require_text(data, "id"),
+        space_id=_require_text(data, "spaceId"),
+        label=_require_text(data, "label"),
+        rtsp_url=_optional_text(data, "rtspUrl"),
+        online=bool(data.get("online", False)),
+    )
+
+
+def _require_text(data: dict[str, object], name: str) -> str:
+    value = data.get(name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    return value
+
+
+def _optional_text(data: dict[str, object], name: str) -> str | None:
+    value = data.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string or null")
+    return value
 
 
 def _camera_inventory_from_env_or_state(app: FastAPI) -> dict[str, dict[str, str | None]]:

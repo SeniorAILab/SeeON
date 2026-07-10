@@ -10,12 +10,19 @@ relay_token="${RELAY_TOKEN:-local-edge-relay-token}"
 ml_api_image="${ML_API_IMAGE:-ghcr.io/seniorailab/eldercare-fall-ai/ml-api:local}"
 ml_worker_image="${ML_WORKER_IMAGE:-ghcr.io/seniorailab/eldercare-fall-ai/ml-worker:local}"
 frames="${MAX_FRAMES_PER_CAMERA:-45}"
-facility_id="${E2E_FACILITY_ID:-fac_happy_nokyang}"
+facility_id="${E2E_FACILITY_ID:-}"
 resident_id="${E2E_RESIDENT_ID:-res_kim}"
 camera_id="${E2E_CAMERA_ID:-cam_sp_202}"
 db_container="${E2E_DB_CONTAINER:-eldercare-fall-db}"
 postgres_user="${POSTGRES_USER:-fall}"
 postgres_db="${POSTGRES_DB:-fall_dev}"
+if [ -z "$facility_id" ]; then
+  facility_id="$(docker exec "$db_container" psql -U "$postgres_user" -d "$postgres_db" -tAc "SELECT id FROM facilities WHERE code='happy-nokyang'" | tr -d '[:space:]')"
+fi
+if [ -z "$facility_id" ]; then
+  echo "ERROR: could not resolve demo facility id (code=happy-nokyang). Seed the DB first: pnpm --filter backend run prisma:reset:local" >&2
+  exit 1
+fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_root="${ML_EDGE_E2E_TMP_ROOT:-$repo_root/.omo/tmp}"
 mkdir -p "$tmp_root"

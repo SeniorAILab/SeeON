@@ -28,6 +28,7 @@ KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
 HHMM_PATTERN: Final = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+SUPPORTED_DECODE_BACKENDS: Final = frozenset({"auto", "nvdec", "opencv", "cpu"})
 ML_WORKER_DEV_MJPEG_ENV: Final = "ML_WORKER_DEV_MJPEG"
 ML_WORKER_DEV_MJPEG_HOST_ENV: Final = "ML_WORKER_DEV_MJPEG_HOST"
 ML_WORKER_DEV_MJPEG_PORT_ENV: Final = "ML_WORKER_DEV_MJPEG_PORT"
@@ -44,16 +45,34 @@ class EdgeWorkerConfigError(Exception):
         return self.message
 
 
+class CameraStreamsConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    sub: str = Field(min_length=1)
+    main: str | None = None
+
+    @field_validator("sub", "main")
+    @classmethod
+    def _require_rtsp_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _normalize_rtsp_url(value, "streams")
+
+
 class CameraRuntimeConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     camera_id: str = Field(min_length=1)
     facility_id: str = Field(min_length=1)
     resident_id: str | None = None
-    rtsp_url: str = Field(min_length=1)
+    rtsp_url: str | None = Field(default=None, min_length=1)
+    streams: CameraStreamsConfig | None = None
+    fps: float = Field(default=5.0, gt=0)
     heartbeat_interval_sec: float = Field(default=30.0, gt=0)
     frame_stride: int = Field(default=1, gt=0)
     label: str | None = None
+    decode_backend: str | None = None
+
 
     @field_validator("camera_id", "facility_id")
     @classmethod
@@ -65,11 +84,10 @@ class CameraRuntimeConfig(BaseModel):
 
     @field_validator("rtsp_url")
     @classmethod
-    def _require_rtsp_url(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped.lower().startswith("rtsp://"):
-            raise ValueError("rtsp_url must start with rtsp://")
-        return stripped
+    def _require_rtsp_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _normalize_rtsp_url(value, "rtsp_url")
 
     @field_validator("resident_id")
     @classmethod
@@ -78,6 +96,44 @@ class CameraRuntimeConfig(BaseModel):
             return None
         stripped = value.strip()
         return None if stripped == "" else stripped
+
+    @field_validator("decode_backend")
+    @classmethod
+    def _validate_decode_backend(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        if normalized not in SUPPORTED_DECODE_BACKENDS:
+            raise ValueError(
+                "decode_backend must be one of auto, nvdec, opencv, cpu"
+            )
+        return normalized
+    @model_validator(mode="after")
+    def _require_inference_stream(self) -> CameraRuntimeConfig:
+        if self.rtsp_url is None and self.streams is None:
+            raise ValueError("camera must define rtsp_url or streams.sub")
+        return self
+
+    @property
+    def inference_rtsp_url(self) -> str:
+        if self.streams is not None:
+            return self.streams.sub
+        if self.rtsp_url is None:
+            raise ValueError("camera must define rtsp_url or streams.sub")
+        return self.rtsp_url
+
+    @property
+    def main_rtsp_url(self) -> str | None:
+        return None if self.streams is None else self.streams.main
+
+
+
+
+def _normalize_rtsp_url(value: str, field_name: str) -> str:
+    stripped = value.strip()
+    if not stripped.lower().startswith("rtsp://"):
+        raise ValueError(f"{field_name} must start with rtsp://")
+    return stripped
 
 
 class RelayConfig(BaseModel):
@@ -365,6 +421,7 @@ __all__ = [
     "ML_WORKER_DEV_MJPEG_HOST_ENV",
     "ML_WORKER_DEV_MJPEG_PORT_ENV",
     "CameraRuntimeConfig",
+    "CameraStreamsConfig",
     "BedExitDomainConfig",
     "DisabledDomainConfig",
     "DomainsConfig",

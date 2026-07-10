@@ -43,11 +43,6 @@ enum SpaceType {
   ETC
 }
 
-enum ZoneType {
-  BED
-  AREA
-}
-
 // ─── Root/auth tables (not tenant-domain list/query surfaces) ────────────────
 
 /// Root tenant. Not RLS-protected (gated by app-layer membership check).
@@ -62,59 +57,63 @@ model Facility {
 
   users User[]
 
-  cameras Camera[]
-  alerts  Alert[]
+  cameras    Camera[]
+  alerts     Alert[]
+  alertNotes AlertNote[]
 
   floors Floor[]
   spaces Space[]
-  zones  Zone[]
 
-  events          Event[]
-  kakaoIdentities KakaoIdentity[]
+  events Event[]
+
+  mlConfig MlFacilityConfig?
 
   @@map("facilities")
+}
+
+/// Facility-level ML runtime config SSOT (Plane-P). One row per facility.
+/// Not RLS-protected (facility-scoped via explicit facilityId, like Facility); holds
+/// no PHI/credentials. configVersion is a monotonic opaque token bumped in the same
+/// transaction as any camera or night-window mutation (frozen contract PR-B0 c/d).
+model MlFacilityConfig {
+  facilityId    String   @id @map("facility_id")
+  configVersion Int      @default(0) @map("config_version")
+  nightStart    String   @default("21:00") @map("night_start")
+  nightEnd      String   @default("07:00") @map("night_end")
+  tz            String   @default("Asia/Seoul")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@map("ml_facility_config")
 }
 
 /// Platform identity root. facilityId is nullable until onboarding completes; auth code
 /// must access users by authenticated user/session only, then bind facilityId before
 /// tenant-domain data queries. No tenant data list/detail route may query User.
 model User {
-  id             String   @id @default(cuid())
-  facilityId     String?  @map("facility_id")
-  kakaoId        String?  @unique @map("kakao_id")
-  email          String?  @unique
-  passwordHash   String?  @map("password_hash")
-  phone          String?  @map("phone")
-  nickname       String
-  role           Role     @default(STAFF)
-  /// Increment to invalidate all existing sessions for this user.
-  sessionVersion Int      @default(0) @map("session_version")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id         String  @id @default(cuid())
+  facilityId String? @map("facility_id")
+  email      String? @unique
 
-  facility         Facility?         @relation(fields: [facilityId], references: [id])
-  kakaoIdentity    KakaoIdentity?
+  passwordHash       String?  @map("password_hash")
+  phone              String?  @map("phone")
+  notificationEmail  String?  @map("notification_email")
+  emailAlertsEnabled Boolean  @default(true) @map("email_alerts_enabled")
+  nickname           String
+  role               Role     @default(STAFF)
+  /// Increment to invalidate all existing sessions for this user.
+  sessionVersion     Int      @default(0) @map("session_version")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  facility Facility? @relation(fields: [facilityId], references: [id])
+
   deliveryAttempts DeliveryAttempt[]
   ackedAlerts      Alert[]           @relation("AlertAckedBy")
   resolvedAlerts   Alert[]           @relation("AlertResolvedBy")
+  alertNotes       AlertNote[]       @relation("AlertNoteCreatedBy")
 
   @@map("users")
-}
-
-/// Kakao OAuth identity. Access token encrypted at rest (AES-256-GCM); refresh token not stored (this build).
-model KakaoIdentity {
-  id                String    @id @default(cuid())
-  userId            String    @unique @map("user_id")
-  facilityId        String?   @map("facility_id")
-  kakaoId           String    @map("kakao_id")
-  accessTokenCipher String?   @map("access_token_cipher")
-  tokenScope        String?   @map("token_scope")
-  tokenExpiresAt    DateTime? @map("token_expires_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  facility Facility? @relation(fields: [facilityId], references: [id])
-
-  @@map("kakao_identities")
 }
 
 // ─── Tenant tables (facilityId-scoped, RLS ENABLE + FORCE) ────────────────────────
@@ -126,6 +125,7 @@ model Camera {
   facilityId String    @map("facility_id")
   spaceId    String    @map("space_id")
   label      String
+  rtspUrl    String?   @map("rtsp_url")
   lastSeenAt DateTime? @map("last_seen_at")
   online     Boolean   @default(false)
   createdAt  DateTime  @default(now()) @map("created_at")
@@ -172,13 +172,14 @@ model Alert {
 
   /// Composite FK (facilityId, cameraId) → Camera(facilityId, id) prevents
   /// an alert from referencing a camera in a different facility (F9).
-  camera      Camera? @relation(fields: [facilityId, cameraId], references: [facilityId, id])
-  space       Space   @relation(fields: [facilityId, spaceId], references: [facilityId, id])
-  originEvent Event?  @relation("AlertOriginEvent", fields: [facilityId, originEventId], references: [facilityId, id])
+  camera      Camera?     @relation(fields: [facilityId, cameraId], references: [facilityId, id])
+  space       Space       @relation(fields: [facilityId, spaceId], references: [facilityId, id])
+  originEvent Event?      @relation("AlertOriginEvent", fields: [facilityId, originEventId], references: [facilityId, id])
   /// Lifecycle audit actors. Simple nullable FK → users(id); same-facility is an
   /// app-layer guarantee (session actor + RequireFacilityGuard + facility-scoped write).
-  ackedBy     User?   @relation("AlertAckedBy", fields: [ackedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  resolvedBy  User?   @relation("AlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  ackedBy     User?       @relation("AlertAckedBy", fields: [ackedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  resolvedBy  User?       @relation("AlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  notes       AlertNote[]
 
   @@unique([facilityId, idempotencyKey])
   @@index([facilityId, alertSeq])
@@ -189,18 +190,44 @@ model Alert {
   @@map("alerts")
 }
 
+model AlertNote {
+  id          String   @id @default(cuid())
+  facilityId  String   @map("facility_id")
+  alertId     String   @map("alert_id")
+  note        String
+  createdById String?  @map("created_by_id")
+  authorRole  Role     @map("author_role")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  facility  Facility @relation(fields: [facilityId], references: [id])
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy User?    @relation("AlertNoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([facilityId, alertId, createdAt])
+  @@index([alertId])
+  @@index([createdById])
+  @@map("alert_notes")
+}
+
 /// Immutable ML event SSOT. RLS-protected and append-only for the app role.
 model Event {
-  id         String   @id @default(cuid())
-  facilityId String   @map("facility_id")
-  cameraId   String   @map("camera_id")
-  spaceId    String   @map("space_id")
-  type       String
-  confidence Float?
-  detectedAt DateTime @map("detected_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  modifiedAt DateTime @updatedAt @map("modified_at")
-  dedupKey   String   @map("dedup_key")
+  id                 String   @id @default(cuid())
+  facilityId         String   @map("facility_id")
+  cameraId           String   @map("camera_id")
+  spaceId            String   @map("space_id")
+  type               String
+  confidence         Float?
+  detectedAt         DateTime @map("detected_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  modifiedAt         DateTime @updatedAt @map("modified_at")
+  dedupKey           String   @map("dedup_key")
+  configVersion      Int?     @map("config_version")
+  modelVersion       String?  @map("model_version")
+  detectorVersion    String?  @map("detector_version")
+  operatingThreshold Float?   @map("operating_threshold")
+  snapshotKey        String?  @map("snapshot_key")
+  clockSource        String?  @map("clock_source")
+  clipId             String?  @map("clip_id")
 
   facility     Facility @relation(fields: [facilityId], references: [id])
   camera       Camera   @relation(fields: [facilityId, cameraId], references: [facilityId, id])
@@ -246,34 +273,14 @@ model Space {
 
   facility Facility @relation(fields: [facilityId], references: [id])
   floor    Floor    @relation(fields: [facilityId, floorId], references: [facilityId, id])
-  zones    Zone[]
-
-  camera Camera?
-  alerts Alert[]
+  camera   Camera?
+  alerts   Alert[]
 
   events Event[]
 
   @@unique([facilityId, floorId, name])
   @@unique([facilityId, id])
   @@map("spaces")
-}
-
-/// Named area inside a space.
-model Zone {
-  id         String   @id @default(cuid())
-  facilityId String   @map("facility_id")
-  spaceId    String   @map("space_id")
-  name       String
-  type       ZoneType
-  orderIndex Int      @map("order_index")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  facility Facility @relation(fields: [facilityId], references: [id])
-  space    Space    @relation(fields: [facilityId, spaceId], references: [facilityId, id])
-
-  @@unique([facilityId, spaceId, name])
-  @@unique([facilityId, id])
-  @@map("zones")
 }
 
 // ─── Backend-owned alert outbox (issue #29) ─────────────────────────────────
@@ -301,7 +308,7 @@ enum AlertSuppressedReason {
 }
 
 enum DeliveryChannel {
-  KAKAO_SEND_TO_ME
+  EMAIL
 }
 
 enum DeliveryAttemptStatus {

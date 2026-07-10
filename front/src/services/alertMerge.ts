@@ -71,7 +71,7 @@ export function mergeAlertUpdates(state: AlertMergeState, incoming: AlertUpdateD
         alertSeq: incomingSeq,
         spaceId: update.spaceId,
         backendStatus: update.status,
-        kakaoAlertStatus: mapBackendStatusToKakao(update.status),
+        alertStatus: mapBackendStatusToAlertStatus(update.status),
         acknowledgedAt: isResolvedBackendStatus(update.status) ? (update.resolvedAt ?? existing.acknowledgedAt) : existing.acknowledgedAt,
         emergency: isResolvedBackendStatus(update.status) ? false : existing.emergency,
       };
@@ -114,7 +114,7 @@ function isResolvedBackendStatus(status: string): boolean {
   return status === RESOLVED_STATUS;
 }
 
-function mapBackendStatusToKakao(status: string): FrontendAlert["kakaoAlertStatus"] {
+function mapBackendStatusToAlertStatus(status: string): FrontendAlert["alertStatus"] {
   return isResolvedBackendStatus(status) ? "ACKNOWLEDGED" : "PENDING";
 }
 
@@ -128,28 +128,38 @@ function statusFromAlert(previous: SpaceStatus | undefined, alert: FrontendAlert
     status: "DANGER",
     aiSummary: alert.aiSummary,
     lastDetectedAt: alert.detectedAt,
-    kakaoAlertStatus: alert.kakaoAlertStatus,
+    alertStatus: alert.alertStatus,
     bedsideActivity: alert.eventType === "BED_EXIT" ? true : previous?.bedsideActivity,
     emergency: alert.emergency ?? true,
   };
 }
 
-function normalStatusFromAlert(previous: SpaceStatus | undefined, alert: FrontendAlert): SpaceStatus {
+function stableClearedStatus(status: SpaceStatus): SpaceStatus {
   return {
+    ...status,
+    movementLevel: "LOW",
+    fallRiskLevel: "LOW",
+    status: "STABLE",
+    aiSummary: undefined,
+    alertStatus: "ACKNOWLEDGED",
+    bedsideActivity: false,
+    prolongedInactivity: undefined,
+    soloMovementAttempt: undefined,
+    emergency: false,
+  };
+}
+
+function normalStatusFromAlert(previous: SpaceStatus | undefined, alert: FrontendAlert): SpaceStatus {
+  return stableClearedStatus({
     id: previous?.id ?? `status-${alert.spaceId}`,
     spaceId: alert.spaceId,
     peopleCount: previous?.peopleCount ?? 0,
     movementLevel: "LOW",
     fallRiskLevel: "LOW",
     status: "STABLE",
-    aiSummary: alert.aiSummary,
     lastDetectedAt: alert.detectedAt,
-    kakaoAlertStatus: "ACKNOWLEDGED",
-    bedsideActivity: false,
-    prolongedInactivity: previous?.prolongedInactivity,
-    soloMovementAttempt: previous?.soloMovementAttempt,
-    emergency: false,
-  };
+    alertStatus: "ACKNOWLEDGED",
+  });
 }
 
 function latestBySeq(alerts: FrontendAlert[]): FrontendAlert | undefined {
@@ -183,15 +193,7 @@ export function deriveStatusesFromAlerts(
 
   for (const [spaceId, previous] of Object.entries(baseStatuses)) {
     if (!alertsBySpace[spaceId] && previous.status === "DANGER") {
-      statuses[spaceId] = {
-        ...previous,
-        movementLevel: "LOW",
-        fallRiskLevel: "LOW",
-        status: "STABLE",
-        kakaoAlertStatus: "ACKNOWLEDGED",
-        bedsideActivity: false,
-        emergency: false,
-      };
+      statuses[spaceId] = stableClearedStatus(previous);
     }
   }
   return statuses;

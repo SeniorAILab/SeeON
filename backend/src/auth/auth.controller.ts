@@ -5,35 +5,22 @@ import {
   Get,
   Header,
   HttpCode,
-  Logger,
+  Patch,
   Post,
-  Query,
   Req,
   Res,
-  ServiceUnavailableException,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
+import { ApiBody, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
-import {
-  OAUTH_STATE_COOKIE_NAME,
-  OAUTH_STATE_TTL_SECONDS,
-  postLoginPathForUser,
-} from './auth.constants';
 import { AuthService } from './auth.service';
+import { clearSessionCookie, setSessionCookie } from './cookie.util';
 import {
-  clearOAuthStateCookie,
-  clearSessionCookie,
-  readCookie,
-  setOAuthStateCookie,
-  setSessionCookie,
-} from './cookie.util';
-import type {
   CreateFacilityRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
+  UpdateAlertSettingsRequestDto,
 } from './dto/auth.dto';
 import type { RequestWithAuth } from './jwt-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -42,77 +29,7 @@ import type { AuthenticatedUser } from './auth.types';
 
 @Controller()
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-
-  constructor(
-    private readonly auth: AuthService,
-    private readonly config: ConfigService,
-  ) {}
-
-  @ApiOperation({
-    summary: 'Start Kakao login',
-    description:
-      'Redirects the browser to Kakao OAuth after setting the short-lived OAuth state cookie.',
-  })
-  @Get('auth/kakao/login')
-  kakaoLogin(@Res() response: Response): void {
-    const state = this.auth.createOAuthState();
-    let authorizeUrl: string;
-    try {
-      authorizeUrl = this.auth.getKakaoAuthorizeUrl(state);
-    } catch (error) {
-      if (error instanceof ServiceUnavailableException) {
-        this.logger.warn(`Kakao OAuth unavailable: ${error.message}`);
-        response.redirect(
-          `${this.frontOrigin()}/login?auth_error=kakao_unavailable`,
-        );
-        return;
-      }
-      throw error;
-    }
-    setOAuthStateCookie(response, state, OAUTH_STATE_TTL_SECONDS);
-    response.redirect(authorizeUrl);
-  }
-
-  @ApiOperation({
-    summary: 'Complete Kakao login',
-    description:
-      'Validates the OAuth state, links the Kakao identity to an existing user, sets the JWT auth cookie, and redirects to the appropriate frontend entry point.',
-  })
-  @Get('auth/kakao/callback')
-  async kakaoCallback(
-    @Query('code') code: string | undefined,
-    @Query('state') state: string | undefined,
-    @Req() request: RequestWithAuth,
-    @Res() response: Response,
-  ): Promise<void> {
-    const expectedState = readCookie(
-      request.headers.cookie,
-      OAUTH_STATE_COOKIE_NAME,
-    );
-    if (!state || !expectedState || state !== expectedState) {
-      throw new BadRequestException('Invalid OAuth state');
-    }
-    let session: Awaited<ReturnType<AuthService['completeKakaoCallback']>>;
-    try {
-      session = await this.auth.completeKakaoCallback(code ?? '');
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        clearOAuthStateCookie(response);
-        response.redirect(
-          `${this.frontOrigin()}/login?auth_error=kakao_unregistered`,
-        );
-        return;
-      }
-      throw error;
-    }
-    clearOAuthStateCookie(response);
-    setSessionCookie(response, session.token, session.maxAgeSeconds);
-    // Backend OAuth callbacks run on :8080; relative redirects would land on missing :8080 frontend routes.
-    response.redirect(
-      `${this.frontOrigin()}${postLoginPathForUser(session.user)}`,
-    );
-  }
+  constructor(private readonly auth: AuthService) {}
 
   @ApiOperation({
     summary: 'Read authenticated identity',
@@ -126,6 +43,40 @@ export class AuthController {
   me(@Req() request: RequestWithAuth) {
     if (!request.user) throw new UnauthorizedException('Missing session');
     return presentAuthUser(request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Read the current user email-alert settings',
+    description:
+      'Returns the authenticated user notification_email, email_alerts_enabled flag, and the effective recipient email (notification_email ?? email).',
+  })
+  @ApiCookieAuth()
+  @Get('auth/me/alert-settings')
+  @UseGuards(JwtAuthGuard)
+  @Header('cache-control', 'no-store')
+  async getAlertSettings(@Req() request: RequestWithAuth) {
+    if (!request.user) throw new UnauthorizedException('Missing session');
+    return this.auth.getAlertSettings(request.user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Update the current user email-alert settings',
+    description:
+      'Self-service update of notification_email (null/empty clears it, falling back to the login email) and email_alerts_enabled.',
+  })
+  @ApiCookieAuth()
+  @ApiBody({ type: UpdateAlertSettingsRequestDto })
+  @Patch('auth/me/alert-settings')
+  @UseGuards(JwtAuthGuard)
+  async updateAlertSettings(
+    @Req() request: RequestWithAuth,
+    @Body() body: UpdateAlertSettingsRequestDto,
+  ) {
+    if (!request.user) throw new UnauthorizedException('Missing session');
+    return this.auth.updateAlertSettings(request.user.id, {
+      notificationEmail: body.notificationEmail,
+      emailAlertsEnabled: body.emailAlertsEnabled,
+    });
   }
 
   @ApiOperation({
@@ -200,20 +151,12 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     if (!request.user) throw new BadRequestException('Missing user');
-    const facilityName =
-      typeof body.facilityName === 'string' ? body.facilityName : '';
     const session = await this.auth.createFacilityForUser(
       request.user.id,
-      facilityName,
+      body.facilityName,
     );
     setSessionCookie(response, session.token, session.maxAgeSeconds);
     return { user: presentAuthUser(session.user) };
-  }
-
-  private frontOrigin(): string {
-    return (
-      this.config.get<string>('FRONT_ORIGIN') ?? 'http://localhost:3000'
-    ).replace(/\/+$/, '');
   }
 }
 

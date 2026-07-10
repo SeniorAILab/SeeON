@@ -16,8 +16,21 @@ ALLOWED_PATHS: Final = {
     "/api/v1/health",
     "/api/v1/models",
     "/api/v1/relay/alerts",
+    "/api/v1/relay/config",
     "/api/v1/relay/heartbeat",
+    "/api/v1/relay/restart",
+    "/api/v1/audit",
+    "/api/v1/cameras",
+    "/api/v1/cameras/worker-config",
+    "/api/v1/cameras/{camera_id}",
+    "/api/v1/cameras/{camera_id}/test",
+    "/api/v1/clips",
+    "/api/v1/clips/{clip_id}/label",
+    "/api/v1/clips/{clip_id}/video",
     "/api/v1/status",
+    "/api/v1/streams/{camera_id}",
+    "/api/v1/streams/{camera_id}/snapshot",
+    "/api/v1/system",
     "/docs",
     "/docs/oauth2-redirect",
     "/health/live",
@@ -33,7 +46,6 @@ PRODUCTION_ROUTE_TERMS: Final = (
 )
 FORBIDDEN_IMPORTS: Final = (
     "worker",
-    "events.publisher",
     "events.outbox",
     "events.schemas",
     "runtime.edge_worker",
@@ -107,7 +119,7 @@ def test_serving_import_allows_api_owned_backend_ingest_client_but_not_ml_runtim
             "-c",
             (
                 "import sys; import api.main; "
-                "forbidden = {'events.publisher', 'events.outbox', 'events.schemas', "
+                "forbidden = {'events.outbox', 'events.schemas', "
                 "'worker', 'worker.edge_worker', "
                 "'worker.runners.registry', 'worker.sources.registry'}; "
                 "loaded = sorted(forbidden.intersection(sys.modules)); "

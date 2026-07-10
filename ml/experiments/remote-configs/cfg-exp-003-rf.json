@@ -1,7 +1,0 @@
-{
-  "id": "exp-003-rf-hpsearch",
-  "model_family": "random-forest",
-  "hypothesis": "Wave1/A+B: with HP wiring live, deeper trees + more estimators (n_estimators 100-500, max_depth 5-30) lift RF P@R90 above the fixed-default baseline 0.1032.",
-  "n_trials": 5,
-  "trial_timeout_s": 3600
-}

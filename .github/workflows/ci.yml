@@ -68,8 +68,6 @@ jobs:
       DATABASE_URL: postgresql://fall_app:fall_app@localhost:5432/fall_dev?schema=public
       DIRECT_URL: postgresql://fall:fall@localhost:5432/fall_dev?schema=public
       SESSION_JWT_SECRET: ci-session-secret-minimum-32-characters
-      KAKAO_REST_API_KEY: ci-dummy-key
-      KAKAO_REDIRECT_URI: http://localhost:3000/auth/kakao/callback
     services:
       postgres:
         image: postgres:17-alpine
@@ -106,6 +104,8 @@ jobs:
         run: pnpm --filter backend exec prisma db execute --file prisma/init/01-create-app-role.sql --url "$DIRECT_URL"
       - name: Apply migrations
         run: pnpm --filter backend exec prisma migrate deploy
+      - name: Audit Prisma migration drift
+        run: pnpm --filter backend exec prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --shadow-database-url "$DIRECT_URL" --exit-code
       # warn-first 롤아웃: lint 결과(경고 + 기존 error)를 로그에 노출하되 CI를 막지
       # 않는다. 기존 type-safety error 백로그(약 20건)를 소진한 뒤 블로킹으로 승격한다
       # (ADR follow-up). 경고는 ESLint/에디터로 항상 노출됨.
@@ -145,7 +145,7 @@ jobs:
         run: pnpm --filter front test
 
   ml:
-    name: ML (lint)
+    name: ML (lint + test)
     needs: changes
     if: needs.changes.outputs.ml == 'true'
     runs-on: ubuntu-latest
@@ -154,6 +154,14 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Ruff
         run: uvx ruff@0.15.17 check .
+        working-directory: ml
+      - name: Install deps
+        run: uv sync
+        working-directory: ml
+      - name: Install ffmpeg (clip recorder H.264 encoder)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Pytest
+        run: uv run pytest
         working-directory: ml
 
   env-contract:

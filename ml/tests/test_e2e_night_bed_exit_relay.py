@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app, no_lifespan
 from contracts.frame import Frame
+from contracts.runner import bed_result, pose_result
 from worker.camera_worker import CameraWorker
 from worker.domains.bed_exit.detector import BedExitMonitor, NightWindow
 from worker.edge_worker import _RelayClient
@@ -68,20 +69,18 @@ class ScriptedFrameSource:
 
 
 class ScriptedPersonRunner:
-    def predict(
-        self, _frame: np.ndarray
-    ) -> tuple[tuple[tuple[int, int, float], ...], tuple[tuple[int, int, int, int, float], ...]]:
+    def run(self, _frame: np.ndarray):
         if not hasattr(self, "_calls"):
             self._calls = 0
         self._calls += 1
         if self._calls == 1:
-            return ((),), ((10, 10, 90, 80, 0.98),)
-        return ((),), ((52, 10, 132, 80, 0.98),)
+            return pose_result(((),), ((10, 10, 90, 80, 0.98),))
+        return pose_result(((),), ((52, 10, 132, 80, 0.98),))
 
 
 class ScriptedBedRunner:
-    def predict(self, _frame: np.ndarray) -> tuple[tuple[int, int, int, int, float], ...]:
-        return ((0, 0, 90, 100, 0.99),)
+    def run(self, _frame: np.ndarray):
+        return bed_result(((0, 0, 90, 100, 0.99),))
 
 
 def _api_client(backend: SpyBackendIngestClient) -> TestClient:
@@ -140,6 +139,7 @@ def test_night_bed_exit_reaches_backend_ingest_through_worker_relay_and_ml_api()
             "event_type": "bed-exit",
             "detected_at": backend.alerts[0]["detected_at"],
             "probability": 1.0,
+            "audit": {"config_version": 0, "clock_source": "edge_wall_clock"},
         }
     ]
     assert backend.alerts[0]["detected_at"]

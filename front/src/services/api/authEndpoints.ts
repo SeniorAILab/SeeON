@@ -1,5 +1,5 @@
 import type { AuthSession, Role, User } from "@/types";
-import { buildApiUrl, requestJson, requestNoContent } from "../apiClient";
+import { requestJson, requestNoContent } from "../apiClient";
 
 interface AuthUserResponseDto {
   id: string;
@@ -41,10 +41,6 @@ export function parseRole(role: string | null | undefined): Role | null {
     default:
       return null;
   }
-}
-
-export function kakaoLoginUrl(): string {
-  return buildApiUrl("/auth/kakao/login");
 }
 
 export async function logoutEndpoint(): Promise<void> {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol
 
@@ -13,12 +13,26 @@ from contracts.observation import (
     DetectionResult,
     FrameObservation,
 )
-from contracts.runner import BedBoxOutput, BoxOutput, PoseOutput, RunnerOutput, RunnerProtocol
+from contracts.runner import (
+    BedBoxOutput,
+    BedRunnerResult,
+    BoxOutput,
+    DetectionRunnerResult,
+    PersonRunnerResult,
+    PoseOutput,
+    PoseRunnerResult,
+    RunnerOutput,
+    RunnerProtocol,
+)
+from contracts.tracker import TrackerProtocol
+from events.schemas import build_audit_envelope
 from worker.domains.bed_exit.schema import BedExitDebugSnapshot, DomainDebugSnapshot
 from worker.fall_window_classifier import FallWindowClassifier
 from worker.incident_manager import IncidentManager
+from worker.overlay_renderer import OverlayRenderer
 from worker.perception.observation_builder import build_frame_observation
 from worker.perception.scene_state import SceneState
+from worker.perception.tracker import GreedyIouTracker
 from worker.scheduler import Scheduler
 from worker.status_store import CameraStatus, StatusStore
 
@@ -35,6 +49,13 @@ class EventSinkProtocol(Protocol):
 
 class PublishEventSinkProtocol(Protocol):
     def publish(self, event: EventPayload) -> None: ...
+
+
+class ClipRecorderProtocol(Protocol):
+    def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
+    def on_event(
+        self, camera_id: str, event_ref: str, event_type: str | None = None
+    ) -> str | None: ...
 
 
 class OverlaySinkProtocol(Protocol):
@@ -65,10 +86,32 @@ class CameraWorker:
     fall_classifier: FallWindowClassifier | None = None
     scene_state: SceneState | None = None
     overlay_sink: OverlaySinkProtocol | None = None
+    tracker: TrackerProtocol = field(default_factory=GreedyIouTracker)
+    snapshot_renderer: OverlayRenderer | None = None
+    detector_version: str | None = None
+    clip_recorder: ClipRecorderProtocol | None = None
 
     def __post_init__(self) -> None:
         if self.scene_state is None:
             self.scene_state = SceneState(self.camera_id)
+
+    def _bind_source_liveness_callbacks(self) -> None:
+        bind = getattr(self.frame_source, "set_liveness_callbacks", None)
+        if not callable(bind):
+            return
+        bind(
+            on_reconnecting=lambda reason: self.status_store.record_camera_reconnecting(
+                self.camera_id,
+                self.facility_id,
+                "rtsp_reconnecting",
+                detail=reason,
+            ),
+            on_recovered=lambda reason: self.status_store.record_camera_recovered(
+                self.camera_id,
+                self.facility_id,
+                detail=reason,
+            ),
+        )
 
     def run(self, *, max_frames: int | None = None) -> int:
         processed = 0
@@ -77,6 +120,7 @@ class CameraWorker:
             self.scene_state.reset_for_new_source("source_iterator_start")
         # Source construction is the camera/source boundary: failure soft-degrades.
         try:
+            self._bind_source_liveness_callbacks()
             frame_iter = iter(self.frame_source)
         except Exception as exc:  # noqa: BLE001 - source construction soft-degrades worker
             self._mark_source_failure(exc)
@@ -113,6 +157,7 @@ class CameraWorker:
         )
 
     def process_frame(self, frame: Frame) -> FrameObservation:
+        self._record_clip_frame(frame)
         scheduled_tasks = self.scheduler.tasks_for_frame(frame.index)
         outputs = self._run_scheduled_runners(frame, scheduled_tasks)
         observation, bed_debug = self._build_observation(
@@ -121,11 +166,22 @@ class CameraWorker:
             bed_scheduled="bed" in scheduled_tasks,
             bed_interval=self.scheduler.task_intervals.get("bed", 30),
         )
+        observation = replace(observation, track_ids=self.tracker.update(observation.boxes))
         if self.fall_classifier is not None:
             observation = self.fall_classifier.classify(
                 observation,
                 frame.image.shape[1],
                 frame.image.shape[0],
+                self.tracker.live_ids,
+            )
+        if self.scene_state is not None:
+            self.scene_state.update(
+                observation,
+                track_ids=tuple(
+                    track_id
+                    for track_id in observation.track_ids
+                    if track_id is not None
+                ),
             )
         debug_snapshots: list[DomainDebugSnapshot] = []
         for detector in self.domain_detectors:
@@ -141,6 +197,8 @@ class CameraWorker:
                     frame.time_sec,
                 )
                 if self.incident_manager.admit(event, now_sec=frame.time_sec):
+                    event["clip_id"] = self._record_clip_event(event)
+                    self._attach_alert_metadata(event, frame, observation, tuple(debug_snapshots))
                     self._emit(event)
         if self.overlay_sink is not None:
             self.overlay_sink.publish(
@@ -150,6 +208,35 @@ class CameraWorker:
                 tuple(debug_snapshots),
             )
         return observation
+    def _attach_alert_metadata(
+        self,
+        event: MutableEventPayload,
+        frame: Frame,
+        observation: FrameObservation,
+        debug_snapshots: tuple[DomainDebugSnapshot, ...],
+    ) -> None:
+        if event.get("event_type") not in {"fall", "bed-exit"}:
+            return
+        try:
+            model = getattr(self.fall_classifier, "model", None)
+            model_version = _str_or_none(getattr(model, "version", None))
+            operating_threshold = _float_or_none(getattr(model, "operating_threshold", None))
+            event["audit"] = build_audit_envelope(
+                model_version=model_version,
+                detector_version=self.detector_version,
+                operating_threshold=operating_threshold,
+            )
+            if self.snapshot_renderer is not None:
+                snapshot = self.snapshot_renderer.encode_jpeg_bounded(
+                    frame,
+                    observation,
+                    debug_snapshots,
+                )
+                if snapshot is not None:
+                    event["snapshot_jpeg"] = snapshot
+        except Exception:  # noqa: BLE001 - audit/snapshot metadata must not block alert emit
+            return
+
 
     def _run_scheduled_runners(
         self,
@@ -183,20 +270,21 @@ class CameraWorker:
         bed_boxes: tuple[BoundingBox, ...] | None = None
 
         pose_output = outputs.get("pose")
-        if isinstance(pose_output, DetectionResult):
-            detections = pose_output
-        elif _is_pose_box_pair(pose_output):
-            poses, raw_boxes = pose_output
+        if isinstance(pose_output, DetectionRunnerResult):
+            detections = pose_output.detections
+        elif isinstance(pose_output, PoseRunnerResult):
+            poses = pose_output.poses
+            raw_boxes = pose_output.boxes
 
         person_output = outputs.get("person")
-        if isinstance(person_output, DetectionResult):
-            detections = person_output
+        if isinstance(person_output, DetectionRunnerResult):
+            detections = person_output.detections
             raw_boxes = None
-        elif person_output is not None and not _is_pose_box_pair(person_output):
-            raw_boxes = person_output
+        elif isinstance(person_output, PersonRunnerResult):
+            raw_boxes = person_output.boxes
         bed_output = outputs.get("bed")
-        if bed_output is not None:
-            bed_boxes = _bed_boxes_from_output(bed_output)
+        if isinstance(bed_output, BedRunnerResult):
+            bed_boxes = _bed_boxes_from_output(bed_output.boxes)
 
         observation = self.observation_builder(
             detections=detections,
@@ -231,6 +319,24 @@ class CameraWorker:
             ),
         )
 
+    def _record_clip_frame(self, frame: Frame) -> None:
+        if self.clip_recorder is None:
+            return
+        try:
+            self.clip_recorder.on_frame(self.camera_id, frame)
+        except Exception:  # noqa: BLE001 - recorder backpressure/failure must not block inference
+            return
+
+    def _record_clip_event(self, event: EventPayload) -> str | None:
+        if self.clip_recorder is None:
+            return None
+        try:
+            return self.clip_recorder.on_event(
+                self.camera_id, _event_ref(event), _event_type(event)
+            )
+        except Exception:  # noqa: BLE001 - recorder finalize failure must not block alert emit
+            return None
+
     def _emit(self, event: EventPayload) -> None:
         if self.event_sink is None:
             return
@@ -244,20 +350,27 @@ class CameraWorker:
 
     def _mark_source_failure(self, exc: Exception) -> None:
         category = exc.__class__.__name__
-        self.status_store.set_status(
-            self.camera_id,
-            self.facility_id,
-            CameraStatus.DEGRADED,
-            error_category=category,
-        )
-        self.status_store.record_ops_event(
-            "camera.offline",
+        self.status_store.record_camera_reconnecting(
             self.camera_id,
             self.facility_id,
             category,
             detail=str(exc) or None,
         )
 
+
+def _str_or_none(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _float_or_none(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 def _domain_debug_snapshot(
     detector: DomainDetectorProtocol,
@@ -274,31 +387,14 @@ def _domain_debug_snapshot(
 
 
 def _run_runner(runner: RunnerProtocol, frame: Frame) -> RunnerOutput:
-    for method_name in ("predict_full", "detect_beds", "predict", "run"):
-        method = getattr(runner, method_name, None)
-        if method is not None:
-            return method(frame.image)
+    method = getattr(runner, "run", None)
+    if callable(method):
+        return method(frame.image)
     if callable(runner):
         return runner(frame.image)
     raise TypeError(f"runner {runner!r} has no supported invocation method")
 
 
-def _is_pose_box_pair(value: RunnerOutput | None) -> bool:
-    if not isinstance(value, tuple) or len(value) != 2:
-        return False
-    poses, raw_boxes = value
-    return _is_nested_sequence(poses) and _is_nested_sequence(raw_boxes)
-
-
-def _is_nested_sequence(
-    value: RunnerOutput | BedBoxOutput | int | float | str | bytes | None,
-) -> bool:
-    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
-        return False
-    if len(value) == 0:
-        return True
-    first = value[0]
-    return isinstance(first, Sequence) and not isinstance(first, str | bytes)
 
 
 def _bed_box_from_output(item: BedBoxOutput) -> BoundingBox:
@@ -310,11 +406,7 @@ def _bed_box_from_output(item: BedBoxOutput) -> BoundingBox:
     return BoundingBox(int(x1), int(y1), int(x2), int(y2), float(confidence))
 
 
-def _bed_boxes_from_output(output: RunnerOutput) -> tuple[BoundingBox, ...]:
-    if isinstance(output, DetectionResult):
-        return ()
-    if _is_pose_box_pair(output):
-        return ()
+def _bed_boxes_from_output(output: Iterable[BedBoxOutput]) -> tuple[BoundingBox, ...]:
     return tuple(_bed_box_from_output(item) for item in output)
 
 
@@ -329,6 +421,20 @@ def _events_from_detector(
         return iter(result)
     return iter((result,))
 
+
+def _event_ref(event: EventPayload) -> str:
+    for key in ("event_id", "identity", "detected_at", "time_sec"):
+        value = event.get(key)
+        if value is not None and str(value) != "":
+            return str(value)
+    return str(event.get("event_type", "event"))
+
+
+def _event_type(event: EventPayload) -> str | None:
+    value = event.get("event_type")
+    if value is None or str(value) == "":
+        return None
+    return str(value)
 
 def _with_camera_identity(
     event: EventPayload,

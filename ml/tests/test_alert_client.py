@@ -7,7 +7,7 @@ from threading import Event, Thread
 
 import pytest
 
-from events.publisher import AlertClient
+from demo.alert_client import AlertClient
 
 
 class _RecordingHandler(BaseHTTPRequestHandler):

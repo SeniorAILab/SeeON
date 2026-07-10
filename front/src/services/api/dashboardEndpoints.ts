@@ -1,6 +1,7 @@
 import { parseAuthUserResponse } from "@/services/api/authEndpoints";
 import { requestJson } from "@/services/apiClient";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
+import { getCurrentFacilityId } from "@/stores/facilityStore";
 import { listAlerts } from "@/services/api/alertEndpoints";
 import { mergeAlertsIntoDashboard } from "@/services/alertMerge";
 import type { DashboardResponse, DashboardSummary, Facility, Floor, Space, SpaceStatus } from "@/types";
@@ -27,8 +28,13 @@ function pathSegment(value: string): string {
 }
 
 async function resolveCurrentFacilityId(): Promise<string> {
-  const storeFacilityId = useAuthStore.getState().user?.facilityId;
-  if (storeFacilityId) return storeFacilityId;
+  // 선택된 시설 스코프(super_admin의 시설 선택 포함)를 우선한다.
+  // apiClient의 X-Facility-Id 헤더 소스(facilityStore)와 일치시켜 실백엔드 경로를 일관되게 스코프한다.
+  const selectedFacilityId = getCurrentFacilityId();
+  if (selectedFacilityId) return selectedFacilityId;
+
+  const authFacilityId = useAuthStore.getState().user?.facilityId;
+  if (authFacilityId) return authFacilityId;
 
   const user = parseAuthUserResponse(await requestJson("/auth/me"));
   if (user?.facilityId) return user.facilityId;
@@ -63,7 +69,7 @@ function statusFromSpace(space: Space): SpaceStatus {
     status: "STABLE",
     aiSummary: "",
     lastDetectedAt: "",
-    kakaoAlertStatus: "NONE",
+    alertStatus: "NONE",
     emergency: false,
   };
 }

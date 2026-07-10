@@ -5,16 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import { randomBytes } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  KakaoClient,
-  type KakaoProfile,
-  type KakaoTokenResponse,
-} from './kakao.client';
-import { encryptToken } from './token-crypto';
 import { hashPassword, verifyPassword } from './password';
 import { assertValidPassword, requiredPassword } from './password-policy';
 import { createRegisteredFacilityOwner } from './password-registration';
@@ -27,13 +20,23 @@ export interface AuthSession {
     | 'id'
     | 'facilityId'
     | 'role'
-    | 'kakaoId'
     | 'nickname'
     | 'email'
     | 'sessionVersion'
   >;
   readonly token: string;
   readonly maxAgeSeconds: number;
+}
+
+export interface AlertSettings {
+  readonly notificationEmail: string | null;
+  readonly emailAlertsEnabled: boolean;
+  readonly effectiveEmail: string | null;
+}
+
+export interface UpdateAlertSettingsInput {
+  readonly notificationEmail?: string | null;
+  readonly emailAlertsEnabled?: boolean;
 }
 
 export interface RegisterWithPasswordInput {
@@ -48,27 +51,9 @@ export interface RegisterWithPasswordInput {
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly kakao: KakaoClient,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
-
-  createOAuthState(): string {
-    return randomBytes(24).toString('base64url');
-  }
-
-  getKakaoAuthorizeUrl(state: string): string {
-    return this.kakao.buildAuthorizeUrl(state);
-  }
-
-  async completeKakaoCallback(code: string): Promise<AuthSession> {
-    if (!code)
-      throw new BadRequestException('Missing Kakao authorization code');
-    const kakaoToken = await this.kakao.exchangeCode(code);
-    const profile = await this.kakao.getProfile(kakaoToken.access_token);
-    const user = await this.updateLinkedKakaoUser(profile, kakaoToken);
-    return this.createJwtSession(user);
-  }
 
   async loginWithPassword(
     email: string,
@@ -151,17 +136,6 @@ export class AuthService {
           where: { id: userId },
           data: { facilityId: facility.id, role: 'ADMIN' },
         });
-        if (updated.kakaoId) {
-          await tx.kakaoIdentity.upsert({
-            where: { userId },
-            update: { facilityId: facility.id, kakaoId: updated.kakaoId },
-            create: {
-              userId,
-              facilityId: facility.id,
-              kakaoId: updated.kakaoId,
-            },
-          });
-        }
         return updated;
       },
     );
@@ -193,7 +167,6 @@ export class AuthService {
       | 'id'
       | 'facilityId'
       | 'role'
-      | 'kakaoId'
       | 'nickname'
       | 'email'
       | 'sessionVersion'
@@ -212,57 +185,58 @@ export class AuthService {
     return { user, token, maxAgeSeconds: jwtTtlSeconds(expiresIn) };
   }
 
-  private jwtTtl(): string {
-    return this.config.get<string>('JWT_TTL') ?? DEFAULT_JWT_TTL;
+  async getAlertSettings(userId: string): Promise<AlertSettings> {
+    const user = await this.prisma.db.user.findUnique({
+      where: { id: userId },
+      select: { notificationEmail: true, emailAlertsEnabled: true, email: true },
+    });
+    if (!user) throw new UnauthorizedException('Unknown user');
+    return {
+      notificationEmail: user.notificationEmail,
+      emailAlertsEnabled: user.emailAlertsEnabled,
+      effectiveEmail: user.notificationEmail ?? user.email,
+    };
   }
 
-  private async updateLinkedKakaoUser(
-    profile: KakaoProfile,
-    kakaoToken: KakaoTokenResponse,
-  ): Promise<User> {
-    const accessTokenCipher = encryptToken(kakaoToken.access_token);
-    const tokenScope = kakaoToken.scope ?? this.kakao.resolveScopes();
-    const tokenExpiresAt = kakaoToken.expires_in
-      ? new Date(Date.now() + kakaoToken.expires_in * 1000)
-      : null;
-
-    return this.prisma.db.$transaction(async (tx) => {
-      const existing = await tx.user.findUnique({
-        where: { kakaoId: profile.kakaoId },
-      });
-      if (!existing) {
-        throw new UnauthorizedException('Kakao account is not registered');
+  async updateAlertSettings(
+    userId: string,
+    input: UpdateAlertSettingsInput,
+  ): Promise<AlertSettings> {
+    const data: {
+      notificationEmail?: string | null;
+      emailAlertsEnabled?: boolean;
+    } = {};
+    if (input.notificationEmail !== undefined) {
+      if (
+        input.notificationEmail !== null &&
+        typeof input.notificationEmail !== 'string'
+      ) {
+        throw new BadRequestException('notificationEmail must be a string or null');
       }
-
-      const user = await tx.user.update({
-        where: { id: existing.id },
-        data: {
-          email: profile.email,
-          nickname: profile.nickname,
-        },
-      });
-
-      await tx.kakaoIdentity.upsert({
-        where: { userId: user.id },
-        update: {
-          facilityId: user.facilityId,
-          kakaoId: profile.kakaoId,
-          accessTokenCipher,
-          tokenScope,
-          tokenExpiresAt,
-        },
-        create: {
-          userId: user.id,
-          facilityId: user.facilityId,
-          kakaoId: profile.kakaoId,
-          accessTokenCipher,
-          tokenScope,
-          tokenExpiresAt,
-        },
-      });
-
-      return user;
+      const raw =
+        input.notificationEmail === null ? '' : input.notificationEmail.trim();
+      data.notificationEmail = raw === '' ? null : normalizeEmail(raw);
+    }
+    if (input.emailAlertsEnabled !== undefined) {
+      if (typeof input.emailAlertsEnabled !== 'boolean') {
+        throw new BadRequestException('emailAlertsEnabled must be a boolean');
+      }
+      data.emailAlertsEnabled = input.emailAlertsEnabled;
+    }
+    const user = await this.prisma.db.user.update({
+      where: { id: userId },
+      data,
+      select: { notificationEmail: true, emailAlertsEnabled: true, email: true },
     });
+    return {
+      notificationEmail: user.notificationEmail,
+      emailAlertsEnabled: user.emailAlertsEnabled,
+      effectiveEmail: user.notificationEmail ?? user.email,
+    };
+  }
+
+  private jwtTtl(): string {
+    return this.config.get<string>('JWT_TTL') ?? DEFAULT_JWT_TTL;
   }
 }
 

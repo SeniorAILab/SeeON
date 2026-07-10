@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -30,6 +31,8 @@ class EdgeWorkerSupervisor:
     heartbeat_sinks: dict[str, HeartbeatSink] = field(default_factory=dict)
     heartbeat_interval_sec: float = 30.0
     stop_event: threading.Event = field(default_factory=threading.Event)
+    restart_check: Callable[[], bool] | None = None
+    config_refresh: Callable[[], None] | None = None
 
     @classmethod
     def from_workers(
@@ -39,6 +42,9 @@ class EdgeWorkerSupervisor:
         status_store: StatusStore,
         heartbeat_sinks: dict[str, HeartbeatSink] | None = None,
         heartbeat_interval_sec: float = 30.0,
+        stop_event: threading.Event | None = None,
+        restart_check: Callable[[], bool] | None = None,
+        config_refresh: Callable[[], None] | None = None,
     ) -> EdgeWorkerSupervisor:
         return cls(
             loops=tuple(
@@ -47,6 +53,9 @@ class EdgeWorkerSupervisor:
             status_store=status_store,
             heartbeat_sinks={} if heartbeat_sinks is None else heartbeat_sinks,
             heartbeat_interval_sec=heartbeat_interval_sec,
+            stop_event=threading.Event() if stop_event is None else stop_event,
+            restart_check=restart_check,
+            config_refresh=config_refresh,
         )
 
     def run(
@@ -76,6 +85,11 @@ class EdgeWorkerSupervisor:
                 now = time.monotonic()
                 if now - last_heartbeat >= self.heartbeat_interval_sec:
                     self._send_heartbeats()
+                    if self.config_refresh is not None:
+                        self.config_refresh()
+                    if self.restart_check is not None and self.restart_check():
+                        self.stop_event.set()
+                        break
                     last_heartbeat = now
                 if not made_progress and all(loop.done.is_set() for loop in self.loops):
                     break
@@ -104,11 +118,19 @@ class EdgeWorkerSupervisor:
         worker = loop.worker
         self.status_store.set_status(worker.camera_id, worker.facility_id, CameraStatus.STARTING)
         try:
+            worker._bind_source_liveness_callbacks()
             frame_iter = iter(worker.frame_source)
-            self.status_store.set_status(worker.camera_id, worker.facility_id, CameraStatus.READY)
+            saw_frame = False
             for frame in frame_iter:
                 if self.stop_event.is_set():
                     break
+                if not saw_frame:
+                    self.status_store.set_status(
+                        worker.camera_id,
+                        worker.facility_id,
+                        CameraStatus.READY,
+                    )
+                    saw_frame = True
                 if not loop.buffer.put(frame, stop_event=self.stop_event):
                     break
         except Exception as exc:  # noqa: BLE001 - camera source failures soft-degrade one camera
@@ -124,6 +146,9 @@ class EdgeWorkerSupervisor:
 
     def _send_heartbeats(self) -> None:
         for loop in self.loops:
+            status = self.status_store.get_status(loop.worker.camera_id)
+            if status is None or status.status != CameraStatus.READY:
+                continue
             sink = self.heartbeat_sinks.get(loop.worker.camera_id)
             if sink is not None:
                 sink.send_heartbeat()

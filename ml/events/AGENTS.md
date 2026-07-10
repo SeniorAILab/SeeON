@@ -6,7 +6,6 @@ Own L4 outbound alert/event shape, publishers, outbox, and backend Event API cli
 
 - `schemas.py`: emitted event and backend Event API payload construction.
 - `local_publisher.py`: network-free publisher protocol and logging/stub implementation.
-- `publisher.py`: demo Event API HTTP shim; do not import this from api.
 - `outbox.py`: publisher-backed outbox.
 - `edge_ingest_client.py`: no-HMAC backend Event API alert and heartbeat HTTP client using the single `API_BACKEND_EVENTS_URL` base.
 
@@ -21,7 +20,6 @@ Forbidden: `sources`, `runners`, `perception`, `domains`, `runtime`, `api`, `dem
 - `tests/test_events_schema.py`
 - `tests/test_events_outbox.py`
 - `tests/test_events_ingest_client.py`
-- `tests/test_alert_client.py`
 - `tests/test_import_dependency_ladder.py`
 
 ## Gotchas

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, beforeEach } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./RequireAuth";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 beforeEach(() => {
   useAuthStore.setState({
@@ -21,10 +21,10 @@ beforeEach(() => {
 
 function renderAdminRoute() {
   return render(
-    <MemoryRouter initialEntries={["/dashboard/facilities/fac_happy_nokyang/admin"]}>
+    <MemoryRouter initialEntries={["/admin"]}>
       <Routes>
         <Route
-          path="/dashboard/facilities/:facilityId/admin"
+          path="/admin"
           element={
             <RequireAuth minRole="ADMIN">
               <div>ADMIN_DASHBOARD</div>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import type { SpaceStatus } from "@/types";
+import type { DashboardResponse, SpaceStatus } from "@/types";
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -55,9 +55,11 @@ function dashboardFetch(alerts: unknown[] = []) {
         facilityId: "fac_happy_nokyang",
       });
     }
-    if (url.endsWith("/facilities/fac_happy_nokyang")) {
+    const facilityMatch = url.match(/\/facilities\/([^/?]+)$/);
+    if (facilityMatch) {
+      const id = decodeURIComponent(facilityMatch[1]);
       return okJsonResponse({
-        id: "fac_happy_nokyang",
+        id,
         name: "행복요양원 녹양점",
         address: "경기도 의정부시",
         code: "happy-nokyang",
@@ -97,17 +99,49 @@ const dangerStatus: SpaceStatus = {
   status: "DANGER",
   aiSummary: "침상 이탈이 감지되었습니다.",
   lastDetectedAt: "2026-06-22T01:00:00.000Z",
-  kakaoAlertStatus: "SENT",
+  alertStatus: "SENT",
   bedsideActivity: true,
   emergency: true,
 };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+function dashboardFor(facilityId: string, statuses: Record<string, SpaceStatus> = {}): DashboardResponse {
+  return {
+    facility: {
+      id: facilityId,
+      name: facilityId,
+      code: facilityId,
+      address: "Seoul",
+      phone: "02-0000-0000",
+    },
+    floors: [],
+    spaces: [],
+    statuses,
+    summary: {
+      totalSpaces: Object.keys(statuses).length,
+      stable: Object.values(statuses).filter((status) => status.status === "STABLE").length,
+      caution: Object.values(statuses).filter((status) => status.status === "CAUTION").length,
+      danger: Object.values(statuses).filter((status) => status.status === "DANGER").length,
+      checkNeeded: Object.values(statuses).filter((status) => status.status === "CHECK_NEEDED").length,
+      unacknowledged: 0,
+    },
+    unacknowledgedEvents: [],
+  };
+}
 
 describe("monitorStore live alert merge", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    vi.stubEnv("VITE_USE_MOCK", "false");
+    vi.doUnmock("@/services/dashboardService");
   });
 
   it("keeps one EventSource when start is called twice for the same facility", async () => {
@@ -172,7 +206,7 @@ describe("monitorStore live alert merge", () => {
     );
     vi.stubGlobal("fetch", dashboardFetch());
 
-    const { useRealtimeSpaceStatus } = await import("@/hooks/useRealtimeSpaceStatus");
+    const { useRealtimeSpaceStatus } = await import("@/features/monitor/hooks/useRealtimeSpaceStatus");
     const { rerender, unmount } = renderHook(
       ({ facilityId }) => useRealtimeSpaceStatus(facilityId, []),
       { initialProps: { facilityId: "facility-a" } }
@@ -184,6 +218,37 @@ describe("monitorStore live alert merge", () => {
 
     unmount();
     expect(closes[1]).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let a delayed dashboard response from a previous facility overwrite the active facility", async () => {
+    const facilityA = deferred<DashboardResponse>();
+    const facilityBDashboard = dashboardFor("facility-b", {});
+    const getDashboard = vi.fn((facilityId: string) =>
+      facilityId === "facility-a" ? facilityA.promise : Promise.resolve(facilityBDashboard)
+    );
+    vi.doMock("@/services/dashboardService", () => ({
+      dashboardService: { getDashboard },
+    }));
+    vi.stubGlobal("EventSource", undefined);
+    vi.stubGlobal("fetch", dashboardFetch());
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start("facility-a", 60_000);
+    useMonitorStore.getState().start("facility-b", 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(useMonitorStore.getState().dashboard?.facility.id).toBe("facility-b");
+    expect(useMonitorStore.getState().statuses).toEqual({});
+
+    facilityA.resolve(dashboardFor("facility-a", { sp_201: dangerStatus }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(useMonitorStore.getState().dashboard?.facility.id).toBe("facility-b");
+    expect(useMonitorStore.getState().statuses).toEqual({});
+
+    useMonitorStore.getState().stop();
   });
   it("keeps danger when an older resolved alert arrives after a newer active alert", async () => {
     const sendMessage = stubEventSource();
@@ -199,7 +264,7 @@ describe("monitorStore live alert merge", () => {
 
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "DANGER",
-      kakaoAlertStatus: "PENDING",
+      alertStatus: "PENDING",
       lastDetectedAt: newerAlertDto.detectedAt,
       emergency: true,
     });
@@ -210,51 +275,63 @@ describe("monitorStore live alert merge", () => {
   it("keeps danger from another active alert when resolving an older alert", async () => {
     const olderActive = alertDtoWith({ id: "alert_older", alertSeq: "9", detectedAt: "2026-06-22T01:10:00.000Z" });
     const newerActive = alertDtoWith({ id: "alert_newer", alertSeq: "10", detectedAt: "2026-06-22T01:09:00.000Z" });
+    const baseFetch = dashboardFetch([olderActive, newerActive]);
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/alerts?status=NEW") && !init?.method) return okJsonResponse([olderActive, newerActive]);
       if (url.endsWith("/alerts/alert_older/resolve") && init?.method === "PATCH") {
         return okJsonResponse({ ...olderActive, alertSeq: "11", status: "RESOLVED" });
       }
-      throw new Error(`Unexpected request ${url}`);
+      return baseFetch(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     useMonitorStore.setState({ statuses: { sp_201: dangerStatus } });
 
     await useMonitorStore.getState().resolve("sp_201");
 
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "DANGER",
-      kakaoAlertStatus: "PENDING",
+      alertStatus: "PENDING",
       lastDetectedAt: newerActive.detectedAt,
       emergency: true,
     });
+
+    useMonitorStore.getState().stop();
   });
 
   it("clears danger when resolving the only active alert", async () => {
+    const baseFetch = dashboardFetch([alertDto]);
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/alerts?status=NEW") && !init?.method) return okJsonResponse([alertDto]);
       if (url.endsWith("/alerts/alert_201/resolve") && init?.method === "PATCH") {
         return okJsonResponse({ ...alertDto, alertSeq: "11", status: "RESOLVED" });
       }
-      throw new Error(`Unexpected request ${url}`);
+      return baseFetch(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     useMonitorStore.setState({ statuses: { sp_201: dangerStatus } });
 
     await useMonitorStore.getState().resolve("sp_201");
 
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "STABLE",
-      kakaoAlertStatus: "ACKNOWLEDGED",
+      alertStatus: "ACKNOWLEDGED",
       emergency: false,
       bedsideActivity: false,
     });
+
+    useMonitorStore.getState().stop();
   });
 
   it("selects the numeric max alertSeq active alert independent of arrival order", async () => {
@@ -299,21 +376,25 @@ describe("monitorStore resolve", () => {
     vi.resetModules();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    vi.stubEnv("VITE_USE_MOCK", "false");
+    vi.doUnmock("@/services/dashboardService");
   });
 
   it("patches the backend alert by id and clears the room card danger state", async () => {
+    const baseFetch = dashboardFetch([alertDto]);
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/alerts?status=NEW") && !init?.method) return okJsonResponse([alertDto]);
       if (url.endsWith("/alerts/alert_201/resolve") && init?.method === "PATCH") {
         return okJsonResponse({ ...alertDto, status: "RESOLVED" });
       }
-      throw new Error(`Unexpected request ${url}`);
+      return baseFetch(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     useMonitorStore.setState({ statuses: { sp_201: dangerStatus } });
 
     await useMonitorStore.getState().resolve("sp_201");
@@ -324,9 +405,11 @@ describe("monitorStore resolve", () => {
     );
     expect(useMonitorStore.getState().statuses.sp_201).toMatchObject({
       status: "STABLE",
-      kakaoAlertStatus: "ACKNOWLEDGED",
+      alertStatus: "ACKNOWLEDGED",
       emergency: false,
       bedsideActivity: false,
     });
+
+    useMonitorStore.getState().stop();
   });
 });

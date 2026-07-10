@@ -41,12 +41,12 @@ The artifact layout is path-addressed under `ml/models/` per ADR. Pose weights c
 
 ```bash
 pnpm dev:ml          # FastAPI api on :8000
-pnpm dev:ml:worker   # python -m worker; reads gitignored config/ml-worker.local.yaml
+pnpm dev:ml:worker   # python -m worker; reads gitignored worker/ml-worker.local.yaml
 pnpm dev:ml:demo     # Streamlit demo
 ```
 
-> `config/ml-worker.local.yaml` is gitignored (per-camera RTSP URL + relay token). Copy it once with
-> `cp config/ml-worker.example.yaml config/ml-worker.local.yaml`, then set `artifact_dir: ./models/fall/lstm`
+> `worker/ml-worker.local.yaml` is gitignored (per-camera RTSP URL + relay token). Copy it once with
+> `cp worker/ml-worker.example.yaml worker/ml-worker.local.yaml`, then set `artifact_dir: ./models/fall/lstm`
 > (paths are relative to `ml/` for `uv run --directory ml`) and a real/external `rtsp_url`. `python -m worker`
 > and `python -m worker.edge_worker` are equivalent entry points; validate with `pnpm dev:ml:worker --check-config`.
 
@@ -57,7 +57,7 @@ uv sync                                      # install slim api gateway deps
 uv sync --group demo                         # add Streamlit demo deps
 uv sync --group training                     # add offline training deps
 uv run uvicorn api.main:app --reload --port 8000
-uv run python -m worker --config config/ml-worker.local.yaml --heartbeat-on-start   # or: python -m worker.edge_worker
+uv run python -m worker --config worker/ml-worker.local.yaml --heartbeat-on-start   # or: python -m worker.edge_worker
 uv run --group demo streamlit run demo/app.py
 ```
 
@@ -66,13 +66,35 @@ Pose-window classification is a live `ml-worker` responsibility; the Streamlit d
 Edge Compose uses the production service split:
 
 ```bash
-EDGE_CAMERA_CONFIG=./ml/config/ml-worker.local.yaml \
-  docker compose -f compose.edge.yaml up -d --build
+pnpm edge:preflight
+docker compose --env-file .env.edge.prod -f compose.edge.yaml pull
+docker compose --env-file .env.edge.prod -f compose.edge.yaml up -d
 ```
 
-`EDGE_CAMERA_CONFIG` is a gitignored YAML file. It holds the local `ml-api`
-relay URL/token plus per-camera RTSP URL and camera/facility/resident identity.
-Backend `/api/v1/events` URL and key/secret configuration live in `ml-api`.
+Edge production uses already-built image refs from `.env.edge.prod`; do not use
+`--build` on the edge host. `pnpm edge:preflight` fails before `docker compose`
+when Docker cannot expose the NVIDIA runtime needed by `ml-worker`. Backend
+`/api/v1/events` URL and relay-token configuration live in `ml-api`.
+
+Runtime camera registrations made through `ml-api` are stored at
+`/var/lib/ml-api/cameras.json` by default. Edge Compose mounts this path through
+the `ml-api-state` volume so operator-created camera registry state survives
+container recreates. Treat this as edge-local state: back it up for manual edge
+operation, or replace it with backend config pull for managed production rollout.
+
+For first-stream QA before the backend camera config API is populated, seed the
+ml-api camera registry from the sanitized example and then edit only the private
+runtime copy:
+
+```bash
+mkdir -p ml/.runtime/ml-api
+cp ml/api/cameras.example.json ml/.runtime/ml-api/cameras.json
+API_CAMERA_STORE=$PWD/ml/.runtime/ml-api/cameras.json pnpm dev:ml
+```
+
+The example uses the reserved `.invalid` domain and contains no credentials,
+real camera IPs, or tokens. Replace its `rtsp_url` only inside
+`ml/.runtime/ml-api/cameras.json`; that runtime directory is gitignored.
 
 Current RTSP intake uses OpenCV. GStreamer, DeepStream, and Triton are future
 adapters only. Jetson Nano is a legacy/constrained hardware-gated target; future
@@ -80,4 +102,4 @@ NVIDIA dGPU support needs release-matrix pinning before operators can rely on it
 
 ## Boundaries
 
-ML returns **predictions/facts only** (`fall_probability`, heartbeat, camera facts). Product-level alert decisions - policy, persistence, dedup, Kakao delivery - belong to `backend/`.
+ML returns **predictions/facts only** (`fall_probability`, heartbeat, camera facts). Product-level alert decisions - policy, persistence, dedup, email delivery - belong to `backend/`.

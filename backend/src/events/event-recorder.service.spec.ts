@@ -10,12 +10,18 @@ describe('EventRecorderService', () => {
 
   function makeSubject() {
     const tx = {
+      $queryRaw: jest.fn(),
       event: {
         create: jest.fn(),
         findUniqueOrThrow: jest.fn(),
+        update: jest.fn(),
+      },
+      alert: {
+        updateMany: jest.fn(),
       },
     };
     const prisma = {
+      $queryRaw: jest.fn(),
       withFacilityContext: jest.fn(
         (_facilityId: string, fn: (txArg: typeof tx) => Promise<unknown>) =>
           fn(tx),
@@ -49,6 +55,7 @@ describe('EventRecorderService', () => {
         type: ' FALL ',
         detectedAt,
         confidence: 0.91,
+        clipId: 'clip-123',
       }),
     ).resolves.toEqual({ event: created, duplicate: false });
 
@@ -60,6 +67,44 @@ describe('EventRecorderService', () => {
         type: 'fall',
         confidence: 0.91,
         detectedAt,
+        clipId: 'clip-123',
+        configVersion: null,
+        modelVersion: null,
+        detectorVersion: null,
+        operatingThreshold: null,
+        snapshotKey: null,
+        clockSource: null,
+      }),
+    });
+  });
+  it('persists optional audit envelope fields but ignores client-supplied snapshot_key (server-derived only)', async () => {
+    const { subject, tx } = makeSubject();
+    const created = { id: 'evt_1' };
+    tx.event.create.mockResolvedValue(created);
+
+    await expect(
+      subject.record({
+        cameraId: 'cam_sp_202',
+        type: 'fall',
+        detectedAt,
+        confidence: 0.91,
+        configVersion: 7,
+        modelVersion: 'rf-nh-2026-07-04',
+        detectorVersion: 'edge-detector-1.2.3',
+        operatingThreshold: 0.42,
+        snapshotKey: 'events/evt_1.jpg',
+        clockSource: 'edge_wall_clock',
+      }),
+    ).resolves.toEqual({ event: created, duplicate: false });
+
+    expect(tx.event.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        configVersion: 7,
+        modelVersion: 'rf-nh-2026-07-04',
+        detectorVersion: 'edge-detector-1.2.3',
+        operatingThreshold: 0.42,
+        snapshotKey: null,
+        clockSource: 'edge_wall_clock',
       }),
     });
   });
@@ -115,6 +160,49 @@ describe('EventRecorderService', () => {
     expect(tx.event.create).not.toHaveBeenCalled();
   });
 
+  it('resolves event snapshot ownership through the security definer function', async () => {
+    const { subject, prisma } = makeSubject();
+    prisma.$queryRaw.mockResolvedValue([
+      { id: 'evt_1', facilityId: 'fac_1' },
+    ] as never);
+
+    await expect(subject.resolveForSnapshot('evt_1')).resolves.toEqual({
+      id: 'evt_1',
+      facilityId: 'fac_1',
+    });
+
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects unknown events for snapshot upload', async () => {
+    const { subject, prisma } = makeSubject();
+    prisma.$queryRaw.mockResolvedValue([] as never);
+
+    await expect(subject.resolveForSnapshot('missing')).rejects.toThrow(
+      'unknown_event',
+    );
+  });
+
+  it('persists snapshot keys and alert propagation in one facility transaction', async () => {
+    const { subject, prisma, tx } = makeSubject();
+    tx.alert.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      subject.persistSnapshotKey('fac_1', 'evt_1', 'fac_1/evt_1.jpg'),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.withFacilityContext).toHaveBeenCalledWith(
+      'fac_1',
+      expect.any(Function),
+    );
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.alert.updateMany).toHaveBeenCalledWith({
+      where: { originEventId: 'evt_1' },
+      data: { snapshotKey: 'fac_1/evt_1.jpg' },
+    });
+    expect(tx.event.update).not.toHaveBeenCalled();
+  });
   it('does not invoke side-effect dependencies', async () => {
     const { subject, tx } = makeSubject();
     tx.event.create.mockResolvedValue({ id: 'evt_1' });

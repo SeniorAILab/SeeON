@@ -1,8 +1,0 @@
-{
-  "id": "exp-013-gcn-lowdrop-refine",
-  "model_family": "gcn",
-  "hypothesis": "Wave3/exploit: wave-2 showed low dropout (0.09) beats high (0.48) at blocks=3. Pin blocks=3, dropout=0.1; search hidden/lr around hidden~110, lr~2.7e-4.",
-  "hp_override": {"blocks": 3, "dropout": 0.1},
-  "n_trials": 6,
-  "trial_timeout_s": 3600
-}

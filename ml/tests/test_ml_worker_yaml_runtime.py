@@ -10,6 +10,7 @@ import torch
 import yaml
 
 from contracts.frame import Frame
+from contracts.runner import bed_result, pose_result
 from worker import edge_worker
 from worker.edge_worker_config import EdgeWorkerConfigError, load_edge_worker_config
 from worker.sources.video_file import VideoFileSource
@@ -24,27 +25,18 @@ class _Sink:
 
 
 class _PoseRunner:
-    def predict_full(
-        self, image: np.ndarray
-    ) -> tuple[
-        tuple[tuple[tuple[float, float, float], ...], ...],
-        tuple[tuple[int, int, int, int, float], ...],
-    ]:
+    def run(self, image: np.ndarray):
         del image
         keypoints = tuple((20.0, 20.0, 0.9) for _ in range(17))
-        return (keypoints,), ((10, 10, 40, 60, 0.95),)
+        return pose_result((keypoints,), ((10, 10, 40, 60, 0.95),))
 
 
-class _PersonRunner:
-    def run(self, image: np.ndarray) -> tuple[tuple[int, int, int, int, float], ...]:
-        del image
-        return ((10, 10, 40, 60, 0.95),)
 
 
 class _BedRunner:
-    def detect_beds(self, image: np.ndarray) -> tuple[()]:
+    def run(self, image: np.ndarray):
         del image
-        return ()
+        return bed_result(())
 
 
 class _SlowFrameSource:
@@ -68,23 +60,33 @@ def test_worker_yaml_lstm_runtime_emits_fall_event(tmp_path: Path, monkeypatch) 
     )
 
     monkeypatch.setattr(edge_worker, "RTSPSource", lambda _url, **_kwargs: _SlowFrameSource(frames))
-    monkeypatch.setattr(edge_worker, "_relay_client", lambda _config, _camera: sink)
+    monkeypatch.setattr(
+        edge_worker, "_relay_client", lambda _config, _camera, _config_version=0: sink
+    )
     monkeypatch.setattr(edge_worker.DEFAULT_REGISTRY, "create", _create_runner)
 
     supervisor = edge_worker._build_supervisor(config, edge_worker.StatusStore())
     assert supervisor.run(max_frames_per_camera=3, heartbeat_on_start=False) == {"camera-1": 3}
 
-    assert sink.events == [
-        {
-            "domain": "fall",
-            "event_type": "fall",
-            "identity": 1,
-            "probability": pytest.approx(0.99, abs=0.01),
-            "time_sec": 2.0,
-            "camera_id": "camera-1",
-            "facility_id": "facility-1",
-        }
-    ]
+    assert len(sink.events) == 1
+    event = dict(sink.events[0])
+    assert event.pop("snapshot_jpeg", None) is not None
+    assert event == {
+        "domain": "fall",
+        "event_type": "fall",
+        "identity": 1,
+        "probability": pytest.approx(0.99, abs=0.01),
+        "time_sec": 2.0,
+        "camera_id": "camera-1",
+        "facility_id": "facility-1",
+        "clip_id": None,
+        "audit": {
+            "clock_source": "edge_wall_clock",
+            "model_version": "lstm",
+            "detector_version": "worker-domain-detectors-v1",
+            "operating_threshold": 0.5,
+        },
+    }
 
 
 def test_worker_exits_nonzero_when_lstm_artifact_missing(tmp_path: Path) -> None:
@@ -142,8 +144,6 @@ def test_video_file_source_is_still_available_for_rtsp_harness_input() -> None:
 def _create_runner(task: str, **kwargs: object) -> object:
     if task == "pose":
         return _PoseRunner()
-    if task == "person":
-        return _PersonRunner()
     if task == "bed":
         return _BedRunner()
     return edge_worker.DEFAULT_REGISTRY.get_factory(task)(**kwargs)

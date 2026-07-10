@@ -1,8 +1,0 @@
-{
-  "id": "exp-009-gcn-blocks3-refine",
-  "model_family": "gcn",
-  "hypothesis": "Wave2/exploit: pin blocks=3 (wave1 winner) and refine hidden/lr/dropout around hidden~83, lr~1e-4, dropout~0.48.",
-  "hp_override": {"blocks": 3},
-  "n_trials": 6,
-  "trial_timeout_s": 3600
-}

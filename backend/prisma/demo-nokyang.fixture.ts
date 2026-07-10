@@ -1,6 +1,6 @@
-import { SpaceType, ZoneType } from '@prisma/client';
+import { SpaceType } from '@prisma/client';
 
-export const NOKYANG_FACILITY_ID = 'fac_happy_nokyang';
+export const NOKYANG_FACILITY_CODE = 'happy-nokyang';
 export const NOKYANG_ADMIN_EMAIL = 'happy8568090@gmail.com';
 
 export type FixtureItem = {
@@ -31,7 +31,6 @@ export function verifyUniqueIds(
 }
 
 export type FacilitySeed = {
-  readonly id: string;
   readonly name: string;
   readonly code: string;
   readonly address: string;
@@ -41,14 +40,12 @@ export type FacilitySeed = {
 
 export type FloorSeed = {
   readonly id: string;
-  readonly facilityId: string;
   readonly name: string;
   readonly orderIndex: number;
 };
 
 export type SpaceSeed = {
   readonly id: string;
-  readonly facilityId: string;
   readonly floorId: string;
   readonly name: string;
   readonly type: SpaceType;
@@ -56,24 +53,13 @@ export type SpaceSeed = {
   readonly assignedStaff: string;
 };
 
-export type ZoneSeed = {
-  readonly id: string;
-  readonly facilityId: string;
-  readonly spaceId: string;
-  readonly name: string;
-  readonly type: ZoneType;
-  readonly orderIndex: number;
-};
-
 export type CameraSeed = {
   readonly id: string;
-  readonly facilityId: string;
   readonly spaceId: string;
   readonly label: string;
 };
 
 export const nokyangFacility: FacilitySeed = {
-  id: NOKYANG_FACILITY_ID,
   name: '행복한요양원 녹양역점',
   code: 'happy-nokyang',
   address: '경기도 의정부시 녹양로 12',
@@ -82,11 +68,11 @@ export const nokyangFacility: FacilitySeed = {
 };
 
 export const nokyangFloors: readonly FloorSeed[] = [
-  { id: 'fl_b1', facilityId: NOKYANG_FACILITY_ID, name: 'B1', orderIndex: 0 },
-  { id: 'fl_1f', facilityId: NOKYANG_FACILITY_ID, name: '1F', orderIndex: 1 },
-  { id: 'fl_2f', facilityId: NOKYANG_FACILITY_ID, name: '2F', orderIndex: 2 },
-  { id: 'fl_3f', facilityId: NOKYANG_FACILITY_ID, name: '3F', orderIndex: 3 },
-  { id: 'fl_4f', facilityId: NOKYANG_FACILITY_ID, name: '4F', orderIndex: 4 },
+  { id: 'fl_b1', name: 'B1', orderIndex: 0 },
+  { id: 'fl_1f', name: '1F', orderIndex: 1 },
+  { id: 'fl_2f', name: '2F', orderIndex: 2 },
+  { id: 'fl_3f', name: '3F', orderIndex: 3 },
+  { id: 'fl_4f', name: '4F', orderIndex: 4 },
 ];
 
 function space(
@@ -99,7 +85,6 @@ function space(
 ): SpaceSeed {
   return {
     id,
-    facilityId: NOKYANG_FACILITY_ID,
     floorId,
     name,
     type,
@@ -207,55 +192,39 @@ export const nokyangSpaces: readonly SpaceSeed[] = [
   ...residentialFloor(4, '윤케어'),
 ];
 
-export const nokyangZones: readonly ZoneSeed[] = nokyangSpaces
-  .filter((item) => item.type === SpaceType.ROOM)
-  .flatMap((item) => [
-    {
-      id: `zone_${item.id}_a`,
-      facilityId: NOKYANG_FACILITY_ID,
-      spaceId: item.id,
-      name: '침대A',
-      type: ZoneType.BED,
-      orderIndex: 0,
-    },
-    {
-      id: `zone_${item.id}_b`,
-      facilityId: NOKYANG_FACILITY_ID,
-      spaceId: item.id,
-      name: '침대B',
-      type: ZoneType.BED,
-      orderIndex: 1,
-    },
-  ]);
-
 export const nokyangCameras: readonly CameraSeed[] = [
   {
+    id: 'cam_sp_205',
+    spaceId: 'sp_205',
+    label: 'CAM-2F-205',
+  },
+  {
+    id: 'cam_sp_2f_prog',
+    spaceId: 'sp_2f_prog',
+    label: 'CAM-2F-PROG',
+  },
+  {
     id: 'cam_sp_202',
-    facilityId: NOKYANG_FACILITY_ID,
     spaceId: 'sp_202',
     label: 'CAM-2F-202',
   },
   {
     id: 'cam_sp_203',
-    facilityId: NOKYANG_FACILITY_ID,
     spaceId: 'sp_203',
     label: 'CAM-2F-203',
   },
   {
     id: 'cam_sp_301',
-    facilityId: NOKYANG_FACILITY_ID,
     spaceId: 'sp_301',
     label: 'CAM-3F-301',
   },
   {
     id: 'cam_sp_305',
-    facilityId: NOKYANG_FACILITY_ID,
     spaceId: 'sp_305',
     label: 'CAM-3F-305',
   },
   {
     id: 'cam_sp_401',
-    facilityId: NOKYANG_FACILITY_ID,
     spaceId: 'sp_401',
     label: 'CAM-4F-401',
   },
@@ -264,6 +233,5 @@ export const nokyangCameras: readonly CameraSeed[] = [
 export function verifyNokyangFixture(): void {
   verifyUniqueIds('floors', nokyangFloors);
   verifyUniqueIds('spaces', nokyangSpaces);
-  verifyUniqueIds('zones', nokyangZones);
   verifyUniqueIds('cameras', nokyangCameras);
 }

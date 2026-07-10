@@ -1,4 +1,14 @@
 # syntax=docker/dockerfile:1.7
+FROM node:20-bookworm-slim AS dashboard-build
+
+WORKDIR /src/ml/dashboard
+RUN corepack enable
+COPY ml/dashboard/package.json ml/dashboard/pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm i --frozen-lockfile
+COPY ml/dashboard ./
+RUN pnpm build
+
 
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
@@ -17,6 +27,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY ml/contracts ./contracts
 COPY ml/events ./events
 COPY ml/api ./api
+COPY --from=dashboard-build /src/ml/dashboard/dist /app/dashboard
 RUN mkdir -p /app/models/fall /app/models/pose /app/models/bed
 
 ENV HOST=127.0.0.1 \

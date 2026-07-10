@@ -10,7 +10,8 @@ from __future__ import annotations
 import numpy as np
 
 from contracts import BoundingBox, Frame
-from worker.perception.bed_detector import BedDetector
+from contracts.runner import bed_result
+from demo.bed_detector import BedDetector
 from worker.runners import YoloBedSegRunner, dedupe_bed_boxes
 
 
@@ -27,7 +28,7 @@ class _StubRunner:
 
     def detect_beds(self, frame):  # noqa: ANN001 - test stub
         self.calls += 1
-        return self._result
+        return bed_result(self._result)
 
 
 class _SequenceRunner:
@@ -38,7 +39,7 @@ class _SequenceRunner:
     def detect_beds(self, frame):  # noqa: ANN001 - test stub
         result = self._results[self.calls]
         self.calls += 1
-        return result
+        return bed_result(result)
 
 
 class _Array:
@@ -150,7 +151,7 @@ def test_detect_passes_frame_image_to_runner() -> None:
     class _CapturingRunner:
         def detect_beds(self, frame):  # noqa: ANN001 - test stub
             captured.append(frame)
-            return ()
+            return bed_result(())
 
     frame = _frame()
     BedDetector(runner=_CapturingRunner()).detect(frame)
@@ -215,7 +216,8 @@ def test_seg_runner_returns_bed_instances_with_polygons() -> None:
 
     beds = runner.detect_beds(frame)
 
-    assert beds == (
+    assert beds.kind == "bed"
+    assert beds.boxes == (
         (0, 0, 100, 100, 0.8, ((0, 0), (100, 0), (100, 100), (0, 100))),
         (200, 0, 300, 100, 0.7, ((200, 0), (300, 0), (300, 100), (200, 100))),
     )
@@ -232,16 +234,16 @@ def test_seg_runner_filters_non_bed_class_and_low_confidence() -> None:
     beds = runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8))
 
     # class-0 dropped; conf 0.2 < 0.25 dropped; only the first bed survives.
-    assert tuple(b[:5] for b in beds) == ((0, 0, 40, 40, 0.9),)
+    assert tuple(b[:5] for b in beds.boxes) == ((0, 0, 40, 40, 0.9),)
 
 
 def test_seg_runner_returns_empty_without_masks_or_bed_class() -> None:
     runner, _ = _seg_runner_with((), ())
-    assert runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8)) == ()
+    assert runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8)).boxes == ()
 
     runner, _ = _seg_runner_with(((0, 0, 10, 10),), (0.9,))
     runner._bed_class_id = None
-    assert runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8)) == ()
+    assert runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8)).boxes == ()
 
 
 def test_seg_runner_has_no_hard_cap() -> None:
@@ -252,7 +254,7 @@ def test_seg_runner_has_no_hard_cap() -> None:
 
     beds = runner.detect_beds(np.zeros((1, 1, 3), dtype=np.uint8))
 
-    assert len(beds) == 5
+    assert len(tuple(beds.boxes)) == 5
 
 
 def test_detect_attaches_polygon_to_deduped_bed() -> None:
@@ -260,7 +262,7 @@ def test_detect_attaches_polygon_to_deduped_bed() -> None:
 
     class _SegStub:
         def detect_beds(self, frame):  # noqa: ANN001 - test stub
-            return ((10, 20, 110, 220, 0.83, polygon),)
+            return bed_result(((10, 20, 110, 220, 0.83, polygon),))
 
     boxes = BedDetector(runner=_SegStub()).detect(_frame())
 

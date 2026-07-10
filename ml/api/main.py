@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+import os
+from collections.abc import AsyncGenerator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from api.config import get_settings
 from api.lifespan import lifespan as serving_lifespan
+from api.routes import cameras, clips, ingest_relay, models, status, system
 from api.routes import health as health_routes
-from api.routes import ingest_relay, models, status
+from api.routes.streams import router as streams_router
 
-LifespanFactory = Callable[[FastAPI], AsyncIterator[None]]
+LifespanFactory = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
 def create_app(*, lifespan: LifespanFactory | None = serving_lifespan) -> FastAPI:
@@ -31,12 +35,23 @@ def create_app(*, lifespan: LifespanFactory | None = serving_lifespan) -> FastAP
     api_router.include_router(status.router)
     api_router.include_router(models.router)
     api_router.include_router(ingest_relay.router)
+    api_router.include_router(cameras.router)
+    api_router.include_router(clips.router)
+    api_router.include_router(streams_router)
+    api_router.include_router(system.router)
     app.include_router(api_router, prefix=prefix)
+    _mount_dashboard_dist(app)
     return app
 
 
+def _mount_dashboard_dist(app: FastAPI) -> None:
+    dashboard_dist = Path(os.environ.get("API_DASHBOARD_DIST", "/app/dashboard"))
+    if dashboard_dist.is_dir():
+        app.mount("/", StaticFiles(directory=str(dashboard_dist), html=True), name="dashboard")
+
+
 @asynccontextmanager
-async def no_lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def no_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     del app
     yield
 

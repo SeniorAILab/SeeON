@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { forbiddenPathForUser } from "@/lib/routeAccess";
 import { hasRole } from "@/lib/roles";
 import type { Role } from "@/types";

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
 import { SignupPage } from "./SignupPage";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 beforeEach(() => {
   localStorage.clear();
@@ -14,7 +14,6 @@ beforeEach(() => {
     initialized: true,
     login: vi.fn(),
     register: vi.fn(),
-    kakaoLogin: vi.fn(),
   });
 });
 
@@ -24,9 +23,8 @@ function renderLogin(initialEntry = "/login") {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/dashboard" element={<div>SUPER_ADMIN_DASHBOARD</div>} />
-        <Route path="/dashboard/facilities/:facilityId/admin" element={<div>ADMIN_DASHBOARD</div>} />
-        <Route path="/dashboard/facilities/:facilityId/staff" element={<div>FACILITY_STAFF_DASHBOARD</div>} />
+        <Route path="/facilities" element={<div>DASHBOARD</div>} />
+        <Route path="/facilities/:facilityId/dashboard" element={<div>DASHBOARD</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -59,50 +57,13 @@ function agreeToSignupConsent() {
 
 
 describe("LoginPage", () => {
-  it("백엔드 이메일 로그인과 카카오 OAuth를 함께 표시한다", () => {
+  it("이메일 로그인 버튼과 회원가입 버튼을 함께 표시한다", () => {
     renderLogin();
-    expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeTruthy();
     expect(screen.getByPlaceholderText("name@facility.com")).toBeTruthy();
     expect(screen.getByRole("button", { name: "이메일로 로그인" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "회원가입" })).toBeTruthy();
     expect(screen.queryByLabelText("이름")).toBeNull();
     expect(screen.queryByText("데모 계정 (비밀번호 1234)")).toBeNull();
-  });
-
-  it("카카오 버튼 클릭 시 백엔드 OAuth 시작 액션을 호출한다", () => {
-    const kakaoLogin = vi.fn();
-    useAuthStore.setState({ kakaoLogin });
-    renderLogin();
-
-    fireEvent.click(screen.getByRole("button", { name: "카카오 로그인" }));
-
-    expect(kakaoLogin).toHaveBeenCalledTimes(1);
-  });
-
-  it("카카오 사용 불가 리다이렉트는 사용자용 일반 메시지를 표시한다", () => {
-    renderLogin("/login?auth_error=kakao_unavailable");
-
-    expect(
-      screen.getByText("카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.")
-    ).toBeTruthy();
-  });
-
-  it("기존 카카오 설정 오류 코드도 사용자용 일반 메시지를 표시한다", () => {
-    renderLogin("/login?auth_error=kakao_config");
-
-    expect(
-      screen.getByText("카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.")
-    ).toBeTruthy();
-  });
-
-  it("미등록 카카오 계정은 회원가입과 관리자 등록 요청을 안내한다", () => {
-    renderLogin("/login?auth_error=kakao_unregistered");
-
-    expect(
-      screen.getByText(
-        "등록된 카카오 계정이 없습니다. 원장님은 회원가입을 진행하고, 직원은 관리자에게 계정 등록을 요청해 주세요."
-      )
-    ).toBeTruthy();
   });
 
   it("시설 관리자 이메일 로그인 성공 시 시설 관리자 대시보드로 이동한다", async () => {
@@ -124,7 +85,7 @@ describe("LoginPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
 
-    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
     expect(login).toHaveBeenCalledWith({
       email: "admin@sen.ai",
       password: "1234",
@@ -150,7 +111,7 @@ describe("LoginPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
 
-    await waitFor(() => expect(screen.getByText("SUPER_ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
   });
 
   it("회원가입 버튼 클릭 시 회원가입 폼 화면으로 이동한다", () => {
@@ -180,7 +141,7 @@ describe("LoginPage", () => {
     agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
-    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
     expect(register).toHaveBeenCalledWith({
       name: "홍원장",
       email: "owner@example.test",
@@ -202,7 +163,7 @@ describe("LoginPage", () => {
     expect(submitButton).toHaveProperty("disabled", true);
     fireEvent.click(submitButton);
     expect(register).not.toHaveBeenCalled();
-    expect(screen.queryByText("ADMIN_DASHBOARD")).toBeNull();
+    expect(screen.queryByText("DASHBOARD")).toBeNull();
 
     fireEvent.click(screen.getByRole("checkbox", { name: /서비스 이용약관/ }));
     expect(submitButton).toHaveProperty("disabled", true);
@@ -229,7 +190,7 @@ describe("LoginPage", () => {
     agreeToSignupConsent();
     fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
 
-    await waitFor(() => expect(screen.getByText("ADMIN_DASHBOARD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
     expect(register).toHaveBeenCalledWith({
       name: "홍원장",
       email: "owner@example.test",

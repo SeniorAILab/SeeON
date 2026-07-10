@@ -9,13 +9,13 @@ from numpy.typing import NDArray
 from contracts.frame import Frame, FrameSource
 from contracts.model import ModelModule
 from contracts.observation import BoundingBox, FrameObservation
+from demo.bed_detector import BedDetector
 from demo.playback_status import CurrentPlaybackStatus, current_playback_status
 from demo.render import DetectionLossMonitor, render_due
 from demo.yolo_overlay import render_yolo_overlay
 from worker.domains.bed_exit import BedExitMonitor
 from worker.domains.bed_exit.latch import BedExitLatch
 from worker.domains.fall.detector import FallEventLatch
-from worker.perception.bed_detector import BedDetector
 
 __all__ = [
     "BedExitLatch",

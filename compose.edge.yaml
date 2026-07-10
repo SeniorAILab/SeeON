@@ -2,6 +2,8 @@
 # The edge performs ML inference locally. ml-worker relays alert/heartbeat facts
 # to local ml-api over the compose network, and ml-api is the only process that
 # pushes backend Event API requests over the public network.
+# Edge target is a linux/amd64 PC with an NVIDIA RTX-class GPU; images are
+# pulled from GHCR only (pinned tag or digest) — no on-site builds.
 #
 # Usage (on the edge device):
 #   docker compose --env-file .env.edge.prod -f compose.edge.yaml up -d
@@ -16,10 +18,29 @@ services:
       - "127.0.0.1:${ML_SERVING_PORT:-8000}:8000"
     environment:
       API_BACKEND_EVENTS_URL: ${API_BACKEND_EVENTS_URL:?edge api requires backend Event API URL}
+      # Bearer token ml-api sends to the backend Event API (issue #552). Optional:
+      # unset keeps the pre-#552 no-auth-header request shape. Must match the
+      # backend's EDGE_FACILITY_TOKEN exactly once the backend enforces the guard.
+      EDGE_FACILITY_TOKEN: ${EDGE_FACILITY_TOKEN:-}
       API_EDGE_RELAY_TOKEN: ${API_EDGE_RELAY_TOKEN:?edge api requires worker relay token}
-      API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:?edge api requires camera inventory JSON}
+      # Backend config-read (PR-7): ml-api pulls camera inventory + night window +
+      # config_version from the backend ML config-read. This is the PRIMARY config source.
+      API_BACKEND_CONFIG_URL: ${API_BACKEND_CONFIG_URL:?edge api requires backend ML config-read base URL}
+      API_FACILITY_ID: ${API_FACILITY_ID:?edge api requires the facility id to pull config for}
+      # Fallback camera inventory: used ONLY when the backend config pull is unavailable.
+      API_CAMERA_INVENTORY: ${API_CAMERA_INVENTORY:-}
+      ML_API_WORKER_STREAM_ORIGIN: http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}
+      ML_API_WORKER_PROBE_ORIGIN: http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}
+      # Fixed container path of the evidence clip store (host bind below).
+      CLIP_STORE_DIR: /var/lib/clip-store
+      # Facility-wide processed FPS for live camera streams (unset -> worker 5.0
+      # default). Raise (e.g. 15) to smooth the live wall where GPU headroom allows.
+      ML_DEFAULT_CAMERA_FPS: ${ML_DEFAULT_CAMERA_FPS:-}
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
+      - ml-api-state:/var/lib/ml-api
+      # Evidence clips persist on the nursing-home host; worker writes, api reads.
+      - ${CLIP_STORE_HOST_DIR:?edge requires host clip-store dir}:/var/lib/clip-store:ro
     command:
       - uvicorn
       - api.main:app
@@ -43,15 +64,39 @@ services:
     build: !reset null
     pull_policy: always
     restart: unless-stopped
+    # GPU inference: reserve the host NVIDIA GPU (requires NVIDIA Container Toolkit).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
-      EDGE_CAMERA_CONFIG: /run/secrets/ml-worker.yaml
+      # Optional offline-dev escape hatch:
+      # set EDGE_CAMERA_CONFIG=/run/secrets/ml-worker.yaml and mount the secret below
+      # to bypass ml-api config pull.
+      EDGE_CAMERA_CONFIG: ${EDGE_CAMERA_CONFIG:-}
       RELAY_URL: http://ml-api:8000
       RELAY_TOKEN: ${API_EDGE_RELAY_TOKEN:?edge worker requires relay token shared with ml-api}
+      ML_WORKER_STATE_DIR: /var/lib/ml-worker
+      ML_WORKER_DEV_MJPEG: ${ML_WORKER_DEV_MJPEG:-true}
+      ML_WORKER_DEV_MJPEG_HOST: 0.0.0.0
+      ML_WORKER_DEV_MJPEG_PORT: ${ML_WORKER_DEV_MJPEG_PORT:-8090}
+      # Fixed container path of the evidence clip store (host bind below).
+      CLIP_STORE_DIR: /var/lib/clip-store
+      # NVENC clip encoding needs the `video` driver capability in addition to
+      # the compute/utility default granted by the GPU reservation above.
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
-    secrets:
-      - source: ml-worker-config
-        target: ml-worker.yaml
+      - ml-worker-state:/var/lib/ml-worker
+      # Evidence clips persist on the nursing-home host; worker writes, api reads.
+      - ${CLIP_STORE_HOST_DIR:?edge requires host clip-store dir}:/var/lib/clip-store:rw
+    # Optional offline-dev YAML bootstrap; production should pull config from ml-api.
+    # secrets:
+    #   - source: ml-worker-config
+    #     target: ml-worker.yaml
     depends_on:
       ml-api:
         condition: service_healthy
@@ -59,10 +104,12 @@ services:
       - python
       - -m
       - worker.edge_worker
-      - --config
-      - /run/secrets/ml-worker.yaml
       - --heartbeat-on-start
 
-secrets:
-  ml-worker-config:
-    file: ${EDGE_CAMERA_CONFIG:?edge requires a local ml-worker YAML config}
+# Optional offline-dev YAML bootstrap:
+# secrets:
+#   ml-worker-config:
+#     file: ${EDGE_CAMERA_CONFIG_FILE:-./ml-worker.yaml}
+volumes:
+  ml-api-state: {}
+  ml-worker-state: {}

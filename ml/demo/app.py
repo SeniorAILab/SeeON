@@ -26,6 +26,8 @@ import streamlit as st  # noqa: E402
 from contracts.frame import FrameSource  # noqa: E402
 from demo import app_assets  # noqa: E402
 from demo import video_registry as videos  # noqa: E402
+from demo.alert_client import AlertClient  # noqa: E402
+from demo.bed_detector import BedDetector, bed_weight_path  # noqa: E402
 from demo.classifiers import ClassifierParams  # noqa: E402
 from demo.demo_ui import (  # noqa: E402
     LiveSourceOption,
@@ -50,8 +52,6 @@ from demo.ui_labels import (  # noqa: E402
     VIDEO_SELECT_LABEL,
 )
 from demo.video_playback import read_video_playback_info  # noqa: E402
-from events import AlertClient  # noqa: E402
-from worker.perception.bed_detector import BedDetector, bed_weight_path  # noqa: E402
 from worker.sources import CameraSource, VideoFileSource  # noqa: E402
 
 APP_PAGE_TITLE: Final = "eldercare-fall-ai"
