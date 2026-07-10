@@ -269,6 +269,7 @@ def _probe_rtsp_first_frame(rtsp_url: str) -> dict[str, object]:
     result = probe_first_frame(rtsp_url)
     return {
         "ok": True,
+        "backend": result.backend,
         "width": result.width,
         "height": result.height,
     }

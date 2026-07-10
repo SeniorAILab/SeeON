@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol
@@ -54,7 +55,12 @@ class PublishEventSinkProtocol(Protocol):
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
     def on_event(
-        self, camera_id: str, event_ref: str, event_type: str | None = None
+        self,
+        camera_id: str,
+        event_ref: str,
+        event_type: str | None = None,
+        *,
+        allow_new_clip: bool = True,
     ) -> str | None: ...
 
 
@@ -90,10 +96,14 @@ class CameraWorker:
     snapshot_renderer: OverlayRenderer | None = None
     detector_version: str | None = None
     clip_recorder: ClipRecorderProtocol | None = None
+    clip_recording_min_interval_sec: float = 30.0
+    _last_clip_recorded_at_sec: float | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         if self.scene_state is None:
             self.scene_state = SceneState(self.camera_id)
+        if self.clip_recording_min_interval_sec < 0:
+            raise ValueError("clip_recording_min_interval_sec must be >= 0")
 
     def _bind_source_liveness_callbacks(self) -> None:
         bind = getattr(self.frame_source, "set_liveness_callbacks", None)
@@ -196,7 +206,7 @@ class CameraWorker:
                     self.facility_id,
                     frame.time_sec,
                 )
-                if self.incident_manager.admit(event, now_sec=frame.time_sec):
+                if self.incident_manager.admit(event, now_sec=time.monotonic()):
                     event["clip_id"] = self._record_clip_event(event)
                     self._attach_alert_metadata(event, frame, observation, tuple(debug_snapshots))
                     self._emit(event)
@@ -330,12 +340,24 @@ class CameraWorker:
     def _record_clip_event(self, event: EventPayload) -> str | None:
         if self.clip_recorder is None:
             return None
+        now_sec = time.monotonic()
+        last_recorded_at_sec = self._last_clip_recorded_at_sec
+        throttled = (
+            last_recorded_at_sec is not None
+            and now_sec - last_recorded_at_sec < self.clip_recording_min_interval_sec
+        )
         try:
-            return self.clip_recorder.on_event(
-                self.camera_id, _event_ref(event), _event_type(event)
+            clip_id = self.clip_recorder.on_event(
+                self.camera_id,
+                _event_ref(event),
+                _event_type(event),
+                allow_new_clip=not throttled,
             )
         except Exception:  # noqa: BLE001 - recorder finalize failure must not block alert emit
             return None
+        if clip_id is not None and not throttled:
+            self._last_clip_recorded_at_sec = now_sec
+        return clip_id
 
     def _emit(self, event: EventPayload) -> None:
         if self.event_sink is None:

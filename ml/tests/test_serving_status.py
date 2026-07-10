@@ -39,5 +39,7 @@ def test_status_does_not_read_worker_runtime_state() -> None:
     # worker runtime object (zero cross-boundary shared state).
     app = create_app(lifespan=no_lifespan)
     body = TestClient(app).get("/api/v1/status").json()
-    assert body == {"cameras": {}, "stale_after_sec": HeartbeatStore().stale_after_sec}
+    assert body["cameras"] == {}
+    assert body["stale_after_sec"] == HeartbeatStore().stale_after_sec
+    assert body["runtime"] == {"facilities": {}, "stale_after_sec": 15.0}
     assert not hasattr(app.state, "runtime")

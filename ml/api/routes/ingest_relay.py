@@ -8,13 +8,15 @@ import os
 from typing import Any, Protocol
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from api.camera_registry import CameraRegistryStore
 from api.heartbeat_store import get_heartbeat_store
 from api.lifespan import API_EDGE_RELAY_TOKEN_ENV, API_FACILITY_ID_ENV, refresh_backend_config
 from api.routes.cameras import worker_config_snapshot
+from api.runtime_status_store import get_runtime_status_store
 from contracts import AlertEventType
+from contracts.decode_diagnostics import DECODE_BACKENDS, DECODE_FALLBACK_REASONS
 from contracts.worker_config import RESTART_EPOCH_KEY
 from events.edge_ingest_client import EdgeIngestClient
 
@@ -55,6 +57,67 @@ class RelayHeartbeatRequest(BaseModel):
     camera_id: str = Field(min_length=1)
     facility_id: str = Field(min_length=1)
     config_version: int | None = None
+
+
+class RelayDecodeDiagnostics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    requested: str = Field(min_length=1)
+    selected: str | None = Field(default=None)
+    fallback_count: int = Field(ge=0)
+    last_reason: str | None = Field(default=None)
+    updated_at_sec: float = Field()
+
+    @field_validator("requested", "selected")
+    @classmethod
+    def valid_backend(cls, value: str | None) -> str | None:
+        if value is not None and value not in DECODE_BACKENDS:
+            raise ValueError("decode backend is invalid")
+        return value
+
+    @field_validator("last_reason")
+    @classmethod
+    def valid_last_reason(cls, value: str | None) -> str | None:
+        if value is not None and value not in DECODE_FALLBACK_REASONS:
+            raise ValueError("last_reason is not a decode fallback reason")
+        return value
+
+
+class RelayRuntimeStatusCamera(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    camera_id: str = Field(min_length=1)
+    decode: RelayDecodeDiagnostics
+
+
+class RelayClipRecorderStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool = Field()
+    dropped_frames: int | None = Field(default=None, ge=0)
+    dropped_events: int | None = Field(default=None, ge=0)
+    failed_writes: int | None = Field(default=None, ge=0)
+    finalized_clips: int | None = Field(default=None, ge=0)
+    video_unavailable_clips: int | None = Field(default=None, ge=0)
+    active_clips: int | None = Field(default=None, ge=0)
+    encoder: str | None = Field(default=None)
+
+
+class RelayRuntimeStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    facility_id: str = Field(min_length=1)
+    generation: int | None = Field(default=None, ge=0)
+    seq: int = Field(ge=0)
+    cameras: list[RelayRuntimeStatusCamera] = Field()
+    clip_recorder: RelayClipRecorderStatus
+
+
+class RelayRuntimeStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    accepted: bool
+    generation: int
 
 
 class BackendIngestClient(Protocol):
@@ -148,6 +211,23 @@ def relay_heartbeat(
             detail="backend ingest rejected heartbeat",
         )
     return {"status": "accepted"}
+@router.post("/runtime-status", response_model=RelayRuntimeStatusResponse)
+def relay_runtime_status(
+    payload: RelayRuntimeStatusRequest,
+    request: Request,
+    relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
+    authorization: str | None = Header(default=None),
+) -> RelayRuntimeStatusResponse:
+    _authorize(request, relay_token or _bearer_token(authorization))
+    _runtime_status_facility_binding(request, payload.facility_id)
+    for camera in payload.cameras:
+        _camera_binding(request, camera.camera_id, payload.facility_id)
+    result = get_runtime_status_store(request.app).record(payload.model_dump())
+    if not result.accepted:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=result.reason)
+    return RelayRuntimeStatusResponse(accepted=True, generation=result.generation)
+
+
 
 
 def _decode_snapshot(snapshot_jpeg_base64: str | None) -> bytes | None:
@@ -172,6 +252,36 @@ def _authorize(request: Request, relay_token: str | None) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="relay token required")
     if relay_token != expected:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="relay token mismatch")
+def _bearer_token(authorization: str | None) -> str | None:
+    if authorization is None:
+        return None
+    scheme, separator, token = authorization.partition(" ")
+    if separator and scheme.lower() == "bearer" and token:
+        return token
+    return None
+
+
+def _runtime_status_facility_binding(request: Request, facility_id: str) -> None:
+    expected = os.environ.get(API_FACILITY_ID_ENV)
+    if expected and facility_id != expected.strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="camera facility mismatch",
+        )
+    inventory = getattr(request.app.state, "camera_inventory", {})
+    if not isinstance(inventory, dict) or not inventory:
+        return
+    facilities = {
+        binding.get("facility_id")
+        for binding in inventory.values()
+        if isinstance(binding, dict) and binding.get("facility_id") is not None
+    }
+    if facilities and facility_id not in facilities:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="camera facility mismatch",
+        )
+
 
 
 def _payload_clip_id(payload: RelayAlertRequest) -> str | None:

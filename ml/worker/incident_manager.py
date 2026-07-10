@@ -25,6 +25,8 @@ class IncidentManager:
     def admit(self, event: object, *, now_sec: float | None = None) -> bool:
         event_time = _coerce_time(now_sec, _event_value(event, "time_sec", 0.0))
         key = self.idempotency_key(event, event_time)
+        if key is None:
+            return True
         last_seen = self._last_seen.get(key)
         if last_seen is not None and event_time - last_seen < self.cooldown_sec:
             return False
@@ -34,21 +36,26 @@ class IncidentManager:
     def register(self, event: object, *, now_sec: float | None = None) -> bool:
         return self.admit(event, now_sec=now_sec)
 
-    def idempotency_key(self, event: object, event_time: float) -> tuple[object, ...]:
+    def idempotency_key(
+        self, event: object, event_time: float
+    ) -> tuple[object, ...] | None:
         explicit_key = _event_value(event, "idempotency_key")
         if explicit_key is not None:
             return (explicit_key,)
 
-        bucket: int | None = None
-        if self.bucket_sec is not None and self.bucket_sec > 0:
-            bucket = int(event_time // self.bucket_sec)
-
+        del event_time
+        identity = _event_value(event, "identity")
+        if identity is None:
+            identity = _event_value(event, "event_id")
+        if identity is None:
+            return None
         return (
             _event_value(event, "camera_id"),
             _event_value(event, "domain"),
             _event_value(event, "event_type", _event_value(event, "type")),
-            _event_value(event, "identity", _event_value(event, "event_id", bucket)),
+            identity,
         )
+
 
     def reset(self) -> None:
         self._last_seen.clear()

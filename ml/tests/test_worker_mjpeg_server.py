@@ -6,8 +6,9 @@ import time
 import urllib.error
 import urllib.request
 
+from worker import mjpeg_server
 from worker.mjpeg_server import MjpegServer, OverlayFrameBuffer, dev_mjpeg_enabled, dev_mjpeg_host
-from worker.sources.probe import RTSPProbeError
+from worker.sources.probe import RTSPProbeError, RTSPProbeResult
 
 
 def test_mjpeg_buffer_is_camera_keyed_non_consuming() -> None:
@@ -37,6 +38,25 @@ def test_mjpeg_server_defaults_loopback_and_disabled() -> None:
         assert server.host == "127.0.0.1"
     finally:
         server.stop()
+
+
+def test_mjpeg_probe_response_keeps_selected_backend(monkeypatch) -> None:
+    expected = RTSPProbeResult(
+        masked_url="rtsp://camera.local/live",
+        requested_backend="auto",
+        backend="opencv",
+        width=640,
+        height=360,
+        channels=3,
+    )
+    monkeypatch.setattr(mjpeg_server, "probe_first_frame", lambda _url: expected)
+
+    assert mjpeg_server._probe_rtsp_first_frame("rtsp://camera.local/live") == {
+        "ok": True,
+        "backend": "opencv",
+        "width": 640,
+        "height": 360,
+    }
 
 
 def test_mjpeg_server_unknown_empty_and_stream_response() -> None:
@@ -103,7 +123,7 @@ def test_mjpeg_server_probe_requires_token_and_returns_sanitized_result() -> Non
 
     def probe(url: str) -> dict[str, object]:
         seen_urls.append(url)
-        return {"ok": True, "width": 640, "height": 360}
+        return {"ok": True, "backend": "opencv", "width": 640, "height": 360}
 
     server = MjpegServer(buffer, port=0, probe_token="relay-token", probe=probe)
     server.start()
@@ -127,7 +147,7 @@ def test_mjpeg_server_probe_requires_token_and_returns_sanitized_result() -> Non
         with urllib.request.urlopen(request, timeout=1) as response:
             payload = json.loads(response.read().decode("utf-8"))
 
-        assert payload == {"height": 360, "ok": True, "width": 640}
+        assert payload == {"backend": "opencv", "height": 360, "ok": True, "width": 640}
         assert seen_urls == ["rtsp://user:secret@camera.local/trackID=2"]
         assert "secret" not in json.dumps(payload)
         assert "camera.local" not in json.dumps(payload)
