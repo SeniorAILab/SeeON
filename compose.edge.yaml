@@ -33,6 +33,9 @@ services:
       ML_API_WORKER_PROBE_ORIGIN: http://ml-worker:${ML_WORKER_DEV_MJPEG_PORT:-8090}
       # Fixed container path of the evidence clip store (host bind below).
       CLIP_STORE_DIR: /var/lib/clip-store
+      # Facility-wide processed FPS for live camera streams (unset -> worker 5.0
+      # default). Raise (e.g. 15) to smooth the live wall where GPU headroom allows.
+      ML_DEFAULT_CAMERA_FPS: ${ML_DEFAULT_CAMERA_FPS:-}
     volumes:
       - ${ML_MODELS_DIR:-./ml/models}:/app/models:ro
       - ml-api-state:/var/lib/ml-api
