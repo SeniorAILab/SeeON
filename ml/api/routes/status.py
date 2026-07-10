@@ -1,8 +1,8 @@
 """Runtime status route.
 
-``/status`` is reconstructed from ml-api's own relay-heartbeat store (ADR):
-edge-local liveness per camera, independent of backend egress. It does not read
-any worker runtime state (no cross-process shared state).
+``/status`` merges two API-owned relay snapshots: heartbeat-derived camera
+liveness and worker-published runtime diagnostics. It never reads worker runtime
+state directly (no cross-process shared state).
 """
 
 from __future__ import annotations
@@ -10,12 +10,18 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from api.heartbeat_store import get_heartbeat_store
+from api.runtime_status_store import get_runtime_status_store
 
 router = APIRouter(tags=["status"])
 
 
 @router.get("/status")
 def status(request: Request) -> dict[str, object]:
-    store = get_heartbeat_store(request.app)
+    heartbeat_store = get_heartbeat_store(request.app)
     inventory = getattr(request.app.state, "camera_inventory", {})
-    return store.snapshot(inventory)
+    response = heartbeat_store.snapshot(inventory)
+    response["runtime"] = get_runtime_status_store(request.app).snapshot()
+    return response
+
+
+__all__ = ["router"]

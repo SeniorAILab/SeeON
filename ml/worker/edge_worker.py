@@ -9,6 +9,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import warnings
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -46,12 +47,16 @@ from worker.runners.device import select_device
 from worker.runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from worker.runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
 from worker.runners.warmup import warmup_runner
+from worker.runtime_diagnostics import WorkerDiagnostics
+from worker.runtime_status_sender import RuntimeStatusSender
 from worker.scheduler import Scheduler
 from worker.sources.rtsp import RTSPSource, create_backend
 from worker.sources.rtsp_backend import RTSPBackend
 from worker.status_store import StatusStore
 
 # Phase-1 audit metadata identifies this worker-owned domain detector bundle.
+warnings.filterwarnings("ignore", category=UserWarning, module=r"sklearn(\.|$)")
+
 DETECTOR_VERSION = "worker-domain-detectors-v1"
 @dataclass(frozen=True, slots=True)
 class _Options:
@@ -89,6 +94,7 @@ class _WorkerResources:
     overlay_publisher: OverlayPublisher | None = None
     stop_event: threading.Event | None = None
     clip_recorder: ClipRecorder | None = None
+    diagnostics: WorkerDiagnostics | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -144,6 +150,22 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # noqa: BLE001 - clip recording must not block worker startup
         print(f"clip recorder disabled: {exc}", file=sys.stderr)
         clip_recorder = None
+    diagnostics = WorkerDiagnostics(
+        None if clip_recorder is None else clip_recorder.stats
+    )
+    for camera in effective_config.cameras:
+        diagnostics.register_decode(
+            camera.camera_id, _requested_decode_backend(camera.decode_backend)
+        )
+    runtime_status_sender: RuntimeStatusSender | None = None
+    if relay_url.strip() and effective_relay_token:
+        runtime_status_sender = RuntimeStatusSender(
+            relay_url,
+            effective_relay_token,
+            diagnostics,
+            {camera.camera_id: camera.facility_id for camera in effective_config.cameras},
+        )
+        runtime_status_sender.start()
     try:
         supervisor = _build_supervisor(
             effective_config,
@@ -156,12 +178,15 @@ def main(argv: list[str] | None = None) -> int:
             relay_url=relay_url,
             relay_token=effective_relay_token,
             clip_recorder=clip_recorder,
+            diagnostics=diagnostics,
         )
     except (ModelLoadError, TypeError) as exc:
         if mjpeg_server is not None:
             mjpeg_server.stop()
         if clip_recorder is not None:
             clip_recorder.stop()
+        if runtime_status_sender is not None:
+            runtime_status_sender.stop()
         print(str(exc), file=sys.stderr)
         return 2
     try:
@@ -174,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
             mjpeg_server.stop()
         if clip_recorder is not None:
             clip_recorder.stop()
+        if runtime_status_sender is not None:
+            runtime_status_sender.stop()
     print(
         json.dumps({"processed": result, "status": status_store.snapshot()}, separators=(",", ":"))
     )
@@ -279,6 +306,7 @@ def _build_supervisor(
     relay_url: str | None = None,
     relay_token: str | None = None,
     clip_recorder: ClipRecorder | None = None,
+    diagnostics: WorkerDiagnostics | None = None,
 ) -> EdgeWorkerSupervisor:
     model_registry = DEFAULT_REGISTRY if registry is None else registry
     device = select_device()
@@ -296,6 +324,7 @@ def _build_supervisor(
         overlay_publisher=overlay_publisher,
         stop_event=stop_event,
         clip_recorder=clip_recorder,
+        diagnostics=diagnostics,
     )
     workers_and_detectors = tuple(
         _worker_with_detectors(camera, resources) for camera in config.cameras
@@ -353,8 +382,24 @@ def _require_fall_model(model: RunnerProtocol) -> FallModelProtocol:
     return model
 
 
-def _decode_backend(camera: CameraRuntimeConfig) -> RTSPBackend:
-    return create_backend(camera.decode_backend)
+def _decode_backend(
+    camera: CameraRuntimeConfig,
+    diagnostics: WorkerDiagnostics | None = None,
+) -> RTSPBackend:
+    if diagnostics is None:
+        return create_backend(camera.decode_backend)
+    return create_backend(
+        camera.decode_backend,
+        on_selection=lambda selection: diagnostics.update_decode(camera.camera_id, selection),
+    )
+
+
+def _requested_decode_backend(configured: str | None) -> str:
+    return (
+        configured
+        or os.environ.get("ML_RTSP_BACKEND", "auto").strip().lower()
+        or "auto"
+    )
 
 
 def _worker_with_detectors(
@@ -388,9 +433,16 @@ def _worker(
             stop_requested=(
                 resources.stop_event.is_set if resources.stop_event is not None else None
             ),
-            backend=_decode_backend(camera),
+            backend=_decode_backend(camera, resources.diagnostics),
             target_fps=camera.fps,
             pace_wait=resources.stop_event.wait if resources.stop_event is not None else None,
+            on_open_failure=(
+                lambda reason: resources.diagnostics.record_decode_open_failure(
+                    camera.camera_id, reason
+                )
+                if resources.diagnostics is not None
+                else None
+            ),
         ),
         runners=resources.runners.as_mapping(),
         scheduler=Scheduler(

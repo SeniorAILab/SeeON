@@ -7,29 +7,21 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, NoReturn
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from numpy.typing import NDArray
 
-from worker.sources.rtsp import _create_backend, _normalize_backend_name
+from contracts.decode_diagnostics import DecodeSelection
+from worker.sources.rtsp import _normalize_backend_name, create_backend
 from worker.sources.rtsp_backend import RTSPBackend, RTSPCapture
+from worker.sources.rtsp_url import mask_rtsp_url
 
 ProbeErrorClass = Literal["timeout", "decode", "auth"]
-_SENSITIVE_QUERY_KEYS = (
-    "password",
-    "passwd",
-    "pass",
-    "token",
-    "secret",
-    "key",
-    "user",
-    "username",
-)
 
 
 @dataclass(frozen=True)
 class RTSPProbeResult:
     masked_url: str
+    requested_backend: str
     backend: str
     width: int
     height: int
@@ -39,6 +31,7 @@ class RTSPProbeResult:
         return {
             "ok": True,
             "url": self.masked_url,
+            "requested_backend": self.requested_backend,
             "backend": self.backend,
             "width": self.width,
             "height": self.height,
@@ -66,23 +59,6 @@ class RTSPProbeError(RuntimeError):
         }
 
 
-def mask_rtsp_url(url: str) -> str:
-    parsed = urlsplit(url)
-    netloc = parsed.netloc
-    if "@" in netloc:
-        userinfo, hostport = netloc.rsplit("@", 1)
-        mask = "***:***" if ":" in userinfo else "***"
-        netloc = f"{mask}@{hostport}"
-
-    query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
-    masked_pairs = [
-        (key, "***") if _is_sensitive_query_key(key) else (key, value)
-        for key, value in query_pairs
-    ]
-    query = urlencode(masked_pairs, doseq=True)
-    return urlunsplit((parsed.scheme, netloc, parsed.path, query, parsed.fragment))
-
-
 def probe_first_frame(
     url: str,
     *,
@@ -97,8 +73,22 @@ def probe_first_frame(
         raise ValueError("timeout_ms must be positive")
 
     masked_url = mask_rtsp_url(url)
-    backend_label = _normalize_backend_name(backend_name) if backend is None else "injected"
-    selected_backend = backend if backend is not None else _create_backend(backend_label)
+    requested_backend = (
+        _normalize_backend_name(backend_name) if backend is None else "injected"
+    )
+    selected_backend_name = "injected"
+
+    if backend is None:
+        def on_selection(selection: DecodeSelection) -> None:
+            nonlocal selected_backend_name
+            selected_backend_name = selection.selected
+
+        selected_backend = create_backend(
+            requested_backend,
+            on_selection=on_selection,
+        )
+    else:
+        selected_backend = backend
     open_timeout = _positive_timeout(open_timeout_ms, timeout_ms)
     read_timeout = _positive_timeout(read_timeout_ms, timeout_ms)
     deadline = monotonic() + (timeout_ms / 1000.0)
@@ -120,7 +110,8 @@ def probe_first_frame(
             height, width, channels = _frame_dimensions(frame, masked_url)
             return RTSPProbeResult(
                 masked_url=masked_url,
-                backend=backend_label,
+                requested_backend=requested_backend,
+                backend=selected_backend_name,
                 width=width,
                 height=height,
                 channels=channels,
@@ -139,9 +130,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Probe an RTSP URL by decoding its first frame."
     )
     parser.add_argument("url")
-    # 'nvdec' is a reserved future backend: selecting it raises
-    # NotImplementedError until an adapter lands. Only 'opencv' works today.
-    parser.add_argument("--backend", choices=("opencv", "nvdec"), default=None)
+    parser.add_argument(
+        "--backend",
+        choices=("auto", "nvdec", "opencv", "cpu"),
+        default=None,
+    )
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--open-timeout-ms", type=int, default=None)
     parser.add_argument("--read-timeout-ms", type=int, default=None)
@@ -186,9 +179,6 @@ def _frame_dimensions(
     return int(height), int(width), int(channels)
 
 
-def _is_sensitive_query_key(key: str) -> bool:
-    normalized = key.lower()
-    return any(term in normalized for term in _SENSITIVE_QUERY_KEYS)
 
 
 def _classify_exception(exc: Exception) -> ProbeErrorClass:

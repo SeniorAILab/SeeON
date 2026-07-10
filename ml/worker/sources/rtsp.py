@@ -4,15 +4,19 @@ import os
 import time
 from collections.abc import Callable, Iterator
 
+from contracts.decode_diagnostics import DecodeSelection
 from contracts.frame import Frame
 from worker.sources.rtsp_backend import (
+    FALLBACK_EXTERNAL_ERRORS,
     FallbackRTSPBackend,
     NvdecRTSPBackend,
+    ObservingRTSPBackend,
     OpenCVRTSPBackend,
     RTSPBackend,
 )
 
 _LivenessCallback = Callable[[str], None]
+_OpenFailureCallback = Callable[[str], None]
 _StopPredicate = Callable[[], bool]
 
 _DEFAULT_PROCESSED_FPS = 5.0
@@ -38,6 +42,7 @@ class RTSPSource:
         target_fps: float = _DEFAULT_PROCESSED_FPS,
         clock: Callable[[], float] | None = None,
         pace_wait: Callable[[float], bool] | None = None,
+        on_open_failure: _OpenFailureCallback | None = None,
     ) -> None:
         self._url = url
         self._max_failures = max(1, max_failures)
@@ -57,6 +62,7 @@ class RTSPSource:
         self._stop_requested = stop_requested
         self._on_reconnecting: _LivenessCallback | None = None
         self._on_recovered: _LivenessCallback | None = None
+        self._on_open_failure = on_open_failure
         # PM-3: 5 fps approximates the observed CPU-bound effective fall-inference
         # throughput before source pacing on the edge worker baseline; keeping that
         # cadence preserves model-window wall-clock scale without moving window/stride
@@ -73,17 +79,16 @@ class RTSPSource:
         *,
         on_reconnecting: _LivenessCallback | None = None,
         on_recovered: _LivenessCallback | None = None,
+        on_open_failure: _OpenFailureCallback | None = None,
     ) -> None:
         self._on_reconnecting = on_reconnecting
         self._on_recovered = on_recovered
+        if on_open_failure is not None:
+            self._on_open_failure = on_open_failure
 
     def __iter__(self) -> Iterator[Frame]:
         backend = self._backend
-        capture = backend.open(
-            self._url,
-            self._open_timeout_ms,
-            self._read_timeout_ms,
-        )
+        capture = None
         t0: float | None = None
         frame_index = 0
         consecutive_failures = 0
@@ -91,28 +96,39 @@ class RTSPSource:
         reconnecting = False
         try:
             while not self._stop_is_requested():
-                read_ok, image = backend.read(capture)
-                if not read_ok or image is None:
-                    consecutive_failures += 1
-                    if consecutive_failures >= self._max_failures:
-                        if self._reconnect_budget_exhausted(reconnects):
-                            if not reconnecting:
-                                self._notify_reconnecting("read_failure")
-                            break
-                        if not reconnecting:
-                            reconnecting = True
-                            self._notify_reconnecting("read_failure")
-                        backend.release(capture)
-                        capture = None
-                        reconnects += 1
-                        if self._wait_for_backoff_or_stop(self._backoff_delay(reconnects)):
-                            break
+                if capture is None:
+                    try:
                         capture = backend.open(
                             self._url,
                             self._open_timeout_ms,
                             self._read_timeout_ms,
                         )
-                        consecutive_failures = 0
+                    except FALLBACK_EXTERNAL_ERRORS:
+                        self._notify_open_failure("spawn_failed")
+                        if not reconnecting:
+                            reconnecting = True
+                            self._notify_reconnecting("open_failure")
+                        if self._reconnect_budget_exhausted(reconnects):
+                            break
+                        reconnects += 1
+                        if self._wait_for_backoff_or_stop(self._backoff_delay(reconnects)):
+                            break
+                        continue
+
+                read_ok, image = backend.read(capture)
+                if not read_ok or image is None:
+                    consecutive_failures += 1
+                    if consecutive_failures >= self._max_failures:
+                        if not reconnecting:
+                            reconnecting = True
+                            self._notify_reconnecting("read_failure")
+                        backend.release(capture)
+                        capture = None
+                        if self._reconnect_budget_exhausted(reconnects):
+                            break
+                        reconnects += 1
+                        if self._wait_for_backoff_or_stop(self._backoff_delay(reconnects)):
+                            break
                     continue
                 consecutive_failures = 0
                 if reconnecting:
@@ -138,7 +154,7 @@ class RTSPSource:
     def _backoff_delay(self, reconnects: int) -> float:
         if reconnects <= 0:
             return 0.0
-        delay = self._reconnect_initial_backoff_sec * (2 ** (reconnects - 1))
+        delay = self._reconnect_initial_backoff_sec * (2 ** min(reconnects - 1, 32))
         return min(delay, self._reconnect_max_backoff_sec)
 
     def _stop_is_requested(self) -> bool:
@@ -166,6 +182,9 @@ class RTSPSource:
     def _notify_recovered(self, reason: str) -> None:
         if self._on_recovered is not None:
             self._on_recovered(reason)
+    def _notify_open_failure(self, reason: str) -> None:
+        if self._on_open_failure is not None:
+            self._on_open_failure(reason)
 
 
 def _normalize_backend_name(backend_name: str | None = None) -> str:
@@ -176,7 +195,11 @@ def _normalize_backend_name(backend_name: str | None = None) -> str:
     return normalized or _DEFAULT_RTSP_BACKEND
 
 
-def create_backend(backend_name: str | None = None) -> RTSPBackend:
+def create_backend(
+    backend_name: str | None = None,
+    *,
+    on_selection: Callable[[DecodeSelection], None] | None = None,
+) -> RTSPBackend:
     """Resolve a decode backend by name (registry + auto fallback).
 
     - "auto" (default): prefer NVDEC (GPU), fall back to OpenCV (CPU).
@@ -186,7 +209,9 @@ def create_backend(backend_name: str | None = None) -> RTSPBackend:
     normalized = _normalize_backend_name(backend_name)
     if normalized == "auto":
         return FallbackRTSPBackend(
-            [("nvdec", NvdecRTSPBackend()), ("opencv", OpenCVRTSPBackend())]
+            [("nvdec", NvdecRTSPBackend()), ("opencv", OpenCVRTSPBackend())],
+            requested=normalized,
+            on_selection=on_selection,
         )
     factory = _BACKEND_FACTORIES.get(normalized)
     if factory is None:
@@ -194,7 +219,16 @@ def create_backend(backend_name: str | None = None) -> RTSPBackend:
             "Unsupported RTSP backend "
             f"{normalized!r}; expected 'auto', 'nvdec', 'opencv', or 'cpu'."
         )
-    return factory()
+    backend = factory()
+    if on_selection is None:
+        return backend
+    selected = "opencv" if normalized == "cpu" else normalized
+    return ObservingRTSPBackend(
+        backend,
+        requested=normalized,
+        selected=selected,
+        on_selection=on_selection,
+    )
 
 
 # Named decode-backend registry (Strategy factories). "auto" is handled

@@ -1,18 +1,36 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import threading
+import time
 
 import cv2
 import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from worker.sources.probe import RTSPProbeError, mask_rtsp_url, probe_first_frame
+from contracts.decode_diagnostics import DecodeSelection
+from worker.sources import probe as probe_module
+from worker.sources import rtsp as rtsp_module
+from worker.sources.probe import (
+    RTSPProbeError,
+    RTSPProbeResult,
+    mask_rtsp_url,
+    probe_first_frame,
+)
+from worker.sources.probe import (
+    main as probe_main,
+)
 from worker.sources.rtsp import RTSPSource, _create_backend, create_backend
 from worker.sources.rtsp_backend import (
     FallbackRTSPBackend,
     NvdecRTSPBackend,
+    NvdecUnavailableError,
+    ObservingRTSPBackend,
     OpenCVRTSPBackend,
+    _NvdecCapture,
+    _probe_stream_metadata,
 )
 
 
@@ -153,6 +171,32 @@ class _SequenceBackend:
         self.release_calls += 1
         capture.release()
 
+class _OpenOutcomeBackend:
+    def __init__(
+        self, outcomes: list[Exception | list[tuple[bool, NDArray[np.uint8] | None]]]
+    ) -> None:
+        self._outcomes = outcomes
+        self.open_calls = 0
+        self.release_calls = 0
+
+    def open(
+        self, url: str, open_timeout_ms: int, read_timeout_ms: int
+    ) -> _SequenceCapture:
+        del url, open_timeout_ms, read_timeout_ms
+        self.open_calls += 1
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _SequenceCapture(outcome)
+
+    def read(self, capture: _SequenceCapture) -> tuple[bool, NDArray[np.uint8] | None]:
+        return capture.read()
+
+    def release(self, capture: _SequenceCapture) -> None:
+        self.release_calls += 1
+        capture.release()
+
+
 
 def test_rtsp_source_uses_injected_rgb_backend_without_double_conversion(monkeypatch) -> None:
     backend = _RecordingBackend()
@@ -218,7 +262,7 @@ def test_create_backend_rejects_unknown_backend() -> None:
 
 class _FailingBackend:
     def open(self, url: str, open_timeout_ms: int, read_timeout_ms: int) -> object:
-        raise RuntimeError("nvdec unavailable")
+        raise NvdecUnavailableError("ffmpeg spawn failed: OSError")
 
     def read(self, capture: object) -> tuple[bool, NDArray[np.uint8] | None]:
         return False, None
@@ -269,6 +313,64 @@ def test_fallback_backend_prefers_first_backend_that_yields_a_frame() -> None:
     assert ok is True
     assert out is preferred_frame  # validating frame is replayed, not lost
     assert safe.opened is False
+def test_fallback_backend_records_bounded_reason_and_masks_credentials(caplog) -> None:
+    selections: list[DecodeSelection] = []
+    safe = _StubBackend(np.zeros((1, 1, 3), dtype=np.uint8))
+    backend = FallbackRTSPBackend(
+        [
+            ("nvdec", _ProbeBackend(open_error=NvdecUnavailableError("ffprobe failed: OSError"))),
+            ("opencv", safe),
+        ],
+        on_selection=selections.append,
+        clock=lambda: 12.5,
+    )
+
+    capture = backend.open("rtsp://user:password@camera.local/live", 1000, 1000)
+
+    assert capture.backend_name == "opencv"
+    assert selections == [
+        DecodeSelection(
+            requested="auto",
+            selected="opencv",
+            fallback_count=1,
+            last_reason="ffprobe_unavailable",
+            updated_at_sec=12.5,
+        )
+    ]
+    assert "password" not in caplog.text
+    assert "user" not in caplog.text
+
+
+def test_observing_backend_records_forced_cpu_selection() -> None:
+    selections: list[DecodeSelection] = []
+    backend = ObservingRTSPBackend(
+        _StubBackend(np.zeros((1, 1, 3), dtype=np.uint8)),
+        requested="cpu",
+        selected="opencv",
+        on_selection=selections.append,
+        clock=lambda: 4.0,
+    )
+
+    backend.open("rtsp://camera.local/live", 1000, 1000)
+
+    assert selections[0].requested == "cpu"
+    assert selections[0].selected == "opencv"
+
+
+def test_fallback_backend_classifies_first_frame_failure() -> None:
+    selections: list[DecodeSelection] = []
+    backend = FallbackRTSPBackend(
+        [
+            ("nvdec", _ProbeBackend([(False, None)])),
+            ("opencv", _StubBackend(np.zeros((1, 1, 3), dtype=np.uint8))),
+        ],
+        on_selection=selections.append,
+    )
+
+    backend.open("rtsp://camera.local/live", 1000, 1000)
+
+    assert selections[0].fallback_count == 1
+    assert selections[0].last_reason == "first_frame_failed"
 
 
 def test_probe_first_frame_reports_resolution_channels_and_releases_capture() -> None:
@@ -286,12 +388,84 @@ def test_probe_first_frame_reports_resolution_channels_and_releases_capture() ->
     assert result.width == 3
     assert result.height == 2
     assert result.channels == 3
+    assert result.requested_backend == "injected"
+    assert result.backend == "injected"
     assert result.masked_url == "rtsp://***:***@camera.local/live?token=%2A%2A%2A"
     assert backend.open_calls == [
         ("rtsp://user:secret@camera.local/live?token=abc", 111, 222)
     ]
     assert backend.release_calls == 1
     assert backend.capture.released is True
+
+
+def test_probe_first_frame_reports_auto_fallback_selection(monkeypatch) -> None:
+    frame = np.zeros((2, 3, 3), dtype=np.uint8)
+    opencv = _ProbeBackend([(True, frame)])
+    monkeypatch.setattr("worker.sources.rtsp.NvdecRTSPBackend", _FailingBackend)
+    monkeypatch.setattr("worker.sources.rtsp.OpenCVRTSPBackend", lambda: opencv)
+
+    result = probe_first_frame("rtsp://camera.local/live", backend_name="auto")
+
+    assert result.requested_backend == "auto"
+    assert result.backend == "opencv"
+    assert result.as_dict()["backend"] == "opencv"
+
+
+def test_probe_first_frame_reports_forced_nvdec_selection(monkeypatch) -> None:
+    frame = np.zeros((2, 3, 3), dtype=np.uint8)
+    nvdec = _ProbeBackend([(True, frame)])
+    monkeypatch.setitem(rtsp_module._BACKEND_FACTORIES, "nvdec", lambda: nvdec)
+
+    result = probe_first_frame("rtsp://camera.local/live", backend_name="nvdec")
+
+    assert result.requested_backend == "nvdec"
+    assert result.backend == "nvdec"
+
+
+def test_probe_first_frame_reports_cpu_alias_as_selected_opencv(monkeypatch) -> None:
+    frame = np.zeros((2, 3, 3), dtype=np.uint8)
+    opencv = _ProbeBackend([(True, frame)])
+    monkeypatch.setitem(rtsp_module._BACKEND_FACTORIES, "cpu", lambda: opencv)
+    monkeypatch.setitem(rtsp_module._BACKEND_FACTORIES, "opencv", lambda: opencv)
+
+    result = probe_first_frame("rtsp://camera.local/live", backend_name="cpu")
+
+    assert result.requested_backend == "cpu"
+    assert result.backend == "opencv"
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected_backend"),
+    [
+        (["rtsp://camera.local/live"], None),
+        (["rtsp://camera.local/live", "--backend", "auto"], "auto"),
+        (["rtsp://camera.local/live", "--backend", "nvdec"], "nvdec"),
+        (["rtsp://camera.local/live", "--backend", "opencv"], "opencv"),
+        (["rtsp://camera.local/live", "--backend", "cpu"], "cpu"),
+    ],
+)
+def test_probe_cli_accepts_backend_contract_vocabulary(
+    monkeypatch,
+    argv: list[str],
+    expected_backend: str | None,
+) -> None:
+    seen_backend_names: list[str | None] = []
+
+    def fake_probe(url: str, **kwargs: object) -> RTSPProbeResult:
+        seen_backend_names.append(kwargs["backend_name"])
+        return RTSPProbeResult(
+            masked_url=url,
+            requested_backend="auto",
+            backend="opencv",
+            width=1,
+            height=1,
+            channels=3,
+        )
+
+    monkeypatch.setattr(probe_module, "probe_first_frame", fake_probe)
+
+    assert probe_main(argv) == 0
+    assert seen_backend_names == [expected_backend]
 
 
 def test_probe_first_frame_classifies_timeout_and_releases_capture() -> None:
@@ -340,15 +514,96 @@ def test_probe_first_frame_classifies_auth_and_masks_credentials() -> None:
     assert backend.release_calls == 0
 
 
-def test_mask_rtsp_url_redacts_userinfo_and_sensitive_query_values() -> None:
+def test_mask_rtsp_url_redacts_userinfo_query_values_and_fragment() -> None:
     assert (
         mask_rtsp_url(
             "rtsp://user:password@host/stream"
-            "?profile=main&username=admin&secret=abc"
+            "?profile=main&username=admin&secret=abc#fragment-secret"
         )
         == "rtsp://***:***@host/stream"
-        "?profile=main&username=%2A%2A%2A&secret=%2A%2A%2A"
+        "?profile=%2A%2A%2A&username=%2A%2A%2A&secret=%2A%2A%2A"
     )
+
+
+def test_ffprobe_failure_never_exposes_rtsp_credentials(monkeypatch) -> None:
+    url = "rtsp://operator:s3cr3t@camera.local/live?token=plain"
+
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise subprocess.CalledProcessError(7, ["ffprobe", url], stderr=url)
+
+    monkeypatch.setattr("worker.sources.rtsp_backend.subprocess.run", fail)
+
+    with pytest.raises(NvdecUnavailableError) as error:
+        _probe_stream_metadata(url, 1.0)
+
+    assert str(error.value) == "ffprobe failed: CalledProcessError (returncode=7)"
+    assert url not in str(error.value)
+    assert "operator" not in str(error.value)
+    assert "s3cr3t" not in str(error.value)
+    assert error.value.__cause__ is None
+
+
+class _HangingStdout:
+    def __init__(self) -> None:
+        self._wait = threading.Event()
+
+    def read(self, _size: int) -> bytes:
+        self._wait.wait()
+        return b""
+
+    def close(self) -> None:
+        self._wait.set()
+
+
+class _HangingProc:
+    def __init__(self) -> None:
+        self.stdout = _HangingStdout()
+        self.terminated = False
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def wait(self, *, timeout: float) -> int:
+        del timeout
+        return 0
+
+    def kill(self) -> None:
+        self.terminated = True
+
+
+def test_nvdec_capture_read_times_out_and_cleans_up_hanging_pipe() -> None:
+    proc = _HangingProc()
+    capture = _NvdecCapture(proc, 1, 1, read_timeout_ms=20)
+
+    started = time.monotonic()
+    assert capture.read() == (False, None)
+
+    assert time.monotonic() - started < 0.25
+    assert proc.terminated is True
+    capture._reader_thread.join(timeout=0.1)
+    assert capture._reader_thread.is_alive() is False
+
+
+def test_nvdec_capture_repeated_timeouts_do_not_accumulate_reader_threads() -> None:
+    reader_threads_before = _nvdec_reader_threads()
+    capture = _NvdecCapture(_HangingProc(), 1, 1, read_timeout_ms=20)
+
+    assert capture.read() == (False, None)
+    assert capture.read() == (False, None)
+    assert capture.read() == (False, None)
+
+    capture._reader_thread.join(timeout=0.1)
+    assert len(_nvdec_reader_threads()) == len(reader_threads_before)
+
+def test_fallback_backend_propagates_programming_errors() -> None:
+    safe = _StubBackend(np.zeros((1, 1, 3), dtype=np.uint8))
+    backend = FallbackRTSPBackend(
+        [("nvdec", _ProbeBackend(open_error=TypeError("bad backend wiring"))), ("opencv", safe)]
+    )
+
+    with pytest.raises(TypeError, match="bad backend wiring"):
+        backend.open("rtsp://camera.local/live", 1000, 1000)
+    assert safe.opened is False
 
 def test_opencv_rtsp_backend_sets_timeout_and_buffer_properties(monkeypatch) -> None:
     captures: list[_FakeCapture] = []
@@ -494,6 +749,82 @@ def test_rtsp_source_reconnects_after_read_failures_and_resumes(monkeypatch) -> 
     assert backend.release_calls == 2
     assert sleeps == [0.5]
     assert liveness == [("degraded", "read_failure"), ("ready", "read_recovered")]
+def test_rtsp_source_retries_initial_open_failures_before_yielding_a_frame() -> None:
+    image = np.array([[[1, 2, 3]]], dtype=np.uint8)
+    backend = _OpenOutcomeBackend(
+        [OSError("unavailable"), OSError("unavailable"), [(True, image)]]
+    )
+    source = RTSPSource(
+        "rtsp://camera/trackID=2",
+        backend=backend,
+        max_total_reconnects=2,
+        sleep=lambda _delay: None,
+        pace_wait=lambda _delay: True,
+    )
+
+    frame = next(iter(source))
+
+    assert frame.image is image
+    assert backend.open_calls == 3
+
+def test_rtsp_source_propagates_programming_errors_from_open() -> None:
+    backend = _OpenOutcomeBackend([TypeError("bad backend wiring")])
+
+    with pytest.raises(TypeError, match="bad backend wiring"):
+        next(iter(RTSPSource("rtsp://camera/trackID=2", backend=backend)))
+
+    assert backend.open_calls == 1
+
+
+def test_rtsp_source_recovers_when_reconnect_open_raises() -> None:
+    image = np.array([[[1, 2, 3]]], dtype=np.uint8)
+    backend = _OpenOutcomeBackend(
+        [[(False, None)], OSError("reconnect unavailable"), [(True, image)]]
+    )
+    liveness: list[tuple[str, str]] = []
+    source = RTSPSource(
+        "rtsp://camera/trackID=2",
+        backend=backend,
+        max_failures=1,
+        max_total_reconnects=2,
+        sleep=lambda _delay: None,
+        pace_wait=lambda _delay: True,
+    )
+    source.set_liveness_callbacks(
+        on_reconnecting=lambda reason: liveness.append(("degraded", reason)),
+        on_recovered=lambda reason: liveness.append(("ready", reason)),
+    )
+
+    frame = next(iter(source))
+
+    assert frame.image is image
+    assert backend.open_calls == 3
+    assert liveness == [("degraded", "read_failure"), ("ready", "read_recovered")]
+
+
+def test_rtsp_source_stop_predicate_cancels_initial_open_backoff() -> None:
+    backend = _OpenOutcomeBackend([OSError("unavailable")])
+    waits: list[float] = []
+    stop = False
+
+    def backoff_wait(delay_sec: float) -> bool:
+        nonlocal stop
+        waits.append(delay_sec)
+        stop = True
+        return True
+
+    assert list(
+        RTSPSource(
+            "rtsp://camera/trackID=2",
+            backend=backend,
+            backoff_wait=backoff_wait,
+            stop_requested=lambda: stop,
+            max_total_reconnects=None,
+        )
+    ) == []
+    assert waits == [0.25]
+    assert backend.open_calls == 1
+
 
 
 def test_rtsp_source_backoff_is_bounded() -> None:
@@ -504,8 +835,9 @@ def test_rtsp_source_backoff_is_bounded() -> None:
         backend=_SequenceBackend([]),
     )
 
-    assert [source._backoff_delay(reconnect) for reconnect in (1, 2, 3, 4)] == [
+    assert [source._backoff_delay(reconnect) for reconnect in (1, 2, 3, 4, 10_000)] == [
         0.5,
+        1.0,
         1.0,
         1.0,
         1.0,
@@ -663,6 +995,9 @@ def test_rtsp_source_window_fill_wall_clock_matches_configured_fps() -> None:
 
     assert len(frames) == window_frames
     assert frames[-1].time_sec == (window_frames - 1) / fps
+
+def _nvdec_reader_threads() -> list[threading.Thread]:
+    return [thread for thread in threading.enumerate() if thread.name == "nvdec-stdout-reader"]
 
 def _fail_if_called(*_args: object, **_kwargs: object) -> None:
     raise AssertionError("RTSPSource must not convert backend-provided RGB frames")

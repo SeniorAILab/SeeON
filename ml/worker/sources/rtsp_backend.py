@@ -3,14 +3,22 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import subprocess
+import threading
+import time
+from collections.abc import Callable
 from typing import IO, Protocol, runtime_checkable
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from contracts.decode_diagnostics import DECODE_FALLBACK_REASONS, DecodeSelection
+from worker.sources.rtsp_url import mask_rtsp_url
+
 LOGGER = logging.getLogger(__name__)
+_FallbackSelectionSink = Callable[[DecodeSelection], None]
 
 
 @runtime_checkable
@@ -137,68 +145,130 @@ def _probe_stream_metadata(url: str, timeout_sec: float) -> tuple[int, int, str]
             check=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise NvdecUnavailableError(f"ffprobe failed: {exc}") from exc
+        raise _sanitized_nvdec_error("ffprobe failed", exc) from None
     try:
         streams = json.loads(completed.stdout).get("streams", [])
         stream = streams[0]
         return int(stream["width"]), int(stream["height"]), str(stream["codec_name"])
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise NvdecUnavailableError(f"ffprobe metadata unusable: {exc}") from exc
+        raise _sanitized_nvdec_error("ffprobe metadata unusable", exc) from None
+
+
+def _sanitized_nvdec_error(stage: str, exc: BaseException) -> NvdecUnavailableError:
+    returncode = getattr(exc, "returncode", None)
+    bounded_returncode = returncode if isinstance(returncode, int) else None
+    return NvdecUnavailableError(
+        f"{stage}: {type(exc).__name__} (returncode={bounded_returncode})"
+    )
 
 
 class _NvdecCapture:
     """RTSPCapture backed by an FFmpeg NVDEC decode subprocess (rgb24 stdout)."""
 
-    def __init__(self, proc: subprocess.Popen[bytes], width: int, height: int) -> None:
+    def __init__(
+        self,
+        proc: subprocess.Popen[bytes],
+        width: int,
+        height: int,
+        read_timeout_ms: int,
+    ) -> None:
         self._proc: subprocess.Popen[bytes] | None = proc
         self.width = width
         self.height = height
         self._frame_size = width * height * 3
+        self._read_timeout_sec = max(1, read_timeout_ms) / 1000.0
+        self._chunks: queue.Queue[bytes | BaseException | None] = queue.Queue(maxsize=2)
+        self._pending = bytearray()
+        self._stop_reader = threading.Event()
+        self._release_lock = threading.Lock()
+        self._reader_thread = threading.Thread(
+            target=self._pump_stdout,
+            args=(proc.stdout,),
+            name="nvdec-stdout-reader",
+            daemon=True,
+        )
+        self._reader_thread.start()
 
     def read(self) -> tuple[bool, NDArray[np.uint8] | None]:
-        proc = self._proc
-        if proc is None or proc.stdout is None:
+        if self._proc is None:
             return False, None
-        buffer = self._read_exact(proc.stdout, self._frame_size)
-        if buffer is None:
-            return False, None
+        deadline = time.monotonic() + self._read_timeout_sec
+        while len(self._pending) < self._frame_size:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self._release(timeout_sec=0.05)
+                return False, None
+            try:
+                chunk = self._chunks.get(timeout=remaining)
+            except queue.Empty:
+                self._release(timeout_sec=0.05)
+                return False, None
+            if isinstance(chunk, BaseException) or chunk is None:
+                self._release(timeout_sec=0.05)
+                return False, None
+            self._pending.extend(chunk)
+        buffer = bytes(self._pending[: self._frame_size])
+        del self._pending[: self._frame_size]
         frame = np.frombuffer(buffer, dtype=np.uint8).reshape(self.height, self.width, 3)
         return True, frame.copy()  # copy: frombuffer is read-only; overlays draw in place
 
-    @staticmethod
-    def _read_exact(stream: IO[bytes], size: int) -> bytes | None:
-        chunks: list[bytes] = []
-        remaining = size
-        while remaining > 0:
-            chunk = stream.read(remaining)
-            if not chunk:
-                return None
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        return b"".join(chunks)
+    def _pump_stdout(self, stream: IO[bytes] | None) -> None:
+        if stream is None:
+            self._put_chunk(None)
+            return
+        try:
+            while not self._stop_reader.is_set():
+                chunk = stream.read(self._frame_size)
+                if not chunk:
+                    self._put_chunk(None)
+                    return
+                self._put_chunk(chunk)
+        except BaseException as exc:  # noqa: BLE001 - pipe failures are read failures
+            self._put_chunk(exc)
+
+    def _put_chunk(self, chunk: bytes | BaseException | None) -> None:
+        while not self._stop_reader.is_set():
+            try:
+                self._chunks.put(chunk, timeout=0.05)
+            except queue.Full:
+                continue
+            else:
+                return
 
     def set(self, prop_id: int, value: float) -> bool:  # noqa: ARG002 - protocol parity
         return False
 
     def release(self) -> None:
-        proc = self._proc
-        self._proc = None
+        self._release(timeout_sec=5)
+
+    def _release(self, *, timeout_sec: float) -> None:
+        with self._release_lock:
+            proc = self._proc
+            self._proc = None
+            self._stop_reader.set()
         if proc is None:
             return
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+        try:
+            proc.wait(timeout=timeout_sec)
+        except subprocess.TimeoutExpired:
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            try:
+                proc.wait(timeout=timeout_sec)
+            except subprocess.TimeoutExpired:
+                pass
         if proc.stdout is not None:
             try:
                 proc.stdout.close()
             except OSError:
                 pass
-        try:
-            proc.terminate()
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
+        self._reader_thread.join(timeout=timeout_sec)
 
 
 class NvdecRTSPBackend:
@@ -233,8 +303,8 @@ class NvdecRTSPBackend:
                 stderr=subprocess.DEVNULL,
             )
         except OSError as exc:
-            raise NvdecUnavailableError(f"failed to start ffmpeg NVDEC decoder: {exc}") from exc
-        return _NvdecCapture(proc, width, height)
+            raise _sanitized_nvdec_error("ffmpeg spawn failed", exc) from None
+        return _NvdecCapture(proc, width, height, read_timeout_ms)
 
     def read(self, capture: RTSPCapture) -> tuple[bool, NDArray[np.uint8] | None]:
         return capture.read()
@@ -254,10 +324,12 @@ class _FallbackCapture:
         backend: RTSPBackend,
         capture: RTSPCapture,
         *,
+        backend_name: str,
         pending: NDArray[np.uint8] | None,
     ) -> None:
         self._backend = backend
         self._capture = capture
+        self.backend_name = backend_name
         self._pending = pending
 
     def read(self) -> tuple[bool, NDArray[np.uint8] | None]:
@@ -274,21 +346,81 @@ class _FallbackCapture:
         self._backend.release(self._capture)
 
 
+class _ObservingCapture:
+    def __init__(self, backend: RTSPBackend, capture: RTSPCapture, backend_name: str) -> None:
+        self._backend = backend
+        self._capture = capture
+        self.backend_name = backend_name
+
+    def read(self) -> tuple[bool, NDArray[np.uint8] | None]:
+        return self._backend.read(self._capture)
+
+    def set(self, prop_id: int, value: float) -> bool:
+        return self._capture.set(prop_id, value)
+
+    def release(self) -> None:
+        self._backend.release(self._capture)
+
+
+class ObservingRTSPBackend:
+    """Record a forced backend selection without changing its decode behavior."""
+
+    def __init__(
+        self,
+        backend: RTSPBackend,
+        *,
+        requested: str,
+        selected: str,
+        on_selection: _FallbackSelectionSink,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._backend = backend
+        self._requested = requested
+        self._selected = selected
+        self._on_selection = on_selection
+        self._clock = clock
+
+    def open(
+        self, url: str, open_timeout_ms: int, read_timeout_ms: int
+    ) -> RTSPCapture:
+        capture = self._backend.open(url, open_timeout_ms, read_timeout_ms)
+        self._on_selection(
+            DecodeSelection(
+                requested=self._requested,
+                selected=self._selected,
+                fallback_count=0,
+                last_reason=None,
+                updated_at_sec=self._clock(),
+            )
+        )
+        return _ObservingCapture(self._backend, capture, self._selected)
+
+    def read(self, capture: RTSPCapture) -> tuple[bool, NDArray[np.uint8] | None]:
+        return capture.read()
+
+    def release(self, capture: RTSPCapture) -> None:
+        capture.release()
+
+
 class FallbackRTSPBackend:
-    """Try preferred backends in order, fall back to the last (safe) backend.
+    """Try preferred backends in order, fall back to the last safe backend."""
 
-    Each preferred backend is validated with a single probe read on open; the
-    first that yields a frame is used (and that frame is replayed so none is
-    lost). The final backend is treated as the always-available safe path
-    (OpenCV/CPU) and is opened without validation so its own reconnect loop
-    governs recovery. This keeps the fallback *policy* separate from the
-    decode strategies.
-    """
-
-    def __init__(self, backends: list[tuple[str, RTSPBackend]]) -> None:
+    def __init__(
+        self,
+        backends: list[tuple[str, RTSPBackend]],
+        *,
+        requested: str = "auto",
+        on_selection: _FallbackSelectionSink | None = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         if not backends:
             raise ValueError("FallbackRTSPBackend requires at least one backend")
         self._backends = backends
+        self._requested = requested
+        self._on_selection = on_selection
+        self._clock = clock
+        self._fallback_count = 0
+        self._last_reason: str | None = None
 
     def open(
         self,
@@ -296,34 +428,98 @@ class FallbackRTSPBackend:
         open_timeout_ms: int,
         read_timeout_ms: int,
     ) -> RTSPCapture:
+        masked_url = mask_rtsp_url(url)
         *preferred, safe = self._backends
         for name, backend in preferred:
             try:
                 capture = backend.open(url, open_timeout_ms, read_timeout_ms)
-            except Exception as exc:  # noqa: BLE001 - any failure -> fall back
-                LOGGER.warning("decode backend %s unavailable: %s", name, exc)
+            except FALLBACK_EXTERNAL_ERRORS as exc:
+                self._record_fallback(_fallback_reason(exc, stage="open"))
+                LOGGER.warning(
+                    "decode backend %s unavailable (%s) for %s",
+                    name,
+                    self._last_reason,
+                    masked_url,
+                )
                 continue
             try:
                 ok, frame = backend.read(capture)
-            except Exception as exc:  # noqa: BLE001 - any failure -> fall back
-                LOGGER.warning("decode backend %s read failed: %s", name, exc)
+            except FALLBACK_EXTERNAL_ERRORS as exc:
+                self._record_fallback(_fallback_reason(exc, stage="read"))
+                LOGGER.warning(
+                    "decode backend %s failed first frame (%s) for %s",
+                    name,
+                    self._last_reason,
+                    masked_url,
+                )
                 backend.release(capture)
                 continue
             if ok and frame is not None:
+                self._record_selection(name)
                 LOGGER.info("decode backend active: %s", name)
-                return _FallbackCapture(backend, capture, pending=frame)
-            LOGGER.warning("decode backend %s produced no frame; falling back", name)
+                return _FallbackCapture(
+                    backend, capture, backend_name=name, pending=frame
+                )
+            self._record_fallback("first_frame_failed")
+            LOGGER.warning(
+                "decode backend %s produced no first frame (%s) for %s",
+                name,
+                self._last_reason,
+                masked_url,
+            )
             backend.release(capture)
         safe_name, safe_backend = safe
-        LOGGER.info("decode backend active: %s (fallback)", safe_name)
         capture = safe_backend.open(url, open_timeout_ms, read_timeout_ms)
-        return _FallbackCapture(safe_backend, capture, pending=None)
+        self._record_selection(safe_name)
+        LOGGER.info("decode backend active: %s (fallback)", safe_name)
+        return _FallbackCapture(
+            safe_backend, capture, backend_name=safe_name, pending=None
+        )
 
     def read(self, capture: RTSPCapture) -> tuple[bool, NDArray[np.uint8] | None]:
         return capture.read()
 
     def release(self, capture: RTSPCapture) -> None:
         capture.release()
+
+    def _record_fallback(self, reason: str) -> None:
+        if reason not in DECODE_FALLBACK_REASONS:
+            raise ValueError(f"unsupported decode fallback reason: {reason}")
+        self._fallback_count += 1
+        self._last_reason = reason
+
+    def _record_selection(self, selected: str) -> None:
+        if self._on_selection is None:
+            return
+        self._on_selection(
+            DecodeSelection(
+                requested=self._requested,
+                selected=selected,
+                fallback_count=self._fallback_count,
+                last_reason=self._last_reason,
+                updated_at_sec=self._clock(),
+            )
+        )
+
+
+FALLBACK_EXTERNAL_ERRORS = (
+    NvdecUnavailableError,
+    OSError,
+    subprocess.SubprocessError,
+    cv2.error,
+)
+
+
+def _fallback_reason(exc: BaseException, *, stage: str) -> str:
+    if stage == "read":
+        return "first_frame_failed"
+    if isinstance(exc, NvdecUnavailableError):
+        message = str(exc).lower()
+        if "metadata unusable" in message:
+            return "unsupported_codec"
+        if "ffprobe" in message:
+            return "ffprobe_unavailable"
+    return "spawn_failed"
 
 
 def set_capture_property(capture: RTSPCapture, name: str, value: int) -> None:
@@ -350,10 +546,12 @@ def _ensure_rtsp_over_tcp() -> None:
 
 
 __all__ = [
+    "FALLBACK_EXTERNAL_ERRORS",
     "FallbackRTSPBackend",
     "NvdecRTSPBackend",
     "NvdecUnavailableError",
     "OpenCVRTSPBackend",
+    "ObservingRTSPBackend",
     "RTSPBackend",
     "RTSPCapture",
     "set_capture_property",

@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from api.backend_mapping import BackendCameraMapper, backend_status_from_env, mark_backend_status
 from api.camera_registry import CameraRegistryStore
 from api.heartbeat_store import DEFAULT_STALE_AFTER_SEC, HeartbeatStore
+from api.runtime_status_store import RuntimeStatusStore
 from contracts.worker_config import (
     PulledCameraConfig,
     PulledNightWindow,
@@ -41,6 +42,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     if not isinstance(getattr(app.state, "heartbeat_store", None), HeartbeatStore):
         app.state.heartbeat_store = HeartbeatStore(stale_after_sec=_heartbeat_stale_after_sec())
+    if not isinstance(getattr(app.state, "runtime_status_store", None), RuntimeStatusStore):
+        app.state.runtime_status_store = RuntimeStatusStore()
 
     if not isinstance(getattr(app.state, "camera_registry", None), CameraRegistryStore):
         app.state.camera_registry = CameraRegistryStore.from_env()

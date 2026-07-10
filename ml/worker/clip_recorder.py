@@ -7,6 +7,7 @@ import queue
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -34,6 +35,10 @@ CLIP_FFMPEG_BIN_ENV = "CLIP_FFMPEG_BIN"
 DEFAULT_FFMPEG_BIN = "ffmpeg"
 NVENC_ENCODER = "h264_nvenc"
 SOFTWARE_ENCODER = "libx264"
+DEFAULT_FINALIZE_GRACE_SECONDS = 5.0
+DEFAULT_STALE_STAGING_SECONDS = 60.0 * 60.0
+DEFAULT_ROTATE_MIN_INTERVAL_SECONDS = 30.0
+NVENC_MIN_PROBE_DIMENSION = 256
 
 # Resolved once per process: the FFmpeg H.264 encoder used for every clip.
 # h264_nvenc (NVIDIA hardware) is preferred on the edge GPU; libx264 (software)
@@ -57,15 +62,24 @@ class ClipRecorderConfig:
     disk_high_watermark: float = field(default_factory=lambda: _env_disk_high_watermark())
     max_queue_size: int = 128
     codec: str = "mp4v"
+    finalize_grace_seconds: float = DEFAULT_FINALIZE_GRACE_SECONDS
+    stale_staging_seconds: float = DEFAULT_STALE_STAGING_SECONDS
+    rotate_min_interval_seconds: float = DEFAULT_ROTATE_MIN_INTERVAL_SECONDS
 
 
 @dataclass(slots=True)
 class ClipRecorderStats:
     dropped_frames: int = 0
     dropped_events: int = 0
+    attach_missed_events: int = 0
+    clip_id_collisions: int = 0
     finalized_clips: int = 0
     failed_writes: int = 0
     video_unavailable_clips: int = 0
+    active_clips: int = 0
+    forced_finalized: int = 0
+    stale_staging_cleaned: int = 0
+    encoder: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +108,7 @@ class _EventMessage:
     event_ref: str
     event_type: str | None
     clip_id: str
+    allow_new_clip: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,12 +116,10 @@ class _RotateMessage:
     done: threading.Event | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _StopMessage:
-    done: threading.Event
+class _ClipIdCollisionError(RuntimeError):
+    """A reserved clip id unexpectedly has existing on-disk output."""
 
-
-_Message = _FrameMessage | _EventMessage | _RotateMessage | _StopMessage
+_Message = _FrameMessage | _EventMessage | _RotateMessage
 
 
 @dataclass(slots=True)
@@ -159,9 +172,12 @@ class _ActiveClip:
     started_at: datetime
     start_time_sec: float
     last_time_sec: float
+    opened_monotonic: float = field(default_factory=time.monotonic)
     video_error: str | None = None
     appended_paths: set[Path] = field(default_factory=set)
+    event_refs: list[str] = field(default_factory=list)
     frame_count: int = 0
+    force_finalize_extension_sec: float = 0.0
 
 
 class ClipRecorder:
@@ -189,6 +205,10 @@ class ClipRecorder:
         )
         self._lock = threading.Lock()
         self._codec_by_camera: dict[str, _CodecSpec] = {}
+        self._last_rotate_monotonic: float | None = None
+        self._stop_event = threading.Event()
+        self._clip_ids_by_camera: dict[str, str] = {}
+        self._accepting_messages = True
 
     @classmethod
     def from_env(cls) -> ClipRecorder:
@@ -200,13 +220,18 @@ class ClipRecorder:
         self.config.store_dir.mkdir(parents=True, exist_ok=True)
         (self.config.store_dir / "segments").mkdir(parents=True, exist_ok=True)
         (self.config.store_dir / "clips" / ".staging").mkdir(parents=True, exist_ok=True)
+        self._sweep_stale_staging()
+        with self._lock:
+            self.stats.encoder = _resolve_encoder()
+            self._accepting_messages = True
+        self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, name="clip-recorder", daemon=True)
         self._thread.start()
 
     def stop(self, *, timeout: float = 5.0) -> None:
-        done = threading.Event()
-        self._put_control(_StopMessage(done))
-        done.wait(timeout)
+        with self._lock:
+            self._accepting_messages = False
+        self._stop_event.set()
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
@@ -220,29 +245,49 @@ class ClipRecorder:
         return self.flush(timeout=timeout)
 
     def on_frame(self, camera_id: str, frame: Frame) -> bool:
-        try:
-            self._queue.put_nowait(_FrameMessage(camera_id=camera_id, frame=frame))
-        except queue.Full:
-            with self._lock:
+        with self._lock:
+            if not self._accepting_messages:
+                return False
+            try:
+                self._queue.put_nowait(_FrameMessage(camera_id=camera_id, frame=frame))
+            except queue.Full:
                 self.stats.dropped_frames += 1
-            return False
+                return False
         return True
 
-    def on_event(self, camera_id: str, event_ref: str, event_type: str | None = None) -> str | None:
-        clip_id = _clip_id(camera_id)
-        try:
-            self._queue.put_nowait(
-                _EventMessage(
-                    camera_id=camera_id,
-                    event_ref=event_ref,
-                    event_type=event_type,
-                    clip_id=clip_id,
+    def on_event(
+        self,
+        camera_id: str,
+        event_ref: str,
+        event_type: str | None = None,
+        *,
+        allow_new_clip: bool = True,
+    ) -> str | None:
+        with self._lock:
+            if not self._accepting_messages:
+                return None
+            clip_id = self._clip_ids_by_camera.get(camera_id)
+            created_clip_id = clip_id is None
+            if clip_id is None:
+                if not allow_new_clip:
+                    return None
+                clip_id = self._reserve_clip_id(camera_id)
+                self._clip_ids_by_camera[camera_id] = clip_id
+            try:
+                self._queue.put_nowait(
+                    _EventMessage(
+                        camera_id=camera_id,
+                        event_ref=event_ref,
+                        event_type=event_type,
+                        clip_id=clip_id,
+                        allow_new_clip=allow_new_clip,
+                    )
                 )
-            )
-        except queue.Full:
-            with self._lock:
+            except queue.Full:
                 self.stats.dropped_events += 1
-            return None
+                if created_clip_id and self._clip_ids_by_camera.get(camera_id) == clip_id:
+                    self._clip_ids_by_camera.pop(camera_id, None)
+                return None
         return clip_id
 
     @property
@@ -252,42 +297,55 @@ class ClipRecorder:
     @property
     def dropped_event_count(self) -> int:
         return self.stats.dropped_events
+    @property
+    def active_clips(self) -> int:
+        with self._lock:
+            return self.stats.active_clips
 
-    def _put_control(self, message: _RotateMessage | _StopMessage) -> bool:
-        try:
-            self._queue.put_nowait(message)
-        except queue.Full:
-            return False
+    def _put_control(self, message: _RotateMessage) -> bool:
+        with self._lock:
+            if not self._accepting_messages:
+                return False
+            try:
+                self._queue.put_nowait(message)
+            except queue.Full:
+                return False
         return True
 
     def _run(self) -> None:
-        while True:
-            message = self._queue.get()
-            try:
-                if isinstance(message, _FrameMessage):
-                    self._handle_frame(message)
-                elif isinstance(message, _EventMessage):
-                    self._handle_event(message)
-                elif isinstance(message, _RotateMessage):
-                    self._rotate()
-                    if message.done is not None:
+        try:
+            while True:
+                try:
+                    message = self._queue.get(timeout=0.5)
+                except queue.Empty:
+                    if self._stop_event.is_set():
+                        break
+                    try:
+                        self._finalize_ready_clips()
+                    except Exception as exc:  # noqa: BLE001 - recorder failures must not kill inference
+                        LOGGER.warning("clip recorder timeout finalize failed: %s", exc)
+                        with self._lock:
+                            self.stats.failed_writes += 1
+                    continue
+                try:
+                    if isinstance(message, _FrameMessage):
+                        self._handle_frame(message)
+                    elif isinstance(message, _EventMessage):
+                        self._handle_event(message)
+                    elif isinstance(message, _RotateMessage):
+                        self._rotate(force=True)
+                        if message.done is not None:
+                            message.done.set()
+                except Exception as exc:  # noqa: BLE001 - recorder failures must not kill inference
+                    LOGGER.warning("clip recorder operation failed: %s", exc)
+                    with self._lock:
+                        self.stats.failed_writes += 1
+                    if isinstance(message, _RotateMessage) and message.done is not None:
                         message.done.set()
-                elif isinstance(message, _StopMessage):
-                    self._close_all_open_segments()
-                    self._finalize_ready_clips(force=True)
-                    self._rotate()
-                    message.done.set()
-                    return
-            except Exception as exc:  # noqa: BLE001 - recorder failures must not kill inference
-                LOGGER.warning("clip recorder operation failed: %s", exc)
-                with self._lock:
-                    self.stats.failed_writes += 1
-                if isinstance(message, (_RotateMessage, _StopMessage)):
-                    message.done.set()
-                    if isinstance(message, _StopMessage):
-                        return
-            finally:
-                self._queue.task_done()
+                finally:
+                    self._queue.task_done()
+        finally:
+            self._shutdown()
 
     def _handle_frame(self, message: _FrameMessage) -> None:
         state = self._state(message.camera_id)
@@ -325,12 +383,88 @@ class ClipRecorder:
     def _handle_event(self, message: _EventMessage) -> None:
         state = self._states.get(message.camera_id)
         if state is None or state.last_time_sec is None or state.frame_size is None:
+            self._clear_clip_id(message.camera_id, message.clip_id)
+            if not message.allow_new_clip:
+                with self._lock:
+                    self.stats.attach_missed_events += 1
             return
-        clip = self._open_clip(message, state, state.last_time_sec, state.frame_size)
+        clip = self._active_clip(message.camera_id, message.clip_id)
+        if clip is None:
+            clip = self._active_clip_for_camera(message.camera_id)
+        if clip is None and not message.allow_new_clip:
+            self._clear_clip_id(message.camera_id, message.clip_id)
+            with self._lock:
+                self.stats.attach_missed_events += 1
+            return
+        if clip is not None:
+            clip.event_refs.append(message.event_ref)
+            previous_cutoff = clip.cutoff_time_sec
+            clip.cutoff_time_sec = min(
+                clip.event_time_sec + (self.config.post_event_seconds * 2),
+                max(clip.cutoff_time_sec, state.last_time_sec + self.config.post_event_seconds),
+            )
+            clip.force_finalize_extension_sec = min(
+                self.config.post_event_seconds,
+                clip.force_finalize_extension_sec + (clip.cutoff_time_sec - previous_cutoff),
+            )
+            self._finalize_ready_clips()
+            return
+        try:
+            clip = self._open_clip(message, state, state.last_time_sec, state.frame_size)
+        except _ClipIdCollisionError:
+            # External interference reused the reserved id: discard the event
+            # (counted via _record_clip_id_collision) and never touch the
+            # pre-existing artifact. The returned id maps to nothing.
+            self._clear_clip_id(message.camera_id, message.clip_id)
+            return
+        except Exception:
+            self._clear_clip_id(message.camera_id, message.clip_id)
+            shutil.rmtree(
+                self.config.store_dir / "clips" / ".staging" / message.clip_id,
+                ignore_errors=True,
+            )
+            raise
         self._active_clips.append(clip)
+        self._update_active_clip_count()
         for segment in list(state.closed_segments):
             self._append_segment_to_clip(segment, clip)
         self._finalize_ready_clips()
+
+    def _active_clip(self, camera_id: str, clip_id: str) -> _ActiveClip | None:
+        for clip in self._active_clips:
+            if clip.camera_id == camera_id and clip.clip_id == clip_id:
+                return clip
+        return None
+
+    def _active_clip_for_camera(self, camera_id: str) -> _ActiveClip | None:
+        for clip in self._active_clips:
+            if clip.camera_id == camera_id:
+                return clip
+        return None
+
+    def _clear_clip_id(self, camera_id: str, clip_id: str) -> None:
+        with self._lock:
+            if self._clip_ids_by_camera.get(camera_id) == clip_id:
+                self._clip_ids_by_camera.pop(camera_id, None)
+
+    def _reserve_clip_id(self, camera_id: str) -> str:
+        """Reserve a collision-free clip id at admission time.
+
+        The returned id is the artifact's final identity; the actor never
+        substitutes another id. Bounded retries guard against the (uuid4)
+        astronomically-unlikely case that a generated id already has final or
+        staging output on disk.
+        """
+        clips_dir = self.config.store_dir / "clips"
+        staging_root = clips_dir / ".staging"
+        clip_id = _clip_id(camera_id)
+        for _ in range(8):
+            if not (clips_dir / clip_id).exists() and not (staging_root / clip_id).exists():
+                break
+            # Caller (on_event) already holds self._lock; do not re-acquire it.
+            self.stats.clip_id_collisions += 1
+            clip_id = _clip_id(camera_id)
+        return clip_id
 
     def _state(self, camera_id: str) -> _CameraState:
         state = self._states.get(camera_id)
@@ -385,9 +519,28 @@ class ClipRecorder:
         event_time_sec: float,
         frame_size: tuple[int, int],
     ) -> _ActiveClip:
-        final_dir = self.config.store_dir / "clips" / message.clip_id
-        staging_dir = self.config.store_dir / "clips" / ".staging" / message.clip_id
-        staging_dir.mkdir(parents=True, exist_ok=False)
+        # Identity contract: the clip_id returned by on_event() IS the clip_id of
+        # the produced artifact. The id was reserved collision-free at admission
+        # time (_reserve_clip_id); the actor never substitutes a different id.
+        # Any residual collision (external interference) discards the event via
+        # _ClipIdCollisionError instead of overwriting or silently renaming.
+        clip_id = message.clip_id
+        clips_dir = self.config.store_dir / "clips"
+        staging_root = clips_dir / ".staging"
+        final_dir = clips_dir / clip_id
+        staging_dir = staging_root / clip_id
+        if final_dir.exists() or staging_dir.exists():
+            self._record_clip_id_collision()
+            raise _ClipIdCollisionError(clip_id)
+        try:
+            staging_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            self._record_clip_id_collision()
+            raise _ClipIdCollisionError(clip_id) from None
+        if final_dir.exists():
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            self._record_clip_id_collision()
+            raise _ClipIdCollisionError(clip_id)
         writer: _FfmpegWriter | None = None
         tmp_video_path = staging_dir / "clip.tmp.mp4"
         final_video_path: Path | None = staging_dir / "clip.mp4"
@@ -415,7 +568,7 @@ class ClipRecorder:
             camera_id=message.camera_id,
             event_ref=message.event_ref,
             event_type=message.event_type,
-            clip_id=message.clip_id,
+            clip_id=clip_id,
             event_time_sec=event_time_sec,
             cutoff_time_sec=event_time_sec + self.config.post_event_seconds,
             staging_dir=staging_dir,
@@ -425,10 +578,12 @@ class ClipRecorder:
             manifest_path=staging_dir / "manifest.json",
             writer=writer,
             codec=codec,
+            opened_monotonic=time.monotonic(),
             video_error=video_error,
             started_at=started_at,
             start_time_sec=start_time_sec,
             last_time_sec=start_time_sec,
+            event_refs=[message.event_ref],
         )
 
     def _append_segment_to_active_clips(self, segment: _Segment) -> None:
@@ -462,18 +617,24 @@ class ClipRecorder:
     def _finalize_ready_clips(self, *, force: bool = False) -> None:
         remaining: list[_ActiveClip] = []
         finalized = False
+        now_monotonic = time.monotonic()
         for clip in self._active_clips:
-            ready = force or clip.last_time_sec >= clip.cutoff_time_sec
+            timed_out = now_monotonic - clip.opened_monotonic > (
+                self._active_clip_deadline_sec() + clip.force_finalize_extension_sec
+            )
+            ready = force or clip.last_time_sec >= clip.cutoff_time_sec or timed_out
             if ready:
-                self._finalize_clip(clip)
+                self._clear_clip_id(clip.camera_id, clip.clip_id)
+                self._finalize_clip(clip, forced=force or timed_out)
                 finalized = True
             else:
                 remaining.append(clip)
         self._active_clips = remaining
+        self._update_active_clip_count()
         if finalized:
             self._rotate()
 
-    def _finalize_clip(self, clip: _ActiveClip) -> None:
+    def _finalize_clip(self, clip: _ActiveClip, *, forced: bool = False) -> None:
         writer = clip.writer
         video_error = clip.video_error
         if writer is not None:
@@ -488,7 +649,7 @@ class ClipRecorder:
         # whose directory-rename semantics were environment-fragile (a leftover
         # tmp file or an existing target could abort finalize and silently lose
         # the event->clip manifest). The manifest write below is unconditional.
-        clip.final_dir.mkdir(parents=True, exist_ok=True)
+        clip.final_dir.mkdir(parents=True, exist_ok=False)
         video_path: str | None = None
         if video_available and clip.final_video_path is not None:
             destination = clip.final_dir / clip.final_video_path.name
@@ -503,6 +664,7 @@ class ClipRecorder:
             "clip_id": clip.clip_id,
             "camera_id": clip.camera_id,
             "event_ref": clip.event_ref,
+            "event_refs": clip.event_refs,
             "started_at": _utc_iso(clip.started_at),
             "duration_s": duration_s,
             "codec": clip.codec,
@@ -520,7 +682,11 @@ class ClipRecorder:
             self.stats.finalized_clips += 1
             if not video_available:
                 self.stats.video_unavailable_clips += 1
-
+            if forced:
+                self.stats.forced_finalized += 1
+    def _record_clip_id_collision(self) -> None:
+        with self._lock:
+            self.stats.clip_id_collisions += 1
     def _open_writer_for_camera(
         self,
         camera_id: str,
@@ -529,6 +695,10 @@ class ClipRecorder:
         frame_size: tuple[int, int],
     ) -> tuple[Path, _FfmpegWriter, str]:
         encoder = _resolve_encoder()
+        if encoder == NVENC_ENCODER and min(frame_size) < NVENC_MIN_PROBE_DIMENSION:
+            # Keep synthetic/thumbnail feeds usable: the NVENC probe documents
+            # that sub-256 frames cannot be encoded by this hardware path.
+            encoder = SOFTWARE_ENCODER
         path = directory / f"{stem}.mp4"
         writer = _open_writer(path, frame_size, self.config.fps, encoder)
         self._codec_by_camera[camera_id] = _CodecSpec(encoder, ".mp4")
@@ -541,6 +711,37 @@ class ClipRecorder:
             closed = self._close_segment(state)
             if closed is not None:
                 self._append_segment_to_active_clips(closed)
+    def _shutdown(self) -> None:
+        try:
+            self._close_all_open_segments()
+            self._finalize_ready_clips(force=True)
+            self._rotate(force=True)
+        except Exception as exc:  # noqa: BLE001 - shutdown must release every writer
+            LOGGER.warning("clip recorder shutdown finalize failed: %s", exc)
+            with self._lock:
+                self.stats.failed_writes += 1
+        finally:
+            for state in self._states.values():
+                if state.current is not None:
+                    writer = state.current.writer
+                    state.current = None
+                    self._release_writer_safely(writer)
+            for clip in self._active_clips:
+                if clip.writer is not None:
+                    writer = clip.writer
+                    clip.writer = None
+                    self._release_writer_safely(writer)
+            self._active_clips.clear()
+            with self._lock:
+                self._clip_ids_by_camera.clear()
+                self.stats.active_clips = 0
+    def _release_writer_safely(self, writer: _FfmpegWriter) -> None:
+        try:
+            writer.release()
+        except Exception as exc:  # noqa: BLE001 - every writer must get a release attempt
+            LOGGER.warning("clip recorder writer release failed: %s", exc)
+            with self._lock:
+                self.stats.failed_writes += 1
 
     def _prune_segment_ring(self, state: _CameraState) -> None:
         if state.last_time_sec is None:
@@ -553,8 +754,46 @@ class ClipRecorder:
             else:
                 _unlink_missing_ok(segment.path)
         state.closed_segments = kept
+    def _update_active_clip_count(self) -> None:
+        with self._lock:
+            self.stats.active_clips = len(self._active_clips)
 
-    def _rotate(self) -> None:
+    def _active_clip_deadline_sec(self) -> float:
+        return max(
+            0.0,
+            self.config.pre_event_seconds
+            + self.config.post_event_seconds
+            + (self.config.segment_seconds * 2)
+            + self.config.finalize_grace_seconds,
+        )
+
+    def _sweep_stale_staging(self) -> None:
+        staging_root = self.config.store_dir / "clips" / ".staging"
+        cutoff = time.time() - max(0.0, self.config.stale_staging_seconds)
+        cleaned = 0
+        for staging_dir in staging_root.iterdir():
+            try:
+                if not staging_dir.is_dir() or staging_dir.stat().st_mtime > cutoff:
+                    continue
+                shutil.rmtree(staging_dir)
+                cleaned += 1
+            except OSError as exc:
+                LOGGER.warning("clip staging cleanup failed for %s: %s", staging_dir.name, exc)
+        if cleaned:
+            with self._lock:
+                self.stats.stale_staging_cleaned += cleaned
+
+
+    def _rotate(self, *, force: bool = False) -> None:
+        now_monotonic = time.monotonic()
+        if (
+            not force
+            and self._last_rotate_monotonic is not None
+            and now_monotonic - self._last_rotate_monotonic
+            < self.config.rotate_min_interval_seconds
+        ):
+            return
+        self._last_rotate_monotonic = now_monotonic
         clips = _finalized_clips(self.config.store_dir)
         if not clips:
             return
@@ -576,7 +815,12 @@ class ClipRecorder:
 class ClipRecorderProtocol(Protocol):
     def on_frame(self, camera_id: str, frame: Frame) -> bool: ...
     def on_event(
-        self, camera_id: str, event_ref: str, event_type: str | None = None
+        self,
+        camera_id: str,
+        event_ref: str,
+        event_type: str | None = None,
+        *,
+        allow_new_clip: bool = True,
     ) -> str | None: ...
 
 
@@ -620,8 +864,9 @@ def _probe_nvenc(ffmpeg_bin: str) -> bool:
 
     Encoder-list presence does not guarantee runtime success: libnvidia-encode
     may be absent (missing the ``video`` driver capability), the driver may
-    mismatch, or NVENC sessions may be exhausted. A one-frame synthetic encode
-    is the only reliable readiness signal.
+    mismatch, or NVENC sessions may be exhausted. The 256x256 probe is required
+    because NVENC rejects the former 64x64 input as below its minimum resolution.
+    A one-frame synthetic encode is the only reliable readiness signal.
     """
     cmd = [
         ffmpeg_bin,
@@ -631,7 +876,7 @@ def _probe_nvenc(ffmpeg_bin: str) -> bool:
         "-f",
         "lavfi",
         "-i",
-        "color=c=black:s=64x64:r=25:d=0.08",
+        "color=c=black:s=256x256:r=25:d=0.08",
         "-frames:v",
         "1",
         "-c:v",
