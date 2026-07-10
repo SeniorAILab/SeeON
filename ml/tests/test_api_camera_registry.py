@@ -271,6 +271,33 @@ def test_worker_config_uses_registry_first_and_metadata_from_backend_pull(tmp_pa
     assert relay_config.json() == expected
 
 
+def test_worker_config_emits_default_camera_fps_when_configured(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ML_DEFAULT_CAMERA_FPS", "15")
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="camera-1",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+    )
+
+    with TestClient(app) as client:
+        worker_config = client.get(
+            "/api/v1/cameras/worker-config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    assert worker_config.status_code == 200
+    camera = worker_config.json()["cameras"][0]
+    assert camera["fps"] == 15.0
+    assert camera["camera_id"] == "camera-1"
+
+
 def test_worker_config_normalizes_pulled_cameras_when_registry_empty(tmp_path) -> None:
     app = create_app(lifespan=no_lifespan)
     app.state.edge_relay_token = "relay-token"
