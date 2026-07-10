@@ -85,6 +85,16 @@ def test_camera_runtime_config_accepts_opencv_decode_backend() -> None:
     )
 
     assert config.decode_backend == "opencv"
+
+def test_camera_runtime_config_accepts_nvdec_and_auto_decode_backend() -> None:
+    for value, expected in (("NVDEC", "nvdec"), ("Auto", "auto"), ("cpu", "cpu")):
+        config = CameraRuntimeConfig(
+            camera_id="camera-1",
+            facility_id="facility-1",
+            rtsp_url="rtsp://camera.local/trackID=2",
+            decode_backend=value,
+        )
+        assert config.decode_backend == expected
 def test_camera_runtime_config_accepts_dual_streams_and_fps() -> None:
     config = CameraRuntimeConfig(
         camera_id="camera-1",
@@ -142,7 +152,7 @@ def test_camera_runtime_config_rejects_non_positive_fps() -> None:
 
 
 def test_camera_runtime_config_rejects_unknown_decode_backend() -> None:
-    with pytest.raises(ValueError, match="decode_backend must be opencv"):
+    with pytest.raises(ValueError, match="decode_backend must be one of"):
         CameraRuntimeConfig(
             camera_id="camera-1",
             facility_id="facility-1",
