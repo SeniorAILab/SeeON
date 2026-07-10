@@ -1,5 +1,5 @@
 import { getClipVideoUrl } from './session';
-import type { Camera, CameraRegistry, CameraStatus, CameraTestResult, Clip, ClipLabel, SystemSnapshot } from './types';
+import type { Camera, CameraRegistry, CameraStatus, CameraTestResult, Clip, ClipLabel, DecodeBackend, SystemSnapshot } from './types';
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -50,6 +50,14 @@ function normalizeStatus(record: Record<string, unknown>): CameraStatus {
   return 'unknown';
 }
 
+function normalizeDecodeBackend(record: Record<string, unknown>): DecodeBackend | null {
+  const value = pickString(record, ['decode_backend', 'decodeBackend']);
+  if (value === 'auto' || value === 'nvdec' || value === 'opencv' || value === 'cpu') {
+    return value;
+  }
+  return null;
+}
+
 function maskRtsp(value: string | null): string {
   if (!value) {
     return 'RTSP URL 비공개';
@@ -95,6 +103,7 @@ export function normalizeCamera(value: unknown): Camera | null {
     bed_count: pickNumber(value, ['bed_count', 'bedCount']),
     night_start: pickNullableString(value, ['night_start', 'nightStart']),
     night_end: pickNullableString(value, ['night_end', 'nightEnd']),
+    decode_backend: normalizeDecodeBackend(value),
   };
 }
 

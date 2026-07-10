@@ -70,3 +70,20 @@ describe('rtsp url redaction via normalizeCamera', () => {
     expect(masked).not.toContain('camera.internal.example');
   });
 });
+
+describe('decode backend normalization via normalizeCamera', () => {
+  it('maps a valid decode_backend value from the registry response', () => {
+    const camera = normalizeCamera({ id: 'cam-1', rtsp_url: 'rtsp://camera.internal.example/stream', decode_backend: 'nvdec' });
+    expect(camera?.decode_backend).toBe('nvdec');
+  });
+
+  it('defaults to null (auto) when decode_backend is absent or unset', () => {
+    const camera = normalizeCamera({ id: 'cam-1', rtsp_url: 'rtsp://camera.internal.example/stream' });
+    expect(camera?.decode_backend).toBeNull();
+  });
+
+  it('ignores an unknown decode_backend value and falls back to null', () => {
+    const camera = normalizeCamera({ id: 'cam-1', rtsp_url: 'rtsp://camera.internal.example/stream', decode_backend: 'quicksync' });
+    expect(camera?.decode_backend).toBeNull();
+  });
+});

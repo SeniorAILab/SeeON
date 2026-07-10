@@ -378,6 +378,7 @@ def test_example_camera_registry_seed_is_loadable_and_sanitized() -> None:
         "space_id": "example-room",
         "backend_camera_id": None,
         "status": "unknown",
+        "decode_backend": None,
         "created_at": "2026-01-01T00:00:00.000Z",
     }
 
@@ -482,3 +483,137 @@ def test_restart_check_detects_registry_version_change(monkeypatch: pytest.Monke
     assert check() is False
     now["value"] = 61.0
     assert check() is True
+
+
+
+def test_patch_camera_sets_decode_backend_and_worker_config_emits_it(tmp_path) -> None:
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="camera-1",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+    )
+
+    with TestClient(app) as client:
+        patched = client.patch(
+            "/api/v1/cameras/camera-1",
+            headers=AUTH,
+            json={"decode_backend": "NVDEC"},
+        )
+        assert patched.status_code == 200
+        assert patched.json()["decode_backend"] == "nvdec"
+
+        worker_config = client.get(
+            "/api/v1/cameras/worker-config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    assert worker_config.status_code == 200
+    camera = worker_config.json()["cameras"][0]
+    assert camera["decode_backend"] == "nvdec"
+    assert camera["camera_id"] == "camera-1"
+
+
+def test_patch_camera_rejects_invalid_decode_backend(tmp_path) -> None:
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="camera-1",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+    )
+
+    with TestClient(app) as client:
+        patched = client.patch(
+            "/api/v1/cameras/camera-1",
+            headers=AUTH,
+            json={"decode_backend": "gstreamer"},
+        )
+
+    assert patched.status_code == 400
+
+
+def test_create_camera_rejects_invalid_decode_backend(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_urlopen(request, timeout: float) -> FakeHTTPResponse:
+        return FakeHTTPResponse({"ok": False, "error_class": "timeout"})
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/v1/cameras",
+            headers=AUTH,
+            json={
+                "label": "Lobby",
+                "rtsp_url": "rtsp://camera.local/live",
+                "decode_backend": "gstreamer",
+            },
+        )
+
+    assert created.status_code == 400
+
+
+def test_worker_config_emits_default_decode_backend_when_configured(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ML_DEFAULT_DECODE_BACKEND", "cpu")
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="camera-1",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+    )
+
+    with TestClient(app) as client:
+        worker_config = client.get(
+            "/api/v1/cameras/worker-config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    assert worker_config.status_code == 200
+    camera = worker_config.json()["cameras"][0]
+    assert camera["decode_backend"] == "cpu"
+    assert camera["camera_id"] == "camera-1"
+
+
+def test_worker_config_prefers_record_decode_backend_over_env_default(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ML_DEFAULT_DECODE_BACKEND", "cpu")
+    app = create_app(lifespan=no_lifespan)
+    app.state.edge_relay_token = "relay-token"
+    store = app.state.camera_registry = CameraRegistryStore(tmp_path / "cameras.json")
+    store.create(
+        camera_id="camera-1",
+        label="Lobby",
+        rtsp_url="rtsp://camera/stream",
+        space_id="space-1",
+        status="online",
+        decode_backend="nvdec",
+    )
+
+    with TestClient(app) as client:
+        worker_config = client.get(
+            "/api/v1/cameras/worker-config",
+            headers={"X-Edge-Relay-Token": "relay-token"},
+        )
+
+    assert worker_config.status_code == 200
+    camera = worker_config.json()["cameras"][0]
+    assert camera["decode_backend"] == "nvdec"

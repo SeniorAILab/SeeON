@@ -1,5 +1,7 @@
 export type CameraStatus = 'online' | 'offline' | 'starting' | 'unknown';
 
+export type DecodeBackend = 'auto' | 'nvdec' | 'opencv' | 'cpu';
+
 export type Camera = {
   id: string;
   label: string;
@@ -13,6 +15,7 @@ export type Camera = {
   bed_count?: number | null;
   night_start?: string | null;
   night_end?: string | null;
+  decode_backend?: DecodeBackend | string | null;
 };
 
 export type CameraRegistry = {
@@ -33,6 +36,7 @@ export type CameraPatchInput = Partial<CameraInput> & {
     bedCount: number;
     nightWindow: { start: string; end: string };
   };
+  decode_backend?: DecodeBackend;
 };
 
 export type CameraTestResult = {
