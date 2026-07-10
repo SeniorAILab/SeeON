@@ -8,8 +8,12 @@ import pytest
 from numpy.typing import NDArray
 
 from worker.sources.probe import RTSPProbeError, mask_rtsp_url, probe_first_frame
-from worker.sources.rtsp import RTSPSource, _create_backend
-from worker.sources.rtsp_backend import OpenCVRTSPBackend
+from worker.sources.rtsp import RTSPSource, _create_backend, create_backend
+from worker.sources.rtsp_backend import (
+    FallbackRTSPBackend,
+    NvdecRTSPBackend,
+    OpenCVRTSPBackend,
+)
 
 
 class _FakeCapture:
@@ -187,10 +191,10 @@ def test_rtsp_source_uses_injected_rgb_backend_without_double_conversion(monkeyp
     assert frames[1].image.tolist() == [[[40, 50, 60]]]
 
 
-def test_create_backend_defaults_to_opencv(monkeypatch) -> None:
+def test_create_backend_defaults_to_auto_fallback(monkeypatch) -> None:
     monkeypatch.delenv("ML_RTSP_BACKEND", raising=False)
 
-    assert isinstance(_create_backend(), OpenCVRTSPBackend)
+    assert isinstance(create_backend(), FallbackRTSPBackend)
 
 
 def test_create_backend_selects_opencv_from_env(monkeypatch) -> None:
@@ -199,9 +203,72 @@ def test_create_backend_selects_opencv_from_env(monkeypatch) -> None:
     assert isinstance(_create_backend(), OpenCVRTSPBackend)
 
 
-def test_create_backend_rejects_nvdec_until_adapter_exists() -> None:
-    with pytest.raises(NotImplementedError, match="NVDEC adapter"):
-        _create_backend("nvdec")
+def test_create_backend_selects_nvdec() -> None:
+    assert isinstance(create_backend("nvdec"), NvdecRTSPBackend)
+
+
+def test_create_backend_cpu_alias_maps_to_opencv() -> None:
+    assert isinstance(create_backend("cpu"), OpenCVRTSPBackend)
+
+
+def test_create_backend_rejects_unknown_backend() -> None:
+    with pytest.raises(ValueError, match="Unsupported RTSP backend"):
+        create_backend("vaapi")
+
+
+class _FailingBackend:
+    def open(self, url: str, open_timeout_ms: int, read_timeout_ms: int) -> object:
+        raise RuntimeError("nvdec unavailable")
+
+    def read(self, capture: object) -> tuple[bool, NDArray[np.uint8] | None]:
+        return False, None
+
+    def release(self, capture: object) -> None:
+        return None
+
+
+class _StubBackend:
+    def __init__(self, frame: NDArray[np.uint8]) -> None:
+        self._frame = frame
+        self.opened = False
+        self.released = False
+
+    def open(self, url: str, open_timeout_ms: int, read_timeout_ms: int) -> object:
+        self.opened = True
+        return object()
+
+    def read(self, capture: object) -> tuple[bool, NDArray[np.uint8] | None]:
+        return True, self._frame
+
+    def release(self, capture: object) -> None:
+        self.released = True
+
+
+def test_fallback_backend_uses_safe_backend_when_preferred_open_fails() -> None:
+    frame = np.zeros((1, 1, 3), dtype=np.uint8)
+    safe = _StubBackend(frame)
+    backend = FallbackRTSPBackend([("nvdec", _FailingBackend()), ("opencv", safe)])
+
+    capture = backend.open("rtsp://cam/live", 1000, 1000)
+    ok, out = backend.read(capture)
+
+    assert ok is True
+    assert out is frame
+    assert safe.opened is True
+
+
+def test_fallback_backend_prefers_first_backend_that_yields_a_frame() -> None:
+    preferred_frame = np.zeros((1, 1, 3), dtype=np.uint8)
+    preferred = _StubBackend(preferred_frame)
+    safe = _StubBackend(np.ones((1, 1, 3), dtype=np.uint8))
+    backend = FallbackRTSPBackend([("nvdec", preferred), ("opencv", safe)])
+
+    capture = backend.open("rtsp://cam/live", 1000, 1000)
+    ok, out = backend.read(capture)
+
+    assert ok is True
+    assert out is preferred_frame  # validating frame is replayed, not lost
+    assert safe.opened is False
 
 
 def test_probe_first_frame_reports_resolution_channels_and_releases_capture() -> None:

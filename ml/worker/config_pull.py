@@ -192,6 +192,9 @@ def _camera_runtime_config(data: dict[str, object]) -> CameraRuntimeConfig:
     fps = data.get("fps")
     if isinstance(fps, int | float) and not isinstance(fps, bool):
         kwargs["fps"] = float(fps)
+    decode_backend = data.get("decode_backend")
+    if isinstance(decode_backend, str) and decode_backend.strip():
+        kwargs["decode_backend"] = decode_backend
     return CameraRuntimeConfig(**kwargs)
 
 

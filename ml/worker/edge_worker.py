@@ -47,8 +47,8 @@ from worker.runners.registry import DEFAULT_REGISTRY, ModelRegistry
 from worker.runners.torch_lstm_fall import LstmFallRunner, ModelLoadError
 from worker.runners.warmup import warmup_runner
 from worker.scheduler import Scheduler
-from worker.sources.rtsp import RTSPSource
-from worker.sources.rtsp_backend import OpenCVRTSPBackend, RTSPBackend
+from worker.sources.rtsp import RTSPSource, create_backend
+from worker.sources.rtsp_backend import RTSPBackend
 from worker.status_store import StatusStore
 
 # Phase-1 audit metadata identifies this worker-owned domain detector bundle.
@@ -354,9 +354,7 @@ def _require_fall_model(model: RunnerProtocol) -> FallModelProtocol:
 
 
 def _decode_backend(camera: CameraRuntimeConfig) -> RTSPBackend:
-    if camera.decode_backend in (None, "opencv"):
-        return OpenCVRTSPBackend()
-    raise ValueError(f"unsupported decode_backend: {camera.decode_backend}")
+    return create_backend(camera.decode_backend)
 
 
 def _worker_with_detectors(
