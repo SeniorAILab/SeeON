@@ -232,13 +232,15 @@ def worker_config_snapshot(
         if not isinstance(rtsp_url, str) or not rtsp_url.strip():
             continue
         canonical_id = record.get("backend_camera_id") or record.get("id", "")
-        cameras.append(
-            {
-                "camera_id": str(canonical_id),
-                "facility_id": facility_id,
-                "rtsp_url": rtsp_url,
-            }
-        )
+        camera: dict[str, object] = {
+            "camera_id": str(canonical_id),
+            "facility_id": facility_id,
+            "rtsp_url": rtsp_url,
+        }
+        fps = _default_camera_fps()
+        if fps is not None:
+            camera["fps"] = fps
+        cameras.append(camera)
     pulled = getattr(request.app.state, "pulled_config", None)
     if not cameras and isinstance(pulled, PulledWorkerConfig):
         cameras = _worker_cameras_from_pulled_config(pulled, facility_id)
@@ -267,13 +269,15 @@ def _worker_cameras_from_pulled_config(
     for camera in pulled.cameras:
         if camera.rtsp_url is None or not camera.rtsp_url.strip():
             continue
-        cameras.append(
-            {
-                "camera_id": camera.camera_id,
-                "facility_id": facility_id,
-                "rtsp_url": camera.rtsp_url,
-            }
-        )
+        worker_camera: dict[str, object] = {
+            "camera_id": camera.camera_id,
+            "facility_id": facility_id,
+            "rtsp_url": camera.rtsp_url,
+        }
+        fps = _default_camera_fps()
+        if fps is not None:
+            worker_camera["fps"] = fps
+        cameras.append(worker_camera)
     return cameras
 
 def _live_pulled_config(request: Request, pulled: PulledWorkerConfig) -> PulledWorkerConfig:
@@ -385,6 +389,22 @@ def _bearer_token(value: str | None) -> str | None:
 
 def _facility_id() -> str:
     return os.environ.get(API_FACILITY_ID_ENV, "local-facility").strip() or "local-facility"
+
+def _default_camera_fps() -> float | None:
+    """Facility-wide processed FPS for live camera streams (worker default 5.0).
+
+    Set ML_DEFAULT_CAMERA_FPS to smooth the live MJPEG/overlay view (detection
+    runs at this rate). Unset -> worker keeps its 5.0 default. GPU headroom
+    permitting, 12-15 gives a noticeably smoother wall without corruption.
+    """
+    raw = os.environ.get("ML_DEFAULT_CAMERA_FPS", "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
 
 
 def _probe_rtsp_url(request: Request, rtsp_url: str) -> ProbeResult:
