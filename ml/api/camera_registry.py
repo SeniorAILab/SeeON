@@ -51,6 +51,7 @@ class CameraRegistryStore:
         status: CameraStatus,
         backend_camera_id: str | None = None,
         mapping_pending: bool = False,
+        decode_backend: str | None = None,
     ) -> dict[str, object]:
         with self._lock:
             data = self._read_unlocked()
@@ -62,6 +63,7 @@ class CameraRegistryStore:
                 "backend_camera_id": backend_camera_id,
                 "mapping_pending": mapping_pending,
                 "status": status,
+                "decode_backend": decode_backend,
                 "created_at": _utc_now(),
             }
             data["cameras"].append(record)
@@ -150,6 +152,7 @@ def public_camera(record: dict[str, object]) -> dict[str, object]:
         "space_id": _optional_str(record.get("space_id")),
         "backend_camera_id": _optional_str(record.get("backend_camera_id")),
         "status": _status(record.get("status")),
+        "decode_backend": _optional_str(record.get("decode_backend")),
         "created_at": str(record.get("created_at", "")),
     }
 

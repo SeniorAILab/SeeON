@@ -38,6 +38,7 @@ class CameraResponse(BaseModel):
     space_id: str | None = None
     backend_camera_id: str | None = None
     status: Literal["online", "offline", "starting", "unknown"]
+    decode_backend: str | None = None
     created_at: str = Field(min_length=1)
 
 
@@ -54,6 +55,7 @@ class CreateCameraRequest(BaseModel):
     label: str = Field(min_length=1)
     rtsp_url: str = Field(min_length=1)
     space_id: str | None = None
+    decode_backend: str | None = None
 
 
 class UpdateCameraRequest(BaseModel):
@@ -62,6 +64,7 @@ class UpdateCameraRequest(BaseModel):
     label: str | None = Field(default=None, min_length=1)
     rtsp_url: str | None = Field(default=None, min_length=1)
     space_id: str | None = None
+    decode_backend: str | None = None
 
 
 class TestCameraResponse(BaseModel):
@@ -80,6 +83,7 @@ class WorkerCameraConfig(BaseModel):
     facility_id: str = Field(min_length=1)
     rtsp_url: str = Field(min_length=1)
     fps: float | None = Field(default=None, gt=0)
+    decode_backend: str | None = Field(default=None)
     domains: list[str] | None = None
 
 
@@ -111,6 +115,7 @@ def create_camera(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, object]:
     _authorize(request, relay_token, authorization)
+    decode_backend = _normalize_decode_backend(payload.decode_backend)
     probe = _probe_rtsp_url(request, payload.rtsp_url)
     provisional_id = str(uuid.uuid4())
     mapping = _map_backend(
@@ -128,6 +133,7 @@ def create_camera(
         status=status_from_probe(probe),
         backend_camera_id=mapping.backend_camera_id,
         mapping_pending=mapping.pending,
+        decode_backend=decode_backend,
     )
     return public_camera(record)
 
@@ -177,6 +183,8 @@ def update_camera(
     if "space_id" in payload.model_fields_set:
         updates["space_id"] = payload.space_id
         next_space_id = payload.space_id
+    if "decode_backend" in payload.model_fields_set:
+        updates["decode_backend"] = _normalize_decode_backend(payload.decode_backend)
 
     if "space_id" in payload.model_fields_set or "label" in payload.model_fields_set:
         mapping = _map_backend(
@@ -240,6 +248,9 @@ def worker_config_snapshot(
         fps = _default_camera_fps()
         if fps is not None:
             camera["fps"] = fps
+        decode_backend = record.get("decode_backend") or _default_decode_backend()
+        if decode_backend is not None:
+            camera["decode_backend"] = decode_backend
         cameras.append(camera)
     pulled = getattr(request.app.state, "pulled_config", None)
     if not cameras and isinstance(pulled, PulledWorkerConfig):
@@ -277,6 +288,9 @@ def _worker_cameras_from_pulled_config(
         fps = _default_camera_fps()
         if fps is not None:
             worker_camera["fps"] = fps
+        decode_backend = _default_decode_backend()
+        if decode_backend is not None:
+            worker_camera["decode_backend"] = decode_backend
         cameras.append(worker_camera)
     return cameras
 
@@ -405,6 +419,43 @@ def _default_camera_fps() -> float | None:
     except ValueError:
         return None
     return value if value > 0 else None
+
+
+DECODE_BACKENDS = {"auto", "nvdec", "opencv", "cpu"}
+
+
+def _normalize_decode_backend(value: object) -> str | None:
+    """Validate a per-camera decode backend selector.
+
+    None passes through untouched (not set / clear). A string must match one of
+    auto|nvdec|opencv|cpu case-insensitively, mirroring the worker's
+    CameraRuntimeConfig.decode_backend validator; anything else is a 400.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="invalid decode_backend"
+        )
+    normalized = value.strip().lower()
+    if normalized not in DECODE_BACKENDS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="invalid decode_backend"
+        )
+    return normalized
+
+
+def _default_decode_backend() -> str | None:
+    """Facility-wide default decode backend (worker default: auto = NVDEC->CPU fallback).
+
+    Set ML_DEFAULT_DECODE_BACKEND to auto|nvdec|opencv|cpu to steer cameras that
+    do not set a per-camera decode_backend. Unset or invalid -> None (worker
+    keeps its own "auto" default).
+    """
+    raw = os.environ.get("ML_DEFAULT_DECODE_BACKEND", "").strip().lower()
+    if not raw:
+        return None
+    return raw if raw in DECODE_BACKENDS else None
 
 
 def _probe_rtsp_url(request: Request, rtsp_url: str) -> ProbeResult:
