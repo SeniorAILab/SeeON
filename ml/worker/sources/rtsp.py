@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterator
 
 from contracts.frame import Frame
 from worker.sources.rtsp_backend import (
+    FallbackRTSPBackend,
+    NvdecRTSPBackend,
     OpenCVRTSPBackend,
     RTSPBackend,
 )
@@ -15,7 +17,7 @@ _StopPredicate = Callable[[], bool]
 
 _DEFAULT_PROCESSED_FPS = 5.0
 RTSP_BACKEND_ENV = "ML_RTSP_BACKEND"
-_DEFAULT_RTSP_BACKEND = "opencv"
+_DEFAULT_RTSP_BACKEND = "auto"
 
 
 class RTSPSource:
@@ -174,19 +176,39 @@ def _normalize_backend_name(backend_name: str | None = None) -> str:
     return normalized or _DEFAULT_RTSP_BACKEND
 
 
-def _create_backend(backend_name: str | None = None) -> RTSPBackend:
+def create_backend(backend_name: str | None = None) -> RTSPBackend:
+    """Resolve a decode backend by name (registry + auto fallback).
+
+    - "auto" (default): prefer NVDEC (GPU), fall back to OpenCV (CPU).
+    - "nvdec": force GPU decode (no fallback).
+    - "opencv"/"cpu": force software CPU decode.
+    """
     normalized = _normalize_backend_name(backend_name)
-    if normalized == "opencv":
-        return OpenCVRTSPBackend()
-    if normalized == "nvdec":
-        raise NotImplementedError(
-            "RTSP backend 'nvdec' is not implemented yet. "
-            f"Set {RTSP_BACKEND_ENV}=opencv until the NVDEC adapter is added."
+    if normalized == "auto":
+        return FallbackRTSPBackend(
+            [("nvdec", NvdecRTSPBackend()), ("opencv", OpenCVRTSPBackend())]
         )
-    raise ValueError(
-        "Unsupported RTSP backend "
-        f"{normalized!r}; expected 'opencv' or 'nvdec'."
-    )
+    factory = _BACKEND_FACTORIES.get(normalized)
+    if factory is None:
+        raise ValueError(
+            "Unsupported RTSP backend "
+            f"{normalized!r}; expected 'auto', 'nvdec', 'opencv', or 'cpu'."
+        )
+    return factory()
 
 
-__all__ = ["RTSPSource"]
+# Named decode-backend registry (Strategy factories). "auto" is handled
+# separately as a fallback composite over these.
+_BACKEND_FACTORIES: dict[str, Callable[[], RTSPBackend]] = {
+    "opencv": OpenCVRTSPBackend,
+    "cpu": OpenCVRTSPBackend,
+    "nvdec": NvdecRTSPBackend,
+}
+
+
+def _create_backend(backend_name: str | None = None) -> RTSPBackend:
+    # Backward-compatible alias retained for existing callers/tests.
+    return create_backend(backend_name)
+
+
+__all__ = ["RTSPSource", "create_backend"]

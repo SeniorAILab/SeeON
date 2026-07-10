@@ -28,7 +28,7 @@ KNOWN_DOMAIN_NAMES: Final = frozenset(
     {"fall", "bed_exit", "wheelchair_standup", "long_lie", "risk"}
 )
 HHMM_PATTERN: Final = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
-SUPPORTED_DECODE_BACKENDS: Final = frozenset({"opencv"})
+SUPPORTED_DECODE_BACKENDS: Final = frozenset({"auto", "nvdec", "opencv", "cpu"})
 ML_WORKER_DEV_MJPEG_ENV: Final = "ML_WORKER_DEV_MJPEG"
 ML_WORKER_DEV_MJPEG_HOST_ENV: Final = "ML_WORKER_DEV_MJPEG_HOST"
 ML_WORKER_DEV_MJPEG_PORT_ENV: Final = "ML_WORKER_DEV_MJPEG_PORT"
@@ -104,7 +104,9 @@ class CameraRuntimeConfig(BaseModel):
             return None
         normalized = value.strip().lower()
         if normalized not in SUPPORTED_DECODE_BACKENDS:
-            raise ValueError("decode_backend must be opencv")
+            raise ValueError(
+                "decode_backend must be one of auto, nvdec, opencv, cpu"
+            )
         return normalized
     @model_validator(mode="after")
     def _require_inference_stream(self) -> CameraRuntimeConfig:
