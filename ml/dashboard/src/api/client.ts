@@ -1,7 +1,7 @@
 import { requestJson } from './http';
 import { normalizeCamera, normalizeCameraRegistry, normalizeCameraTestResult, normalizeClip, normalizeSystemSnapshot } from './normalizers';
 import { clearRelayToken, getApiBase, getCameraStreamUrl, getConfiguredRelayToken, getRelayToken, setRelayToken } from './session';
-import type { Camera, CameraInput, CameraPatchInput, CameraRegistry, CameraTestResult, Clip, ClipLabel, SystemSnapshot } from './types';
+import type { Camera, CameraInput, CameraPatchInput, CameraRegistry, CameraTestResult, Clip, ClipLabel, DecodeBackend, SystemSnapshot } from './types';
 
 export type {
   Camera,
@@ -12,6 +12,7 @@ export type {
   CameraTestResult,
   Clip,
   ClipLabel,
+  DecodeBackend,
   SystemSnapshot,
 } from './types';
 
@@ -38,6 +39,9 @@ function cameraBody(input: CameraInput | CameraPatchInput): string {
   if ('detectionSettings' in input && input.detectionSettings) {
     body.detectionSettings = input.detectionSettings;
   }
+  if ('decode_backend' in input && input.decode_backend !== undefined) {
+    body.decode_backend = input.decode_backend;
+  }
   return JSON.stringify(body);
 }
 
@@ -61,6 +65,10 @@ export async function updateCamera(cameraId: string, input: CameraPatchInput): P
     throw new Error('Invalid camera response');
   }
   return camera;
+}
+
+export async function updateCameraDecodeBackend(cameraId: string, backend: DecodeBackend): Promise<Camera> {
+  return updateCamera(cameraId, { decode_backend: backend });
 }
 
 export async function deleteCamera(cameraId: string): Promise<void> {

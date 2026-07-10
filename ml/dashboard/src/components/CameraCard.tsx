@@ -1,6 +1,19 @@
 import { FormEvent, useState } from 'react';
-import { updateCamera, type Camera } from '../api/client';
+import { updateCameraDecodeBackend, updateCamera, type Camera, type DecodeBackend } from '../api/client';
 import { StatusBadge } from './StatusBadge';
+
+const DECODE_BACKEND_OPTIONS: Array<{ value: DecodeBackend; label: string }> = [
+  { value: 'auto', label: '자동 (GPU→CPU)' },
+  { value: 'nvdec', label: 'GPU (NVDEC)' },
+  { value: 'cpu', label: 'CPU' },
+];
+
+function toDecodeBackendValue(value: Camera['decode_backend']): DecodeBackend {
+  if (value === 'nvdec' || value === 'cpu' || value === 'opencv') {
+    return value === 'opencv' ? 'cpu' : value;
+  }
+  return 'auto';
+}
 
 type CameraCardProps = {
   camera: Camera;
@@ -14,6 +27,8 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
   const [label, setLabel] = useState(camera.label);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [decodeBackend, setDecodeBackend] = useState<DecodeBackend>(toDecodeBackendValue(camera.decode_backend));
+  const [decodeBusy, setDecodeBusy] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -37,6 +52,22 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
     }
   }
 
+  async function handleDecodeBackendChange(value: DecodeBackend): Promise<void> {
+    setDecodeBackend(value);
+    setMessage(null);
+    setDecodeBusy(true);
+    try {
+      const updated = await updateCameraDecodeBackend(camera.id, value);
+      onUpdated?.(updated, camera.id);
+      setMessage('디코딩 백엔드를 변경했습니다.');
+    } catch {
+      setDecodeBackend(toDecodeBackendValue(camera.decode_backend));
+      setMessage('디코딩 백엔드 변경에 실패했습니다.');
+    } finally {
+      setDecodeBusy(false);
+    }
+  }
+
   return (
     <article className="rounded-4xl border border-white/80 bg-surface p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-glow">
       <div className="flex items-start justify-between gap-3">
@@ -55,6 +86,23 @@ export function CameraCard({ camera, onUpdated, onDelete }: CameraCardProps): JS
         <div className="flex items-center justify-between rounded-2xl bg-brand-soft px-3 py-2">
           <dt className="font-semibold text-ink-soft">병실 매핑</dt>
           <dd className={mapped ? 'font-bold text-brand' : 'font-bold text-ink-faint'}>{mapped ? '서버 자동 관리' : '로컬 등록'}</dd>
+        </div>
+        <div className="rounded-2xl bg-surface2 px-3 py-2">
+          <dt className="font-semibold text-ink-faint">디코딩 백엔드</dt>
+          <dd className="mt-2">
+            <label className="sr-only" htmlFor={`decode-backend-${camera.id}`}>디코딩 백엔드</label>
+            <select
+              id={`decode-backend-${camera.id}`}
+              value={decodeBackend}
+              disabled={decodeBusy}
+              onChange={(event) => void handleDecodeBackendChange(event.target.value as DecodeBackend)}
+              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm font-bold text-ink outline-none ring-brand focus:ring-4 disabled:opacity-60"
+            >
+              {DECODE_BACKEND_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </dd>
         </div>
       </dl>
 

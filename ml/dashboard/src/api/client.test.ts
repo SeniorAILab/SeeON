@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearRelayToken, createCamera, fetchClips, getApiBase, getCameraStreamUrl, getConfiguredRelayToken, setRelayToken, testCamera, updateCamera } from './client';
+import { clearRelayToken, createCamera, fetchClips, getApiBase, getCameraStreamUrl, getConfiguredRelayToken, setRelayToken, testCamera, updateCamera, updateCameraDecodeBackend } from './client';
 
 afterEach(() => {
   clearRelayToken();
@@ -145,5 +145,22 @@ describe('api client contracts', () => {
       created_at: '2026-07-06T00:00:00Z',
       video_path: '/api/v1/clips/clip-1/video',
     });
+  });
+
+  it('patches only decode_backend when changing a camera decode backend', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'cam-1', label: '301호', rtsp_url_masked: 'rtsp://user:***@camera/stream', space_id: null, decode_backend: 'nvdec' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const updated = await updateCameraDecodeBackend('cam-1', 'nvdec');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/cameras/cam-1', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ decode_backend: 'nvdec' }),
+    }));
+    expect(updated.decode_backend).toBe('nvdec');
   });
 });
