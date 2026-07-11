@@ -26,10 +26,18 @@ COPY front ./front
 # /api/v1 path that nginx reverse-proxies to the backend, so no absolute API host is baked.
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG NODE_OPTIONS=--max-old-space-size=1536
+ENV NODE_OPTIONS=$NODE_OPTIONS
 RUN pnpm --filter front build
 
 FROM nginx:1.27-alpine AS runner
 # Replace the stock default server with the SPA + reverse-proxy config.
 COPY front/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/front/dist /usr/share/nginx/html
+ARG DEPLOY_SHA
+RUN if [ "${#DEPLOY_SHA}" -ne 40 ] || case "$DEPLOY_SHA" in *[!0123456789abcdef]*) true ;; *) false ;; esac; then \
+      printf '%s\n' 'DEPLOY_SHA must be exactly 40 lowercase hexadecimal characters' >&2; \
+      exit 1; \
+    fi; \
+    printf '%s\n' "$DEPLOY_SHA" > /usr/share/nginx/html/version.txt
 EXPOSE 3000
