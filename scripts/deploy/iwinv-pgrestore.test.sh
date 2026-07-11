@@ -88,4 +88,14 @@ set -e
 unchanged=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -Atc "SELECT value FROM sentinel WHERE id = 1"')
 [ "$unchanged" = 'pre-restore sentinel' ] || { printf 'failed restore changed target state: %s\n' "$unchanged" >&2; exit 1; }
 
+# Fresh databases have no _prisma_migrations relation; the migration-tracking probe
+# must return a usable answer instead of failing at SQL parse time (first bootstrap).
+docker exec "$CONTAINER" sh -ceu 'createdb --username "$POSTGRES_USER" fresh_bootstrap'
+tracked=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname fresh_bootstrap -Atc "SELECT to_regclass('\''public._prisma_migrations'\'') IS NOT NULL;"')
+[ "$tracked" = 'f' ] || { printf 'fresh database unexpectedly reports migration tracking: %s\n' "$tracked" >&2; exit 1; }
+docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname fresh_bootstrap -c "CREATE TABLE public._prisma_migrations (id text PRIMARY KEY); INSERT INTO public._prisma_migrations VALUES ('\''m1'\'');"' >/dev/null
+tracked=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname fresh_bootstrap -Atc "SELECT to_regclass('\''public._prisma_migrations'\'') IS NOT NULL;"')
+rows=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname fresh_bootstrap -Atc "SELECT count(*) FROM public._prisma_migrations;"')
+[ "$tracked" = 't' ] && [ "$rows" = '1' ] || { printf 'tracked database probe failed: tracked=%s rows=%s\n' "$tracked" "$rows" >&2; exit 1; }
+
 printf 'iwinv PostgreSQL restore transaction test passed\n'
