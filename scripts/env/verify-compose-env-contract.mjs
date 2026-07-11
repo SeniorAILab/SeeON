@@ -26,6 +26,9 @@ EDGE_FACILITY_TOKEN=prod-edge-facility-token-32-chars
 BACKEND_IMAGE=eldercare-backend:0123456789abcdef0123456789abcdef01234567
 FRONT_IMAGE=eldercare-front:0123456789abcdef0123456789abcdef01234567
 `;
+const implicitSecureHostEnv = completeHostEnv
+  .replace('SMTP_PORT=587\n', 'SMTP_PORT=465\n')
+  .replace('SMTP_SECURE=false\n', '');
 
 
 const forbiddenHostFragments = [
@@ -188,15 +191,33 @@ function assertHostComposeContract(config) {
     );
   }
 }
+function assertSmtpSecureOmissionContract(config) {
+  const smtpPort = config.services?.backend?.environment?.SMTP_PORT;
+  const smtpSecure = config.services?.backend?.environment?.SMTP_SECURE;
+  if (String(smtpPort) !== '465') {
+    throw new VerificationError(
+      'host prod SMTP omission config must pass port 465 to the backend',
+      `SMTP_PORT: ${String(smtpPort)}`,
+    );
+  }
+  if (smtpSecure !== undefined && smtpSecure !== '') {
+    throw new VerificationError(
+      'host prod SMTP omission config must preserve SMTP_SECURE as omitted or empty',
+      `SMTP_SECURE: ${String(smtpSecure)}`,
+    );
+  }
+}
 
 function withTempEnvFiles(run) {
   const dir = mkdtempSync(join(tmpdir(), 'eldercare-env-contract-'));
   try {
     const emptyHostEnvPath = join(dir, 'empty-host.env');
     const hostEnvPath = join(dir, 'host.env');
+    const implicitSecureHostEnvPath = join(dir, 'implicit-secure-host.env');
     writeFileSync(emptyHostEnvPath, '');
     writeFileSync(hostEnvPath, completeHostEnv);
-    run({ emptyHostEnvPath, hostEnvPath });
+    writeFileSync(implicitSecureHostEnvPath, implicitSecureHostEnv);
+    run({ emptyHostEnvPath, hostEnvPath, implicitSecureHostEnvPath });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -204,7 +225,7 @@ function withTempEnvFiles(run) {
 
 function verify() {
   withTempEnvFiles(
-    ({ emptyHostEnvPath, hostEnvPath }) => {
+    ({ emptyHostEnvPath, hostEnvPath, implicitSecureHostEnvPath }) => {
       requireFailure(
         'host prod missing env',
         ['--profile', 'full', '-f', 'compose.yaml', '-f', 'compose.prod.yaml', 'config'],
@@ -254,6 +275,27 @@ function verify() {
         hostEnvPath,
       );
       assertHostComposeContract(parseComposeJson('host prod JSON config', hostConfigJson));
+      const implicitSecureHostConfigJson = requireSuccess(
+        'host prod SMTP omission JSON config',
+        [
+          '--profile',
+          'full',
+          '-f',
+          'compose.yaml',
+          '-f',
+          'compose.prod.yaml',
+          'config',
+          '--format',
+          'json',
+        ],
+        implicitSecureHostEnvPath,
+      );
+      assertSmtpSecureOmissionContract(
+        parseComposeJson(
+          'host prod SMTP omission JSON config',
+          implicitSecureHostConfigJson,
+        ),
+      );
 
     },
   );

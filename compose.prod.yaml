@@ -31,7 +31,7 @@ services:
       SMTP_USER: ${SMTP_USER:?SMTP_USER is required in prod}
       SMTP_PASSWORD: ${SMTP_PASSWORD:?SMTP_PASSWORD is required in prod}
       SMTP_FROM: ${SMTP_FROM:-}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_SECURE: ${SMTP_SECURE-}
       # Shared bearer token for remote Event API producers.
       EDGE_FACILITY_TOKEN: ${EDGE_FACILITY_TOKEN:?EDGE_FACILITY_TOKEN is required in prod}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-}

@@ -75,6 +75,14 @@ pipeline {
         }
       }
     }
+    stage('Preflight resources') {
+      steps {
+        sh '''#!/usr/bin/env sh
+          set -eu
+          sh scripts/deploy/iwinv-deploy.sh --preflight-only
+        '''
+      }
+    }
 
     stage('Configure Buildx') {
       steps {
@@ -88,10 +96,9 @@ pipeline {
             exit 1
           fi
           if printf '%s\n' "$builders" | awk -v builder="$BUILDX_BUILDER" 'NR > 1 { name=$1; sub(/[*]$/, "", name); if (name == builder) found=1 } END { exit found ? 0 : 1 }'; then
-            docker buildx use "$BUILDX_BUILDER"
-          else
-            docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --buildkitd-config "$config" --use
+            docker buildx rm "$BUILDX_BUILDER"
           fi
+          docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --buildkitd-config "$config" --use
           docker buildx inspect --bootstrap
         '''
       }
