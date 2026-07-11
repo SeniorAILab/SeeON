@@ -59,7 +59,7 @@ fi
 [ "$SHA_COUNT" -eq 0 ] || valid_sha "$SHA" || fail 'SHA must be exactly 40 lowercase hexadecimal characters.'
 [ -z "$REQUESTED_ROLLBACK_SHA" ] || valid_sha "$REQUESTED_ROLLBACK_SHA" || fail 'Rollback SHA must be exactly 40 lowercase hexadecimal characters.'
 
-need docker; need curl; need df; need free; need grep; need awk; need sed; need sha256sum
+need docker; need curl; need df; need free; need grep; need awk; need sed; need cmp; need sha256sum
 need cp; need mv; need rm; need mkdir; need rmdir; need date; need sort; need head; need mktemp
 [ -d "$APP_DIR" ] || fail "Missing deployment directory: $APP_DIR"
 [ -f "$APP_DIR/compose.yaml" ] || fail "Missing compose.yaml in $APP_DIR"
@@ -107,15 +107,22 @@ read_manifest() {
   [ -n "$BACKEND_ID" ] && [ -n "$FRONT_ID" ] || fail "Missing image IDs in manifest: $manifest"
 }
 select_manifest() {
-  if [ "$ROLLBACK" -eq 1 ] && [ -n "$REQUESTED_ROLLBACK_SHA" ]; then
-    manifest=$RELEASE_DIR/$REQUESTED_ROLLBACK_SHA.json
-    read_manifest "$manifest"
-    [ "$SHA" = "$REQUESTED_ROLLBACK_SHA" ] || fail "Rollback manifest SHA does not match requested SHA: $manifest"
-  elif [ "$ROLLBACK" -eq 1 ]; then
-    read_manifest "$RELEASE_DIR/previous.json"
-    selected_sha=$SHA
-    read_manifest "$RELEASE_DIR/$selected_sha.json"
-    [ "$SHA" = "$selected_sha" ] || fail "Previous pointer does not match immutable manifest: $selected_sha"
+  if [ "$ROLLBACK" -eq 1 ]; then
+    current_manifest=$RELEASE_DIR/current.json
+    [ -f "$current_manifest" ] || fail "Current release manifest not found: $current_manifest"
+    read_manifest "$current_manifest"
+    current_sha=$SHA
+    if [ -n "$REQUESTED_ROLLBACK_SHA" ]; then
+      manifest=$RELEASE_DIR/$REQUESTED_ROLLBACK_SHA.json
+      read_manifest "$manifest"
+      [ "$SHA" = "$REQUESTED_ROLLBACK_SHA" ] || fail "Rollback manifest SHA does not match requested SHA: $manifest"
+    else
+      read_manifest "$RELEASE_DIR/previous.json"
+      selected_sha=$SHA
+      read_manifest "$RELEASE_DIR/$selected_sha.json"
+      [ "$SHA" = "$selected_sha" ] || fail "Previous pointer does not match immutable manifest: $selected_sha"
+    fi
+    [ "$SHA" != "$current_sha" ] || fail "Refusing rollback to already-current SHA: $SHA"
   else
     read_manifest "$RELEASE_DIR/current.json"
   fi
@@ -178,6 +185,16 @@ backup_and_validate() {
   fi
   rotate_dumps
 }
+restore_database() {
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "would ensure app role, restore database ACLs from $RESTORE_DUMP with pg_restore --clean --if-exists, and verify authorization invariants"
+    return
+  fi
+  sync_app_role
+  compose exec -T db pg_restore --clean --if-exists --no-owner < "$RESTORE_DUMP"
+  authorization=$(compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -Atc "SELECT CASE WHEN (SELECT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication FROM pg_roles WHERE rolname = '\''fall_app'\'') AND has_database_privilege('\''fall_app'\'', current_database(), '\''CONNECT'\'') AND has_schema_privilege('\''fall_app'\'', '\''public'\'', '\''USAGE'\'') AND has_table_privilege('\''fall_app'\'', '\''public.events'\'', '\''SELECT'\'') AND has_table_privilege('\''fall_app'\'', '\''public.events'\'', '\''INSERT'\'') AND NOT has_table_privilege('\''fall_app'\'', '\''public.events'\'', '\''UPDATE'\'') AND NOT has_table_privilege('\''fall_app'\'', '\''public.events'\'', '\''DELETE'\'') AND NOT has_function_privilege('\''public'\'', '\''public.get_event_for_snapshot(text)'\'', '\''EXECUTE'\'') AND has_function_privilege('\''fall_app'\'', '\''public.get_event_for_snapshot(text)'\'', '\''EXECUTE'\'') AND NOT has_function_privilege('\''public'\'', '\''public.set_event_snapshot_key(text,text,text)'\'', '\''EXECUTE'\'') AND has_function_privilege('\''fall_app'\'', '\''public.set_event_snapshot_key(text,text,text)'\'', '\''EXECUTE'\'') THEN '\''ok'\'' ELSE '\''invalid'\'' END;"') || fail 'Post-restore authorization invariant query failed.'
+  [ "$authorization" = ok ] || fail "Post-restore authorization invariant failed: $authorization"
+}
 validate_restore_dump() {
   [ -f "$RESTORE_DUMP" ] || fail "Database dump not found: $RESTORE_DUMP"
   log "docker compose exec db pg_restore --list < $RESTORE_DUMP"
@@ -205,7 +222,7 @@ verify_services() {
   fi
   http_status=$(sed -n '1s/HTTP\/[^ ]* \([0-9][0-9][0-9]\).*/\1/p' "$headers") || return 1
   version=$(sed -n '1p' "$body") || return 1
-  if [ "$http_status" != 200 ] || [ "$version" != "$SHA" ]; then
+  if [ "$http_status" != 200 ] || ! printf '%s\n' "$SHA" | cmp -s - "$body"; then
     printf 'Frontend exact-SHA verification failed (expected HTTP 200 and %s, got HTTP %s and %s); headers:\n' "$SHA" "${http_status:-unreadable}" "$version" >&2
     sed -n '1,120p' "$headers" >&2 || :
     printf 'Frontend version body:\n' >&2; sed -n '1,120p' "$body" >&2 || :
@@ -228,10 +245,29 @@ write_immutable_manifest() {
   mv "$TEMP_FILE" "$manifest"
   TEMP_FILE=
 }
+validate_existing_pointers() {
+  saved_sha=$SHA
+  saved_backend_image=$BACKEND_IMAGE
+  saved_front_image=$FRONT_IMAGE
+  saved_backend_id=$BACKEND_ID
+  saved_front_id=$FRONT_ID
+  for pointer_manifest in "$RELEASE_DIR/current.json" "$RELEASE_DIR/previous.json"; do
+    [ ! -e "$pointer_manifest" ] || {
+      [ -f "$pointer_manifest" ] || fail "Release pointer is not a regular file: $pointer_manifest"
+      read_manifest "$pointer_manifest"
+    }
+  done
+  SHA=$saved_sha
+  BACKEND_IMAGE=$saved_backend_image
+  FRONT_IMAGE=$saved_front_image
+  BACKEND_ID=$saved_backend_id
+  FRONT_ID=$saved_front_id
+}
 activate_manifest() {
-  manifest=$1
-  if [ "$DRY_RUN" -eq 1 ]; then log "would atomically activate $manifest as current and retain prior current as previous"; return; fi
-  [ -f "$manifest" ] || fail "Immutable release manifest not found: $manifest"
+  target_manifest=$1
+  if [ "$DRY_RUN" -eq 1 ]; then log "would atomically activate $target_manifest as current and retain prior current as previous"; return; fi
+  [ -f "$target_manifest" ] || fail "Immutable release manifest not found: $target_manifest"
+  validate_existing_pointers
   if [ -f "$RELEASE_DIR/current.json" ]; then
     TEMP_FILE=$RELEASE_DIR/.previous.$$.tmp
     cp "$RELEASE_DIR/current.json" "$TEMP_FILE"
@@ -239,25 +275,28 @@ activate_manifest() {
     TEMP_FILE=
   fi
   TEMP_FILE=$RELEASE_DIR/.current.$$.tmp
-  cp "$manifest" "$TEMP_FILE"
+  cp "$target_manifest" "$TEMP_FILE"
   mv "$TEMP_FILE" "$RELEASE_DIR/current.json"
   TEMP_FILE=
 }
 protected_images() {
+  validate_existing_pointers
   printf '%s\n' "$BACKEND_IMAGE" "$FRONT_IMAGE"
-  for manifest in "$RELEASE_DIR/current.json" "$RELEASE_DIR/previous.json"; do
-    [ -f "$manifest" ] || continue
-    json_value "$manifest" backend_image
-    json_value "$manifest" front_image
+  for pointer_manifest in "$RELEASE_DIR/current.json" "$RELEASE_DIR/previous.json"; do
+    [ -f "$pointer_manifest" ] || continue
+    json_value "$pointer_manifest" backend_image
+    json_value "$pointer_manifest" front_image
   done
 }
 pointer_shas() {
-  for manifest in "$RELEASE_DIR/current.json" "$RELEASE_DIR/previous.json"; do
-    [ ! -f "$manifest" ] || json_value "$manifest" sha
+  validate_existing_pointers
+  for pointer_manifest in "$RELEASE_DIR/current.json" "$RELEASE_DIR/previous.json"; do
+    [ -f "$pointer_manifest" ] || continue
+    json_value "$pointer_manifest" sha
   done
-  return 0
 }
 prune_release_manifests() {
+  validate_existing_pointers
   protected_shas=$(pointer_shas)
   for manifest in "$RELEASE_DIR"/*.json; do
     [ -f "$manifest" ] || continue
@@ -280,9 +319,18 @@ EOF
 }
 
 acquire_lock
+validate_existing_pointers
 if [ "$ROLLBACK" -eq 1 ] || [ "$RESTORE_COUNT" -eq 1 ]; then
   select_manifest
 else
+  deploy_sha=$SHA
+  [ ! -e "$RELEASE_DIR/$deploy_sha.json" ] || fail "Immutable release manifest already exists: $RELEASE_DIR/$deploy_sha.json"
+  if [ -e "$RELEASE_DIR/current.json" ]; then
+    [ -f "$RELEASE_DIR/current.json" ] || fail "Release pointer is not a regular file: $RELEASE_DIR/current.json"
+    read_manifest "$RELEASE_DIR/current.json"
+    [ "$deploy_sha" != "$SHA" ] || fail "Refusing deploy of already-current SHA: $deploy_sha"
+  fi
+  SHA=$deploy_sha
   BACKEND_IMAGE=eldercare-backend:$SHA
   FRONT_IMAGE=eldercare-front:$SHA
 fi
@@ -302,11 +350,7 @@ if [ "$RESTORE_COUNT" -eq 1 ]; then validate_restore_dump; fi
 if [ "$ROLLBACK" -eq 1 ]; then
   run compose stop front backend
   if [ "$RESTORE_COUNT" -eq 1 ]; then
-    if [ "$DRY_RUN" -eq 1 ]; then
-      log "would restore database from $RESTORE_DUMP with pg_restore --clean --if-exists"
-    else
-      compose exec -T db pg_restore --clean --if-exists --no-owner --no-privileges < "$RESTORE_DUMP"
-    fi
+    restore_database
   fi
   run compose up -d --wait --wait-timeout 120 backend front
   [ "$DRY_RUN" -eq 1 ] || verify_services
@@ -318,7 +362,7 @@ fi
 
 if [ "$RESTORE_COUNT" -eq 1 ]; then
   run compose stop front backend
-  if [ "$DRY_RUN" -eq 1 ]; then log "would restore database from $RESTORE_DUMP with pg_restore --clean --if-exists"; else compose exec -T db pg_restore --clean --if-exists --no-owner --no-privileges < "$RESTORE_DUMP"; fi
+  restore_database
   run compose up -d --wait --wait-timeout 120 backend front
   [ "$DRY_RUN" -eq 1 ] || verify_services
   prune_release_manifests
