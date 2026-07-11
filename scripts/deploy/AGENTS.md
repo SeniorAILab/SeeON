@@ -10,8 +10,11 @@ direct host use is limited to explicit rollback or database restore.
   `eldercare-backend:<sha>` and `eldercare-front:<sha>`, then invokes deploy.
 - `iwinv-deploy.sh` — deploys exact local SHA-tagged images, backs up PostgreSQL,
   migrates, starts Compose, and verifies health/version.
-- `iwinv-deploy.test.sh` — dependency-free dry-run tests for gating, retention,
-  rollback isolation, and destructive-restore acknowledgment.
+- `iwinv-deploy.test.sh` — mocked dry-run and production-path contracts for
+  gating, retention, rollback/restore ordering, health, and failure propagation.
+- `front-version-image.test.sh` — Docker-level exact-SHA version artifact contract.
+- `iwinv-workflow-contract.test.mjs` — GitHub trigger provenance, token, payload,
+  and bounded-delivery contract.
 - `/opt/eldercare-fall-ai/shared/.env` — host-only production environment contract;
   never print or track it.
 

@@ -19,21 +19,30 @@ Jenkins is the only server-side builder and normal deploy initiator. It validate
 runs `sh scripts/deploy/iwinv-deploy.sh --sha "$SHA"`. It has no `latest`, inferred
 ref, retry, fallback, or automatic rollback behavior; direct host use is limited to
 the explicit rollback and restore procedures below.
+Compose waits on backend and frontend healthchecks for up to 120 seconds, then the
+deployer performs one exact backend `/health` SHA/database check and one local
+frontend `version.txt` SHA check. It does not retry either check.
 
 ## Required configuration
 
-1. Configure the Jenkins pipeline job from this repository's `Jenkinsfile`. The job
-   must accept string parameters `SHA` and `REF` and run on the iwinv Jenkins host.
-2. Store the webhook bearer token in Jenkins as a secret-text credential with ID
-   `eldercare-webhook-token`. Do not place its value in the job configuration,
+1. Configure the Jenkins pipeline job from this repository's `Jenkinsfile`. The
+   source-controlled Generic Webhook Trigger maps `SHA` from
+   `$.workflow_run.head_sha` and `REF` from `$.ref`, accepts only
+   `refs/heads/main`, and suppresses payload and contributed-variable logging.
+   `REF` deliberately defaults to empty for manual builds.
+2. Install the Jenkins **Pipeline**, **Generic Webhook Trigger**, **SSH Agent**,
+   **Docker Pipeline**, **Lockable Resources**, and **Email Extension** plugins.
+3. Store the webhook bearer token in Jenkins as a secret-text credential with ID
+   `eldercare-webhook-token`. Store the GitHub deploy key as an SSH credential with
+   ID `eldercare-github-deploy-key`. Do not place either value in job configuration,
    console output, or this repository.
-3. Store the same token in GitHub Actions repository secret
+4. Store the same webhook token in GitHub Actions repository secret
    `WEBHOOK_TOKEN`. The trigger sends `Authorization: Bearer <token>`;
    it does not use a query-string token.
-4. Populate `/opt/eldercare-fall-ai/shared/.env` from the tracked production env
+5. Populate `/opt/eldercare-fall-ai/shared/.env` from the tracked production env
    contract using host-local secret management. Keep it readable only by the deploy
    service account and do not print it.
-5. Keep GitHub Actions repository variable `DEPLOY_ENABLED` unset or not equal to
+6. Keep GitHub Actions repository variable `DEPLOY_ENABLED` unset or not equal to
    `true` during setup and the first manual deployment. This is disabled by default.
 
 ## First deployment and enablement
@@ -65,9 +74,10 @@ the explicit rollback and restore procedures below.
    curl --fail --show-error --location "$PUBLIC_URL/version.txt"
    ```
 
-   The public version response must match the deployed SHA. TLS is deferred in issue
-   #587. Confirm the firewall exposes only Caddy's public HTTP port; direct `:3000`,
-   `:8080`, and `:5432` must remain closed.
+   The public version response must match the deployed SHA. The temporary HTTP
+   endpoint is accepted security debt tracked in issue #587; do not replace it with
+   an invented TLS endpoint. Confirm the firewall exposes only Caddy's public HTTP
+   port; direct `:3000`, `:8080`, and `:5432` must remain closed.
 5. After all checks pass, set GitHub repository variable `DEPLOY_ENABLED` to `true`.
    Successful CI for `main` then posts the exact workflow SHA and
    `REF=refs/heads/main` to Jenkins. Set the variable back to any other value to
@@ -90,7 +100,11 @@ ls -l /opt/eldercare-fall-ai/releases/
 ls -l /opt/eldercare-fall-ai/backups/db/
 ```
 
-Rollback deploys the recorded exact image pair. It does not restore database data:
+Rollback deploys the recorded exact image pair and is code-only by default; it does
+not restore database data. The deployer retains exactly the immutable manifests and
+local backend/frontend image pairs selected by `current.json` and `previous.json`.
+Older immutable manifests and their images are pruned together, so no selectable
+manifest can outlive its images:
 
 ```sh
 cd /opt/eldercare-fall-ai/repo

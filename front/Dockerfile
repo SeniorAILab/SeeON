@@ -35,5 +35,9 @@ FROM nginx:1.27-alpine AS runner
 COPY front/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/front/dist /usr/share/nginx/html
 ARG DEPLOY_SHA
-RUN printf '%s\n' "$DEPLOY_SHA" | grep -E '^[0-9a-f]{40}$' > /usr/share/nginx/html/version.txt
+RUN if [ "${#DEPLOY_SHA}" -ne 40 ] || case "$DEPLOY_SHA" in *[!0123456789abcdef]*) true ;; *) false ;; esac; then \
+      printf '%s\n' 'DEPLOY_SHA must be exactly 40 lowercase hexadecimal characters' >&2; \
+      exit 1; \
+    fi; \
+    printf '%s\n' "$DEPLOY_SHA" > /usr/share/nginx/html/version.txt
 EXPOSE 3000

@@ -6,6 +6,20 @@ pipeline {
     }
   }
 
+  triggers {
+    GenericTrigger(
+      genericVariables: [
+        [key: 'SHA', value: '$.workflow_run.head_sha', expressionType: 'JSONPath'],
+        [key: 'REF', value: '$.ref', expressionType: 'JSONPath']
+      ],
+      tokenCredentialId: 'eldercare-webhook-token',
+      printContributedVariables: false,
+      printPostContent: false,
+      regexpFilterText: '$REF',
+      regexpFilterExpression: '^refs/heads/main$'
+    )
+  }
+
   options {
     disableConcurrentBuilds()
     skipDefaultCheckout(true)
@@ -13,7 +27,7 @@ pipeline {
 
   parameters {
     string(name: 'SHA', defaultValue: '', description: 'GitHub webhook commit SHA')
-    string(name: 'REF', defaultValue: 'refs/heads/main', description: 'GitHub webhook ref')
+    string(name: 'REF', defaultValue: '', description: 'GitHub webhook ref')
   }
 
   environment {
@@ -41,9 +55,14 @@ pipeline {
         sshagent(credentials: ['eldercare-github-deploy-key']) {
           sh '''#!/usr/bin/env sh
             set -eu
+            repository='git@github.com:SeniorAILab/eldercare-fall-ai.git'
             if [ ! -d .git ]; then git init; fi
-            git remote remove origin >/dev/null 2>&1 || :
-            git remote add origin git@github.com:SeniorAILab/eldercare-fall-ai.git
+            remotes=$(git remote) || { echo 'Unable to list Git remotes.' >&2; exit 1; }
+            if printf '%s\n' "$remotes" | grep -Fx 'origin' >/dev/null; then
+              git remote set-url origin "$repository"
+            else
+              git remote add origin "$repository"
+            fi
             git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
             origin_sha=$(git rev-parse refs/remotes/origin/main)
             if [ "$origin_sha" != "$SHA" ]; then
@@ -63,10 +82,15 @@ pipeline {
           set -eu
           config="$WORKSPACE/.buildkitd.toml"
           printf '%s\n' '[worker.oci]' '  max-parallelism = 1' > "$config"
-          if ! docker buildx inspect "$BUILDX_BUILDER" >/dev/null 2>&1; then
-            docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --buildkitd-config "$config" --use
-          else
+          if ! builders=$(docker buildx ls 2>&1); then
+            printf '%s\n' 'docker buildx ls failed:' >&2
+            printf '%s\n' "$builders" >&2
+            exit 1
+          fi
+          if printf '%s\n' "$builders" | awk -v builder="$BUILDX_BUILDER" 'NR > 1 { name=$1; sub(/[*]$/, "", name); if (name == builder) found=1 } END { exit found ? 0 : 1 }'; then
             docker buildx use "$BUILDX_BUILDER"
+          else
+            docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --buildkitd-config "$config" --use
           fi
           docker buildx inspect --bootstrap
         '''

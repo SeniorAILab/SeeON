@@ -25,8 +25,6 @@ NOKYANG_ADMIN_PASSWORD=prod-nokyang-password
 EDGE_FACILITY_TOKEN=prod-edge-facility-token-32-chars
 BACKEND_IMAGE=eldercare-backend:0123456789abcdef0123456789abcdef01234567
 FRONT_IMAGE=eldercare-front:0123456789abcdef0123456789abcdef01234567
-ML_API_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/ml-api:test
-ML_WORKER_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/ml-worker:test
 `;
 
 const completeEdgeEnv = `ML_SERVING_PORT=8000
@@ -130,6 +128,79 @@ function assertRequiredFragments(label, output, fragments) {
   }
 }
 
+function parseComposeJson(label, output) {
+  try {
+    return JSON.parse(output);
+  } catch (error) {
+    throw new VerificationError(
+      `${label} did not produce valid JSON`,
+      error instanceof Error ? error.message : '',
+    );
+  }
+}
+
+function assertHostComposeContract(config) {
+  const services = config.services;
+  if (services === null || typeof services !== 'object' || Array.isArray(services)) {
+    throw new VerificationError('host prod JSON config has no service map');
+  }
+
+  const serviceNames = Object.keys(services).sort();
+  const expectedServiceNames = ['backend', 'db', 'front'];
+  if (
+    serviceNames.length !== expectedServiceNames.length ||
+    serviceNames.some((name, index) => name !== expectedServiceNames[index])
+  ) {
+    throw new VerificationError(
+      'host prod service set must be exactly db, backend, front',
+      `Found: ${serviceNames.join(', ')}`,
+    );
+  }
+
+  const { backend, db, front } = services;
+  const backendImage = backend.image;
+  const frontImage = front.image;
+  const backendMatch =
+    typeof backendImage === 'string' &&
+    /^eldercare-backend:([0-9a-f]{40})$/.exec(backendImage);
+  const frontMatch =
+    typeof frontImage === 'string' &&
+    /^eldercare-front:([0-9a-f]{40})$/.exec(frontImage);
+  if (!backendMatch || !frontMatch || backendMatch[1] !== frontMatch[1]) {
+    throw new VerificationError(
+      'host prod app images must use matching lowercase 40-character SHA tags',
+      `backend: ${String(backendImage)}\nfront: ${String(frontImage)}`,
+    );
+  }
+
+  if (db.pull_policy !== 'always') {
+    throw new VerificationError('host prod db must always pull its image');
+  }
+  if (backend.pull_policy !== 'never' || front.pull_policy !== 'never') {
+    throw new VerificationError('host prod app images must never be pulled');
+  }
+
+  const hasPublishedPorts = (service) =>
+    Array.isArray(service.ports) && service.ports.length > 0;
+  if (hasPublishedPorts(db) || hasPublishedPorts(backend)) {
+    throw new VerificationError('host prod db and backend must not publish ports');
+  }
+  const frontPorts = front.ports;
+  if (
+    !Array.isArray(frontPorts) ||
+    frontPorts.length !== 1 ||
+    frontPorts[0].host_ip !== '127.0.0.1' ||
+    frontPorts[0].published !== '3000' ||
+    frontPorts[0].target !== 3000 ||
+    frontPorts[0].protocol !== 'tcp'
+  ) {
+    throw new VerificationError(
+      'host prod frontend must exclusively publish 127.0.0.1:3000',
+      JSON.stringify(frontPorts),
+    );
+  }
+}
+
 function withTempEnvFiles(run) {
   const dir = mkdtempSync(join(tmpdir(), 'eldercare-env-contract-'));
   try {
@@ -189,6 +260,22 @@ function verify() {
         'pull_policy: always',
         'pull_policy: never',
       ]);
+      const hostConfigJson = requireSuccess(
+        'host prod JSON config',
+        [
+          '--profile',
+          'full',
+          '-f',
+          'compose.yaml',
+          '-f',
+          'compose.prod.yaml',
+          'config',
+          '--format',
+          'json',
+        ],
+        hostEnvPath,
+      );
+      assertHostComposeContract(parseComposeJson('host prod JSON config', hostConfigJson));
 
       const edgeConfig = requireSuccess(
         'edge prod config',

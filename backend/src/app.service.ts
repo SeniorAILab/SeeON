@@ -23,10 +23,7 @@ export class AppService {
     }
 
     return {
-      status:
-        database === 'ok' && (validSha || process.env.NODE_ENV !== 'production')
-          ? 'ok'
-          : 'unhealthy',
+      status: database === 'ok' && validSha ? 'ok' : 'unhealthy',
       sha: validSha ? sha : 'unknown',
       database,
     };
