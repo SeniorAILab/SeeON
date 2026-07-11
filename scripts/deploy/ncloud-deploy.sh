@@ -13,9 +13,7 @@ IMAGE_TAG="${IMAGE_TAG:-}"
 COMPOSE_FILES="-f compose.yaml -f compose.prod.yaml"
 BACKEND_IMAGE="${BACKEND_IMAGE:-$IMAGE_NAMESPACE/backend:$IMAGE_TAG}"
 FRONT_IMAGE="${FRONT_IMAGE:-$IMAGE_NAMESPACE/front:$IMAGE_TAG}"
-ML_API_IMAGE="${ML_API_IMAGE:-$IMAGE_NAMESPACE/ml-api:$IMAGE_TAG}"
-ML_WORKER_IMAGE="${ML_WORKER_IMAGE:-$IMAGE_NAMESPACE/ml-worker:$IMAGE_TAG}"
-export BACKEND_IMAGE FRONT_IMAGE ML_API_IMAGE ML_WORKER_IMAGE
+export BACKEND_IMAGE FRONT_IMAGE
 
 need() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -75,10 +73,6 @@ cp "$ENV_FILE" "$APP_DIR/.env"
   printf '\n'
   printf 'BACKEND_IMAGE=%s\n' "$BACKEND_IMAGE"
   printf 'FRONT_IMAGE=%s\n' "$FRONT_IMAGE"
-  # Host deploy starts backend/front only. The same IMAGE_TAG also pins edge
-  # ml-api/ml-worker images for the separate compose.edge.yaml rollout.
-  printf 'ML_API_IMAGE=%s\n' "$ML_API_IMAGE"
-  printf 'ML_WORKER_IMAGE=%s\n' "$ML_WORKER_IMAGE"
 } >> "$APP_DIR/.env"
 
 cd "$APP_DIR"
