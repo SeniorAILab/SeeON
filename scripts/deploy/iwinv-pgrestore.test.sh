@@ -98,4 +98,19 @@ tracked=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "
 rows=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname fresh_bootstrap -Atc "SELECT count(*) FROM public._prisma_migrations;"')
 [ "$tracked" = 't' ] && [ "$rows" = '1' ] || { printf 'tracked database probe failed: tracked=%s rows=%s\n' "$tracked" "$rows" >&2; exit 1; }
 
+# The init migration's ALTER DEFAULT PRIVILEGES re-grants UPDATE/DELETE to recreated
+# tables, and custom archives carry only additive GRANTs, so a raw restore silently
+# violates the event-SSOT REVOKE. The canonical reconciliation must repair it.
+docker exec "$CONTAINER" sh -ceu '
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO fall_app;"
+' >/dev/null
+docker exec -i "$CONTAINER" sh -ceu 'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error --single-transaction' < "$archive"
+regressed=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -Atc "SELECT has_table_privilege('\''fall_app'\'', '\''public.sentinel'\'', '\''UPDATE'\'')::text"')
+[ "$regressed" = 'true' ] || { printf 'expected default privileges to re-grant UPDATE on restore, got: %s\n' "$regressed" >&2; exit 1; }
+docker exec "$CONTAINER" sh -ceu '
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "REVOKE ALL ON public.sentinel FROM PUBLIC; REVOKE UPDATE, DELETE ON public.sentinel FROM fall_app; GRANT SELECT, INSERT ON public.sentinel TO fall_app;"
+' >/dev/null
+reconciled=$(docker exec "$CONTAINER" sh -ceu 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -Atc "SELECT has_table_privilege('\''fall_app'\'', '\''public.sentinel'\'', '\''SELECT'\'')::text || '\''/'\'' || has_table_privilege('\''fall_app'\'', '\''public.sentinel'\'', '\''UPDATE'\'')::text"')
+[ "$reconciled" = 'true/false' ] || { printf 'ACL reconciliation failed: %s\n' "$reconciled" >&2; exit 1; }
+
 printf 'iwinv PostgreSQL restore transaction test passed\n'
