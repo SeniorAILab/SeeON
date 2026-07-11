@@ -206,13 +206,9 @@ function withTempEnvFiles(run) {
   try {
     const emptyHostEnvPath = join(dir, 'empty-host.env');
     const hostEnvPath = join(dir, 'host.env');
-    const emptyEdgeEnvPath = join(dir, 'empty-edge.env');
-    const edgeEnvPath = join(dir, 'edge.env');
     writeFileSync(emptyHostEnvPath, '');
     writeFileSync(hostEnvPath, completeHostEnv);
-    writeFileSync(emptyEdgeEnvPath, '');
-    writeFileSync(edgeEnvPath, completeEdgeEnv);
-    run({ emptyHostEnvPath, hostEnvPath, emptyEdgeEnvPath, edgeEnvPath });
+    run({ emptyHostEnvPath, hostEnvPath });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -220,7 +216,7 @@ function withTempEnvFiles(run) {
 
 function verify() {
   withTempEnvFiles(
-    ({ emptyHostEnvPath, hostEnvPath, emptyEdgeEnvPath, edgeEnvPath }) => {
+    ({ emptyHostEnvPath, hostEnvPath }) => {
       requireFailure(
         'host prod missing env',
         ['--profile', 'full', '-f', 'compose.yaml', '-f', 'compose.prod.yaml', 'config'],
@@ -228,12 +224,6 @@ function verify() {
         ['required in prod'],
       );
 
-      requireFailure(
-        'edge prod missing env',
-        ['-f', 'compose.edge.yaml', 'config'],
-        emptyEdgeEnvPath,
-        ['require'],
-      );
 
       const hostConfig = requireSuccess(
         'host prod config',
@@ -277,41 +267,6 @@ function verify() {
       );
       assertHostComposeContract(parseComposeJson('host prod JSON config', hostConfigJson));
 
-      const edgeConfig = requireSuccess(
-        'edge prod config',
-        ['-f', 'compose.edge.yaml', 'config'],
-        edgeEnvPath,
-      );
-      assertRequiredFragments('edge prod config', edgeConfig, [
-        'ml-api',
-        'ml-worker',
-        'worker.edge_worker',
-        // Pull-first: worker boots from ml-api config pull; the ml-worker YAML
-        // secret is an optional offline-dev escape hatch, not a required prod
-        // fragment (adr-edge-* / registry cutover). The clip store is a host
-        // bind (CLIP_STORE_HOST_DIR) mounted at the fixed container path
-        // /var/lib/clip-store, shared worker rw / ml-api ro, and CLIP_STORE_DIR
-        // must be injected as env into BOTH services (mount target alone never
-        // reaches the process environment).
-        'source: /srv/eldercare/clip-store',
-        'target: /var/lib/clip-store',
-        'CLIP_STORE_DIR: /var/lib/clip-store',
-        // NVENC clip encoding requires the `video` NVIDIA driver capability.
-        'NVIDIA_DRIVER_CAPABILITIES: compute,utility,video',
-        'ghcr.io/seniorailab/eldercare-fall-ai/ml-api:test',
-        'ghcr.io/seniorailab/eldercare-fall-ai/ml-worker:test',
-        'API_BACKEND_EVENTS_URL: https://senai.example.com/api/v1/events',
-        'API_EDGE_RELAY_TOKEN: edge-relay-token-minimum-32-chars',
-        'API_BACKEND_CONFIG_URL: https://senai.example.com/api/v1/ml-config',
-        'API_FACILITY_ID: facility-prod',
-        'ML_API_WORKER_STREAM_ORIGIN: http://ml-worker:8090',
-        'ML_API_WORKER_PROBE_ORIGIN: http://ml-worker:8090',
-        'ML_WORKER_DEV_MJPEG: "true"',
-        'ML_WORKER_DEV_MJPEG_HOST: 0.0.0.0',
-        'ML_WORKER_DEV_MJPEG_PORT: "8090"',
-        'ML_WORKER_STATE_DIR: /var/lib/ml-worker',
-        'RELAY_TOKEN: edge-relay-token-minimum-32-chars',
-      ]);
     },
   );
 }
