@@ -23,8 +23,8 @@ SMTP_FROM=Eldercare Safety <prod-alerts@example.com>
 SMTP_SECURE=false
 NOKYANG_ADMIN_PASSWORD=prod-nokyang-password
 EDGE_FACILITY_TOKEN=prod-edge-facility-token-32-chars
-BACKEND_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/backend:test
-FRONT_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/front:test
+BACKEND_IMAGE=eldercare-backend:0123456789abcdef0123456789abcdef01234567
+FRONT_IMAGE=eldercare-front:0123456789abcdef0123456789abcdef01234567
 ML_API_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/ml-api:test
 ML_WORKER_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/ml-worker:test
 `;
@@ -51,7 +51,6 @@ const forbiddenHostFragments = [
   'DEMO_LOGIN_PASSWORD',
   'VITE_USE_MOCK: "true"',
   'VITE_USE_MOCK: true',
-  'published: "3000"',
   'published: "5432"',
   'published: "8080"',
   'dockerfile:',
@@ -183,9 +182,12 @@ function verify() {
         'Eldercare Safety <prod-alerts@example.com>',
         'NOKYANG_ADMIN_PASSWORD: prod-nokyang-password',
         'EDGE_FACILITY_TOKEN: prod-edge-facility-token-32-chars',
-        'ghcr.io/seniorailab/eldercare-fall-ai/backend:test',
-        'ghcr.io/seniorailab/eldercare-fall-ai/front:test',
+        'eldercare-backend:0123456789abcdef0123456789abcdef01234567',
+        'eldercare-front:0123456789abcdef0123456789abcdef01234567',
+        'host_ip: 127.0.0.1',
+        'published: "3000"',
         'pull_policy: always',
+        'pull_policy: never',
       ]);
 
       const edgeConfig = requireSuccess(

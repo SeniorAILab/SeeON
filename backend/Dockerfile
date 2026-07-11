@@ -20,6 +20,8 @@ WORKDIR /app/backend
 EXPOSE 8080
 
 FROM deps AS build
+ARG NODE_OPTIONS=--max-old-space-size=1536
+ENV NODE_OPTIONS="${NODE_OPTIONS}"
 COPY backend ./backend
 RUN pnpm --filter backend exec prisma generate \
   && pnpm --filter backend build \
@@ -36,6 +38,8 @@ FROM base AS runner
 WORKDIR /app/backend
 ENV NODE_ENV="production"
 ENV PORT="8080"
+ARG DEPLOY_SHA
+ENV DEPLOY_SHA="${DEPLOY_SHA}"
 
 COPY --from=build /prod/backend/package.json ./package.json
 COPY --from=build /prod/backend/node_modules ./node_modules
