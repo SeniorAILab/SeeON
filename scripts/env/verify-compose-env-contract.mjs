@@ -27,18 +27,6 @@ BACKEND_IMAGE=eldercare-backend:0123456789abcdef0123456789abcdef01234567
 FRONT_IMAGE=eldercare-front:0123456789abcdef0123456789abcdef01234567
 `;
 
-const completeEdgeEnv = `ML_SERVING_PORT=8000
-EDGE_CAMERA_CONFIG=./ml/worker/ml-worker.example.yaml
-ML_WORKER_DEV_MJPEG=true
-ML_WORKER_DEV_MJPEG_PORT=8090
-ML_API_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/ml-api:test
-ML_WORKER_IMAGE=ghcr.io/seniorailab/eldercare-fall-ai/ml-worker:test
-API_BACKEND_EVENTS_URL=https://senai.example.com/api/v1/events
-API_EDGE_RELAY_TOKEN=edge-relay-token-minimum-32-chars
-API_BACKEND_CONFIG_URL=https://senai.example.com/api/v1/ml-config
-API_FACILITY_ID=facility-prod
-CLIP_STORE_HOST_DIR=/srv/eldercare/clip-store
-`;
 
 const forbiddenHostFragments = [
   'fall_dev',
