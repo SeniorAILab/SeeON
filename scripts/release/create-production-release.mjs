@@ -66,7 +66,7 @@ function readValue(argv, index, optionName) {
 }
 
 function validateTag(tag) {
-  if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
+  if (!/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(tag)) {
     throw new Error(
       `Production release tag must use vMAJOR.MINOR.PATCH format, got "${tag}".`,
     );

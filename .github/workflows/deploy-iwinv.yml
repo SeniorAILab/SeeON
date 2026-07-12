@@ -8,7 +8,8 @@ permissions: {}
 
 concurrency:
   group: deploy-iwinv-production
-  cancel-in-progress: true
+  # Queue signals so a rejected publication cannot cancel a valid signal.
+  cancel-in-progress: false
 
 jobs:
   classify:
@@ -25,7 +26,7 @@ jobs:
         run: |
           set -eu
           is_production=false
-          if [[ "$IS_PRERELEASE" == "false" && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ "$IS_PRERELEASE" == "false" && "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             is_production=true
           fi
           printf 'is_production=%s\n' "$is_production" >> "$GITHUB_OUTPUT"

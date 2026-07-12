@@ -47,6 +47,13 @@ test("rejects tags that are not strict production semver", () => {
   assert.match(result.stderr, /vMAJOR\.MINOR\.PATCH/);
 });
 
+test("rejects leading-zero production version components", () => {
+  const result = runRelease(["v01.2.3", "--dry-run"]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /vMAJOR\.MINOR\.PATCH/);
+});
+
 test("dry-run does not invoke gh", () => {
   const gh = fakeGh("exit 99");
   try {

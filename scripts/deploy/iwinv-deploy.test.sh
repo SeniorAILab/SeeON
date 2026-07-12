@@ -145,6 +145,17 @@ assert_not_contains "$jenkins" '$.workflow_run.head_sha'
 assert_not_contains "$jenkins" '$.ref'
 assert_not_contains "$jenkins" 'regexpFilterExpression'
 assert_not_contains "$jenkins" "string(name: 'REF'"
+# Jenkins materializes the resolver from origin/main before executing it, so a stale deployment checkout cannot select release logic.
+assert_contains "$jenkins" 'git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main'
+assert_contains "$jenkins" 'git show refs/remotes/origin/main:scripts/deploy/iwinv-resolve-release.sh > "$WORKSPACE/.iwinv-resolve-release.jenkins.sh"'
+assert_contains "$jenkins" 'RELEASES_DIR="$DEPLOY_ROOT/releases" sh "$WORKSPACE/.iwinv-resolve-release.jenkins.sh"'
+assert_contains "$jenkins" 'rm -f "$WORKSPACE/.iwinv-resolve-release.jenkins.sh"'
+# Resolver output parsing accepts only the expected keys and validates every value.
+assert_contains "$jenkins" 'def match = line =~ /^(RELEASE_TAG|RELEASE_SHA|NO_OP)=(.*)$/'
+assert_contains "$jenkins" 'Resolver output contains duplicate ${key}'
+assert_contains "$jenkins" 'releaseValues.RELEASE_SHA ==~ /[0-9a-f]{40}/'
+assert_contains "$jenkins" "['0', '1'].contains(releaseValues.NO_OP)"
+assert_contains "$jenkins" 'releaseValues.RELEASE_TAG ==~ /v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)/'
 
 # Strict mode parser rejects duplicate and conflicting primary modes before any Docker command.
 : > "$TMP/mock.log"
@@ -637,7 +648,7 @@ cmp -s "$TMP/pending.before-code-only-rollback" "$TMP/root/releases/pending.json
 [ -f "$TMP/root/backups/db/$ROLLBACK_PENDING_DUMP" ]
 
 # Jenkins resolves the latest main-reachable release, builds its exact SHA once, and has no alternate delivery path.
-jenkins=$(sed -n '1,180p' "$JENKINSFILE")
+jenkins=$(sed -n '1,220p' "$JENKINSFILE")
 assert_contains "$jenkins" "stage('Resolve release')"
 assert_contains "$jenkins" "params.SHA != 'REGISTER-ONLY'"
 assert_contains "$jenkins" 'scripts/deploy/iwinv-resolve-release.sh'

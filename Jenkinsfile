@@ -50,19 +50,38 @@ pipeline {
                 else
                   git remote add origin "$repository"
                 fi
-                RELEASES_DIR="$DEPLOY_ROOT/releases" sh scripts/deploy/iwinv-resolve-release.sh
+                git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+                trap 'rm -f "$WORKSPACE/.iwinv-resolve-release.jenkins.sh"' EXIT HUP INT TERM
+                git show refs/remotes/origin/main:scripts/deploy/iwinv-resolve-release.sh > "$WORKSPACE/.iwinv-resolve-release.jenkins.sh"
+                RELEASES_DIR="$DEPLOY_ROOT/releases" sh "$WORKSPACE/.iwinv-resolve-release.jenkins.sh"
               ''',
               returnStdout: true
             ).trim()
           }
-          def releaseValues = resolverOutput.readLines().findAll { it.contains('=') }.collectEntries { line ->
-            def parts = line.split('=', 2)
-            [(parts[0]): parts[1]]
+          def releaseValues = [:]
+          resolverOutput.readLines().each { line ->
+            def match = line =~ /^(RELEASE_TAG|RELEASE_SHA|NO_OP)=(.*)$/
+            if (match.matches()) {
+              def key = match[0][1]
+              if (releaseValues.containsKey(key)) {
+                error("Resolver output contains duplicate ${key}")
+              }
+              releaseValues[key] = match[0][2]
+            }
           }
           ['RELEASE_TAG', 'RELEASE_SHA', 'NO_OP'].each { key ->
-            if (!releaseValues[key]) {
+            if (!releaseValues.containsKey(key)) {
               error("Resolver output is missing ${key}")
             }
+          }
+          if (!(releaseValues.RELEASE_TAG ==~ /v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)/)) {
+            error("Resolver output has invalid RELEASE_TAG: ${releaseValues.RELEASE_TAG}")
+          }
+          if (!(releaseValues.RELEASE_SHA ==~ /[0-9a-f]{40}/)) {
+            error("Resolver output has invalid RELEASE_SHA: ${releaseValues.RELEASE_SHA}")
+          }
+          if (!['0', '1'].contains(releaseValues.NO_OP)) {
+            error("Resolver output has invalid NO_OP: ${releaseValues.NO_OP}")
           }
           env.RELEASE_TAG = releaseValues.RELEASE_TAG
           env.RELEASE_SHA = releaseValues.RELEASE_SHA

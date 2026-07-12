@@ -6,7 +6,7 @@ RELEASES_DIR=${RELEASES_DIR:-/opt/eldercare-fall-ai/releases}
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 valid_sha() { [ "${#1}" -eq 40 ] && printf '%s' "$1" | grep -Eq '^[0-9a-f]{40}$'; }
-json_value() { sed -n "s/.*\"$2\":\"\([^\"]*\)\".*/\1/p" "$1"; }
+json_value() { sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$1"; }
 
 validate_current_manifest() {
   current_manifest=$RELEASES_DIR/current.json
@@ -30,12 +30,12 @@ validate_current_manifest() {
 git fetch --no-tags "$GIT_REMOTE" +refs/heads/main:refs/remotes/origin/main
 remote_tags=$(git ls-remote --tags "$GIT_REMOTE") || fail "Unable to list release tags from $GIT_REMOTE"
 candidate=$(printf '%s\n' "$remote_tags" | awk '
-  $2 ~ /^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$/ {
+  $2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
     tag = $2
     sub(/^refs\/tags\//, "", tag)
     direct[tag] = $1
   }
-  $2 ~ /^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+\^\{\}$/ {
+  $2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\^\{\}$/ {
     tag = $2
     sub(/^refs\/tags\//, "", tag)
     sub(/\^\{\}$/, "", tag)

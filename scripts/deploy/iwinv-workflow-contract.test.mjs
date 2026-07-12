@@ -75,8 +75,18 @@ function assertWorkflowContract(source) {
   const classifierScript = extractRunScript(classifyJob, 'classify');
   requireFragment(
     classifierScript,
-    '[[ "$IS_PRERELEASE" == "false" && "$RELEASE_TAG" =~ ^v[0-9]+\\.[0-9]+\\.[0-9]+$ ]]',
-    'strict production release classifier',
+    '[[ "$IS_PRERELEASE" == "false" && "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$ ]]',
+    'canonical production release classifier',
+  );
+  requireFragment(
+    source,
+    'cancel-in-progress: false',
+    'queued deployment concurrency',
+  );
+  requireFragment(
+    source,
+    '# Queue signals so a rejected publication cannot cancel a valid signal.',
+    'deployment queue rationale',
   );
 
   const triggerJob = extractJob(source, 'trigger');
@@ -140,6 +150,7 @@ test('classifier accepts only non-prerelease strict semver release tags', async 
     { tag: '1.2.3', prerelease: false, expected: 'is_production=false' },
     { tag: 'v1.2', prerelease: false, expected: 'is_production=false' },
     { tag: 'v1.2.3', prerelease: true, expected: 'is_production=false' },
+    { tag: 'v01.2.3', prerelease: false, expected: 'is_production=false' },
   ];
 
   for (const testCase of cases) {
