@@ -116,6 +116,7 @@ describe("apiClient.requestJson", () => {
 
     await requestJson("/auth/me");
     await requestJson("/facilities");
+    await requestJson("/facilities/fac_happy_nokyang");
     await requestJson("/dashboard");
     await requestJson("/alerts");
     await requestJson("/spaces");
@@ -126,8 +127,9 @@ describe("apiClient.requestJson", () => {
       headers: new Headers(init?.headers),
     }));
     expect(calls.find((call) => call.url.endsWith("/auth/me"))?.headers.has("x-facility-id")).toBe(false);
-    expect(calls.find((call) => call.url.endsWith("/facilities"))?.headers.has("x-facility-id")).toBe(false);
-    for (const path of ["/dashboard", "/alerts", "/spaces", "/floors"]) {
+    const facilitiesListCall = calls.find((call) => call.url.endsWith("/api/v1/facilities"));
+    expect(facilitiesListCall?.headers.has("x-facility-id")).toBe(false);
+    for (const path of ["/facilities/fac_happy_nokyang", "/dashboard", "/alerts", "/spaces", "/floors"]) {
       expect(calls.find((call) => call.url.endsWith(path))?.headers.get("x-facility-id")).toBe("fac_happy_nokyang");
     }
 

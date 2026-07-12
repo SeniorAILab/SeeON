@@ -181,4 +181,26 @@ describe("RoomActionPanel", () => {
     expect(alertService.createNote).not.toHaveBeenCalled();
     expect(alertService.listNotes).not.toHaveBeenCalled();
   });
+
+  it("surfaces a visible error when note saving fails instead of swallowing it", async () => {
+    const { alertService } = await import("@/services/alertService");
+    const { ApiError } = await import("@/services/apiClient");
+    vi.mocked(alertService.createNote).mockRejectedValueOnce(new ApiError(403, "Forbidden"));
+
+    render(<RoomActionPanel space={spaces[1]} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />);
+
+    // 노트 로딩이 끝나 저장 버튼이 활성화될 때까지 대기
+    expect(await screen.findByText("저장된 메모가 없습니다.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("메모"), { target: { value: "권한 없는 메모" } });
+    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
+
+    const alertBox = await screen.findByRole("alert");
+    expect(alertBox.textContent).toContain("메모 작성 권한이 없습니다");
+    // 입력값은 보존되어 재시도할 수 있어야 한다
+    expect((screen.getByLabelText("메모") as HTMLTextAreaElement).value).toBe("권한 없는 메모");
+
+    vi.mocked(alertService.createNote).mockRejectedValueOnce(new Error("network down"));
+    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("메모 저장에 실패했습니다"));
+  });
 });

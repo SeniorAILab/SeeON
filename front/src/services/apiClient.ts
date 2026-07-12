@@ -23,6 +23,9 @@ const FACILITY_SCOPED_PATTERNS = [
   /^\/floors(?:\/|\?|$)/,
   /^\/users(?:\/|\?|$)/,
   /^\/cameras(?:\/|\?|$)/,
+  // `/facilities` 목록은 글로벌(무스코프), `/facilities/:id` 단건은 시설 스코프.
+  // super_admin은 이 헤더 없이는 단건 조회가 403이라 현황판 로딩이 멈춘다.
+  /^\/facilities\/./,
 ];
 
 export function buildApiUrl(path: string): string {
