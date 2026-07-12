@@ -48,6 +48,12 @@ Terminology: dashboard = route/read-model/API, monitor = physical kiosk device/s
 - Use the `@/*` alias for source imports where it improves readability.
 - `_`-prefixed variables are the intentional-unused convention.
 - Tests run with Vitest/jsdom and cleanup in `test/setup.ts`.
+- Test fixtures: when a scoped id (facility/space/floor) appears in more than
+  one place inside a test file (setup, request path, assertion), derive every
+  occurrence from a single named constant (e.g. `const SCOPED_FACILITY_ID = …`
+  plus template-literal paths). Greenness must never depend on hand-synced
+  duplicate string literals. Existing files predating this rule are migrated
+  opportunistically when touched.
 
 ## Anti-patterns
 
