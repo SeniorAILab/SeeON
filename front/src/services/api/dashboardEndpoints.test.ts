@@ -10,7 +10,6 @@ function okJsonResponse(body: unknown): Response {
 const facility = {
   id: "fac_happy_nokyang",
   name: "Happy Nokyang",
-  code: "happy-nokyang",
   address: "Seoul",
   phone: "02-0000-0000",
 };

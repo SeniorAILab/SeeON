@@ -33,7 +33,6 @@ function dashboardResponse(): DashboardResponse {
     facility: {
       id: "facility-1",
       name: "Happy Care",
-      code: "happy-care",
       address: "Seoul",
       phone: "02-0000-0000",
     },

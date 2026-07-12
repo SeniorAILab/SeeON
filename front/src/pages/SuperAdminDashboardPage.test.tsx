@@ -8,7 +8,6 @@ import { useFacilityStore } from "@/stores/facilityStore";
 const seededFacility = {
   id: "fac_happy_nokyang",
   name: "행복한요양원 녹양역점",
-  code: "happy-nokyang",
   address: "경기도 의정부시 녹양로 12",
   phone: "031-123-4567",
 };

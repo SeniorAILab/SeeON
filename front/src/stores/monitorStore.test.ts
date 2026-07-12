@@ -62,7 +62,6 @@ function dashboardFetch(alerts: unknown[] = []) {
         id,
         name: "행복요양원 녹양점",
         address: "경기도 의정부시",
-        code: "happy-nokyang",
         phone: "031-123-4567",
       });
     }
@@ -117,7 +116,6 @@ function dashboardFor(facilityId: string, statuses: Record<string, SpaceStatus> 
     facility: {
       id: facilityId,
       name: facilityId,
-      code: facilityId,
       address: "Seoul",
       phone: "02-0000-0000",
     },
