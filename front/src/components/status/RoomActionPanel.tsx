@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { alertService, type AlertNote } from "@/services/alertService";
+import { ApiError } from "@/services/apiClient";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import { eventTypeLabel } from "@/lib/labels";
 
@@ -60,6 +61,7 @@ export function RoomActionPanel({
   const [notes, setNotes] = useState<AlertNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -69,9 +71,13 @@ export function RoomActionPanel({
       return;
     }
     setNotesLoading(true);
+    setNoteError(null);
     void alertService.listNotes(targetAlertId)
       .then((loadedNotes) => {
         if (!ignore) setNotes(loadedNotes);
+      })
+      .catch(() => {
+        if (!ignore) setNoteError("메모를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.");
       })
       .finally(() => {
         if (!ignore) setNotesLoading(false);
@@ -106,10 +112,17 @@ export function RoomActionPanel({
     const trimmed = note.trim();
     if (!targetAlertId || !canWriteNote || !trimmed || noteSaving) return;
     setNoteSaving(true);
+    setNoteError(null);
     try {
       await alertService.createNote(targetAlertId, trimmed);
       setNotes(await alertService.listNotes(targetAlertId));
       setNote("");
+    } catch (error) {
+      setNoteError(
+        error instanceof ApiError && error.status === 403
+          ? "이 계정에는 메모 작성 권한이 없습니다. 관리자 또는 요양보호사 계정으로 로그인해주세요."
+          : "메모 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      );
     } finally {
       setNoteSaving(false);
     }
@@ -186,6 +199,11 @@ export function RoomActionPanel({
           {busy ? "처리 중" : "확인완료"}
         </button>
       </div>
+      {noteError && (
+        <div role="alert" className="mt-2 rounded-2xl bg-status-dangerBg px-4 py-3 text-staff-body font-bold text-status-danger">
+          {noteError}
+        </div>
+      )}
       <div className="mt-4 rounded-2xl bg-bg px-4 py-3">
         <div className="text-staff-body font-black text-ink">메모 히스토리</div>
         {notesLoading ? (
