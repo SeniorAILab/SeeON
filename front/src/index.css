@@ -84,18 +84,26 @@ body {
   background-clip: content-box;
 }
 
-/* 위험 카드 강조 — 색약 사용자를 위해 색상 외 모션도 함께 사용 */
-@keyframes pulse-danger {
+/* 상태 펄스 모듈 — 키프레임 하나를 색/퍼짐/속도 변수로 재사용한다.
+   새 상태 추가 = 변수만 바꾼 클래스 1개. TSX 소비 지점은 components/status/StatusPulse.tsx.
+   색약 사용자를 위해 색상 외 모션도 함께 사용. */
+@keyframes status-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.22);
+    box-shadow: 0 0 0 0 var(--pulse-color);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(217, 45, 32, 0);
+    box-shadow: 0 0 0 var(--pulse-spread, 8px) transparent;
   }
 }
 .animate-pulse-danger {
-  animation: pulse-danger 1.8s ease-in-out infinite;
+  --pulse-color: rgba(217, 45, 32, 0.22);
+  animation: status-pulse 1.8s ease-in-out infinite;
+}
+.animate-pulse-safe {
+  --pulse-color: rgba(22, 110, 61, 0.4);
+  --pulse-spread: 14px;
+  animation: status-pulse 3.2s ease-in-out infinite;
 }
 
 /* 장갑 착용/큰 손가락 대응: 모든 버튼 최소 터치 영역 확보 */

@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck } from "lucide-rea
 import { timeAgo } from "@/lib/format";
 import { computeGridSpec } from "./gridSpec";
 import { useFlipAnimation } from "./useFlipAnimation";
+import { pulseClassFor, StatusPulseRing, type PulseTone } from "./StatusPulse";
 import type { Floor, Space, SpaceStatus, SpaceStatusLevel } from "@/types";
 
 export interface RoomFloorGroup {
@@ -236,6 +237,8 @@ function RoomTile({
   const hero = layout === "focus" && isEmergencyLevel(level);
   const isDanger = level === "DANGER" || status?.emergency;
   const isCheck = level === "CHECK_NEEDED";
+  const isSafe = level === "STABLE" && !isDanger;
+  const pulseTone: PulseTone | null = isDanger || isCheck ? "danger" : isSafe ? "safe" : null;
   const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
 
   return (
@@ -249,9 +252,10 @@ function RoomTile({
         layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""
       } ${
         layout === "overview" && isCheck ? "border-l-8 border-status-check" : ""
-      } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${isDanger ? "animate-pulse-danger motion-reduce:animate-none" : ""} ${isCheck ? "animate-pulse-danger motion-reduce:animate-none" : ""}`}
+      } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${pulseClassFor(pulseTone)}`}
     >
-      {isDanger && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-status-danger opacity-45 animate-ping motion-reduce:hidden" />}
+      {isDanger && <StatusPulseRing tone="danger" />}
+      {isSafe && <StatusPulseRing tone="safe" />}
       <span className="relative flex items-center gap-2 text-staff-status">
         <Icon className="h-7 w-7 shrink-0 2xl:h-9 2xl:w-9" aria-hidden />
         <span>{STATUS_WORD[level]}</span>

@@ -161,6 +161,32 @@ describe("RoomStatusTreemap layout grid behavior", () => {
     expect(dangerTile?.className).toContain("text-status-danger");
     expect(container.querySelector('button[aria-label="202호 위험"] .animate-ping')).toBeTruthy();
   });
+
+  it("gives STABLE tiles the safe green pulse while keeping danger/caution emphasis untouched", () => {
+    const cautionSpace = space("caution-room", "204호");
+    const { container } = render(
+      <RoomStatusTreemap
+        spaces={[...spaces, cautionSpace]}
+        floors={floors}
+        statuses={{ ...statuses, [cautionSpace.id]: status(cautionSpace.id, "CAUTION", "주의") }}
+        layout="overview"
+      />,
+    );
+
+    const stableTile = container.querySelector('button[aria-label="201호 안정"]');
+    expect(stableTile?.className).toContain("animate-pulse-safe");
+    expect(stableTile?.className).not.toContain("animate-pulse-danger");
+    expect(container.querySelector('button[aria-label="201호 안정"] span[class*="animate-[ping"]')).toBeTruthy();
+
+    const dangerTile = container.querySelector('button[aria-label="202호 위험"]');
+    expect(dangerTile?.className).toContain("animate-pulse-danger");
+    expect(dangerTile?.className).not.toContain("animate-pulse-safe");
+
+    const cautionTile = container.querySelector('button[aria-label="204호 주의"]');
+    expect(cautionTile?.className).not.toContain("animate-pulse-safe");
+    expect(cautionTile?.className).not.toContain("animate-pulse-danger");
+    expect(container.querySelector('button[aria-label="204호 주의"] span[class*="animate-"]')).toBeNull();
+  });
 });
 
 describe("heroTileStyle", () => {
