@@ -136,15 +136,15 @@ release_state() {
   )
 }
 
-# Source-controlled webhook contract: exact JSONPaths, credential, main-only filter, and quiet logging.
+# Source-controlled webhook contract keeps the credential and quiet logging without webhook payload parsing.
 jenkins=$(sed -n '1,120p' "$JENKINSFILE")
-assert_contains "$jenkins" "value: '$.workflow_run.head_sha'"
-assert_contains "$jenkins" "value: '$.ref'"
 assert_contains "$jenkins" "tokenCredentialId: 'eldercare-webhook-token'"
-assert_contains "$jenkins" "regexpFilterExpression: '^refs/heads/main$'"
 assert_contains "$jenkins" 'printContributedVariables: false'
 assert_contains "$jenkins" 'printPostContent: false'
-assert_contains "$jenkins" "string(name: 'REF', defaultValue: ''"
+assert_not_contains "$jenkins" '$.workflow_run.head_sha'
+assert_not_contains "$jenkins" '$.ref'
+assert_not_contains "$jenkins" 'regexpFilterExpression'
+assert_not_contains "$jenkins" "string(name: 'REF'"
 
 # Strict mode parser rejects duplicate and conflicting primary modes before any Docker command.
 : > "$TMP/mock.log"
@@ -636,15 +636,18 @@ output=$(MOCK_SHA="$FINAL_REMOVE_SHA" run_deploy --rollback)
 cmp -s "$TMP/pending.before-code-only-rollback" "$TMP/root/releases/pending.json"
 [ -f "$TMP/root/backups/db/$ROLLBACK_PENDING_DUMP" ]
 
-# Jenkins keeps exact-main provenance, two local SHA builds, one deploy, and no alternate delivery path.
+# Jenkins resolves the latest main-reachable release, builds its exact SHA once, and has no alternate delivery path.
 jenkins=$(sed -n '1,180p' "$JENKINSFILE")
+assert_contains "$jenkins" "stage('Resolve release')"
+assert_contains "$jenkins" "params.SHA != 'REGISTER-ONLY'"
+assert_contains "$jenkins" 'scripts/deploy/iwinv-resolve-release.sh'
+assert_contains "$jenkins" "env.NO_OP != '1' && params.SHA != 'REGISTER-ONLY'"
 assert_contains "$jenkins" "stage('Preflight resources')"
 assert_contains "$jenkins" 'sh scripts/deploy/iwinv-deploy.sh --preflight-only'
-assert_order "$jenkins" "stage('Preflight resources')" "stage('Build backend')"
-assert_contains "$jenkins" 'origin_sha=$(git rev-parse refs/remotes/origin/main)'
-assert_contains "$jenkins" '[ "$origin_sha" != "$SHA" ]'
-assert_contains "$jenkins" '--tag "eldercare-backend:$SHA"'
-assert_contains "$jenkins" '--tag "eldercare-front:$SHA"'
+assert_order "$jenkins" "stage('Resolve release')" "stage('Build backend')"
+assert_contains "$jenkins" '--build-arg DEPLOY_SHA="$RELEASE_SHA"'
+assert_contains "$jenkins" '--tag "eldercare-backend:$RELEASE_SHA"'
+assert_contains "$jenkins" '--tag "eldercare-front:$RELEASE_SHA"'
 assert_contains "$jenkins" 'docker buildx rm "$BUILDX_BUILDER"'
 assert_contains "$jenkins" 'docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --buildkitd-config "$config" --use'
 assert_buildkit_parallelism() {
@@ -667,8 +670,10 @@ set +e
 set -e
 assert_failure "$status"
 assert_not_contains "$jenkins" 'docker buildx use "$BUILDX_BUILDER"'
-deploy_calls=$(printf '%s\n' "$jenkins" | grep -c -F 'sh scripts/deploy/iwinv-deploy.sh --sha "$SHA"' || :)
+deploy_calls=$(printf '%s\n' "$jenkins" | grep -c -F 'sh scripts/deploy/iwinv-deploy.sh --sha "$RELEASE_SHA"' || :)
 [ "$deploy_calls" -eq 1 ] || { printf 'expected one deploy invocation, got %s\n' "$deploy_calls" >&2; exit 1; }
+assert_contains "$jenkins" "\${env.RELEASE_SHA ?: 'unresolved'}"
+assert_not_contains "$jenkins" '${params.SHA}'
 assert_not_contains "$jenkins" 'GHCR'
 assert_not_contains "$jenkins" 'ghcr.io'
 assert_not_contains "$jenkins" 'ML'
