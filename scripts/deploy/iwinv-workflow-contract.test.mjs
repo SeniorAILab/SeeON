@@ -85,6 +85,11 @@ function assertWorkflowContract(source) {
   );
   requireFragment(
     source,
+    'queue: max',
+    'multi-entry pending queue so a newer signal cannot replace a pending one',
+  );
+  requireFragment(
+    source,
     '# Queue signals so a rejected publication cannot cancel a valid signal.',
     'deployment queue rationale',
   );

@@ -9,7 +9,9 @@ permissions: {}
 concurrency:
   group: deploy-iwinv-production
   # Queue signals so a rejected publication cannot cancel a valid signal.
+  # queue: max keeps every pending signal (default single slot replaces it).
   cancel-in-progress: false
+  queue: max
 
 jobs:
   classify:

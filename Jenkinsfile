@@ -60,14 +60,18 @@ pipeline {
           }
           def releaseValues = [:]
           resolverOutput.readLines().each { line ->
-            def match = line =~ /^(RELEASE_TAG|RELEASE_SHA|NO_OP)=(.*)$/
-            if (match.matches()) {
-              def key = match[0][1]
-              if (releaseValues.containsKey(key)) {
-                error("Resolver output contains duplicate ${key}")
-              }
-              releaseValues[key] = match[0][2]
+            if (line.trim().isEmpty()) {
+              return
             }
+            def match = line =~ /^(RELEASE_TAG|RELEASE_SHA|NO_OP)=(.*)$/
+            if (!match.matches()) {
+              error("Unexpected resolver output line: ${line}")
+            }
+            def key = match[0][1]
+            if (releaseValues.containsKey(key)) {
+              error("Resolver output contains duplicate ${key}")
+            }
+            releaseValues[key] = match[0][2]
           }
           ['RELEASE_TAG', 'RELEASE_SHA', 'NO_OP'].each { key ->
             if (!releaseValues.containsKey(key)) {
