@@ -42,7 +42,6 @@ function dashboard(overrides: Partial<DashboardResponse> = {}): DashboardRespons
       id: "fac_happy_nokyang",
       name: "행복요양원 녹양점",
       address: "경기도 의정부시",
-      code: "happy-nokyang",
       phone: "031-123-4567",
     },
     floors: [],
