@@ -7,6 +7,11 @@ function okJsonResponse(body: unknown): Response {
   });
 }
 
+// 스코프 픽스처는 파일당 상수 하나에서만 유도한다 — 경로/단언이 같은 리터럴의
+// 수기 일치에 의존하지 않게 한다 (front/src/AGENTS.md 컨벤션).
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+const SCOPED_FACILITY_PATH = `/facilities/${SCOPED_FACILITY_ID}`;
+
 describe("apiClient.requestJson", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -112,11 +117,11 @@ describe("apiClient.requestJson", () => {
 
     const { useFacilityStore } = await import("@/stores/facilityStore");
     const { requestJson } = await import("./apiClient");
-    useFacilityStore.getState().setFacility("fac_happy_nokyang");
+    useFacilityStore.getState().setFacility(SCOPED_FACILITY_ID);
 
     await requestJson("/auth/me");
     await requestJson("/facilities");
-    await requestJson("/facilities/fac_happy_nokyang");
+    await requestJson(SCOPED_FACILITY_PATH);
     await requestJson("/dashboard");
     await requestJson("/alerts");
     await requestJson("/spaces");
@@ -129,8 +134,8 @@ describe("apiClient.requestJson", () => {
     expect(calls.find((call) => call.url.endsWith("/auth/me"))?.headers.has("x-facility-id")).toBe(false);
     const facilitiesListCall = calls.find((call) => call.url.endsWith("/api/v1/facilities"));
     expect(facilitiesListCall?.headers.has("x-facility-id")).toBe(false);
-    for (const path of ["/facilities/fac_happy_nokyang", "/dashboard", "/alerts", "/spaces", "/floors"]) {
-      expect(calls.find((call) => call.url.endsWith(path))?.headers.get("x-facility-id")).toBe("fac_happy_nokyang");
+    for (const path of [SCOPED_FACILITY_PATH, "/dashboard", "/alerts", "/spaces", "/floors"]) {
+      expect(calls.find((call) => call.url.endsWith(path))?.headers.get("x-facility-id")).toBe(SCOPED_FACILITY_ID);
     }
 
     useFacilityStore.getState().clearFacility();
@@ -154,10 +159,10 @@ describe("apiClient.requestJson", () => {
 
     const { useFacilityStore } = await import("@/stores/facilityStore");
     const { buildSseUrl } = await import("./apiClient");
-    useFacilityStore.getState().setFacility("fac_happy_nokyang");
+    useFacilityStore.getState().setFacility(SCOPED_FACILITY_ID);
 
     expect(buildSseUrl()).toBe(
-      "/api/v1/dashboard/stream?facilityId=fac_happy_nokyang"
+      `/api/v1/dashboard/stream?facilityId=${SCOPED_FACILITY_ID}`
     );
   });
 
@@ -176,9 +181,9 @@ describe("apiClient.requestJson", () => {
 
     const { buildSseUrl, isAbsoluteApiUrl } = await import("./apiClient");
 
-    expect(buildSseUrl("fac_happy_nokyang")).toBe(
-      "http://localhost:8080/api/v1/dashboard/stream?facilityId=fac_happy_nokyang"
+    expect(buildSseUrl(SCOPED_FACILITY_ID)).toBe(
+      `http://localhost:8080/api/v1/dashboard/stream?facilityId=${SCOPED_FACILITY_ID}`
     );
-    expect(isAbsoluteApiUrl(buildSseUrl("fac_happy_nokyang"))).toBe(true);
+    expect(isAbsoluteApiUrl(buildSseUrl(SCOPED_FACILITY_ID))).toBe(true);
   });
 });
