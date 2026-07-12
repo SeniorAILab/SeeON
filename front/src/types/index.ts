@@ -56,7 +56,6 @@ export type ActionType =
 export interface Facility {
   id: string;
   name: string;
-  code: string; // 예: happy-nokyang
   address: string;
   phone: string;
 }

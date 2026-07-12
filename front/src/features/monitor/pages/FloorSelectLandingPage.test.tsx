@@ -43,7 +43,6 @@ const dashboard: DashboardResponse = {
   facility: {
     id: facilityId,
     name: "행복요양원 녹양점",
-    code: "happy-nokyang",
     address: "의정부시 녹양동",
     phone: "031-000-0000",
   },

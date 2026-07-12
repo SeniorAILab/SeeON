@@ -30,14 +30,12 @@ export const facilities: Facility[] = [
   {
     id: FAC,
     name: "행복한요양원 녹양역점",
-    code: "happy-nokyang",
     address: "경기도 의정부시 녹양로 12",
     phone: "031-123-4567",
   },
   {
     id: "fac_sunny_uijeongbu",
     name: "햇살가득요양원 의정부점",
-    code: "sunny-uijeongbu",
     address: "경기도 의정부시 평화로 88",
     phone: "031-987-6543",
   },

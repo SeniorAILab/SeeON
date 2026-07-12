@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, LayoutDashboard, LogOut, MonitorPlay } from "lucide-react";
+import { LayoutDashboard, LogOut, MonitorPlay } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { adminPath, dashboardPath } from "@/lib/routeAccess";
@@ -112,10 +112,6 @@ export function SuperAdminDashboardPage() {
               <Card key={facility.id} className="p-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
-                    <div className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-brand-soft px-2 py-1 text-xs font-semibold text-brand">
-                      <Building2 className="h-3.5 w-3.5" />
-                      {facility.code}
-                    </div>
                     <h3 className="break-keep text-lg font-bold text-ink">{facility.name}</h3>
                     <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
                     <p className="mt-0.5 text-sm text-ink-soft">{facility.phone}</p>

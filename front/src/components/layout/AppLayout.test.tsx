@@ -16,7 +16,6 @@ function okJsonResponse(body: unknown): Response {
 const nokyangFacility: Facility = {
   id: "fac_happy_nokyang",
   name: "행복한요양원 녹양역점",
-  code: "happy-nokyang",
   address: "경기도 의정부시",
   phone: "031-856-8090",
 };
@@ -24,7 +23,6 @@ const nokyangFacility: Facility = {
 const backendOnlyFacility: Facility = {
   id: "fac_backend_only",
   name: "백엔드 시설",
-  code: "backend-only",
   address: "서울특별시",
   phone: "02-000-0000",
 };
