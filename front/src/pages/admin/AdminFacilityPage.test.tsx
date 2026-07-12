@@ -11,7 +11,6 @@ vi.mock("@/services/api/facilities", () => ({
   getFacility: vi.fn(async () => ({
     id: "facility-1",
     name: "행복 요양원",
-    code: "legacy-code",
     address: "서울시 중구",
     phone: "02-123-4567",
   })),
@@ -42,7 +41,6 @@ describe("AdminFacilityPage", () => {
     updateFacilityMock.mockResolvedValueOnce({
       id: "facility-1",
       name: "행복 요양원 본관",
-      code: "legacy-code",
       address: "서울시 종로구",
       phone: "02-999-0000",
     });
