@@ -196,6 +196,19 @@ describe("RoomActionPanel", () => {
     expect((screen.getByLabelText("메모") as HTMLTextAreaElement).disabled).toBe(true);
     expect(alertService.listNotes).toHaveBeenCalledTimes(1);
   });
+  it("does not retain space A notes when rerendered for space B without alerts", async () => {
+    const { alertService } = await import("@/services/alertService");
+    vi.mocked(alertService.listNotes).mockResolvedValue([note({ note: "201호 메모" })]);
+    const { rerender } = render(
+      <RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />,
+    );
+
+    expect(await screen.findByText("201호 메모")).toBeTruthy();
+    rerender(<RoomActionPanel space={spaces[0]} status={status("b", "STABLE")} alerts={[]} onClose={vi.fn()} />);
+
+    expect(screen.queryByText("201호 메모")).toBeNull();
+    expect(screen.getByText("저장된 메모가 없습니다.")).toBeTruthy();
+  });
 
   it("surfaces a visible error when note saving fails instead of swallowing it", async () => {
     const { alertService } = await import("@/services/alertService");

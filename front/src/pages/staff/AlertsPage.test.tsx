@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AlertsPage } from "./AlertsPage";
 import type { AlertView } from "@/types";
@@ -20,6 +20,19 @@ const resolvedAlert = {
   resolvedAt: "2026-07-03T00:10:00.000Z",
   resolvedByName: "요양보호사",
 } as AlertView;
+const resolvedAlertB = {
+  ...resolvedAlert,
+  id: "alert-resolved-2",
+  room: "202호",
+} as AlertView;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
 
 beforeEach(async () => {
   const { alertService } = await import("@/services/alertService");
@@ -49,5 +62,52 @@ describe("AlertsPage resolved notes", () => {
     expect(screen.getByText(/STAFF/)).toBeTruthy();
     expect(alertService.listNotes).toHaveBeenCalledWith("alert-resolved-1");
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+  it("keeps the latest resolved alert notes when an earlier request finishes last", async () => {
+    const { alertService } = await import("@/services/alertService");
+    const notesA = deferred<Awaited<ReturnType<typeof alertService.listNotes>>>();
+    const notesB = deferred<Awaited<ReturnType<typeof alertService.listNotes>>>();
+    vi.mocked(alertService.listRecent).mockResolvedValue([resolvedAlert, resolvedAlertB]);
+    vi.mocked(alertService.listNotes)
+      .mockReturnValueOnce(notesA.promise)
+      .mockReturnValueOnce(notesB.promise);
+
+    render(<AlertsPage />);
+
+    const buttons = await screen.findAllByRole("button", { name: "메모 보기" });
+    fireEvent.click(buttons[0]);
+    fireEvent.click(buttons[1]);
+    notesB.resolve([{ id: "note-b", type: "MEMO", note: "B 메모", createdBy: "staff-1", authorRole: "STAFF", createdAt: "2026-07-03T00:05:00.000Z" }]);
+    await screen.findByText("B 메모");
+    notesA.resolve([{ id: "note-a", type: "MEMO", note: "A 메모", createdBy: "staff-1", authorRole: "STAFF", createdAt: "2026-07-03T00:05:00.000Z" }]);
+
+    await waitFor(() => expect(screen.queryByText("A 메모")).toBeNull());
+    expect(screen.getByRole("dialog", { name: "202호 메모 히스토리" })).toBeTruthy();
+  });
+
+  it("shows a notes error instead of an empty history after a notes request fails", async () => {
+    const { alertService } = await import("@/services/alertService");
+    vi.mocked(alertService.listNotes).mockRejectedValueOnce(new Error("메모를 불러오지 못했습니다."));
+
+    render(<AlertsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "메모 보기" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("메모를 불러오지 못했습니다.");
+    expect(screen.queryByText("저장된 메모가 없습니다.")).toBeNull();
+  });
+
+  it("closes the notes modal from Escape and its backdrop", async () => {
+    const { rerender } = render(<AlertsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "메모 보기" }));
+    const dialog = await screen.findByRole("dialog", { name: "201호 메모 히스토리" });
+
+    expect(document.activeElement).toBe(dialog);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    rerender(<AlertsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "메모 보기" }));
+    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

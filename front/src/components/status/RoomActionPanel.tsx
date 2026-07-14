@@ -59,14 +59,28 @@ export function RoomActionPanel({
   const targetAlertId = alerts[0]?.id;
   const canWriteNote = Boolean(targetAlertId);
   const [notes, setNotes] = useState<AlertNote[]>([]);
-  const [historyAlertId, setHistoryAlertId] = useState<string | null>(targetAlertId ?? null);
+  const [history, setHistory] = useState({ spaceId: space.id, alertId: targetAlertId ?? null });
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
+  const historyAlertId = history.spaceId === space.id ? history.alertId : null;
+  const historyIsCurrent = history.spaceId === space.id;
+  const visibleNotes = historyIsCurrent ? notes : [];
+  const visibleNoteError = historyIsCurrent ? noteError : null;
 
   useEffect(() => {
-    if (targetAlertId) setHistoryAlertId(targetAlertId);
-  }, [targetAlertId]);
+    if (history.spaceId !== space.id) {
+      setNotes([]);
+      setNoteError(null);
+      setNotesLoading(false);
+    }
+    setHistory((current) => {
+      if (current.spaceId !== space.id) {
+        return { spaceId: space.id, alertId: targetAlertId ?? null };
+      }
+      return targetAlertId ? { ...current, alertId: targetAlertId } : current;
+    });
+  }, [space.id, targetAlertId]);
 
   useEffect(() => {
     let ignore = false;
@@ -204,20 +218,20 @@ export function RoomActionPanel({
           {busy ? "처리 중" : "확인완료"}
         </button>
       </div>
-      {noteError && (
+      {visibleNoteError && (
         <div role="alert" className="mt-2 rounded-2xl bg-status-dangerBg px-4 py-3 text-staff-body font-bold text-status-danger">
-          {noteError}
+          {visibleNoteError}
         </div>
       )}
       <div className="mt-4 rounded-2xl bg-bg px-4 py-3">
         <div className="text-staff-body font-black text-ink">메모 히스토리</div>
-        {notesLoading ? (
+        {notesLoading && historyIsCurrent ? (
           <div className="mt-2 text-staff-body font-bold text-ink-soft">메모를 불러오는 중입니다.</div>
-        ) : notes.length === 0 ? (
+        ) : visibleNotes.length === 0 ? (
           <div className="mt-2 text-staff-body font-bold text-ink-soft">저장된 메모가 없습니다.</div>
         ) : (
           <ul className="mt-3 space-y-2">
-            {notes.map((item) => (
+            {visibleNotes.map((item) => (
               <li key={item.id} className="rounded-xl bg-surface2 px-3 py-2">
                 <div className="text-staff-body font-black text-ink">{item.note}</div>
                 <div className="mt-1 text-base font-bold text-ink-soft">
