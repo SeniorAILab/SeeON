@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { alertService } from "./alertService";
-import { resolveAlert, resolveAlertEndpoint } from "./api/alertEndpoints";
+import { resolveAlertEndpoint } from "./api/alertEndpoints";
 import { createAlertNote, listAlertNotes } from "./api/alertNotes";
 
 vi.mock("./api/alertEndpoints", () => ({
-  resolveAlert: vi.fn(),
   listAlertsEndpoint: vi.fn(),
   resolveAlertEndpoint: vi.fn(),
 }));
@@ -15,7 +14,6 @@ vi.mock("./api/alertNotes", () => ({
   listAlertNotes: vi.fn(),
 }));
 
-const resolveAlertMock = vi.mocked(resolveAlert);
 const createAlertNoteMock = vi.mocked(createAlertNote);
 const listAlertNotesMock = vi.mocked(listAlertNotes);
 const resolveAlertEndpointMock = vi.mocked(resolveAlertEndpoint);
@@ -25,14 +23,13 @@ describe("alertService endpoint delegation", () => {
     vi.clearAllMocks();
   });
 
-  it("resolves alerts through resolveAlert, not resolveAlertEndpoint", async () => {
-    resolveAlertMock.mockResolvedValue({ id: "a1" } as never);
+  it("resolves alerts through resolveAlertEndpoint", async () => {
+    resolveAlertEndpointMock.mockResolvedValue({ id: "a1" } as never);
 
-    await alertService.resolveAlertById("a1");
+    await alertService.resolve("a1");
 
-    expect(resolveAlertMock).toHaveBeenCalledTimes(1);
-    expect(resolveAlertMock).toHaveBeenCalledWith("a1");
-    expect(resolveAlertEndpointMock).not.toHaveBeenCalled();
+    expect(resolveAlertEndpointMock).toHaveBeenCalledTimes(1);
+    expect(resolveAlertEndpointMock).toHaveBeenCalledWith("a1");
   });
 
   it("creates alert notes through api/alertNotes", async () => {
