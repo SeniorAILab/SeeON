@@ -10,6 +10,14 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
 
+function duplicateFacilityNames(facilities: Facility[]) {
+  const nameCounts = new Map<string, number>();
+  for (const facility of facilities) {
+    nameCounts.set(facility.name, (nameCounts.get(facility.name) ?? 0) + 1);
+  }
+  return new Set([...nameCounts].filter(([, count]) => count > 1).map(([name]) => name));
+}
+
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -55,6 +63,7 @@ export function SuperAdminDashboardPage() {
     switchFacility(facilityId);
     navigate(path);
   }
+  const duplicatedFacilityNames = duplicateFacilityNames(facilities);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -111,7 +120,11 @@ export function SuperAdminDashboardPage() {
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <h3 className="break-keep text-lg font-bold text-ink">{facility.name}</h3>
-                    <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
+                    {facility.address.trim() ? (
+                      <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
+                    ) : duplicatedFacilityNames.has(facility.name) ? (
+                      <p className="mt-1 text-sm text-ink-soft">시설 ID: {facility.id.slice(-6)}</p>
+                    ) : null}
                     <p className="mt-0.5 text-sm text-ink-soft">{facility.phone}</p>
                   </div>
                 </div>
