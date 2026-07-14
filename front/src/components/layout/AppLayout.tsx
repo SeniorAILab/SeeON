@@ -20,6 +20,24 @@ import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { FACILITIES_PICKER_PATH, adminPath, dashboardPath } from "@/lib/routeAccess";
 
+function duplicateFacilityNames(facilities: { name: string }[]) {
+  const nameCounts = new Map<string, number>();
+  for (const facility of facilities) {
+    nameCounts.set(facility.name, (nameCounts.get(facility.name) ?? 0) + 1);
+  }
+  return new Set([...nameCounts].filter(([, count]) => count > 1).map(([name]) => name));
+}
+
+function facilityOptionLabel(
+  facility: { id: string; name: string; address: string },
+  duplicatedNames: Set<string>,
+) {
+  if (!duplicatedNames.has(facility.name)) return facility.name;
+
+  const disambiguator = (facility.address ?? "").trim() || facility.id.slice(-6);
+  return `${facility.name} (${disambiguator})`;
+}
+
 export function AppLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -60,6 +78,7 @@ export function AppLayout() {
     userRole === "SUPER_ADMIN" ? null : userFacilityId,
     facilities,
   );
+  const duplicatedFacilityNames = duplicateFacilityNames(myFacilities);
   const activeFacilityId = userRole === "SUPER_ADMIN" ? currentFacilityId : userFacilityId;
   const currentFacility = myFacilities.find((f) => f.id === activeFacilityId) ?? null;
   const facilityLabel = currentFacility?.name ?? activeFacilityId ?? "전역 개요";
@@ -169,7 +188,9 @@ export function AppLayout() {
                 >
                   <option value="__global__">전역 개요</option>
                   {myFacilities.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
+                    <option key={f.id} value={f.id}>
+                      {facilityOptionLabel(f, duplicatedFacilityNames)}
+                    </option>
                   ))}
                 </select>
               </label>

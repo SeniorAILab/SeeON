@@ -5,13 +5,20 @@ import { SuperAdminDashboardPage } from "./SuperAdminDashboardPage";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+const DUPLICATE_FACILITY_NAME = "행복한요양원 녹양역점";
 
 
 const seededFacility = {
   id: SCOPED_FACILITY_ID,
-  name: "행복한요양원 녹양역점",
+  name: DUPLICATE_FACILITY_NAME,
   address: "경기도 의정부시 녹양로 12",
   phone: "031-123-4567",
+};
+const orphanDuplicateFacility = {
+  id: "facility-orphan",
+  name: DUPLICATE_FACILITY_NAME,
+  address: null,
+  phone: "031-000-0000",
 };
 
 function okJsonResponse(body: unknown): Response {
@@ -107,5 +114,25 @@ describe("SuperAdminDashboardPage", () => {
     await waitFor(() =>
       expect(useFacilityStore.getState().currentFacilityId).toBe(SCOPED_FACILITY_ID)
     );
+  });
+  it("disambiguates a duplicate facility with a null backend address using its ID suffix", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () =>
+        okJsonResponse([seededFacility, orphanDuplicateFacility]),
+      ),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findAllByRole("heading", { name: DUPLICATE_FACILITY_NAME }),
+    ).toHaveLength(2);
+    expect(screen.getByText("경기도 의정부시 녹양로 12")).toBeTruthy();
+    expect(screen.getByText("시설 ID: orphan")).toBeTruthy();
   });
 });
