@@ -13,6 +13,8 @@ import {
   forbiddenPathForUser,
 } from "./routeAccess";
 import type { User } from "@/types";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 function user(role: User["role"], facilityId: string | null): User {
   return {
@@ -40,13 +42,13 @@ describe("routeAccess", () => {
   });
 
   it("builds cuid facility id scoped URL helpers", () => {
-    expect(facilityRootPath("fac_happy_nokyang")).toBe("/facilities/fac_happy_nokyang");
-    expect(dashboardPath("fac_happy_nokyang")).toBe("/facilities/fac_happy_nokyang/dashboard");
-    expect(floorSelectPath("fac_happy_nokyang")).toBe("/facilities/fac_happy_nokyang/floors");
-    expect(floorPath("fac_happy_nokyang", "fl-2f")).toBe("/facilities/fac_happy_nokyang/floor/fl-2f");
-    expect(alertsPath("fac_happy_nokyang")).toBe("/facilities/fac_happy_nokyang/alerts");
-    expect(adminPath("fac_happy_nokyang")).toBe("/facilities/fac_happy_nokyang/admin");
-    expect(adminPath("fac_happy_nokyang", "events/a1")).toBe("/facilities/fac_happy_nokyang/admin/events/a1");
+    expect(facilityRootPath(SCOPED_FACILITY_ID)).toBe(`/facilities/${SCOPED_FACILITY_ID}`);
+    expect(dashboardPath(SCOPED_FACILITY_ID)).toBe(`/facilities/${SCOPED_FACILITY_ID}/dashboard`);
+    expect(floorSelectPath(SCOPED_FACILITY_ID)).toBe(`/facilities/${SCOPED_FACILITY_ID}/floors`);
+    expect(floorPath(SCOPED_FACILITY_ID, "fl-2f")).toBe(`/facilities/${SCOPED_FACILITY_ID}/floor/fl-2f`);
+    expect(alertsPath(SCOPED_FACILITY_ID)).toBe(`/facilities/${SCOPED_FACILITY_ID}/alerts`);
+    expect(adminPath(SCOPED_FACILITY_ID)).toBe(`/facilities/${SCOPED_FACILITY_ID}/admin`);
+    expect(adminPath(SCOPED_FACILITY_ID, "events/a1")).toBe(`/facilities/${SCOPED_FACILITY_ID}/admin/events/a1`);
   });
 
   it("권한 거부는 직원 홈으로 숨기지 않고 접근 거부 경로로 보낸다", () => {

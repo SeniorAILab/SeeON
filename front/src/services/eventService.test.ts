@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -10,7 +12,7 @@ function okJsonResponse(body: unknown): Response {
 const alertDto = {
   alertSeq: "10",
   id: "alert_201",
-  facilityId: "fac_happy_nokyang",
+  facilityId: SCOPED_FACILITY_ID,
   residentId: null,
   cameraId: "cam_sp_201",
   spaceId: "sp_201",

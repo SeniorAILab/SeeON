@@ -3,6 +3,8 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./RequireAuth";
 import { useAuthStore } from "@/stores/authStore";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 beforeEach(() => {
   useAuthStore.setState({
@@ -11,7 +13,7 @@ beforeEach(() => {
       name: "이간호",
       email: "staff@sen.ai",
       role: "STAFF",
-      facilityId: "fac_happy_nokyang",
+      facilityId: SCOPED_FACILITY_ID,
     },
     loading: false,
     error: null,

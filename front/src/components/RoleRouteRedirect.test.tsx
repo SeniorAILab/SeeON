@@ -5,6 +5,8 @@ import { RoleRouteRedirect } from "./RoleRouteRedirect";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { User } from "@/types";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 beforeEach(() => {
   useFacilityStore.setState({ currentFacilityId: null });
@@ -14,9 +16,9 @@ beforeEach(() => {
 describe("RoleRouteRedirect", () => {
   it.each([
     ["SUPER_ADMIN", null, "/facilities", "picker"],
-    ["SUPER_ADMIN", "fac_happy_nokyang", "/facilities", "picker"],
-    ["ADMIN", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/dashboard", "dashboard"],
-    ["STAFF", "fac_happy_nokyang", "/facilities/fac_happy_nokyang/floors", "floors"],
+    ["SUPER_ADMIN", SCOPED_FACILITY_ID, "/facilities", "picker"],
+    ["ADMIN", SCOPED_FACILITY_ID, `/facilities/${SCOPED_FACILITY_ID}/dashboard`, "dashboard"],
+    ["STAFF", SCOPED_FACILITY_ID, `/facilities/${SCOPED_FACILITY_ID}/floors`, "floors"],
     ["ADMIN", null, "/onboarding", "onboarding"],
     ["STAFF", null, "/access-denied", "denied"],
   ] as const)("routes %s with facility %s to %s", async (role, facilityId, _path, label) => {
