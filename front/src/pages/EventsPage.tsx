@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, Button } from "@/components/ui/primitives";
 import { RiskBadge } from "@/components/RiskBadge";
@@ -27,7 +27,11 @@ export function EventsPage() {
 
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [spaceNames, setSpaceNames] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState("ALL");
+  const [searchParams] = useSearchParams();
+  const requestedFilter = searchParams.get("filter") ?? "ALL";
+  const [filter, setFilter] = useState(() =>
+    FILTERS.some((candidate) => candidate.key === requestedFilter) ? requestedFilter : "ALL"
+  );
   const [loading, setLoading] = useState(true);
 
   async function load() {

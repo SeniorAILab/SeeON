@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomActionPanel, eventGroupsFor } from "./RoomActionPanel";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import type { AlertNote } from "@/services/alertService";
+import { formatDateTime } from "@/lib/format";
 
 vi.mock("@/services/alertService", () => ({
   alertService: {
@@ -110,6 +111,55 @@ describe("RoomActionPanel", () => {
     expect(alertService.resolve).toHaveBeenCalledWith("fall-1");
     expect(alertService.resolve).toHaveBeenCalledWith("fall-2");
     expect(alertService.resolve).not.toHaveBeenCalledWith("bed-1");
+  });
+  it("shows five newest alert rows with times and expands the remaining group alerts", () => {
+    const alerts = Array.from({ length: 8 }, (_, index) =>
+      alert({
+        id: `fall-${index}`,
+        aiSummary: `낙상 ${index}`,
+        detectedAt: `2026-07-03T00:0${index}:00.000Z`,
+      }),
+    );
+
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "더 보기 (3)" })).toBeTruthy();
+    for (let index = 7; index >= 3; index--) {
+      expect(screen.getByText(formatDateTime(`2026-07-03T00:0${index}:00.000Z`))).toBeTruthy();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기 (3)" }));
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(8);
+    expect(screen.getByRole("button", { name: "접기" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "접기" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+  });
+
+  it("resolves every alert in a group even when most rows are collapsed", async () => {
+    const alerts = Array.from({ length: 8 }, (_, index) =>
+      alert({ id: `fall-${index}`, aiSummary: `낙상 ${index}`, detectedAt: `2026-07-03T00:0${index}:00.000Z` }),
+    );
+    const { alertService } = await import("@/services/alertService");
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "그룹 확인" }));
+
+    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledTimes(8));
+    for (const item of alerts) expect(alertService.resolve).toHaveBeenCalledWith(item.id);
+  });
+
+  it("renders the newest event first within each group", () => {
+    const alerts = [
+      alert({ id: "old", aiSummary: "오래된 알림", detectedAt: "2026-07-03T00:01:00.000Z" }),
+      alert({ id: "new", aiSummary: "최신 알림", detectedAt: "2026-07-03T00:03:00.000Z" }),
+      alert({ id: "middle", aiSummary: "중간 알림", detectedAt: "2026-07-03T00:02:00.000Z" }),
+    ];
+
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
+
+    expect(screen.getAllByRole("listitem")[0].textContent).toContain("최신 알림");
   });
 
   it("keeps collapsed status fallback but does not require it for real alert grouping", () => {

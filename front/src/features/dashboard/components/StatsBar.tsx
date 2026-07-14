@@ -13,10 +13,12 @@ export function StatsBar({
   summary,
   activeFilter,
   onFilter,
+  onUnacknowledgedClick,
 }: {
   summary: DashboardSummary;
   activeFilter: string;
   onFilter: (f: string) => void;
+  onUnacknowledgedClick?: () => void;
 }) {
   const items: StatItem[] = [
     { key: "ALL", label: "전체 공간", value: summary.totalSpaces, color: "text-ink", filter: "ALL" },
@@ -30,21 +32,37 @@ export function StatsBar({
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       {items.map((it) => {
-        const clickable = !!it.filter;
-        const active = clickable && activeFilter === it.filter;
+        const isUnacknowledged = it.key === "UNACK";
+        const clickable = !!it.filter || (isUnacknowledged && it.value > 0 && !!onUnacknowledgedClick);
+        const active = !!it.filter && activeFilter === it.filter;
+        const className = cn(
+          "rounded-xl border bg-surface px-4 py-3 text-left shadow-card transition-colors",
+          clickable ? "hover:border-brand/40 cursor-pointer" : "cursor-default",
+          active ? "border-brand ring-1 ring-brand/30" : "border-border"
+        );
+        const content = (
+          <>
+            <div className={cn("text-2xl font-bold tabular-nums", it.color)}>{it.value}</div>
+            <div className="mt-0.5 text-xs text-gray-400">{it.label}</div>
+          </>
+        );
+
+        if (isUnacknowledged && !clickable) {
+          return (
+            <div key={it.key} className={className}>
+              {content}
+            </div>
+          );
+        }
+
         return (
           <button
             key={it.key}
-            disabled={!clickable}
-            onClick={() => it.filter && onFilter(it.filter)}
-            className={cn(
-              "rounded-xl border bg-surface px-4 py-3 text-left shadow-card transition-colors",
-              clickable ? "hover:border-brand/40 cursor-pointer" : "cursor-default",
-              active ? "border-brand ring-1 ring-brand/30" : "border-border"
-            )}
+            onClick={() => (it.filter ? onFilter(it.filter) : onUnacknowledgedClick?.())}
+            aria-label={isUnacknowledged ? `${it.label} ${it.value}건 보기` : undefined}
+            className={className}
           >
-            <div className={cn("text-2xl font-bold tabular-nums", it.color)}>{it.value}</div>
-            <div className="mt-0.5 text-xs text-gray-400">{it.label}</div>
+            {content}
           </button>
         );
       })}
