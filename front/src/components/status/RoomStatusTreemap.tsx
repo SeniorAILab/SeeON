@@ -95,6 +95,7 @@ export function RoomStatusTreemap({
   selectedSpaceId,
   onSelect,
   layout = "overview",
+  cardSize = "lg",
 }: {
   spaces: Space[];
   statuses: Record<string, SpaceStatus>;
@@ -102,6 +103,7 @@ export function RoomStatusTreemap({
   selectedSpaceId?: string | null;
   onSelect?: (space: Space) => void;
   layout?: RoomStatusLayout;
+  cardSize?: "lg" | "xl";
 }) {
   const groups = groupRoomsByFloor(spaces, statuses, floors);
 
@@ -124,11 +126,11 @@ export function RoomStatusTreemap({
             </span>
           </div>
           {layout === "focus" ? (
-            <FocusRoomGrid rooms={group.rooms} statuses={statuses} selectedSpaceId={selectedSpaceId} onSelect={onSelect} />
+            <FocusRoomGrid rooms={group.rooms} statuses={statuses} selectedSpaceId={selectedSpaceId} onSelect={onSelect} cardSize={cardSize} />
           ) : (
             <div className="grid auto-rows-[minmax(160px,auto)] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="list">
               {group.rooms.map((space) => (
-                <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout="overview" />
+                <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout="overview" cardSize={cardSize} />
               ))}
             </div>
           )}
@@ -150,11 +152,13 @@ function FocusRoomGrid({
   statuses,
   selectedSpaceId,
   onSelect,
+  cardSize,
 }: {
   rooms: Space[];
   statuses: Record<string, SpaceStatus>;
   selectedSpaceId?: string | null;
   onSelect?: (space: Space) => void;
+  cardSize: "lg" | "xl";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -208,6 +212,7 @@ function FocusRoomGrid({
             layout="focus"
             style={heroTileStyle(isFirstHero, span)}
             flipKey={space.id}
+            cardSize={cardSize}
           />
         );
       })}
@@ -223,6 +228,7 @@ function RoomTile({
   layout,
   style,
   flipKey,
+  cardSize,
 }: {
   space: Space;
   status?: SpaceStatus;
@@ -231,6 +237,7 @@ function RoomTile({
   layout: RoomStatusLayout;
   style?: CSSProperties;
   flipKey?: string;
+  cardSize: "lg" | "xl";
 }) {
   const level = worstStatus(status);
   const Icon = iconFor(level);
@@ -248,7 +255,7 @@ function RoomTile({
       onClick={() => onSelect?.(space)}
       style={style}
       data-flip-key={flipKey}
-      className={`relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+      className={`relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-2xl ${cardSize === "xl" ? "p-7" : "p-5"} text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
         layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""
       } ${
         layout === "overview" && isCheck ? "border-l-8 border-status-check" : ""

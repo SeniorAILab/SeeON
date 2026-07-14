@@ -112,5 +112,13 @@ export async function getDashboardFromBackend(): Promise<DashboardResponse> {
     summary: buildSummary(buildStatusesFromSpaces(spaces), 0),
     unacknowledgedEvents: [],
   };
-  return mergeAlertsIntoDashboard(baseline, alerts);
+  const dashboard = mergeAlertsIntoDashboard(baseline, alerts);
+  const statuses = Object.fromEntries(
+    Object.entries(dashboard.statuses).filter(([spaceId]) => baseline.statuses[spaceId])
+  );
+  return {
+    ...dashboard,
+    statuses,
+    summary: buildSummary(statuses, dashboard.unacknowledgedEvents.length),
+  };
 }

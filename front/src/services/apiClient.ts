@@ -117,11 +117,7 @@ export class ApiError extends Error {
 }
 const BACKEND_ERROR_MESSAGES: Record<string, string> = {
   "Invalid email or password": "이메일 또는 비밀번호가 올바르지 않습니다.",
-  "Email already exists": "이미 사용 중인 이메일입니다.",
   "Email already registered": "이미 사용 중인 이메일입니다.",
-  "User already exists": "이미 존재하는 사용자입니다.",
-  "Email already in use": "이미 사용 중인 이메일입니다.",
-  "User already exists.": "이미 존재하는 사용자입니다.",
 };
 
 export function apiErrorMessage(err: unknown, fallback: string): string {

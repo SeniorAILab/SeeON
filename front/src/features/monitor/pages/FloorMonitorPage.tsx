@@ -84,9 +84,11 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const floorTitle = allView ? "전체 층" : `${floorName} ${floorLabel(floorId, allSpaces)}`;
 
 
+  const redirectFloorId = floors.find((floor) => floor.id === defaultFloorId)?.id ?? floors[0]?.id ?? null;
+
   if (!facilityId) return <Navigate to={ACCESS_DENIED_PATH} replace />;
-  if (allView && !allowAllView && defaultFloorId !== "all") {
-    return <Navigate to={floorPath(facilityId, defaultFloorId)} replace />;
+  if (allView && !allowAllView && redirectFloorId) {
+    return <Navigate to={floorPath(facilityId, redirectFloorId)} replace />;
   }
 
   if (!facility) {

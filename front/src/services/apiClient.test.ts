@@ -188,7 +188,7 @@ describe("apiClient.requestJson", () => {
   });
 });
 describe("apiErrorMessage", () => {
-  it("maps known Nest API error messages and falls back for raw or malformed errors", async () => {
+  it("maps backend-produced error messages and falls back for raw or malformed errors", async () => {
     const { ApiError, apiErrorMessage } = await import("./apiClient");
     const fallback = "요청을 처리하지 못했습니다.";
 
