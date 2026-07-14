@@ -100,6 +100,37 @@ describe("dashboardEndpoints", () => {
     expect(dashboard.summary.danger).toBe(1);
   });
 
+  it("counts only active spaces in dashboard summary and statuses", async () => {
+    const inactiveSpace = { ...spaces[0], id: "sp_202", name: "202호", isActive: false };
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/auth/me")) {
+        return okJsonResponse({
+          id: "user-1",
+          email: "admin@sen.ai",
+          nickname: "원장",
+          role: "ADMIN",
+          facilityId: facility.id,
+        });
+      }
+      if (url.endsWith(`/facilities/${facility.id}`)) return okJsonResponse(facility);
+      if (url.endsWith("/floors")) return okJsonResponse(floors);
+      if (url.endsWith("/spaces")) return okJsonResponse([...spaces, inactiveSpace]);
+      if (url.endsWith("/alerts")) return okJsonResponse([]);
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getDashboardFromBackend } = await import("./dashboardEndpoints");
+    const dashboard = await getDashboardFromBackend();
+
+    expect(dashboard.spaces).toHaveLength(2);
+    expect(dashboard.statuses).toEqual(
+      expect.objectContaining({ sp_201: expect.objectContaining({ spaceId: "sp_201" }) })
+    );
+    expect(dashboard.statuses).not.toHaveProperty("sp_202");
+    expect(dashboard.summary.totalSpaces).toBe(1);
+  });
   it("gets the current facility through /auth/me then /facilities/:id", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
