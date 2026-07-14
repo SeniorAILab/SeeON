@@ -24,12 +24,7 @@ export const eventService = {
   },
 
   async listByFacility(facilityId: string): Promise<DetectionEvent[]> {
-    const events = await Promise.all(
-      (await listAlerts()).map(async (event) => ({
-        ...event,
-        actions: await listAlertNotes(event.id).catch(() => []),
-      })),
-    );
+    const events = (await listAlerts()).map((event) => ({ ...event, actions: [] }));
     alertCache = events;
     return events
       .filter((e) => e.facilityId === facilityId)
