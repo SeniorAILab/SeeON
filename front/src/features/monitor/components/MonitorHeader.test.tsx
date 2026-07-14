@@ -24,7 +24,7 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname}</div>;
 }
 
-function renderHeader(currentFloorId: string | null = "fl_1f") {
+function renderHeader(currentFloorId: string | null = "fl_1f", showAllView = true) {
   return render(
     <MemoryRouter initialEntries={["/facilities/fac_happy/floor/fl_1f"]}>
       <Routes>
@@ -46,6 +46,7 @@ function renderHeader(currentFloorId: string | null = "fl_1f") {
                 floors={floors}
                 currentFloorId={currentFloorId}
                 facilityId="fac_happy"
+                showAllView={showAllView}
               />
               <LocationProbe />
             </>
@@ -83,5 +84,12 @@ describe("MonitorHeader floor selector", () => {
 
     const floorNav = screen.getByRole("navigation", { name: "층 선택" });
     expect(within(floorNav).getByRole("button", { name: "전체" }).getAttribute("aria-current")).toBe("page");
+  });
+  it("hides only the all-floor tab when all-floor viewing is disabled", () => {
+    renderHeader("fl_1f", false);
+
+    const floorNav = screen.getByRole("navigation", { name: "층 선택" });
+    expect(within(floorNav).queryByRole("button", { name: "전체" })).toBeNull();
+    expect(within(floorNav).getAllByRole("button").map((button) => button.textContent)).toEqual(["1F", "2F"]);
   });
 });

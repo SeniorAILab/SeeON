@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminSpacesPage } from "./AdminSpacesPage";
-import { deleteFloor, listFloors } from "@/services/api/floors";
+import { createFloor, deleteFloor, listFloors, updateFloor } from "@/services/api/floors";
 import { createSpace, deleteSpace, listSpaces, updateSpace } from "@/services/api/spaces";
 import { ApiError } from "@/services/apiClient";
 
@@ -25,6 +25,8 @@ const createSpaceMock = vi.mocked(createSpace);
 const updateSpaceMock = vi.mocked(updateSpace);
 const deleteSpaceMock = vi.mocked(deleteSpace);
 const deleteFloorMock = vi.mocked(deleteFloor);
+const createFloorMock = vi.mocked(createFloor);
+const updateFloorMock = vi.mocked(updateFloor);
 
 describe("AdminSpacesPage", () => {
   beforeEach(() => {
@@ -105,13 +107,43 @@ describe("AdminSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "201호 숨김" }));
 
     await waitFor(() => expect(screen.getByText("숨김")).toBeTruthy());
-    expect(screen.getByRole("button", { name: "복원" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "201호 복원" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "201호 숨김" })).toBeNull();
     expect(screen.getByText("201호 공간을 숨겼습니다.")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "복원" }));
+    fireEvent.click(screen.getByRole("button", { name: "201호 복원" }));
     await waitFor(() => expect(updateSpaceMock).toHaveBeenCalledWith("sp_201", { isActive: true }));
     expect(screen.getByText("201호 공간을 복원했습니다.")).toBeTruthy();
+  });
+
+  it("shows a friendly error when adding a floor fails", async () => {
+    createFloorMock.mockRejectedValue(
+      new ApiError(409, JSON.stringify({ message: "같은 이름의 층이 이미 존재합니다." }))
+    );
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByText("201호")).toBeTruthy());
+    fireEvent.change(screen.getByPlaceholderText("새 층 이름 (예: 5F)"), { target: { value: "2F" } });
+    fireEvent.click(screen.getByRole("button", { name: "층 추가" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("같은 이름의 층이 이미 존재합니다.")).toBeTruthy()
+    );
+    expect(screen.queryByText(/"message"/)).toBeNull();
+  });
+
+  it("shows a fallback error when saving a floor fails", async () => {
+    updateFloorMock.mockRejectedValue(new ApiError(400, "invalid validation response"));
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "2F 이름 수정" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "2F 이름 수정" }));
+    fireEvent.click(screen.getByRole("button", { name: "층 이름 저장" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("층 이름을 저장할 수 없습니다. 다시 시도하세요.")).toBeTruthy()
+    );
+    expect(screen.queryByText("invalid validation response")).toBeNull();
   });
 
   it("shows the active-space conflict returned by the backend when floor deletion fails", async () => {
@@ -142,12 +174,13 @@ describe("AdminSpacesPage", () => {
     );
   });
 
-  it("gives floor edit save and cancel controls accessible names", async () => {
+  it("gives the floor edit controls accessible names", async () => {
     render(<AdminSpacesPage />);
 
     await waitFor(() => expect(screen.getByRole("button", { name: "2F 이름 수정" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "2F 이름 수정" }));
 
+    expect(screen.getByRole("textbox", { name: "2F 층 이름 편집" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "층 이름 저장" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "수정 취소" })).toBeTruthy();
   });

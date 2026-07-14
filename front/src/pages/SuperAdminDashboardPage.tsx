@@ -5,6 +5,7 @@ import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { adminPath, dashboardPath } from "@/lib/routeAccess";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
+import { apiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
@@ -31,8 +32,7 @@ export function SuperAdminDashboardPage() {
         setFacilitiesStore(nextFacilities);
       } catch (caught) {
         if (!active) return;
-        const message = caught instanceof Error ? caught.message : "시설 목록을 불러오지 못했습니다.";
-        setError(message);
+        setError(apiErrorMessage(caught, "시설 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요."));
         setFacilities([]);
         setFacilitiesStore([]);
       } finally {

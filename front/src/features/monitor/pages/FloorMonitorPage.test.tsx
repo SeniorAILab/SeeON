@@ -8,6 +8,7 @@ import { dashboardService } from "@/services/dashboardService";
 
 const useTTSAlertsMock = vi.fn();
 const roomStatusBoardMock = vi.fn((_props: unknown) => <div />);
+const monitorHeaderMock = vi.fn((_props: unknown) => <div />);
 const facilityId = "fac_happy_nokyang";
 
 vi.mock("react-router-dom", async () => {
@@ -32,7 +33,9 @@ vi.mock("@/features/monitor/hooks/useRealtimeSpaceStatus", () => ({
     lastUpdateAt: null,
   }),
 }));
-vi.mock("@/features/monitor/components/MonitorHeader", () => ({ MonitorHeader: () => <div /> }));
+vi.mock("@/features/monitor/components/MonitorHeader", () => ({
+  MonitorHeader: (props: unknown) => monitorHeaderMock(props),
+}));
 vi.mock("@/components/status/RoomStatusBoard", () => ({
   RoomStatusBoard: (props: unknown) => roomStatusBoardMock(props),
 }));
@@ -86,5 +89,16 @@ describe("FloorMonitorPage", () => {
     const redirect = await screen.findByTestId("redirect");
     expect(redirect.getAttribute("data-to")).toContain("/fl_2f");
     expect(redirect.getAttribute("data-to")).not.toContain("/all");
+  });
+  it("keeps individual floor navigation when all-floor viewing is disabled", async () => {
+    useMonitorSettingsStore.setState({ allowAllView: false });
+
+    render(<FloorMonitorPage />);
+
+    await waitFor(() => expect(monitorHeaderMock).toHaveBeenCalled());
+    expect(monitorHeaderMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      floors: [{ id: "fl_2f" }],
+      showAllView: false,
+    });
   });
 });
