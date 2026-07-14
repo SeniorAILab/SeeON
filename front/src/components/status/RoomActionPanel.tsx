@@ -59,20 +59,25 @@ export function RoomActionPanel({
   const targetAlertId = alerts[0]?.id;
   const canWriteNote = Boolean(targetAlertId);
   const [notes, setNotes] = useState<AlertNote[]>([]);
+  const [historyAlertId, setHistoryAlertId] = useState<string | null>(targetAlertId ?? null);
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (targetAlertId) setHistoryAlertId(targetAlertId);
+  }, [targetAlertId]);
+
+  useEffect(() => {
     let ignore = false;
-    if (!canWriteNote || !targetAlertId) {
-      setNotes([]);
+    if (!historyAlertId) {
       setNotesLoading(false);
       return;
     }
+    setNotes([]);
     setNotesLoading(true);
     setNoteError(null);
-    void alertService.listNotes(targetAlertId)
+    void alertService.listNotes(historyAlertId)
       .then((loadedNotes) => {
         if (!ignore) setNotes(loadedNotes);
       })
@@ -85,7 +90,7 @@ export function RoomActionPanel({
     return () => {
       ignore = true;
     };
-  }, [canWriteNote, targetAlertId]);
+  }, [historyAlertId]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -101,7 +106,7 @@ export function RoomActionPanel({
     if (ids.length === 0 || busy) return;
     setBusy(true);
     try {
-      await Promise.all(ids.map((id) => alertService.resolveAlertById(id)));
+      await Promise.all(ids.map((id) => alertService.resolve(id)));
       onResolved?.();
     } finally {
       setBusy(false);
