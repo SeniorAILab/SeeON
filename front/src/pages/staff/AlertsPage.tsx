@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { CheckCheck } from "lucide-react";
 import { StaffStatusBadge } from "@/components/staff/StaffStatusBadge";
 import { formatDateTime } from "@/lib/format";
-import { alertService } from "@/services/alertService";
+import { alertService, type AlertNote } from "@/services/alertService";
 import type { AlertStatus, AlertView, SpaceStatusLevel } from "@/types";
 
 const typeLabels: Record<string, string> = {
@@ -22,6 +22,9 @@ export function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notesAlert, setNotesAlert] = useState<AlertView | null>(null);
+  const [notes, setNotes] = useState<AlertNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,12 +51,22 @@ export function AlertsPage() {
     [alerts]
   );
 
-  async function resolveNew(alert: AlertView) {
-    await runAction(alert.id, () => alertService.resolveNew(alert.id));
-  }
-
   async function resolve(alert: AlertView) {
     await runAction(alert.id, () => alertService.resolve(alert.id));
+  }
+
+  async function openNotes(alert: AlertView) {
+    setNotesAlert(alert);
+    setNotes([]);
+    setNotesLoading(true);
+    setError(null);
+    try {
+      setNotes(await alertService.listNotes(alert.id));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setNotesLoading(false);
+    }
   }
 
   async function runAction(id: string, action: () => Promise<AlertView>) {
@@ -92,7 +105,7 @@ export function AlertsPage() {
             renderAction={(alert) => (
               <button
                 disabled={busyId !== null}
-                onClick={() => resolveNew(alert)}
+                onClick={() => resolve(alert)}
                 className="min-h-[56px] rounded-xl bg-brand px-6 text-staff-btn text-white disabled:opacity-60"
               >
                 확인
@@ -127,7 +140,51 @@ export function AlertsPage() {
                 alert.resolvedAt ?? alert.detectedAt
               )}`
             }
+            renderAction={(alert) => (
+              <button
+                type="button"
+                onClick={() => void openNotes(alert)}
+                className="min-h-[56px] rounded-xl border border-border px-6 text-staff-btn text-ink hover:bg-surface2"
+              >
+                메모 보기
+              </button>
+            )}
           />
+          {notesAlert && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${notesAlert.room} 메모 히스토리`}
+              className="rounded-2xl border-2 border-border bg-surface p-5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-staff-status text-ink">{notesAlert.room} 메모 히스토리</h2>
+                <button
+                  type="button"
+                  onClick={() => setNotesAlert(null)}
+                  className="min-h-12 rounded-xl border border-border px-4 text-staff-btn text-ink hover:bg-surface2"
+                >
+                  닫기
+                </button>
+              </div>
+              {notesLoading ? (
+                <p className="mt-3 text-staff-body text-ink-soft">메모를 불러오는 중입니다.</p>
+              ) : notes.length === 0 ? (
+                <p className="mt-3 text-staff-body text-ink-soft">저장된 메모가 없습니다.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {notes.map((note) => (
+                    <li key={note.id} className="rounded-xl bg-surface2 px-3 py-2">
+                      <div className="text-staff-body font-black text-ink">{note.note}</div>
+                      <div className="mt-1 text-base font-bold text-ink-soft">
+                        {note.authorRole} · {formatDateTime(note.createdAt)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
