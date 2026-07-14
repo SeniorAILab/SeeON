@@ -52,7 +52,7 @@ export function RoomActionPanel({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const groups = useMemo(() => eventGroupsFor(status, alerts), [status, alerts]);
-  const canResolve = alerts.length > 0 || (Boolean(status?.id) && status?.status !== "STABLE");
+  const canResolve = alerts.length > 0;
   // B4 alert-notes attach to a real Alert id. SpaceStatus.id is a synthetic
   // `status-<spaceId>` key (see alertMerge), never a valid alert id, so notes
   // target the current event's real alert id from `alerts`.
@@ -73,14 +73,9 @@ export function RoomActionPanel({
       setNotes([]);
       setNoteError(null);
       setNotesLoading(false);
+      setHistory({ spaceId: space.id, alertId: targetAlertId ?? null });
     }
-    setHistory((current) => {
-      if (current.spaceId !== space.id) {
-        return { spaceId: space.id, alertId: targetAlertId ?? null };
-      }
-      return targetAlertId ? { ...current, alertId: targetAlertId } : current;
-    });
-  }, [space.id, targetAlertId]);
+  }, [history.spaceId, space.id, targetAlertId]);
 
   useEffect(() => {
     let ignore = false;
@@ -116,7 +111,7 @@ export function RoomActionPanel({
 
 
   async function handleResolve(alertIds?: string[]) {
-    const ids = alertIds ?? (alerts.length > 0 ? alerts.map((alert) => alert.id) : status?.id ? [status.id] : []);
+    const ids = alertIds ?? alerts.map((alert) => alert.id);
     if (ids.length === 0 || busy) return;
     setBusy(true);
     try {
@@ -134,7 +129,9 @@ export function RoomActionPanel({
     setNoteError(null);
     try {
       await alertService.createNote(targetAlertId, trimmed);
-      setNotes(await alertService.listNotes(targetAlertId));
+      if (targetAlertId === historyAlertId) {
+        setNotes(await alertService.listNotes(targetAlertId));
+      }
       setNote("");
     } catch (error) {
       setNoteError(
