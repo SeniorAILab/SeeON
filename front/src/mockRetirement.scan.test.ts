@@ -59,7 +59,7 @@ const retiredDocReferencePattern = new RegExp(
     .map((reference) =>
       reference
         .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-        .replaceAll("/", "[\\\\/]")
+        .replace(/\//g, "[\\\\/]")
     )
     .join("|"),
   "gi"
@@ -104,7 +104,7 @@ async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
     entries.map(async (entry) => {
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) return collectSourceFiles(absolutePath);
-      if (/\.(ts|tsx)$/.test(entry.name)) return [absolutePath];
+      if (/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(entry.name)) return [absolutePath];
       return [];
     })
   );
@@ -140,10 +140,11 @@ function normalizeImportSource(importer: string, specifier: string): string | nu
 
 function importSources(relativePath: string, source: string): string[] {
   const imports = source.matchAll(
-    /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g
+    /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)|require\(\s*["']([^"']+)["']\s*\)/g
   );
-  return Array.from(imports, (match) => normalizeImportSource(relativePath, match[1] ?? match[2]))
-    .filter((specifier): specifier is string => specifier !== null);
+  return Array.from(imports, (match) =>
+    normalizeImportSource(relativePath, match[1] ?? match[2] ?? match[3])
+  ).filter((specifier): specifier is string => specifier !== null);
 }
 
 async function pathExists(relativePath: string): Promise<boolean> {
@@ -241,7 +242,10 @@ describe("retired frontend mock regressions", () => {
     );
 
     for (const { relativePath, allowDeletionNotes, source } of surfaces) {
-      expect(findRetiredDocReferences(source, { allowDeletionNotes })).toEqual([]);
+      const flagged = findRetiredDocReferences(source, { allowDeletionNotes }).map(
+        (finding) => `${relativePath} ${finding}`
+      );
+      expect(flagged).toEqual([]);
     }
   });
 });
@@ -313,5 +317,24 @@ describe("retired reference predicates", () => {
   it("rejects an unrelated trailing deletion marker", () => {
     const line = "services/db.ts를 사용합니다. 오래된 캐시는 삭제되었습니다.";
     expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+});
+describe("retired import scan forms", () => {
+  // 픽스처 문자열은 이 파일 자체가 스캔에 걸리지 않도록 토큰을 분할해 조립한다.
+  const requireToken = ["req", "uire"].join("");
+  const importToken = ["imp", "ort"].join("");
+
+  it("normalizes require() references to retired specifiers", () => {
+    const source = `const db = ${requireToken}("${["..", "src", "services", "db"].join("/")}");`;
+    const sources = importSources("scripts/build.cjs", source);
+    expect(sources).toEqual(["services/db"]);
+    expect(sources.some(isRetiredImportSpecifier)).toBe(true);
+  });
+
+  it("normalizes dynamic import() references to retired specifiers", () => {
+    const source = `await ${importToken}("${["@", "data", "mockData"].join("/")}");`;
+    const sources = importSources("src/router.tsx", source);
+    expect(sources).toEqual(["data/mockData"]);
+    expect(sources.some(isRetiredImportSpecifier)).toBe(true);
   });
 });
