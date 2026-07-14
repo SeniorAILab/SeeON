@@ -173,7 +173,7 @@ src/
 행복한요양원 녹양역점에서 바로 검증할 **PoC**가 1차 목표이되, 구조는 처음부터 **SaaS Ready**로 설계합니다.
 
 - **SaaS Ready**: 핵심 백엔드 엔티티는 `facilityId`를 통해 시설 스코프를 가집니다(Facility·Floor·Space·Zone·Resident·ResidentAssignment·Guardian·Camera·Alert 등). 프론트 경로는 역할 다형 진입점(`/dashboard`, `/admin/*`)을 사용하고, API 요청은 cookie JWT + `X-Facility-Id`/SSE query selector 계약을 따릅니다.
-- **Privacy First — 얼굴 인식 미사용**: 로그인·층 선택·모니터 헤더·배정 화면에 "얼굴 인식을 사용하지 않습니다" 안내를 명시했습니다(`PrivacyNotice`). AI는 "어느 공간/구역에서 어떤 행동인지"만 알고, "그 사람이 누구인지"는 모릅니다. 개인 매핑(202호 침대A → 김○○)은 요양원 DB(`ResidentAssignment`)에서만 관리합니다.
+- **Privacy First — 얼굴 인식 미사용**: 로그인·온보딩·회원가입 화면에 "얼굴 인식을 사용하지 않습니다" 안내를 명시했습니다(`PrivacyNotice`). AI는 "어느 공간/구역에서 어떤 행동인지"만 알고, "그 사람이 누구인지"는 모릅니다. 개인 매핑(202호 침대A → 김○○)은 요양원 DB(`ResidentAssignment`)에서만 관리합니다.
 
 ### 로드맵(미구현): 구역/침대(Zone) + 어르신 배정(ResidentAssignment)
 
@@ -199,7 +199,7 @@ src/
 - 로드맵 직원 화면: "지금 확인할 곳"(`/dashboard`) 상단에 "오늘 집중 관찰 필요 N명" 섹션을 표시합니다. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"와 **확인함 / 직원 방문 중 / 도움 요청** 3버튼, "음성으로 듣기" TTS 안내를 제공합니다.
 - 과거의 `focus-residents` 관리자 화면과 fixture `services/residentService.ts`는 제거되었습니다.
 - 로드맵 관리자 화면: 실제 백엔드 route가 준비되면 관심 어르신 관리 화면을 배선합니다.
-- 로드맵 TTS 안내: "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 안내합니다. `src/services/tts/announceFocus.ts` 스텁은 삭제되었으며, 기능 재구현은 issue #474에서 추적합니다.
+- 로드맵 TTS 안내: "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 안내합니다. 기존 no-op 스텁 `src/services/tts/announceFocus.ts`는 삭제되었으며, 기능 재구현은 issue #474에서 추적합니다.
 - 데이터 모델 상태: `Resident`와 배정 정보의 백엔드 route는 있으나, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI 호환 타입이며 관심 어르신 UI를 제공하지 않습니다.
 
 ---
