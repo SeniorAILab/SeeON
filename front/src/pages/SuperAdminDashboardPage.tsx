@@ -120,7 +120,7 @@ export function SuperAdminDashboardPage() {
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <h3 className="break-keep text-lg font-bold text-ink">{facility.name}</h3>
-                    {facility.address.trim() ? (
+                    {(facility.address ?? "").trim() ? (
                       <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
                     ) : duplicatedFacilityNames.has(facility.name) ? (
                       <p className="mt-1 text-sm text-ink-soft">시설 ID: {facility.id.slice(-6)}</p>
