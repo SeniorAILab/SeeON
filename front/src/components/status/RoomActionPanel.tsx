@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { alertService, type AlertNote } from "@/services/alertService";
 import { ApiError } from "@/services/apiClient";
@@ -53,6 +53,8 @@ export function RoomActionPanel({
   onClose: () => void;
   onResolved?: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [visibleAlertCounts, setVisibleAlertCounts] = useState<Record<string, number>>({});
@@ -106,13 +108,43 @@ export function RoomActionPanel({
     };
   }, [historyAlertId]);
 
+  const closePanel = useCallback(() => {
+    triggerRef.current?.focus();
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closePanel();
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  }, [closePanel]);
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) {
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
 
   async function handleResolve(alertIds?: string[]) {
@@ -150,20 +182,23 @@ export function RoomActionPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onMouseDown={closePanel}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={space.name}
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-border bg-surface p-4 shadow-modal"
         onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={trapFocus}
       >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="break-keep text-2xl font-black leading-tight text-ink 2xl:text-3xl">{space.name}</div>
           <div className="mt-1 text-lg font-bold text-ink-soft">{statusWord[status?.status ?? "STABLE"]}</div>
         </div>
-        <button type="button" onClick={onClose} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="모달 닫기">
+        <button type="button" onClick={closePanel} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="모달 닫기">
           <X className="h-7 w-7" />
         </button>
       </div>
