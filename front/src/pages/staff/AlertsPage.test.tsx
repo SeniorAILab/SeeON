@@ -96,18 +96,29 @@ describe("AlertsPage resolved notes", () => {
     expect(screen.queryByText("저장된 메모가 없습니다.")).toBeNull();
   });
 
-  it("closes the notes modal from Escape and its backdrop", async () => {
+  it("traps focus in the notes modal and restores it to the trigger on close", async () => {
     const { rerender } = render(<AlertsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "메모 보기" }));
+    const trigger = await screen.findByRole("button", { name: "메모 보기" });
+    fireEvent.click(trigger);
     const dialog = await screen.findByRole("dialog", { name: "201호 메모 히스토리" });
+    const closeButton = screen.getByRole("button", { name: "닫기" });
 
     expect(document.activeElement).toBe(dialog);
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(closeButton);
+    closeButton.focus();
+    fireEvent.keyDown(closeButton, { key: "Tab" });
+    expect(document.activeElement).toBe(closeButton);
+
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
 
     rerender(<AlertsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "메모 보기" }));
-    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!);
+    const reopenedTrigger = await screen.findByRole("button", { name: "메모 보기" });
+    fireEvent.click(reopenedTrigger);
+    fireEvent.click(await screen.findByRole("button", { name: "닫기" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(reopenedTrigger);
   });
 });

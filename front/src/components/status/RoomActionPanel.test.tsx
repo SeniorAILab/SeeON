@@ -181,6 +181,15 @@ describe("RoomActionPanel", () => {
     expect(alertService.createNote).not.toHaveBeenCalled();
     expect(alertService.listNotes).not.toHaveBeenCalled();
   });
+  it("does not resolve a synthetic status id when no real alert exists", async () => {
+    const { alertService } = await import("@/services/alertService");
+    render(<RoomActionPanel space={spaces[1]} status={{ ...status("a", "DANGER"), id: "status-a" }} alerts={[]} onClose={vi.fn()} />);
+
+    const resolveButton = screen.getByRole("button", { name: "확인완료" }) as HTMLButtonElement;
+    expect(resolveButton.disabled).toBe(true);
+    fireEvent.click(resolveButton);
+    expect(alertService.resolve).not.toHaveBeenCalled();
+  });
   it("keeps loaded memo history after the active alert is resolved", async () => {
     const { alertService } = await import("@/services/alertService");
     vi.mocked(alertService.listNotes).mockResolvedValue([note({ note: "해결 전 메모" })]);
@@ -194,6 +203,27 @@ describe("RoomActionPanel", () => {
     expect(screen.getByText("해결 전 메모")).toBeTruthy();
     expect(screen.queryByText("저장된 메모가 없습니다.")).toBeNull();
     expect((screen.getByLabelText("메모") as HTMLTextAreaElement).disabled).toBe(true);
+    expect(alertService.listNotes).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the viewed alert memo history when a sibling alert remains active", async () => {
+    const { alertService } = await import("@/services/alertService");
+    vi.mocked(alertService.listNotes).mockImplementation(async (alertId) =>
+      alertId === "event-a" ? [note({ note: "A 메모" })] : [note({ note: "B 메모" })],
+    );
+    const { rerender } = render(
+      <RoomActionPanel
+        space={spaces[1]}
+        status={status("a", "DANGER")}
+        alerts={[alert({ id: "event-a" }), alert({ id: "event-b" })]}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("A 메모")).toBeTruthy();
+    rerender(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert({ id: "event-b" })]} onClose={vi.fn()} />);
+
+    expect(screen.getByText("A 메모")).toBeTruthy();
+    expect(screen.queryByText("B 메모")).toBeNull();
     expect(alertService.listNotes).toHaveBeenCalledTimes(1);
   });
   it("does not retain space A notes when rerendered for space B without alerts", async () => {

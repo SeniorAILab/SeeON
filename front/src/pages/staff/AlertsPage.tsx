@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { CheckCheck } from "lucide-react";
 import { StaffStatusBadge } from "@/components/staff/StaffStatusBadge";
 import { formatDateTime } from "@/lib/format";
@@ -28,6 +28,7 @@ export function AlertsPage() {
   const [notesError, setNotesError] = useState<string | null>(null);
   const notesRequestId = useRef(0);
   const notesDialogRef = useRef<HTMLDivElement>(null);
+  const notesTriggerRef = useRef<HTMLButtonElement | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -81,6 +82,7 @@ export function AlertsPage() {
     setNotes([]);
     setNotesLoading(false);
     setNotesError(null);
+    notesTriggerRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -104,6 +106,26 @@ export function AlertsPage() {
       setError(errorMessage(err));
     } finally {
       setBusyId(null);
+    }
+  }
+  function trapNotesFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = notesDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) {
+      event.preventDefault();
+      notesDialogRef.current?.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === notesDialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === notesDialogRef.current)) {
+      event.preventDefault();
+      first.focus();
     }
   }
 
@@ -167,7 +189,10 @@ export function AlertsPage() {
             renderAction={(alert) => (
               <button
                 type="button"
-                onClick={() => void openNotes(alert)}
+                onClick={(event) => {
+                  notesTriggerRef.current = event.currentTarget;
+                  void openNotes(alert);
+                }}
                 className="min-h-[56px] rounded-xl border border-border px-6 text-staff-btn text-ink hover:bg-surface2"
               >
                 메모 보기
@@ -184,6 +209,7 @@ export function AlertsPage() {
                 tabIndex={-1}
                 className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-border bg-surface p-5 shadow-modal"
                 onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={trapNotesFocus}
               >
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-staff-status text-ink">{notesAlert.room} 메모 히스토리</h2>
