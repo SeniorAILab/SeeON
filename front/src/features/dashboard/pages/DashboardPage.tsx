@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Filter, RefreshCw, AlertTriangle } from "lucide-react";
 import { StatsBar } from "@/features/dashboard/components/StatsBar";
 import { FloorTabs } from "@/features/dashboard/components/FloorTabs";
@@ -8,6 +9,8 @@ import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
 import { useMonitorStore } from "@/stores/monitorStore";
 import { spaceTypeLabel } from "@/lib/labels";
 import type { Space, SpaceType } from "@/types";
+import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
+import { adminPath } from "@/lib/routeAccess";
 
 const SPACE_TYPES: SpaceType[] = [
   "ROOM",
@@ -23,6 +26,8 @@ export function DashboardPage() {
   const { data, loading, reload } = useDashboard();
   const [floorFilter, setFloorFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const navigate = useNavigate();
+  const facilityId = useActiveFacilityId();
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [selected, setSelected] = useState<Space | null>(null);
   const connection = useMonitorStore((s) => s.connection);
@@ -79,7 +84,12 @@ export function DashboardPage() {
       )}
 
       {/* 요약 통계 */}
-      <StatsBar summary={data.summary} activeFilter={statusFilter} onFilter={setStatusFilter} />
+      <StatsBar
+        summary={data.summary}
+        activeFilter={statusFilter}
+        onFilter={setStatusFilter}
+        onUnacknowledgedClick={() => navigate(`${adminPath(facilityId, "events")}?filter=OPEN`)}
+      />
 
       {/* 필터 */}
       <div className="flex flex-wrap items-center gap-3">

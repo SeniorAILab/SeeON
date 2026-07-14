@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { alertService, type AlertNote } from "@/services/alertService";
 import { ApiError } from "@/services/apiClient";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import { eventTypeLabel } from "@/lib/labels";
+import { formatDateTime } from "@/lib/format";
 
 interface EventGroup {
   key: string;
@@ -20,7 +21,7 @@ export function eventGroupsFor(status?: SpaceStatus, alerts: DetectionEvent[] = 
       key,
       label: eventTypeLabel[key],
       count: events.length,
-      alerts: events,
+      alerts: [...events].sort((a, b) => Date.parse(b.detectedAt) - Date.parse(a.detectedAt)),
     }));
   }
   if (!status) return [];
@@ -35,6 +36,9 @@ export function eventGroupsFor(status?: SpaceStatus, alerts: DetectionEvent[] = 
 }
 
 const statusWord = { STABLE: "안정", CAUTION: "주의", DANGER: "위험", CHECK_NEEDED: "확인 필요" } as const;
+const INITIAL_ALERTS_PER_GROUP = 5;
+const ALERTS_PER_PAGE = 20;
+
 
 export function RoomActionPanel({
   space,
@@ -49,8 +53,14 @@ export function RoomActionPanel({
   onClose: () => void;
   onResolved?: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const hasCapturedTriggerRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [visibleAlertCounts, setVisibleAlertCounts] = useState<Record<string, number>>({});
   const groups = useMemo(() => eventGroupsFor(status, alerts), [status, alerts]);
   const canResolve = alerts.length > 0;
   // B4 alert-notes attach to a real Alert id. SpaceStatus.id is a synthetic
@@ -101,13 +111,46 @@ export function RoomActionPanel({
     };
   }, [historyAlertId]);
 
+  const closePanel = useCallback(() => {
+    triggerRef.current?.focus();
+    onCloseRef.current();
+  }, []);
+
   useEffect(() => {
+    if (!hasCapturedTriggerRef.current) {
+      triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      hasCapturedTriggerRef.current = true;
+    }
+    dialogRef.current?.focus();
+
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closePanel();
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  }, [closePanel]);
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) {
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
 
   async function handleResolve(alertIds?: string[]) {
@@ -145,20 +188,23 @@ export function RoomActionPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onMouseDown={closePanel}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={space.name}
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-border bg-surface p-4 shadow-modal"
         onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={trapFocus}
       >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="break-keep text-2xl font-black leading-tight text-ink 2xl:text-3xl">{space.name}</div>
           <div className="mt-1 text-lg font-bold text-ink-soft">{statusWord[status?.status ?? "STABLE"]}</div>
         </div>
-        <button type="button" onClick={onClose} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="모달 닫기">
+        <button type="button" onClick={closePanel} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border text-ink-soft hover:bg-surface2" aria-label="모달 닫기">
           <X className="h-7 w-7" />
         </button>
       </div>
@@ -180,18 +226,50 @@ export function RoomActionPanel({
                   </button>
                 )}
               </div>
-              {group.alerts.length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {group.alerts.map((alert) => (
-                    <li key={alert.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface2 px-3 py-2">
-                      <span className="min-w-0 truncate text-sm font-bold text-ink-soft">{alert.aiSummary || alert.message}</span>
-                      <button type="button" disabled={busy} onClick={() => void handleResolve([alert.id])} className="min-h-12 shrink-0 rounded-lg border border-border px-2 py-1 text-staff-btn text-ink disabled:cursor-not-allowed disabled:text-ink-faint">
-                        개별 확인
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {group.alerts.length > 0 && (() => {
+                const visibleCount = visibleAlertCounts[group.key] ?? INITIAL_ALERTS_PER_GROUP;
+                const visibleAlerts = group.alerts.slice(0, visibleCount);
+                const hiddenCount = group.alerts.length - visibleAlerts.length;
+                return (
+                  <>
+                    <ul className="mt-3 space-y-2">
+                      {visibleAlerts.map((alert) => (
+                        <li key={alert.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface2 px-3 py-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-bold text-ink-soft">{alert.aiSummary || alert.message}</div>
+                            <div className="mt-1 text-sm font-bold text-ink-faint">{formatDateTime(alert.detectedAt)}</div>
+                          </div>
+                          <button type="button" disabled={busy} onClick={() => void handleResolve([alert.id])} className="min-h-12 shrink-0 rounded-lg border border-border px-2 py-1 text-staff-btn text-ink disabled:cursor-not-allowed disabled:text-ink-faint">
+                            개별 확인
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {(hiddenCount > 0 || visibleAlerts.length > INITIAL_ALERTS_PER_GROUP) && (
+                      <div className="mt-2 flex gap-2">
+                        {hiddenCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setVisibleAlertCounts((counts) => ({ ...counts, [group.key]: visibleCount + ALERTS_PER_PAGE }))}
+                            className="min-h-12 rounded-lg border border-border px-3 py-1 text-staff-btn text-ink hover:bg-surface2"
+                          >
+                            더 보기 ({hiddenCount})
+                          </button>
+                        )}
+                        {visibleAlerts.length > INITIAL_ALERTS_PER_GROUP && (
+                          <button
+                            type="button"
+                            onClick={() => setVisibleAlertCounts((counts) => ({ ...counts, [group.key]: INITIAL_ALERTS_PER_GROUP }))}
+                            className="min-h-12 rounded-lg border border-border px-3 py-1 text-staff-btn text-ink hover:bg-surface2"
+                          >
+                            접기
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           ))
         )}
