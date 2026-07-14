@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+const DUPLICATE_FACILITY_NAME = "행복한요양원 녹양역점";
 
 
 function okJsonResponse(body: unknown): Response {
@@ -17,7 +18,7 @@ function okJsonResponse(body: unknown): Response {
 
 const nokyangFacility: Facility = {
   id: SCOPED_FACILITY_ID,
-  name: "행복한요양원 녹양역점",
+  name: DUPLICATE_FACILITY_NAME,
   address: "경기도 의정부시",
   phone: "031-856-8090",
 };
@@ -27,6 +28,12 @@ const backendOnlyFacility: Facility = {
   name: "백엔드 시설",
   address: "서울특별시",
   phone: "02-000-0000",
+};
+const orphanDuplicateFacility: Facility = {
+  id: "facility-orphan",
+  name: DUPLICATE_FACILITY_NAME,
+  address: "",
+  phone: "031-000-0000",
 };
 
 describe("AppLayout facility selector", () => {
@@ -88,5 +95,36 @@ describe("AppLayout facility selector", () => {
     expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull();
     expect(screen.getAllByText("대시보드")).toHaveLength(1);
     expect(screen.queryByText("원장님")).toBeNull();
+  });
+  it("disambiguates duplicate facility names with an address or ID suffix", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        okJsonResponse([nokyangFacility, orphanDuplicateFacility]),
+      ),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route path="/admin" element={<AppLayout />}>
+            <Route index element={<div>Admin child</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const selector = await screen.findByRole("combobox");
+    if (!(selector instanceof HTMLSelectElement)) {
+      throw new Error("facility selector was not a select element");
+    }
+
+    const duplicateOptions = Array.from(selector.options).filter(
+      (option) => option.value !== "__global__",
+    );
+    expect(duplicateOptions.map((option) => option.text)).toEqual([
+      `${DUPLICATE_FACILITY_NAME} (경기도 의정부시)`,
+      `${DUPLICATE_FACILITY_NAME} (orphan)`,
+    ]);
   });
 });
