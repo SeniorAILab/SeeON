@@ -134,7 +134,7 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
         ? message
         : "";
 
-    return BACKEND_ERROR_MESSAGES[backendMessage] ?? fallback;
+    return BACKEND_ERROR_MESSAGES[backendMessage] ?? (backendMessage || fallback);
   } catch {
     return fallback;
   }

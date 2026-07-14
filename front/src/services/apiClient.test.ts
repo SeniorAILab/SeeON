@@ -188,7 +188,7 @@ describe("apiClient.requestJson", () => {
   });
 });
 describe("apiErrorMessage", () => {
-  it("maps backend-produced error messages and falls back for raw or malformed errors", async () => {
+  it("maps known auth messages and preserves backend Korean conflict messages", async () => {
     const { ApiError, apiErrorMessage } = await import("./apiClient");
     const fallback = "요청을 처리하지 못했습니다.";
 
@@ -200,11 +200,23 @@ describe("apiErrorMessage", () => {
     ).toBe("이메일 또는 비밀번호가 올바르지 않습니다.");
     expect(
       apiErrorMessage(
-        new ApiError(409, JSON.stringify({ message: "Email already registered", error: "Conflict", statusCode: 409 })),
+        new ApiError(409, JSON.stringify({ message: "참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다" })),
         fallback,
       ),
-    ).toBe("이미 사용 중인 이메일입니다.");
+    ).toBe("참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다");
+  });
+
+  it("uses extracted message strings and falls back without exposing raw JSON", async () => {
+    const { ApiError, apiErrorMessage } = await import("./apiClient");
+    const fallback = "요청을 처리하지 못했습니다.";
+
+    expect(
+      apiErrorMessage(new ApiError(400, JSON.stringify({ message: ["첫 번째 오류", "두 번째 오류"] })), fallback),
+    ).toBe("첫 번째 오류, 두 번째 오류");
+    expect(apiErrorMessage(new ApiError(400, JSON.stringify({ error: "Bad Request", statusCode: 400 })), fallback)).toBe(
+      fallback,
+    );
     expect(apiErrorMessage(new ApiError(400, "not json"), fallback)).toBe(fallback);
-    expect(apiErrorMessage(new Error("not json"), fallback)).toBe(fallback);
+    expect(apiErrorMessage(new Error(JSON.stringify({ message: "raw error" })), fallback)).toBe(fallback);
   });
 });

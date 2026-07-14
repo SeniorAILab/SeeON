@@ -48,9 +48,19 @@ function closeLiveConnection(): void {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
 }
-function deriveMergedStatuses(statuses: Record<string, SpaceStatus>): Record<string, SpaceStatus> {
-  if (!activeFacilityId) return statuses;
-  return deriveStatusesFromAlerts(statuses, alertsForFacility(alertMergeState, activeFacilityId));
+function deriveMergedStatuses(
+  dashboard: DashboardResponse | null,
+  statuses: Record<string, SpaceStatus>,
+): Record<string, SpaceStatus> {
+  if (!dashboard || !activeFacilityId) return statuses;
+  const activeSpaceIds = new Set(dashboard.spaces.filter((space) => space.isActive).map((space) => space.id));
+  const activeStatuses = Object.fromEntries(
+    Object.entries(statuses).filter(([spaceId]) => activeSpaceIds.has(spaceId)),
+  );
+  const alerts = alertsForFacility(alertMergeState, activeFacilityId).filter((alert) =>
+    activeSpaceIds.has(alert.spaceId),
+  );
+  return deriveStatusesFromAlerts(activeStatuses, alerts);
 }
 
 // Keep the header summary tallies in sync with the live per-room statuses so an SSE
@@ -117,7 +127,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       alertMergeState = createAlertMergeState(dashboard.unacknowledgedEvents as FrontendAlert[]);
       await reconcileSnapshot(facilityId);
       if (!isActiveFacility(facilityId)) return;
-      const statuses = deriveMergedStatuses(dashboard.statuses);
+      const statuses = deriveMergedStatuses(dashboard, dashboard.statuses);
       set({
         dashboard: dashboardWithStatuses(dashboard, statuses),
         loading: false,
@@ -132,7 +142,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
         .then(() => {
           if (!isActiveFacility(facilityId)) return;
           set((state) => {
-            const statuses = deriveMergedStatuses(state.statuses);
+            const statuses = deriveMergedStatuses(state.dashboard, state.statuses);
             return {
               dashboard: dashboardWithStatuses(state.dashboard, statuses),
               statuses,
@@ -153,7 +163,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       const alert = mapAlertDto(JSON.parse(event.data));
       alertMergeState = mergeAlerts(alertMergeState, [alert]);
       set((state) => {
-        const statuses = deriveMergedStatuses(state.statuses);
+        const statuses = deriveMergedStatuses(state.dashboard, state.statuses);
         return {
           dashboard: dashboardWithStatuses(state.dashboard, statuses),
           statuses,
@@ -168,7 +178,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       const update = JSON.parse((event as MessageEvent).data) as AlertUpdateDelta;
       alertMergeState = mergeAlertUpdates(alertMergeState, [update]);
       set((state) => {
-        const statuses = deriveMergedStatuses(state.statuses);
+        const statuses = deriveMergedStatuses(state.dashboard, state.statuses);
         return {
           dashboard: dashboardWithStatuses(state.dashboard, statuses),
           statuses,
@@ -184,7 +194,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
         .then(() => {
           if (!isActiveFacility(facilityId)) return;
           set((state) => {
-            const statuses = deriveMergedStatuses(state.statuses);
+            const statuses = deriveMergedStatuses(state.dashboard, state.statuses);
             return {
               dashboard: dashboardWithStatuses(state.dashboard, statuses),
               statuses,
@@ -220,7 +230,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     alertMergeState = createAlertMergeState(dashboard.unacknowledgedEvents as FrontendAlert[]);
     await reconcileSnapshot(facilityId);
     if (!isActiveFacility(facilityId)) return;
-    const statuses = deriveMergedStatuses(dashboard.statuses);
+    const statuses = deriveMergedStatuses(dashboard, dashboard.statuses);
     useMonitorStore.setState({
       dashboard: dashboardWithStatuses(dashboard, statuses),
       statuses,
@@ -254,7 +264,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     if (!isActiveFacility(facilityId)) return;
     alertMergeState = mergeAlerts(alertMergeState, [resolved]);
     set((state) => {
-      const statuses = deriveMergedStatuses(state.statuses);
+      const statuses = deriveMergedStatuses(state.dashboard, state.statuses);
       return {
         dashboard: dashboardWithStatuses(state.dashboard, statuses),
         statuses,
