@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FloorMonitorPage } from "./FloorMonitorPage";
 import { useAuthStore } from "@/stores/authStore";
@@ -12,7 +12,11 @@ const facilityId = "fac_happy_nokyang";
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
-  return { ...actual, useParams: () => ({ floorId: "fl_2f" }) };
+  return {
+    ...actual,
+    Navigate: ({ to }: { to: string }) => <div data-testid="redirect" data-to={to} />,
+    useParams: () => ({ floorId: "fl_2f" }),
+  };
 });
 vi.mock("@/features/monitor/hooks/useTTSAlerts", () => ({
   buildTTSAlerts: vi.fn(() => []),
@@ -73,5 +77,14 @@ describe("FloorMonitorPage", () => {
     useMonitorSettingsStore.getState().update({ alertSound: true });
 
     await waitFor(() => expect(useTTSAlertsMock).toHaveBeenLastCalledWith([], true));
+  });
+  it("redirects legacy all-view settings to a configured floor when all-view is disabled", async () => {
+    useMonitorSettingsStore.setState({ allowAllView: false, defaultFloorId: "all" });
+
+    render(<FloorMonitorPage allView />);
+
+    const redirect = await screen.findByTestId("redirect");
+    expect(redirect.getAttribute("data-to")).toContain("/fl_2f");
+    expect(redirect.getAttribute("data-to")).not.toContain("/all");
   });
 });

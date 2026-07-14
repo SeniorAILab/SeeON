@@ -16,7 +16,13 @@ const DEFAULTS: MonitorSettings = {
 function load(): MonitorSettings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const settings = { ...DEFAULTS, ...JSON.parse(raw) };
+      if (!settings.allowAllView && settings.defaultFloorId === "all") {
+        settings.defaultFloorId = DEFAULTS.defaultFloorId;
+      }
+      return settings;
+    }
   } catch {
     /* ignore */
   }
