@@ -55,6 +55,9 @@ export function RoomActionPanel({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const hasCapturedTriggerRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [visibleAlertCounts, setVisibleAlertCounts] = useState<Record<string, number>>({});
@@ -110,11 +113,14 @@ export function RoomActionPanel({
 
   const closePanel = useCallback(() => {
     triggerRef.current?.focus();
-    onClose();
-  }, [onClose]);
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
-    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!hasCapturedTriggerRef.current) {
+      triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      hasCapturedTriggerRef.current = true;
+    }
     dialogRef.current?.focus();
 
     function closeOnEscape(event: KeyboardEvent) {
