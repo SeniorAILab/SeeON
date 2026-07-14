@@ -31,6 +31,42 @@ const retiredFixturePaths = new Set([
   "public/audio/tts",
 ]);
 
+const retiredImportSpecifiers = new Set([
+  "data/mockData",
+  "services/db",
+  "services/adminService",
+  "services/tts/announceFocus",
+  "services/tts/synthesizer",
+]);
+
+const retiredDocReferences = [
+  ...retiredFixturePaths,
+  ...[...retiredFixturePaths].map((relativePath) => relativePath.replace(/^src\//, "")),
+  "services/zoneService.ts",
+  "services/residentService.ts",
+];
+
+const retiredDocReferencePattern = new RegExp(
+  retiredDocReferences.map((reference) => reference.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+  "g"
+);
+const deletionMarkerPattern = /삭제|제거|removed|deleted|#474/i;
+
+export function isRetiredImportSpecifier(specifier: string): boolean {
+  return retiredImportSpecifiers.has(specifier);
+}
+
+export function findRetiredDocReferences(
+  text: string,
+  { allowDeletionNotes }: { allowDeletionNotes: boolean }
+): string[] {
+  return text.split(/\r?\n/).flatMap((line, index) => {
+    const references = line.match(retiredDocReferencePattern) ?? [];
+    if (references.length === 0 || (allowDeletionNotes && deletionMarkerPattern.test(line))) return [];
+    return [`${index + 1}: ${line}`];
+  });
+}
+
 async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = await Promise.all(
@@ -95,8 +131,6 @@ function findMatches(files: Record<string, string>, predicate: (relativePath: st
     .sort();
 }
 
-const retiredFixtureModulePattern =
-  /^(?:data\/mockData|services\/db|services\/adminService|services\/tts\/announceFocus|services\/tts\/synthesizer)$/;
 
 describe("retired frontend mock regressions", () => {
   it("keeps runtime mock switches and demo copy out of front/src", async () => {
@@ -160,10 +194,54 @@ describe("retired frontend mock regressions", () => {
     expect(existingRetiredPaths).toEqual([]);
 
     const fixtureImporters = findMatches(files, (relativePath, source) =>
-      importSources(relativePath, source).some((specifier) => retiredFixtureModulePattern.test(specifier))
+      importSources(relativePath, source).some(isRetiredImportSpecifier)
     );
     expect(fixtureImporters).toEqual([]);
 
     expect([...removedFixtureFiles].filter((relativePath) => relativePath in files)).toEqual([]);
+  });
+  it("keeps retired paths out of config and documents them only as deletions", async () => {
+    const [agents, packageJson, readme] = await Promise.all(
+      ["AGENTS.md", "package.json", "README.md"].map((relativePath) =>
+        readFile(path.join(frontRoot, relativePath), "utf8")
+      )
+    );
+
+    expect(findRetiredDocReferences(agents, { allowDeletionNotes: true })).toEqual([]);
+    expect(findRetiredDocReferences(packageJson, { allowDeletionNotes: false })).toEqual([]);
+    expect(findRetiredDocReferences(readme, { allowDeletionNotes: true })).toEqual([]);
+  });
+});
+
+describe("retired reference predicates", () => {
+  it("rejects every retired import specifier and fails closed for unrelated modules", () => {
+    for (const specifier of [
+      "data/mockData",
+      "services/db",
+      "services/adminService",
+      "services/tts/announceFocus",
+      "services/tts/synthesizer",
+    ]) {
+      expect(isRetiredImportSpecifier(specifier)).toBe(true);
+    }
+
+    expect(isRetiredImportSpecifier("services/api/residents")).toBe(false);
+  });
+
+  it("flags unmarked retired documentation references", () => {
+    expect(
+      findRetiredDocReferences("Fixture: services/zoneService.ts", { allowDeletionNotes: true })
+    ).toEqual(["1: Fixture: services/zoneService.ts"]);
+  });
+
+  it("permits documented deletions and unrelated lines", () => {
+    expect(
+      findRetiredDocReferences("services/residentService.ts는 제거되었습니다.", {
+        allowDeletionNotes: true,
+      })
+    ).toEqual([]);
+    expect(
+      findRetiredDocReferences("실제 백엔드 route만 사용합니다.", { allowDeletionNotes: true })
+    ).toEqual([]);
   });
 });
