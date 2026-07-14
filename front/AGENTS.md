@@ -13,7 +13,6 @@ front/src/
 ├── pages/ components/   # views (shared/cross-feature only; see Guards)
 ├── hooks/ stores/       # reusable hooks and zustand state (shared/cross-feature only)
 ├── lib/                 # utilities
-├── data/                # inactive fixtures for reversibly hidden pages only
 ├── router.tsx main.tsx  # entry
 └── test/
 ```
@@ -37,7 +36,7 @@ See `src/AGENTS.md` before changing frontend application code.
 - Login in dev/prod is backend-owned email/password auth. It must mint the
   same httpOnly backend JWT cookie and restore via `/api/v1/auth/me`. Do not
   reintroduce frontend mock auth users or localStorage auth sessions.
-- The fixture island (`src/data/mockData.ts`, `src/services/db.ts`, `src/services/adminService.ts`) is DELETED. Never reintroduce runtime mock/fixture islands; new or reactivated pages must wire to the real backend.
+- `src/data/mockData.ts` was deleted; `src/services/db.ts` was deleted; `src/services/adminService.ts` was deleted. Never reintroduce runtime mock/fixture islands; new or reactivated pages must wire to the real backend.
 - `strictPort` 3000 (ADR); pnpm only, never an npm lockfile.
 
 ## Run

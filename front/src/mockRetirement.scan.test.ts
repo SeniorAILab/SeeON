@@ -7,6 +7,14 @@ const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 const frontRoot = path.resolve(srcRoot, "..");
 const scriptsRoot = path.join(frontRoot, "scripts");
 const testFile = "src/mockRetirement.scan.test.ts";
+const repositoryRoot = path.resolve(frontRoot, "..");
+const retirementGuardSurfaces = [
+  { relativePath: "front/AGENTS.md", allowDeletionNotes: true },
+  { relativePath: "front/src/AGENTS.md", allowDeletionNotes: true },
+  { relativePath: "front/README.md", allowDeletionNotes: true },
+  { relativePath: "front/package.json", allowDeletionNotes: false },
+  { relativePath: "front/.gitignore", allowDeletionNotes: false },
+] as const;
 
 const removedFixtureFiles = new Set(
   [
@@ -47,10 +55,18 @@ const retiredDocReferences = [
 ];
 
 const retiredDocReferencePattern = new RegExp(
-  retiredDocReferences.map((reference) => reference.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
-  "g"
+  retiredDocReferences
+    .map((reference) =>
+      reference
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replaceAll("/", "[\\\\/]")
+    )
+    .join("|"),
+  "gi"
 );
-const deletionMarkerPattern = /삭제|제거|removed|deleted|#474/i;
+const deletionMarkerPattern = /(?:삭제|제거|\bremoved\b|\bdeleted\b)/iu;
+const deletionNotePattern = /(?:는|은)\s*(?:삭제|제거)되었습니다|\bwas\s+(?:removed|deleted)\b/iu;
+const deletionNoteWindow = 80;
 
 export function isRetiredImportSpecifier(specifier: string): boolean {
   return retiredImportSpecifiers.has(specifier);
@@ -61,9 +77,21 @@ export function findRetiredDocReferences(
   { allowDeletionNotes }: { allowDeletionNotes: boolean }
 ): string[] {
   return text.split(/\r?\n/).flatMap((line, index) => {
-    const references = line.match(retiredDocReferencePattern) ?? [];
-    if (references.length === 0 || (allowDeletionNotes && deletionMarkerPattern.test(line))) return [];
-    return [`${index + 1}: ${line}`];
+    const references = Array.from(line.matchAll(retiredDocReferencePattern));
+    if (references.length === 0) return [];
+    if (!allowDeletionNotes) return [`${index + 1}: ${line}`];
+
+    const hasUnqualifiedReference = references.some((reference, referenceIndex) => {
+      const referenceEnd = (reference.index ?? 0) + reference[0].length;
+      const nextReferenceStart = references[referenceIndex + 1]?.index ?? line.length;
+      const trailingText = line.slice(
+        referenceEnd,
+        Math.min(nextReferenceStart, referenceEnd + deletionNoteWindow)
+      );
+      return !(deletionMarkerPattern.test(trailingText) || deletionNotePattern.test(trailingText));
+    });
+
+    return hasUnqualifiedReference ? [`${index + 1}: ${line}`] : [];
   });
 }
 
@@ -201,15 +229,17 @@ describe("retired frontend mock regressions", () => {
     expect([...removedFixtureFiles].filter((relativePath) => relativePath in files)).toEqual([]);
   });
   it("keeps retired paths out of config and documents them only as deletions", async () => {
-    const [agents, packageJson, readme] = await Promise.all(
-      ["AGENTS.md", "package.json", "README.md"].map((relativePath) =>
-        readFile(path.join(frontRoot, relativePath), "utf8")
-      )
+    const surfaces = await Promise.all(
+      retirementGuardSurfaces.map(async ({ relativePath, allowDeletionNotes }) => ({
+        relativePath,
+        allowDeletionNotes,
+        source: await readFile(path.join(repositoryRoot, relativePath), "utf8"),
+      }))
     );
 
-    expect(findRetiredDocReferences(agents, { allowDeletionNotes: true })).toEqual([]);
-    expect(findRetiredDocReferences(packageJson, { allowDeletionNotes: false })).toEqual([]);
-    expect(findRetiredDocReferences(readme, { allowDeletionNotes: true })).toEqual([]);
+    for (const { relativePath, allowDeletionNotes, source } of surfaces) {
+      expect(findRetiredDocReferences(source, { allowDeletionNotes })).toEqual([]);
+    }
   });
 });
 
@@ -234,12 +264,35 @@ describe("retired reference predicates", () => {
     ).toEqual(["1: Fixture: services/zoneService.ts"]);
   });
 
-  it("permits documented deletions and unrelated lines", () => {
+  it("fails a mixed availability and deletion claim on one line", () => {
+    const line = "services/zoneService.ts is available; services/residentService.ts was removed.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("does not treat an issue marker as a deletion note", () => {
+    const line = "services/residentService.ts is tracked in #474.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("requires every retired reference on a line to be qualified", () => {
+    const line = "services/zoneService.ts was removed; services/residentService.ts";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("detects uppercase references with path separators varied", () => {
+    const line = String.raw`SRC\SERVICES\DB.TS is enabled.`;
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("permits a clean deletion note", () => {
     expect(
-      findRetiredDocReferences("services/residentService.ts는 제거되었습니다.", {
+      findRetiredDocReferences("services/residentService.ts는 삭제되었습니다.", {
         allowDeletionNotes: true,
       })
     ).toEqual([]);
+  });
+
+  it("permits unrelated lines", () => {
     expect(
       findRetiredDocReferences("실제 백엔드 route만 사용합니다.", { allowDeletionNotes: true })
     ).toEqual([]);

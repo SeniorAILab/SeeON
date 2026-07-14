@@ -1,8 +1,8 @@
 # Front src agent rules - Vite React application code
 
 ## Overview
-`front/src/**` owns the product dashboard UI, frontend domain types, services,
-inactive fixtures for reversibly hidden pages, and tests for the Vite React app.
+`front/src/**` owns the product dashboard UI, frontend domain types, services, and
+tests for the Vite React app.
 
 ## Where to look
 
