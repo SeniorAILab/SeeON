@@ -40,7 +40,7 @@ beforeEach(() => {
 });
 
 describe("SuperAdminDashboardPage", () => {
-  it("renders the facility selector without preloading facility-scoped dashboard APIs", async () => {
+  it("renders the facility selector and only the available facility count without preloading facility-scoped dashboard APIs", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
       if (url.endsWith("/facilities")) return okJsonResponse([seededFacility]);
@@ -56,6 +56,13 @@ describe("SuperAdminDashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: "요양원 전역 개요" })).toBeTruthy();
     expect(await screen.findByText("행복한요양원 녹양역점")).toBeTruthy();
+    expect(screen.getByText("요양원")).toBeTruthy();
+    expect(screen.getByText("1")).toBeTruthy();
+    expect(screen.queryByText("공간")).toBeNull();
+    expect(screen.queryByText("미확인")).toBeNull();
+    expect(screen.queryByText("층")).toBeNull();
+    expect(screen.queryByText("알림")).toBeNull();
+    expect(screen.queryByText("-")).toBeNull();
     expect(screen.queryByText("대시보드 연결 실패")).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v1/facilities");

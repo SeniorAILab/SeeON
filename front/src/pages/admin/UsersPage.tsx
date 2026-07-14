@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { roleLabel } from "@/lib/roles";
 import { createUser, listUsers, updateUserRole } from "@/services/api/users";
 import type { Role, User } from "@/types";
+import { apiErrorMessage } from "@/services/apiClient";
 
 const roleChip: Record<Role, string> = {
   SUPER_ADMIN: "bg-brand-soft text-brand",
@@ -29,7 +30,8 @@ export function UsersPage() {
   }
 
   useEffect(() => {
-    refresh().catch((err) => setError(err instanceof Error ? err.message : "사용자 목록을 불러오지 못했습니다."));
+    setError(null);
+    refresh().catch((err) => setError(apiErrorMessage(err, "사용자 목록을 불러오지 못했습니다.")));
   }, []);
 
   async function handleCreate(event: FormEvent) {
@@ -45,7 +47,7 @@ export function UsersPage() {
       setCreatedPassword({ name: result.user.name, password: result.initialPassword });
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "사용자를 생성하지 못했습니다.");
+      setError(apiErrorMessage(err, "사용자를 생성하지 못했습니다."));
     } finally {
       setSaving(false);
     }
@@ -57,7 +59,7 @@ export function UsersPage() {
       await updateUserRole(userId, nextRole);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "권한을 변경하지 못했습니다.");
+      setError(apiErrorMessage(err, "권한을 변경하지 못했습니다."));
     }
   }
 

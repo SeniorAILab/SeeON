@@ -75,7 +75,9 @@ function statusFromSpace(space: Space): SpaceStatus {
 }
 
 function buildStatusesFromSpaces(spaces: Space[]): Record<string, SpaceStatus> {
-  return Object.fromEntries(spaces.map((space) => [space.id, statusFromSpace(space)]));
+  return Object.fromEntries(
+    spaces.filter((space) => space.isActive).map((space) => [space.id, statusFromSpace(space)])
+  );
 }
 
 

@@ -32,9 +32,12 @@ export const useMonitorSettingsStore = create<SettingsState>((set, get) => ({
   ...load(),
   update: (patch) => {
     const next = { ...get(), ...patch };
+    if (!next.allowAllView && next.defaultFloorId === "all") {
+      next.defaultFloorId = DEFAULTS.defaultFloorId;
+    }
     const { update: _u, reset: _r, ...data } = next;
     localStorage.setItem(KEY, JSON.stringify(data));
-    set(patch);
+    set(next);
   },
   reset: () => {
     localStorage.setItem(KEY, JSON.stringify(DEFAULTS));

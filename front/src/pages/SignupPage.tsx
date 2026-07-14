@@ -15,11 +15,12 @@ import {
 import { useFacilityStore } from "@/stores/facilityStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
+import { apiErrorMessage } from "@/services/apiClient";
 
 export function SignupPage() {
   const navigate = useNavigate();
   const register = useAuthStore((s) => s.register);
-  const error = useAuthStore((s) => s.error);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const loading = useAuthStore((s) => s.loading);
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
   const setTheme = useUiStore((s) => s.setTheme);
@@ -37,12 +38,15 @@ export function SignupPage() {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
   useEffect(() => {
+    useAuthStore.setState({ error: null });
     document.documentElement.classList.remove("dark");
     setTheme(new Date().getHours() >= 19 || new Date().getHours() < 7 ? "dark" : "light");
   }, [setTheme]);
 
   async function handleSignup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    useAuthStore.setState({ error: null });
+    setSubmitError(null);
     setSubmitted(true);
     if (!canSubmit || passwordError || passwordConfirmError) return;
     try {
@@ -56,9 +60,7 @@ export function SignupPage() {
       resolveForUser(user.facilityId);
       navigate(defaultPathForUser(user), { replace: true });
     } catch (caught) {
-      if (!(caught instanceof Error)) {
-        throw caught;
-      }
+      setSubmitError(apiErrorMessage(caught, "회원가입에 실패했습니다. 다시 시도해 주세요."));
     }
   }
 
@@ -241,10 +243,10 @@ export function SignupPage() {
             </Button>
           </form>
 
-          {error && (
+          {submitError && (
             <div className="mt-4">
               <p className="rounded-lg bg-status-dangerBg px-3 py-2 text-sm text-status-danger">
-                {error}
+                {submitError}
               </p>
             </div>
           )}

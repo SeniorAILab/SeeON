@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminSpacesPage } from "./AdminSpacesPage";
-import { listFloors } from "@/services/api/floors";
-import { createSpace, listSpaces, updateSpace } from "@/services/api/spaces";
+import { deleteFloor, listFloors } from "@/services/api/floors";
+import { createSpace, deleteSpace, listSpaces, updateSpace } from "@/services/api/spaces";
+import { ApiError } from "@/services/apiClient";
 
 vi.mock("@/services/api/floors", () => ({
   createFloor: vi.fn(),
@@ -22,6 +23,8 @@ const listFloorsMock = vi.mocked(listFloors);
 const listSpacesMock = vi.mocked(listSpaces);
 const createSpaceMock = vi.mocked(createSpace);
 const updateSpaceMock = vi.mocked(updateSpace);
+const deleteSpaceMock = vi.mocked(deleteSpace);
+const deleteFloorMock = vi.mocked(deleteFloor);
 
 describe("AdminSpacesPage", () => {
   beforeEach(() => {
@@ -92,5 +95,48 @@ describe("AdminSpacesPage", () => {
       expect.anything(),
       expect.objectContaining({ type: expect.anything(), capacity: expect.anything() })
     );
+  });
+  it("hides spaces in place and restores hidden spaces instead of offering a dead delete action", async () => {
+    deleteSpaceMock.mockResolvedValue(undefined as never);
+    updateSpaceMock.mockResolvedValue(undefined as never);
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByText("201호")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "201호 숨김" }));
+
+    await waitFor(() => expect(screen.getByText("숨김")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "복원" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "201호 숨김" })).toBeNull();
+    expect(screen.getByText("201호 공간을 숨겼습니다.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "복원" }));
+    await waitFor(() => expect(updateSpaceMock).toHaveBeenCalledWith("sp_201", { isActive: true }));
+    expect(screen.getByText("201호 공간을 복원했습니다.")).toBeTruthy();
+  });
+
+  it("shows a friendly message when a floor with active spaces cannot be deleted", async () => {
+    deleteFloorMock.mockRejectedValue(
+      new ApiError(409, JSON.stringify({ message: "Floor cannot be deleted while active spaces reference it" }))
+    );
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "2F 삭제" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "2F 삭제" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("활성 공간이 있는 층은 삭제할 수 없습니다. 먼저 공간을 삭제/이동하세요.")
+      ).toBeTruthy()
+    );
+  });
+
+  it("gives floor edit save and cancel controls accessible names", async () => {
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "2F 이름 수정" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "2F 이름 수정" }));
+
+    expect(screen.getByRole("button", { name: "층 이름 저장" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "수정 취소" })).toBeTruthy();
   });
 });

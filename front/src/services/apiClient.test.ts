@@ -187,3 +187,24 @@ describe("apiClient.requestJson", () => {
     expect(isAbsoluteApiUrl(buildSseUrl(SCOPED_FACILITY_ID))).toBe(true);
   });
 });
+describe("apiErrorMessage", () => {
+  it("maps known Nest API error messages and falls back for raw or malformed errors", async () => {
+    const { ApiError, apiErrorMessage } = await import("./apiClient");
+    const fallback = "요청을 처리하지 못했습니다.";
+
+    expect(
+      apiErrorMessage(
+        new ApiError(401, JSON.stringify({ message: "Invalid email or password", error: "Unauthorized", statusCode: 401 })),
+        fallback,
+      ),
+    ).toBe("이메일 또는 비밀번호가 올바르지 않습니다.");
+    expect(
+      apiErrorMessage(
+        new ApiError(409, JSON.stringify({ message: "Email already registered", error: "Conflict", statusCode: 409 })),
+        fallback,
+      ),
+    ).toBe("이미 사용 중인 이메일입니다.");
+    expect(apiErrorMessage(new ApiError(400, "not json"), fallback)).toBe(fallback);
+    expect(apiErrorMessage(new Error("not json"), fallback)).toBe(fallback);
+  });
+});

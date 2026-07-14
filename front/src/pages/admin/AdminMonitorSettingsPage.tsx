@@ -7,7 +7,7 @@ import { listFloors } from "@/services/api/floors";
 import { listSpaces } from "@/services/api/spaces";
 import { useMonitorSettingsStore } from "@/features/monitor";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
-import { dashboardPath } from "@/lib/routeAccess";
+import { dashboardPath, floorPath } from "@/lib/routeAccess";
 import type { Floor, Space } from "@/types";
 
 export function AdminMonitorSettingsPage() {
@@ -17,6 +17,7 @@ export function AdminMonitorSettingsPage() {
   const settings = useMonitorSettingsStore();
   const [floors, setFloors] = useState<Floor[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const floorNameById = new Map(floors.map((floor) => [floor.id, floor.name]));
 
   useEffect(() => {
     listFloors().then(setFloors);
@@ -30,6 +31,14 @@ export function AdminMonitorSettingsPage() {
   }
   const isVisible = (id: string) =>
     settings.visibleSpaceIds === null || settings.visibleSpaceIds.includes(id);
+  function openMonitor() {
+    if (!facilityId) return;
+    navigate(
+      settings.allowAllView && settings.defaultFloorId === "all"
+        ? dashboardPath(facilityId)
+        : floorPath(facilityId, settings.defaultFloorId),
+    );
+  }
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -40,7 +49,7 @@ export function AdminMonitorSettingsPage() {
           <Button
             variant="secondary"
             disabled={!facilityId}
-            onClick={() => navigate(facilityId ? dashboardPath(facilityId) : "/facilities")}
+            onClick={openMonitor}
           >
             <ExternalLink className="h-4 w-4" />
             모니터 열기
@@ -60,7 +69,7 @@ export function AdminMonitorSettingsPage() {
                   {f.name}
                 </option>
               ))}
-              <option value="all">전체 보기</option>
+              {settings.allowAllView && <option value="all">전체 보기</option>}
             </Select>
           </Field>
 
@@ -103,7 +112,14 @@ export function AdminMonitorSettingsPage() {
           <Toggle
             label="전체 층 화면 표시"
             checked={settings.allowAllView}
-            onChange={(v) => settings.update({ allowAllView: v })}
+            onChange={(v) => {
+              settings.update({
+                allowAllView: v,
+                ...(!v && settings.defaultFloorId === "all" && floors[0]
+                  ? { defaultFloorId: floors[0].id }
+                  : {}),
+              });
+            }}
           />
         </div>
       </Card>
@@ -127,6 +143,7 @@ export function AdminMonitorSettingsPage() {
                 type="checkbox"
                 checked={isVisible(s.id)}
                 onChange={() => toggleSpace(s.id)}
+                aria-label={`${floorNameById.get(s.floorId) ?? "미지정"} ${s.name}`}
               />
               {s.name}
             </label>
