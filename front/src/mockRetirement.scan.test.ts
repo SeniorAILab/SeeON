@@ -64,8 +64,11 @@ const retiredDocReferencePattern = new RegExp(
     .join("|"),
   "gi"
 );
-const deletionMarkerPattern = /(?:삭제|제거|\bremoved\b|\bdeleted\b)/iu;
-const deletionNotePattern = /(?:는|은)\s*(?:삭제|제거)되었습니다|\bwas\s+(?:removed|deleted)\b/iu;
+// 완료형 삭제 서술만 참조를 면제한다. 참조 직후(닫는 백틱/따옴표/조사 허용)에
+// 긍정 완료형(삭제되었/제거됨/was removed 등)이 붙어야 하며, 부정(되지 않)·미래
+// (예정/will be)·무관한 후행 삭제 문구는 면제하지 않는다(fail-closed).
+const affirmativeDeletionPattern =
+  /^[\s`'"”“)\]]*(?:와|과|는|은|도|이|가|를|을)?\s*(?:이미\s*)?(?:모두\s*)?(?:삭제|제거)(?:되었|됐|됨|했)|^[\s`'"”“)\]]*(?:was|were|has been|have been|is now|are now)\s+(?:removed|deleted)\b/iu;
 const deletionNoteWindow = 80;
 
 export function isRetiredImportSpecifier(specifier: string): boolean {
@@ -88,7 +91,7 @@ export function findRetiredDocReferences(
         referenceEnd,
         Math.min(nextReferenceStart, referenceEnd + deletionNoteWindow)
       );
-      return !(deletionMarkerPattern.test(trailingText) || deletionNotePattern.test(trailingText));
+      return !affirmativeDeletionPattern.test(trailingText);
     });
 
     return hasUnqualifiedReference ? [`${index + 1}: ${line}`] : [];
@@ -296,5 +299,19 @@ describe("retired reference predicates", () => {
     expect(
       findRetiredDocReferences("실제 백엔드 route만 사용합니다.", { allowDeletionNotes: true })
     ).toEqual([]);
+  });
+  it("rejects negated deletion claims", () => {
+    const line = "services/zoneService.ts는 삭제되지 않았습니다.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("rejects future-tense deletion claims", () => {
+    const line = "services/residentService.ts는 곧 제거될 예정입니다.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("rejects an unrelated trailing deletion marker", () => {
+    const line = "services/db.ts를 사용합니다. 오래된 캐시는 삭제되었습니다.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
   });
 });
