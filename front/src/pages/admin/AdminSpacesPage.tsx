@@ -73,7 +73,7 @@ export function AdminSpacesPage() {
       setError(
         apiErrorMessage(
           e,
-          "활성 공간이 있는 층은 삭제할 수 없습니다. 먼저 공간을 삭제/이동하세요."
+          "층을 삭제할 수 없습니다. 다시 시도하세요."
         )
       );
     }

@@ -114,7 +114,7 @@ describe("AdminSpacesPage", () => {
     expect(screen.getByText("201호 공간을 복원했습니다.")).toBeTruthy();
   });
 
-  it("shows a friendly message when a floor with active spaces cannot be deleted", async () => {
+  it("shows the active-space conflict returned by the backend when floor deletion fails", async () => {
     deleteFloorMock.mockRejectedValue(
       new ApiError(409, JSON.stringify({ message: "Floor cannot be deleted while active spaces reference it" }))
     );
@@ -124,9 +124,21 @@ describe("AdminSpacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "2F 삭제" }));
 
     await waitFor(() =>
-      expect(
-        screen.getByText("활성 공간이 있는 층은 삭제할 수 없습니다. 먼저 공간을 삭제/이동하세요.")
-      ).toBeTruthy()
+      expect(screen.getByText("Floor cannot be deleted while active spaces reference it")).toBeTruthy()
+    );
+  });
+
+  it("shows the referenced-hidden-space conflict returned by the backend when floor deletion fails", async () => {
+    deleteFloorMock.mockRejectedValue(
+      new ApiError(409, JSON.stringify({ message: "참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다" }))
+    );
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "2F 삭제" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "2F 삭제" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다")).toBeTruthy()
     );
   });
 
