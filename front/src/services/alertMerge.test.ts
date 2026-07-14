@@ -12,11 +12,13 @@ import {
 } from "./alertMerge";
 import type { FrontendAlert } from "./api/alertEndpoints";
 import type { DashboardResponse } from "@/types";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 function alert(overrides: Partial<FrontendAlert> = {}): FrontendAlert {
   return {
     id: "a1",
     alertSeq: "1",
-    facilityId: "fac_happy_nokyang",
+    facilityId: SCOPED_FACILITY_ID,
     residentId: null,
     cameraId: "cam_sp_201",
     spaceId: "sp_201",
@@ -39,7 +41,7 @@ function alert(overrides: Partial<FrontendAlert> = {}): FrontendAlert {
 function dashboard(overrides: Partial<DashboardResponse> = {}): DashboardResponse {
   return {
     facility: {
-      id: "fac_happy_nokyang",
+      id: SCOPED_FACILITY_ID,
       name: "행복요양원 녹양점",
       address: "경기도 의정부시",
       phone: "031-123-4567",
@@ -72,7 +74,7 @@ describe("alertMerge", () => {
     let state = createAlertMergeState([alert()]);
     state = mergeAlerts(state, [alert(), alert(), alert()]);
     expect(Object.values(state.byId)).toHaveLength(1);
-    expect(state.highestSeqByFacility.fac_happy_nokyang).toBe("1");
+    expect(state.highestSeqByFacility[SCOPED_FACILITY_ID]).toBe("1");
   });
 
   it("test_alert_seq_comparison_is_numeric_not_lexicographic", () => {
@@ -266,7 +268,7 @@ describe("alertMerge", () => {
       alert({ id: "a-terminal", alertSeq: "10", backendStatus: "NEW", alertStatus: "PENDING" }),
     ]);
 
-    const statuses = deriveStatusesFromAlerts({}, alertsForFacility(state, "fac_happy_nokyang"));
+    const statuses = deriveStatusesFromAlerts({}, alertsForFacility(state, SCOPED_FACILITY_ID));
     expect(statuses.sp_201.status).toBe("STABLE");
   });
 
@@ -281,10 +283,10 @@ describe("alertMerge", () => {
         soloMovementAttempt: true,
       },
     };
-    const reconciled = reconcileActiveAlertSnapshot(createAlertMergeState([active]), "fac_happy_nokyang", []);
-    const statuses = deriveStatusesFromAlerts(base, alertsForFacility(reconciled, "fac_happy_nokyang"));
+    const reconciled = reconcileActiveAlertSnapshot(createAlertMergeState([active]), SCOPED_FACILITY_ID, []);
+    const statuses = deriveStatusesFromAlerts(base, alertsForFacility(reconciled, SCOPED_FACILITY_ID));
 
-    expect(alertsForFacility(reconciled, "fac_happy_nokyang")).toHaveLength(0);
+    expect(alertsForFacility(reconciled, SCOPED_FACILITY_ID)).toHaveLength(0);
     expect(statuses.sp_201.status).toBe("STABLE");
     expect(statuses.sp_201.aiSummary).toBeUndefined();
     expect(statuses.sp_201.prolongedInactivity).toBeUndefined();

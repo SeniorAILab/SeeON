@@ -7,6 +7,8 @@ import {
   type AlertDto,
 } from "./alertEndpoints";
 import { requestJson } from "@/services/apiClient";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 vi.mock("@/services/apiClient", () => ({
   requestJson: vi.fn(),
@@ -19,7 +21,7 @@ describe("alertEndpoints", () => {
     const mapped = mapAlertDto({
       alertSeq: "10",
       id: "a1",
-      facilityId: "fac_happy_nokyang",
+      facilityId: SCOPED_FACILITY_ID,
       residentId: "r1",
       cameraId: "cam_sp_201",
       spaceId: "sp_201",
@@ -48,7 +50,7 @@ describe("alertEndpoints", () => {
     const mapped = mapAlertDto({
       alertSeq: "11",
       id: "a-room",
-      facilityId: "fac_happy_nokyang",
+      facilityId: SCOPED_FACILITY_ID,
       residentId: null,
       cameraId: "cam_sp_201",
       spaceId: "sp_201",
@@ -70,7 +72,7 @@ describe("alertEndpoints", () => {
     const mapped = mapAlertDto({
       alertSeq: "12",
       id: "a-low-fall",
-      facilityId: "fac_happy_nokyang",
+      facilityId: SCOPED_FACILITY_ID,
       residentId: null,
       cameraId: "cam_sp_201",
       spaceId: "sp_201",
@@ -91,7 +93,7 @@ describe("alertEndpoints", () => {
     const mapped = mapAlertDto({
       alertSeq: "13",
       id: "a-resolved",
-      facilityId: "fac_happy_nokyang",
+      facilityId: SCOPED_FACILITY_ID,
       residentId: null,
       cameraId: "cam_sp_201",
       spaceId: "sp_201",
@@ -110,7 +112,7 @@ describe("alertEndpoints", () => {
     const mapped = mapAlertDto({
       alertSeq: "14",
       id: "a-unknown",
-      facilityId: "fac_happy_nokyang",
+      facilityId: SCOPED_FACILITY_ID,
       residentId: null,
       cameraId: "cam_sp_201",
       spaceId: "sp_201",
@@ -226,7 +228,7 @@ describe("mapAlertDto/mapAlert alertStatus equivalence", () => {
   const baseBackendDto = {
     alertSeq: "10",
     id: "a1",
-    facilityId: "fac_happy_nokyang",
+    facilityId: SCOPED_FACILITY_ID,
     residentId: "r1",
     cameraId: "cam_sp_201",
     spaceId: "sp_201",

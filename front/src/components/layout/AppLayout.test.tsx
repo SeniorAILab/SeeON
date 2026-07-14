@@ -5,6 +5,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -14,7 +16,7 @@ function okJsonResponse(body: unknown): Response {
 }
 
 const nokyangFacility: Facility = {
-  id: "fac_happy_nokyang",
+  id: SCOPED_FACILITY_ID,
   name: "행복한요양원 녹양역점",
   address: "경기도 의정부시",
   phone: "031-856-8090",
@@ -40,7 +42,7 @@ describe("AppLayout facility selector", () => {
       },
     });
     useFacilityStore.setState({
-      currentFacilityId: "fac_happy_nokyang",
+      currentFacilityId: SCOPED_FACILITY_ID,
       facilities: [],
     });
   });
@@ -71,7 +73,7 @@ describe("AppLayout facility selector", () => {
 
     expect(Array.from(selector.options).map((option) => option.value)).toEqual([
       "__global__",
-      "fac_happy_nokyang",
+      SCOPED_FACILITY_ID,
       "fac_backend_only",
     ]);
     expect(screen.queryByText("맑은 의정부점")).toBeNull();
@@ -79,7 +81,7 @@ describe("AppLayout facility selector", () => {
       "/api/v1/facilities",
       expect.objectContaining({
         headers: expect.not.objectContaining({
-          "x-facility-id": "fac_happy_nokyang",
+          "x-facility-id": SCOPED_FACILITY_ID,
         }),
       })
     );

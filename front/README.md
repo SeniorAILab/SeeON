@@ -69,15 +69,13 @@ React 18 · TypeScript(strict) · Vite · Tailwind CSS · Zustand · React Route
 ```
 src/
 ├── types/index.ts          프론트 UI/domain 타입
-├── data/mockData.ts        가역 숨김 페이지 전용 비활 fixture(실제 런타임 미사용)
 ├── lib/                    utils · labels(도메인 라벨) · roles(역할 호칭/권한/라우팅) · format(시간)
 ├── services/               API/서비스 레이어
 │   ├── apiClient.ts        fetch 래퍼 (`/api/v1`, cookie credentials, X-Facility-Id)
 │   ├── api/                실제 백엔드 endpoint mapper
 │   ├── authService.ts      로그인/세션 복원
 │   ├── dashboardService.ts 대시보드/공간 상태
-│   ├── eventService.ts     이벤트 확인/조치
-│   └── adminService.ts     가역 숨김 관리자 페이지 전용 비활 fixture
+│   └── eventService.ts     이벤트 확인/조치
 ├── stores/                 zustand state containers: authStore(권한) · facilityStore(시설 선택) · monitorStore(SSE 상태)
 ├── components/             RiskBadge, AlertStatusBadge, layout/{AppLayout,StaffLayout},
 │                           status/{RoomStatusBoard,RoomActionPanel,RoomStatusTreemap}, ui/primitives ...
@@ -164,18 +162,9 @@ src/
 
 > 브라우저 음성 정책상 첫 음성은 화면을 한 번 클릭/상호작용한 뒤 재생됩니다(자동재생 차단 대응).
 
-#### 음성 사전 생성 (mp3 캐시) — 현재 스텁, 미동작
+#### 사전 생성 mp3 파이프라인 제거
 
-과거에는 자주 쓰는 안내 문구를 **미리 mp3로 생성**해 두고 재생하는 캐시 경로가 있었으나, features/ 리팩토링으로 실제 모듈이 `src/features/monitor/services/tts/`의 단일 고정 문구 템플릿(`ttsConfig.ts`/`audioMap.ts`)으로 축소·이동되면서 이 경로는 끊어졌습니다.
-
-- `src/services/tts/synthesizer.ts`는 `export {}`만 남은 빈 스텁이고, `scripts/generate-tts.ts`가 여전히 import하는 `../src/services/tts/{ttsConfig,audioMap}`는 해당 경로에 파일 자체가 존재하지 않습니다. 그래서 `pnpm --filter front gen:tts`는 현재 실행하면 모듈을 찾지 못해 실패합니다.
-- 런타임 `playTTS`(`src/features/monitor/services/tts/playTTS.ts`)는 pregenerated mp3나 manifest를 전혀 참조하지 않고, 항상 브라우저 `SpeechSynthesis`(`ttsProvider.ts`)로만 재생합니다. 아래 CLOVA/Google 키 기반 mp3 생성·재생 전환은 현재 동작하지 않습니다.
-- mp3 캐시를 다시 쓰려면 `scripts/generate-tts.ts`를 `src/features/monitor/services/tts/`의 현재 단일 템플릿 구조에 맞게 다시 작성해야 합니다(향후 작업, 현재 미착수).
-
-```bash
-# 참고용(현재 미동작): 과거에는 아래처럼 mp3를 사전 생성했습니다.
-pnpm --filter front gen:tts
-```
+사전 생성 mp3 파이프라인은 제거되었습니다. 런타임 TTS는 브라우저 `SpeechSynthesis`를 사용하며, CLOVA Voice / Google Cloud TTS provider 교체를 포함한 재설계는 issue #474에서 추적합니다.
 
 ---
 
@@ -184,16 +173,16 @@ pnpm --filter front gen:tts
 행복한요양원 녹양역점에서 바로 검증할 **PoC**가 1차 목표이되, 구조는 처음부터 **SaaS Ready**로 설계합니다.
 
 - **SaaS Ready**: 핵심 백엔드 엔티티는 `facilityId`를 통해 시설 스코프를 가집니다(Facility·Floor·Space·Zone·Resident·ResidentAssignment·Guardian·Camera·Alert 등). 프론트 경로는 역할 다형 진입점(`/dashboard`, `/admin/*`)을 사용하고, API 요청은 cookie JWT + `X-Facility-Id`/SSE query selector 계약을 따릅니다.
-- **Privacy First — 얼굴 인식 미사용**: 로그인·층 선택·모니터 헤더·배정 화면에 "얼굴 인식을 사용하지 않습니다" 안내를 명시했습니다(`PrivacyNotice`). AI는 "어느 공간/구역에서 어떤 행동인지"만 알고, "그 사람이 누구인지"는 모릅니다. 개인 매핑(202호 침대A → 김○○)은 요양원 DB(`ResidentAssignment`)에서만 관리합니다.
+- **Privacy First — 얼굴 인식 미사용**: 로그인·온보딩·회원가입 화면에 "얼굴 인식을 사용하지 않습니다" 안내를 명시했습니다(`PrivacyNotice`). AI는 "어느 공간/구역에서 어떤 행동인지"만 알고, "그 사람이 누구인지"는 모릅니다. 개인 매핑(202호 침대A → 김○○)은 요양원 DB(`ResidentAssignment`)에서만 관리합니다.
 
-### 구역/침대(Zone) + 어르신 배정(ResidentAssignment)
+### 로드맵(미구현): 구역/침대(Zone) + 어르신 배정(ResidentAssignment)
 
-공간 아래 **침대/구역 단위**로 이벤트를 다룹니다. 모든 호실에 침대A·침대B가 있고, 어르신을 침대에 배정하면 이벤트가 "**202호 침대A** 침상 이탈"처럼 표기됩니다(얼굴 인식 없이 침대 위치만).
+현재 프론트는 공간(space) 상태와 알림을 중심으로 동작합니다. `router.tsx`에는 구역/침대 배정 경로가 없고, `DashboardPage.tsx`는 공간 상태를 필터링·표시하므로 구역/침대 단위 이벤트나 어르신 배정 UI는 제공하지 않습니다.
 
-- **관리자 · 구역/침대 배정**: `assignments` 관리자 화면은 가역 숨김 상태입니다. 재활성 시 `/admin/assignments` 아래에서 실백엔드로 배선합니다.
-- 실제 백엔드 이벤트는 현재 camera/space/alert 중심이며 resident-risk-summary route는 없습니다. 구역/침대 배정 화면은 가역 숨김 상태이고, `services/zoneService.ts`는 해당 숨김 페이지 전용 비활 fixture입니다.
-- 공간 상세 패널에 "구역/침대 배정" 표시, 관심 어르신 화면에 침대 위치 표기, 이벤트 타임라인에 구역 칩 표시.
-- 서비스: `services/zoneService.ts`. 엔티티: `Zone`, `ResidentAssignment`.
+- 과거의 구역/침대 배정 관리자 화면과 fixture `services/zoneService.ts`는 제거되었습니다.
+- 로드맵: 실제 백엔드 route가 준비되면 `/admin/assignments` 아래에 구역/침대 배정 화면을 배선합니다.
+- 로드맵: 공간 상세 패널에 "구역/침대 배정"을 표시하고, 관심 어르신 화면에 침대 위치를 표기하며, 이벤트 타임라인에 구역 칩을 표시합니다.
+- 로드맵 모델 엔티티: `Zone`, `ResidentAssignment`.
 
 > 이후 단계(로드맵): 실제 카메라 2~5대 연동(Camera Agnostic 어댑터), Rule Engine 명시화(주간/야간 침상 이탈, 바닥 자세=응급), 멀티 시설 확장.
 
@@ -203,14 +192,15 @@ pnpm --filter front gen:tts
 
 ---
 
-## 관심 어르신 (Focus Resident)
+## 로드맵(미구현): 관심 어르신 (Focus Resident)
 
-AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다. "감시 대상"이 아니라 "집중 관찰 지원" 톤으로 표현합니다(위험 인물·문제 행동 같은 표현 배제).
+현재 `router.tsx`에는 관심 어르신 경로가 없고, `DashboardPage.tsx`에는 관심 어르신 목록·조치·TTS 안내가 없습니다. 아래는 "감시 대상"이 아닌 "집중 관찰 지원" 톤으로 제공할 제품 비전입니다(위험 인물·문제 행동 같은 표현 배제).
 
-- **직원 화면**: "지금 확인할 곳"(`/dashboard`) 상단에 "오늘 집중 관찰 필요 N명" 섹션. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"만 보여주고 **확인함 / 직원 방문 중 / 도움 요청** 3버튼을 제공합니다. "음성으로 듣기" 버튼으로 TTS 안내를 들을 수 있습니다.
-- **관리자 화면**: `focus-residents` 관리자 화면은 남아 있지만 가역 숨김 상태이며 현재 백엔드에는 `/api/v1/resident-risk-summaries` route가 없습니다. `services/residentService.ts`와 fixture 데이터는 재활성 전까지 비활 fixture로만 보존합니다.
-- **TTS 안내(미구현)**: 설계상으로는 "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 안내할 계획이었으나, `services/tts/announceFocus.ts`는 호출부가 모두 제거된 no-op 스텁이라 현재는 아무 것도 안내하지 않습니다(재활성 시 구현 필요).
-- **데이터 모델**: `Resident`와 배정 정보는 실제 백엔드 route가 있고, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI 호환 타입입니다.
+- 로드맵 직원 화면: "지금 확인할 곳"(`/dashboard`) 상단에 "오늘 집중 관찰 필요 N명" 섹션을 표시합니다. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"와 **확인함 / 직원 방문 중 / 도움 요청** 3버튼, "음성으로 듣기" TTS 안내를 제공합니다.
+- 과거의 `focus-residents` 관리자 화면과 fixture `services/residentService.ts`는 제거되었습니다.
+- 로드맵 관리자 화면: 실제 백엔드 route가 준비되면 관심 어르신 관리 화면을 배선합니다.
+- 로드맵 TTS 안내: "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 안내합니다. 기존 no-op 스텁 `src/services/tts/announceFocus.ts`는 삭제되었으며, 기능 재구현은 issue #474에서 추적합니다.
+- 데이터 모델 상태: `Resident`와 배정 정보의 백엔드 route는 있으나, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI 호환 타입이며 관심 어르신 UI를 제공하지 않습니다.
 
 ---
 
