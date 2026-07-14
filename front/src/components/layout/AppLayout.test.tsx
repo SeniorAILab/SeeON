@@ -29,10 +29,10 @@ const backendOnlyFacility: Facility = {
   address: "서울특별시",
   phone: "02-000-0000",
 };
-const orphanDuplicateFacility: Facility = {
+const orphanDuplicateFacility = {
   id: "facility-orphan",
   name: DUPLICATE_FACILITY_NAME,
-  address: "",
+  address: null,
   phone: "031-000-0000",
 };
 
@@ -96,7 +96,7 @@ describe("AppLayout facility selector", () => {
     expect(screen.getAllByText("대시보드")).toHaveLength(1);
     expect(screen.queryByText("원장님")).toBeNull();
   });
-  it("disambiguates duplicate facility names with an address or ID suffix", async () => {
+  it("disambiguates a duplicate facility with a null backend address using its ID suffix", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>().mockResolvedValue(

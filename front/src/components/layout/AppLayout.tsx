@@ -34,7 +34,7 @@ function facilityOptionLabel(
 ) {
   if (!duplicatedNames.has(facility.name)) return facility.name;
 
-  const disambiguator = facility.address.trim() || facility.id.slice(-6);
+  const disambiguator = (facility.address ?? "").trim() || facility.id.slice(-6);
   return `${facility.name} (${disambiguator})`;
 }
 

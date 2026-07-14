@@ -17,7 +17,7 @@ const seededFacility = {
 const orphanDuplicateFacility = {
   id: "facility-orphan",
   name: DUPLICATE_FACILITY_NAME,
-  address: "",
+  address: null,
   phone: "031-000-0000",
 };
 
@@ -115,7 +115,7 @@ describe("SuperAdminDashboardPage", () => {
       expect(useFacilityStore.getState().currentFacilityId).toBe(SCOPED_FACILITY_ID)
     );
   });
-  it("disambiguates duplicate facility cards with an address or ID suffix", async () => {
+  it("disambiguates a duplicate facility with a null backend address using its ID suffix", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(async () =>
