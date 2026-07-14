@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomActionPanel, eventGroupsFor } from "./RoomActionPanel";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import type { AlertNote } from "@/services/alertService";
-import { formatDateTime } from "@/lib/format";
 
 vi.mock("@/services/alertService", () => ({
   alertService: {
@@ -112,29 +111,32 @@ describe("RoomActionPanel", () => {
     expect(alertService.resolve).toHaveBeenCalledWith("fall-2");
     expect(alertService.resolve).not.toHaveBeenCalledWith("bed-1");
   });
-  it("shows five newest alert rows with times and expands the remaining group alerts", () => {
-    const alerts = Array.from({ length: 8 }, (_, index) =>
+  it("pages alert groups by 20 rows and collapses back to five rows", () => {
+    const alerts = Array.from({ length: 30 }, (_, index) =>
       alert({
         id: `fall-${index}`,
         aiSummary: `낙상 ${index}`,
-        detectedAt: `2026-07-03T00:0${index}:00.000Z`,
+        detectedAt: `2026-07-03T00:${String(index).padStart(2, "0")}:00.000Z`,
       }),
     );
 
     render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
 
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
-    expect(screen.getByRole("button", { name: "더 보기 (3)" })).toBeTruthy();
-    for (let index = 7; index >= 3; index--) {
-      expect(screen.getByText(formatDateTime(`2026-07-03T00:0${index}:00.000Z`))).toBeTruthy();
-    }
+    expect(screen.getByRole("button", { name: "더 보기 (25)" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "더 보기 (3)" }));
-
-    expect(screen.getAllByRole("listitem")).toHaveLength(8);
+    fireEvent.click(screen.getByRole("button", { name: "더 보기 (25)" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(25);
+    expect(screen.getByRole("button", { name: "더 보기 (5)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "접기" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기 (5)" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(30);
+    expect(screen.queryByRole("button", { name: /더 보기/ })).toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: "접기" }));
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "더 보기 (25)" })).toBeTruthy();
   });
 
   it("resolves every alert in a group even when most rows are collapsed", async () => {

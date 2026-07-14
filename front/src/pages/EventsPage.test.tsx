@@ -66,4 +66,15 @@ describe("EventsPage", () => {
     expect(screen.queryByText("확인 완료 이벤트 요약")).toBeNull();
     expect(screen.getByRole("button", { name: "미확인" }).className).toContain("bg-ink");
   });
+  it("falls back to all events for an invalid filter query parameter", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/events?filter=NOT_A_FILTER"]}>
+        <EventsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("미확인 이벤트 요약")).toBeTruthy();
+    expect(screen.getByText("확인 완료 이벤트 요약")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "전체" }).className).toContain("bg-ink");
+  });
 });
