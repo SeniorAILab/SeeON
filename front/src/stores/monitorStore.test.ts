@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { DashboardResponse, SpaceStatus } from "@/types";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -12,7 +14,7 @@ function okJsonResponse(body: unknown): Response {
 const alertDto = {
   alertSeq: "10",
   id: "alert_201",
-  facilityId: "fac_happy_nokyang",
+  facilityId: SCOPED_FACILITY_ID,
   residentId: null,
   cameraId: "cam_sp_201",
   spaceId: "sp_201",
@@ -52,7 +54,7 @@ function dashboardFetch(alerts: unknown[] = []) {
         email: "staff@sen.ai",
         nickname: "직원",
         role: "STAFF",
-        facilityId: "fac_happy_nokyang",
+        facilityId: SCOPED_FACILITY_ID,
       });
     }
     const facilityMatch = url.match(/\/facilities\/([^/?]+)$/);
@@ -67,7 +69,7 @@ function dashboardFetch(alerts: unknown[] = []) {
     }
     if (url.endsWith("/floors")) return okJsonResponse([]);
     if (url.endsWith("/spaces")) {
-      return okJsonResponse([{ id: "sp_201", facilityId: "fac_happy_nokyang", floorId: "floor_2", name: "201호" }]);
+      return okJsonResponse([{ id: "sp_201", facilityId: SCOPED_FACILITY_ID, floorId: "floor_2", name: "201호" }]);
     }
     if ((url.endsWith("/alerts") || url.endsWith("/alerts?status=NEW")) && !init?.method) return okJsonResponse(alerts);
     throw new Error(`Unexpected request ${url}`);
@@ -154,8 +156,8 @@ describe("monitorStore live alert merge", () => {
     vi.stubGlobal("fetch", dashboardFetch());
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
 
     expect(EventSource).toHaveBeenCalledTimes(1);
     expect(close).not.toHaveBeenCalled();
@@ -253,7 +255,7 @@ describe("monitorStore live alert merge", () => {
     vi.stubGlobal("fetch", dashboardFetch());
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
     await Promise.resolve();
     await Promise.resolve();
 
@@ -284,7 +286,7 @@ describe("monitorStore live alert merge", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
     for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
@@ -314,7 +316,7 @@ describe("monitorStore live alert merge", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
     for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
@@ -337,7 +339,7 @@ describe("monitorStore live alert merge", () => {
     vi.stubGlobal("fetch", dashboardFetch());
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
     await Promise.resolve();
     await Promise.resolve();
 
@@ -353,7 +355,7 @@ describe("monitorStore live alert merge", () => {
     vi.stubGlobal("fetch", dashboardFetch());
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
     for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
@@ -389,7 +391,7 @@ describe("monitorStore resolve", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { useMonitorStore } = await import("./monitorStore");
-    useMonitorStore.getState().start("fac_happy_nokyang", 60_000);
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
     for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }

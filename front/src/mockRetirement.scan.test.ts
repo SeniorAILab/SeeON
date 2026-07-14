@@ -1,25 +1,102 @@
 import { describe, expect, it } from "vitest";
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
-const testFile = "mockRetirement.scan.test.ts";
+const frontRoot = path.resolve(srcRoot, "..");
+const scriptsRoot = path.join(frontRoot, "scripts");
+const testFile = "src/mockRetirement.scan.test.ts";
+const repositoryRoot = path.resolve(frontRoot, "..");
+const retirementGuardSurfaces = [
+  { relativePath: "front/AGENTS.md", allowDeletionNotes: true },
+  { relativePath: "front/src/AGENTS.md", allowDeletionNotes: true },
+  { relativePath: "front/README.md", allowDeletionNotes: true },
+  { relativePath: "front/package.json", allowDeletionNotes: false },
+  { relativePath: "front/.gitignore", allowDeletionNotes: false },
+] as const;
 
 const removedFixtureFiles = new Set(
   [
-    ["services", "resident" + "Service.ts"],
-    ["services", "zone" + "Service.ts"],
-    ["pages/admin", "Focus" + "ResidentsPage.tsx"],
-    ["pages/admin", "Focus" + "ResidentsPage.test.tsx"],
-    ["pages/admin", "Admin" + "AssignmentsPage.tsx"],
-    ["pages/admin", "Admin" + "AssignmentsPage.test.tsx"],
-    ["pages/admin", "Admin" + "AlertRulesPage.tsx"],
-    ["pages/admin", "Admin" + "AlertRulesPage.test.tsx"],
+    ["src", "services", "resident" + "Service.ts"],
+    ["src", "services", "zone" + "Service.ts"],
+    ["src", "pages/admin", "Focus" + "ResidentsPage.tsx"],
+    ["src", "pages/admin", "Focus" + "ResidentsPage.test.tsx"],
+    ["src", "pages/admin", "Admin" + "AssignmentsPage.tsx"],
+    ["src", "pages/admin", "Admin" + "AssignmentsPage.test.tsx"],
+    ["src", "pages/admin", "Admin" + "AlertRulesPage.tsx"],
+    ["src", "pages/admin", "Admin" + "AlertRulesPage.test.tsx"],
   ].map((parts) => parts.join("/")),
 );
 
-const inactiveFixtureIsland = new Set(["data/mockData.ts", "services/db.ts", "services/adminService.ts"]);
+const retiredFixturePaths = new Set([
+  "src/data/mockData.ts",
+  "src/services/db.ts",
+  "src/services/adminService.ts",
+  "src/services/tts/announceFocus.ts",
+  "src/services/tts/synthesizer.ts",
+  "scripts/generate-tts.ts",
+  "public/audio/tts",
+]);
+
+const retiredImportSpecifiers = new Set([
+  "data/mockData",
+  "services/db",
+  "services/adminService",
+  "services/tts/announceFocus",
+  "services/tts/synthesizer",
+]);
+
+const retiredDocReferences = [
+  ...retiredFixturePaths,
+  ...[...retiredFixturePaths].map((relativePath) => relativePath.replace(/^src\//, "")),
+  "services/zoneService.ts",
+  "services/residentService.ts",
+];
+
+const retiredDocReferencePattern = new RegExp(
+  retiredDocReferences
+    .map((reference) =>
+      reference
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\//g, "[\\\\/]")
+    )
+    .join("|"),
+  "gi"
+);
+// 완료형 삭제 서술만 참조를 면제한다. 참조 직후(닫는 백틱/따옴표/조사 허용)에
+// 긍정 완료형(삭제되었/제거됨/was removed 등)이 붙어야 하며, 부정(되지 않)·미래
+// (예정/will be)·무관한 후행 삭제 문구는 면제하지 않는다(fail-closed).
+const affirmativeDeletionPattern =
+  /^[\s`'"”“)\]]*(?:와|과|는|은|도|이|가|를|을)?\s*(?:이미\s*)?(?:모두\s*)?(?:삭제|제거)(?:되었|됐|됨|했)|^[\s`'"”“)\]]*(?:was|were|has been|have been|is now|are now)\s+(?:removed|deleted)\b/iu;
+const deletionNoteWindow = 80;
+
+export function isRetiredImportSpecifier(specifier: string): boolean {
+  return retiredImportSpecifiers.has(specifier);
+}
+
+export function findRetiredDocReferences(
+  text: string,
+  { allowDeletionNotes }: { allowDeletionNotes: boolean }
+): string[] {
+  return text.split(/\r?\n/).flatMap((line, index) => {
+    const references = Array.from(line.matchAll(retiredDocReferencePattern));
+    if (references.length === 0) return [];
+    if (!allowDeletionNotes) return [`${index + 1}: ${line}`];
+
+    const hasUnqualifiedReference = references.some((reference, referenceIndex) => {
+      const referenceEnd = (reference.index ?? 0) + reference[0].length;
+      const nextReferenceStart = references[referenceIndex + 1]?.index ?? line.length;
+      const trailingText = line.slice(
+        referenceEnd,
+        Math.min(nextReferenceStart, referenceEnd + deletionNoteWindow)
+      );
+      return !affirmativeDeletionPattern.test(trailingText);
+    });
+
+    return hasUnqualifiedReference ? [`${index + 1}: ${line}`] : [];
+  });
+}
 
 async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -27,7 +104,7 @@ async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
     entries.map(async (entry) => {
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) return collectSourceFiles(absolutePath);
-      if (/\.(ts|tsx)$/.test(entry.name)) return [absolutePath];
+      if (/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(entry.name)) return [absolutePath];
       return [];
     })
   );
@@ -35,7 +112,7 @@ async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
 }
 
 function toRelative(absolutePath: string): string {
-  return path.relative(srcRoot, absolutePath).split(path.sep).join("/");
+  return path.relative(frontRoot, absolutePath).split(path.sep).join("/");
 }
 
 function stripComments(source: string): string {
@@ -52,21 +129,32 @@ function normalizeImportSource(importer: string, specifier: string): string | nu
   if (specifier.startsWith("@/")) return specifier.slice(2).replace(/\.(tsx?|jsx?)$/, "");
   if (!specifier.startsWith(".")) return null;
 
-  return path
+  const normalized = path
     .normalize(path.join(path.dirname(importer), specifier))
     .split(path.sep)
     .join("/")
     .replace(/\.(tsx?|jsx?)$/, "");
+
+  return normalized.startsWith("src/") ? normalized.slice(4) : normalized;
 }
 
 function importSources(relativePath: string, source: string): string[] {
   const imports = source.matchAll(
-    /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g
+    /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)|require\(\s*["']([^"']+)["']\s*\)/g
   );
-  return Array.from(imports, (match) => normalizeImportSource(relativePath, match[1] ?? match[2]))
-    .filter((specifier): specifier is string => specifier !== null);
+  return Array.from(imports, (match) =>
+    normalizeImportSource(relativePath, match[1] ?? match[2] ?? match[3])
+  ).filter((specifier): specifier is string => specifier !== null);
 }
 
+async function pathExists(relativePath: string): Promise<boolean> {
+  try {
+    await access(path.join(frontRoot, relativePath));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function findMatches(files: Record<string, string>, predicate: (relativePath: string, source: string) => boolean): string[] {
   return Object.entries(files)
@@ -75,7 +163,6 @@ function findMatches(files: Record<string, string>, predicate: (relativePath: st
     .sort();
 }
 
-const retiredFixtureModulePattern = /^(?:data\/mockData|services\/db|services\/adminService)$/;
 
 describe("retired frontend mock regressions", () => {
   it("keeps runtime mock switches and demo copy out of front/src", async () => {
@@ -115,26 +202,139 @@ describe("retired frontend mock regressions", () => {
     ).toEqual([]);
   });
 
-  it("keeps retired fixture module imports inside the inactive fixture island only", async () => {
+  it("keeps retired fixture modules and pre-generated TTS assets deleted", async () => {
+    const sourceFiles = [
+      ...(await collectSourceFiles(srcRoot)),
+      ...((await pathExists("scripts")) ? await collectSourceFiles(scriptsRoot) : []),
+    ];
     const files = Object.fromEntries(
       await Promise.all(
-        (await collectSourceFiles()).map(async (absolutePath) => [
+        sourceFiles.map(async (absolutePath) => [
           toRelative(absolutePath),
           await readFile(absolutePath, "utf8"),
         ])
       )
     );
 
+    const existingRetiredPaths = (
+      await Promise.all(
+        [...retiredFixturePaths].map(async (relativePath) =>
+          (await pathExists(relativePath)) ? relativePath : null
+        )
+      )
+    ).filter((relativePath): relativePath is string => relativePath !== null);
+    expect(existingRetiredPaths).toEqual([]);
+
     const fixtureImporters = findMatches(files, (relativePath, source) =>
-      importSources(relativePath, source).some((specifier) => retiredFixtureModulePattern.test(specifier))
+      importSources(relativePath, source).some(isRetiredImportSpecifier)
     );
-    expect(fixtureImporters.filter((relativePath) => !inactiveFixtureIsland.has(relativePath))).toEqual([]);
+    expect(fixtureImporters).toEqual([]);
 
     expect([...removedFixtureFiles].filter((relativePath) => relativePath in files)).toEqual([]);
-
-    const mockDataImporters = findMatches(files, (relativePath, source) =>
-      importSources(relativePath, source).includes("data/mockData")
+  });
+  it("keeps retired paths out of config and documents them only as deletions", async () => {
+    const surfaces = await Promise.all(
+      retirementGuardSurfaces.map(async ({ relativePath, allowDeletionNotes }) => ({
+        relativePath,
+        allowDeletionNotes,
+        source: await readFile(path.join(repositoryRoot, relativePath), "utf8"),
+      }))
     );
-    expect(mockDataImporters).toEqual(["services/db.ts"]);
+
+    for (const { relativePath, allowDeletionNotes, source } of surfaces) {
+      const flagged = findRetiredDocReferences(source, { allowDeletionNotes }).map(
+        (finding) => `${relativePath} ${finding}`
+      );
+      expect(flagged).toEqual([]);
+    }
+  });
+});
+
+describe("retired reference predicates", () => {
+  it("rejects every retired import specifier and fails closed for unrelated modules", () => {
+    for (const specifier of [
+      "data/mockData",
+      "services/db",
+      "services/adminService",
+      "services/tts/announceFocus",
+      "services/tts/synthesizer",
+    ]) {
+      expect(isRetiredImportSpecifier(specifier)).toBe(true);
+    }
+
+    expect(isRetiredImportSpecifier("services/api/residents")).toBe(false);
+  });
+
+  it("flags unmarked retired documentation references", () => {
+    expect(
+      findRetiredDocReferences("Fixture: services/zoneService.ts", { allowDeletionNotes: true })
+    ).toEqual(["1: Fixture: services/zoneService.ts"]);
+  });
+
+  it("fails a mixed availability and deletion claim on one line", () => {
+    const line = "services/zoneService.ts is available; services/residentService.ts was removed.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("does not treat an issue marker as a deletion note", () => {
+    const line = "services/residentService.ts is tracked in #474.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("requires every retired reference on a line to be qualified", () => {
+    const line = "services/zoneService.ts was removed; services/residentService.ts";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("detects uppercase references with path separators varied", () => {
+    const line = String.raw`SRC\SERVICES\DB.TS is enabled.`;
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("permits a clean deletion note", () => {
+    expect(
+      findRetiredDocReferences("services/residentService.ts는 삭제되었습니다.", {
+        allowDeletionNotes: true,
+      })
+    ).toEqual([]);
+  });
+
+  it("permits unrelated lines", () => {
+    expect(
+      findRetiredDocReferences("실제 백엔드 route만 사용합니다.", { allowDeletionNotes: true })
+    ).toEqual([]);
+  });
+  it("rejects negated deletion claims", () => {
+    const line = "services/zoneService.ts는 삭제되지 않았습니다.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("rejects future-tense deletion claims", () => {
+    const line = "services/residentService.ts는 곧 제거될 예정입니다.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+
+  it("rejects an unrelated trailing deletion marker", () => {
+    const line = "services/db.ts를 사용합니다. 오래된 캐시는 삭제되었습니다.";
+    expect(findRetiredDocReferences(line, { allowDeletionNotes: true })).toEqual([`1: ${line}`]);
+  });
+});
+describe("retired import scan forms", () => {
+  // 픽스처 문자열은 이 파일 자체가 스캔에 걸리지 않도록 토큰을 분할해 조립한다.
+  const requireToken = ["req", "uire"].join("");
+  const importToken = ["imp", "ort"].join("");
+
+  it("normalizes require() references to retired specifiers", () => {
+    const source = `const db = ${requireToken}("${["..", "src", "services", "db"].join("/")}");`;
+    const sources = importSources("scripts/build.cjs", source);
+    expect(sources).toEqual(["services/db"]);
+    expect(sources.some(isRetiredImportSpecifier)).toBe(true);
+  });
+
+  it("normalizes dynamic import() references to retired specifiers", () => {
+    const source = `await ${importToken}("${["@", "data", "mockData"].join("/")}");`;
+    const sources = importSources("src/router.tsx", source);
+    expect(sources).toEqual(["data/mockData"]);
+    expect(sources.some(isRetiredImportSpecifier)).toBe(true);
   });
 });
