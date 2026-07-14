@@ -36,6 +36,16 @@ describe("facilities api", () => {
       headers: { "X-Facility-Id": "fac/1" },
     });
   });
+  it("normalizes nullable contact fields from a single-facility response", async () => {
+    requestJsonMock.mockResolvedValue({ ...facility, address: null, phone: null });
+
+    await expect(getFacility("fac/1")).resolves.toEqual({
+      ...facility,
+      address: "",
+      phone: "",
+    });
+  });
+
 
   it("does not invent a facility scope header when no facility is selected", async () => {
     getCurrentFacilityIdMock.mockReturnValue(null);
@@ -46,10 +56,16 @@ describe("facilities api", () => {
     expect(requestJsonMock).toHaveBeenCalledWith("/facilities/fac%2F1", { headers: {} });
   });
 
-  it("lists facilities from the global facilities endpoint", async () => {
-    requestJsonMock.mockResolvedValue([facility]);
+  it("normalizes nullable contact fields from the facilities list response", async () => {
+    requestJsonMock.mockResolvedValue([{ ...facility, address: null, phone: null }]);
 
-    await expect(listFacilities()).resolves.toEqual([facility]);
+    await expect(listFacilities()).resolves.toEqual([
+      {
+        ...facility,
+        address: "",
+        phone: "",
+      },
+    ]);
 
     expect(requestJsonMock).toHaveBeenCalledWith("/facilities");
   });
