@@ -67,6 +67,27 @@ describe("SuperAdminDashboardPage", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v1/facilities");
   });
+  it("renders a friendly fallback instead of a raw API error body when facilities fail to load", async () => {
+    const rawError = JSON.stringify({ error: "Internal Server Error", statusCode: 500 });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () =>
+        new Response(rawError, {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("시설 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")).toBeTruthy();
+    expect(screen.queryByText(rawError)).toBeNull();
+  });
 
   it("stores the selected facility before entering a facility-scoped route", async () => {
     vi.stubGlobal(

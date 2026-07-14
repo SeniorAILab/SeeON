@@ -49,7 +49,11 @@ export function FloorSelectLandingPage() {
 
   const groups = useMemo(() => {
     if (!dashboard) return [];
-    return groupRoomsByFloor(dashboard.spaces, dashboard.statuses, dashboard.floors);
+    return groupRoomsByFloor(
+      dashboard.spaces.filter((space) => space.isActive),
+      dashboard.statuses,
+      dashboard.floors,
+    );
   }, [dashboard]);
   const floorGroups = useMemo(
     (): Array<RoomFloorGroup & { floor: NonNullable<RoomFloorGroup["floor"]> }> =>

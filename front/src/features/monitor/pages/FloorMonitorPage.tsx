@@ -85,9 +85,24 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
 
 
   const redirectFloorId = floors.find((floor) => floor.id === defaultFloorId)?.id ?? floors[0]?.id ?? null;
+  useEffect(() => {
+    const hasDefaultFloor = floors.some((floor) => floor.id === defaultFloorId);
+    if (
+      floors.length > 0 &&
+      ((!allowAllView && defaultFloorId === "all") ||
+        (defaultFloorId !== "all" && !hasDefaultFloor))
+    ) {
+      updateSettings({ defaultFloorId: floors[0].id });
+    }
+  }, [allowAllView, defaultFloorId, floors, updateSettings]);
+
 
   if (!facilityId) return <Navigate to={ACCESS_DENIED_PATH} replace />;
-  if (allView && !allowAllView && redirectFloorId) {
+  if (
+    redirectFloorId &&
+    ((allView && !allowAllView) ||
+      (!allView && floors.length > 0 && !floors.some((floor) => floor.id === floorId)))
+  ) {
     return <Navigate to={floorPath(facilityId, redirectFloorId)} replace />;
   }
 
@@ -112,9 +127,10 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           onToggleSound={() => updateSettings({ alertSound: !alertSound })}
           onRefresh={() => void reload()}
           fullscreenRef={rootRef}
-          floors={allowAllView ? floors : []}
+          floors={floors}
           currentFloorId={allView ? null : (floorId ?? null)}
           facilityId={facilityId}
+          showAllView={allowAllView}
         />
 
         <div className="mt-4 flex min-h-0 flex-1">

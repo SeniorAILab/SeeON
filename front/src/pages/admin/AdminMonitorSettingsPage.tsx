@@ -20,9 +20,21 @@ export function AdminMonitorSettingsPage() {
   const floorNameById = new Map(floors.map((floor) => [floor.id, floor.name]));
 
   useEffect(() => {
+    setFloors([]);
+    setSpaces([]);
     listFloors().then(setFloors);
     listSpaces().then(setSpaces);
   }, [facilityId]);
+
+  useEffect(() => {
+    if (
+      floors.length > 0 &&
+      settings.defaultFloorId !== "all" &&
+      !floors.some((floor) => floor.id === settings.defaultFloorId)
+    ) {
+      settings.update({ defaultFloorId: floors[0].id });
+    }
+  }, [floors, settings.defaultFloorId, settings]);
 
   function toggleSpace(id: string) {
     const cur = settings.visibleSpaceIds ?? spaces.map((s) => s.id);
@@ -32,12 +44,20 @@ export function AdminMonitorSettingsPage() {
   const isVisible = (id: string) =>
     settings.visibleSpaceIds === null || settings.visibleSpaceIds.includes(id);
   function openMonitor() {
-    if (!facilityId) return;
-    navigate(
-      settings.allowAllView && settings.defaultFloorId === "all"
-        ? dashboardPath(facilityId)
-        : floorPath(facilityId, settings.defaultFloorId),
-    );
+    if (!facilityId || floors.length === 0) return;
+
+    if (settings.allowAllView && settings.defaultFloorId === "all") {
+      navigate(dashboardPath(facilityId));
+      return;
+    }
+
+    const defaultFloorId = floors.some((floor) => floor.id === settings.defaultFloorId)
+      ? settings.defaultFloorId
+      : floors[0].id;
+    if (defaultFloorId !== settings.defaultFloorId) {
+      settings.update({ defaultFloorId });
+    }
+    navigate(floorPath(facilityId, defaultFloorId));
   }
 
   return (
@@ -48,7 +68,7 @@ export function AdminMonitorSettingsPage() {
         action={
           <Button
             variant="secondary"
-            disabled={!facilityId}
+            disabled={!facilityId || floors.length === 0}
             onClick={openMonitor}
           >
             <ExternalLink className="h-4 w-4" />

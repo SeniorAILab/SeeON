@@ -4,7 +4,7 @@ import type { MonitorSettings } from "@/types";
 const KEY = "senai.monitor.settings";
 
 const DEFAULTS: MonitorSettings = {
-  defaultFloorId: "fl_2f",
+  defaultFloorId: "",
   refreshMs: 6000, // 현실감을 위해 5~10초 권장
   alertSound: false, // 소리 기본값은 꺼짐
   nightMode: false,

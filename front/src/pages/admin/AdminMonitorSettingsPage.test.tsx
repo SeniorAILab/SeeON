@@ -56,4 +56,20 @@ describe("AdminMonitorSettingsPage", () => {
     expect(await screen.findByRole("checkbox", { name: "2F 중앙복도" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "1F 중앙복도" })).toBeTruthy();
   });
+  it("replaces a stale cross-facility default with the first loaded floor", async () => {
+    const activeFloorId = "fl_west_1";
+    useMonitorSettingsStore.setState({ defaultFloorId: "fl_2f" });
+    vi.mocked(listFloors).mockResolvedValue([
+      { id: activeFloorId, facilityId, name: "서관 1층", orderIndex: 1 },
+      { id: "fl_west_2", facilityId, name: "서관 2층", orderIndex: 2 },
+    ]);
+
+    render(<AdminMonitorSettingsPage />);
+    await screen.findByRole("option", { name: "서관 1층" });
+
+    fireEvent.click(screen.getByRole("button", { name: "모니터 열기" }));
+
+    expect(mockNavigate).toHaveBeenCalledWith(floorPath(facilityId, activeFloorId));
+    expect(useMonitorSettingsStore.getState().defaultFloorId).toBe(activeFloorId);
+  });
 });

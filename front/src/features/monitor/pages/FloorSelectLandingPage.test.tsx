@@ -121,4 +121,31 @@ describe("FloorSelectLandingPage", () => {
     await screen.findByRole("list", { name: "층 선택 목록" });
     expect(screen.queryByRole("button", { name: "전체 보기 이동, 위험 1건" })).toBeNull();
   });
+  it("does not offer floors that contain only inactive spaces", async () => {
+    const inactiveFloorId = "fl_hidden";
+    vi.mocked(dashboardService.getDashboard).mockResolvedValue({
+      ...dashboard,
+      floors: [
+        ...dashboard.floors,
+        { id: inactiveFloorId, facilityId, name: "숨김층", orderIndex: 3 },
+      ],
+      spaces: [
+        ...dashboard.spaces,
+        {
+          id: "space_hidden",
+          facilityId,
+          floorId: inactiveFloorId,
+          name: "숨김 생활실",
+          type: "ROOM",
+          capacity: 2,
+          isActive: false,
+        },
+      ],
+    });
+
+    render(<FloorSelectLandingPage />);
+
+    await screen.findByRole("list", { name: "층 선택 목록" });
+    expect(screen.queryByRole("button", { name: "숨김층 이동, 위험 0건" })).toBeNull();
+  });
 });

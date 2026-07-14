@@ -47,9 +47,13 @@ export function AdminSpacesPage() {
     if (!name) return;
     setError(null);
     setNotice(null);
-    await createFloor({ name });
-    setNewFloorName("");
-    await load();
+    try {
+      await createFloor({ name });
+      setNewFloorName("");
+      await load();
+    } catch (e) {
+      setError(apiErrorMessage(e, "층을 추가할 수 없습니다. 다시 시도하세요."));
+    }
   }
 
   async function saveFloor(id: string) {
@@ -57,9 +61,13 @@ export function AdminSpacesPage() {
     if (!name) return;
     setError(null);
     setNotice(null);
-    await updateFloor(id, { name });
-    setEditingFloorId(null);
-    await load();
+    try {
+      await updateFloor(id, { name });
+      setEditingFloorId(null);
+      await load();
+    } catch (e) {
+      setError(apiErrorMessage(e, "층 이름을 저장할 수 없습니다. 다시 시도하세요."));
+    }
   }
 
   async function removeFloor(id: string) {
@@ -184,6 +192,7 @@ export function AdminSpacesPage() {
                 <>
                   <Input
                     className="h-9 flex-1"
+                    aria-label={`${floor.name} 층 이름 편집`}
                     value={editingFloorName}
                     onChange={(e) => setEditingFloorName(e.target.value)}
                     autoFocus
@@ -315,7 +324,7 @@ export function AdminSpacesPage() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     ) : (
-                      <Button size="sm" onClick={() => restoreSpace(space)}>
+                      <Button size="sm" aria-label={`${space.name} 복원`} onClick={() => restoreSpace(space)}>
                         복원
                       </Button>
                     )}
