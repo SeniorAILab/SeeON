@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 function okJsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -8,7 +10,7 @@ function okJsonResponse(body: unknown): Response {
 }
 
 const facility = {
-  id: "fac_happy_nokyang",
+  id: SCOPED_FACILITY_ID,
   name: "Happy Nokyang",
   address: "Seoul",
   phone: "02-0000-0000",

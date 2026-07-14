@@ -39,21 +39,13 @@ Terminology: dashboard = route/read-model/API, monitor = physical kiosk device/s
 - Keep backend DTO parsing/mapping at the service seam, not inside components.
 - Runtime uses the real backend API seam. Do not reintroduce frontend mock auth
   users, localStorage auth sessions, or runtime demo branches.
-- `data/mockData.ts`, `services/db.ts`, and their fixture service island are
-  preserved only for reversibly hidden pages. They are not a runtime backend
-  substitute; wire reactivated pages to the real backend or delete the fixture
-  island with those pages.
+- 런타임 mock/fixture island는 삭제되었습니다. 다시 도입하지 마세요.
+- 테스트 파일에서 `fac_happy_nokyang` 같은 scoped-id 문자열은 `apiClient.test.ts` 패턴처럼 파일별 이름 있는 상수 하나에서 파생해야 합니다.
 - Auth is backend-owned. Restore identity through `/api/v1/auth/me`; do not add
   frontend mock users or localStorage auth sessions.
 - Use the `@/*` alias for source imports where it improves readability.
 - `_`-prefixed variables are the intentional-unused convention.
 - Tests run with Vitest/jsdom and cleanup in `test/setup.ts`.
-- Test fixtures: when a scoped id (facility/space/floor) appears in more than
-  one place inside a test file (setup, request path, assertion), derive every
-  occurrence from a single named constant (e.g. `const SCOPED_FACILITY_ID = …`
-  plus template-literal paths). Greenness must never depend on hand-synced
-  duplicate string literals. Existing files predating this rule are migrated
-  opportunistically when touched.
 
 ## Anti-patterns
 

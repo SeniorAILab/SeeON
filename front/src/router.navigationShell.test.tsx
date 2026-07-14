@@ -1,14 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 describe("navigation shell route removals", () => {
   it.each([
-    "/facilities/fac_happy_nokyang/admin/focus-residents",
-    "/facilities/fac_happy_nokyang/admin/assignments",
-    "/facilities/fac_happy_nokyang/admin/alert-rules",
-    "/facilities/fac_happy_nokyang/admin/floors",
-    "/facilities/fac_happy_nokyang/admin/ux-test",
+    `/facilities/${SCOPED_FACILITY_ID}/admin/focus-residents`,
+    `/facilities/${SCOPED_FACILITY_ID}/admin/assignments`,
+    `/facilities/${SCOPED_FACILITY_ID}/admin/alert-rules`,
+    `/facilities/${SCOPED_FACILITY_ID}/admin/floors`,
+    `/facilities/${SCOPED_FACILITY_ID}/admin/ux-test`,
   ])("does not match hidden or removed route %s", async (entry) => {
     render(
       <MemoryRouter initialEntries={[entry]}>

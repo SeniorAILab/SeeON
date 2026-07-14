@@ -1,25 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
-const testFile = "mockRetirement.scan.test.ts";
+const frontRoot = path.resolve(srcRoot, "..");
+const scriptsRoot = path.join(frontRoot, "scripts");
+const testFile = "src/mockRetirement.scan.test.ts";
 
 const removedFixtureFiles = new Set(
   [
-    ["services", "resident" + "Service.ts"],
-    ["services", "zone" + "Service.ts"],
-    ["pages/admin", "Focus" + "ResidentsPage.tsx"],
-    ["pages/admin", "Focus" + "ResidentsPage.test.tsx"],
-    ["pages/admin", "Admin" + "AssignmentsPage.tsx"],
-    ["pages/admin", "Admin" + "AssignmentsPage.test.tsx"],
-    ["pages/admin", "Admin" + "AlertRulesPage.tsx"],
-    ["pages/admin", "Admin" + "AlertRulesPage.test.tsx"],
+    ["src", "services", "resident" + "Service.ts"],
+    ["src", "services", "zone" + "Service.ts"],
+    ["src", "pages/admin", "Focus" + "ResidentsPage.tsx"],
+    ["src", "pages/admin", "Focus" + "ResidentsPage.test.tsx"],
+    ["src", "pages/admin", "Admin" + "AssignmentsPage.tsx"],
+    ["src", "pages/admin", "Admin" + "AssignmentsPage.test.tsx"],
+    ["src", "pages/admin", "Admin" + "AlertRulesPage.tsx"],
+    ["src", "pages/admin", "Admin" + "AlertRulesPage.test.tsx"],
   ].map((parts) => parts.join("/")),
 );
 
-const inactiveFixtureIsland = new Set(["data/mockData.ts", "services/db.ts", "services/adminService.ts"]);
+const retiredFixturePaths = new Set([
+  "src/data/mockData.ts",
+  "src/services/db.ts",
+  "src/services/adminService.ts",
+  "src/services/tts/announceFocus.ts",
+  "src/services/tts/synthesizer.ts",
+  "scripts/generate-tts.ts",
+  "public/audio/tts",
+]);
 
 async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -35,7 +45,7 @@ async function collectSourceFiles(dir = srcRoot): Promise<string[]> {
 }
 
 function toRelative(absolutePath: string): string {
-  return path.relative(srcRoot, absolutePath).split(path.sep).join("/");
+  return path.relative(frontRoot, absolutePath).split(path.sep).join("/");
 }
 
 function stripComments(source: string): string {
@@ -52,11 +62,13 @@ function normalizeImportSource(importer: string, specifier: string): string | nu
   if (specifier.startsWith("@/")) return specifier.slice(2).replace(/\.(tsx?|jsx?)$/, "");
   if (!specifier.startsWith(".")) return null;
 
-  return path
+  const normalized = path
     .normalize(path.join(path.dirname(importer), specifier))
     .split(path.sep)
     .join("/")
     .replace(/\.(tsx?|jsx?)$/, "");
+
+  return normalized.startsWith("src/") ? normalized.slice(4) : normalized;
 }
 
 function importSources(relativePath: string, source: string): string[] {
@@ -67,6 +79,14 @@ function importSources(relativePath: string, source: string): string[] {
     .filter((specifier): specifier is string => specifier !== null);
 }
 
+async function pathExists(relativePath: string): Promise<boolean> {
+  try {
+    await access(path.join(frontRoot, relativePath));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function findMatches(files: Record<string, string>, predicate: (relativePath: string, source: string) => boolean): string[] {
   return Object.entries(files)
@@ -75,7 +95,8 @@ function findMatches(files: Record<string, string>, predicate: (relativePath: st
     .sort();
 }
 
-const retiredFixtureModulePattern = /^(?:data\/mockData|services\/db|services\/adminService)$/;
+const retiredFixtureModulePattern =
+  /^(?:data\/mockData|services\/db|services\/adminService|services\/tts\/announceFocus|services\/tts\/synthesizer)$/;
 
 describe("retired frontend mock regressions", () => {
   it("keeps runtime mock switches and demo copy out of front/src", async () => {
@@ -115,26 +136,34 @@ describe("retired frontend mock regressions", () => {
     ).toEqual([]);
   });
 
-  it("keeps retired fixture module imports inside the inactive fixture island only", async () => {
+  it("keeps retired fixture modules and pre-generated TTS assets deleted", async () => {
+    const sourceFiles = [
+      ...(await collectSourceFiles(srcRoot)),
+      ...((await pathExists("scripts")) ? await collectSourceFiles(scriptsRoot) : []),
+    ];
     const files = Object.fromEntries(
       await Promise.all(
-        (await collectSourceFiles()).map(async (absolutePath) => [
+        sourceFiles.map(async (absolutePath) => [
           toRelative(absolutePath),
           await readFile(absolutePath, "utf8"),
         ])
       )
     );
 
+    const existingRetiredPaths = (
+      await Promise.all(
+        [...retiredFixturePaths].map(async (relativePath) =>
+          (await pathExists(relativePath)) ? relativePath : null
+        )
+      )
+    ).filter((relativePath): relativePath is string => relativePath !== null);
+    expect(existingRetiredPaths).toEqual([]);
+
     const fixtureImporters = findMatches(files, (relativePath, source) =>
       importSources(relativePath, source).some((specifier) => retiredFixtureModulePattern.test(specifier))
     );
-    expect(fixtureImporters.filter((relativePath) => !inactiveFixtureIsland.has(relativePath))).toEqual([]);
+    expect(fixtureImporters).toEqual([]);
 
     expect([...removedFixtureFiles].filter((relativePath) => relativePath in files)).toEqual([]);
-
-    const mockDataImporters = findMatches(files, (relativePath, source) =>
-      importSources(relativePath, source).includes("data/mockData")
-    );
-    expect(mockDataImporters).toEqual(["services/db.ts"]);
   });
 });

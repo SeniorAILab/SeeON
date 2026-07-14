@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SuperAdminDashboardPage } from "./SuperAdminDashboardPage";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+
 
 const seededFacility = {
-  id: "fac_happy_nokyang",
+  id: SCOPED_FACILITY_ID,
   name: "행복한요양원 녹양역점",
   address: "경기도 의정부시 녹양로 12",
   phone: "031-123-4567",
@@ -75,7 +77,7 @@ describe("SuperAdminDashboardPage", () => {
     fireEvent.click(adminButtons[0]);
 
     await waitFor(() =>
-      expect(useFacilityStore.getState().currentFacilityId).toBe("fac_happy_nokyang")
+      expect(useFacilityStore.getState().currentFacilityId).toBe(SCOPED_FACILITY_ID)
     );
   });
 });

@@ -11,8 +11,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest run",
-    "gen:tts": "tsx scripts/generate-tts.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "clsx": "2.1.1",
