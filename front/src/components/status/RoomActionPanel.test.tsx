@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomActionPanel, eventGroupsFor } from "./RoomActionPanel";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
+import { formatDateTime } from "@/lib/format";
 import type { AlertNote } from "@/services/alertService";
 
 vi.mock("@/services/alertService", () => ({
@@ -111,6 +113,65 @@ describe("RoomActionPanel", () => {
     expect(alertService.resolve).toHaveBeenCalledWith("fall-2");
     expect(alertService.resolve).not.toHaveBeenCalledWith("bed-1");
   });
+  it("pages alert groups by 20 rows and collapses back to five rows", () => {
+    const alerts = Array.from({ length: 30 }, (_, index) =>
+      alert({
+        id: `fall-${index}`,
+        aiSummary: `낙상 ${index}`,
+        detectedAt: `2026-07-03T00:${String(index).padStart(2, "0")}:00.000Z`,
+      }),
+    );
+
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "더 보기 (25)" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기 (25)" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(25);
+    expect(screen.getByRole("button", { name: "더 보기 (5)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "접기" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기 (5)" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(30);
+    expect(screen.queryByRole("button", { name: /더 보기/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "접기" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "더 보기 (25)" })).toBeTruthy();
+  });
+
+  it("resolves every alert in a group even when most rows are collapsed", async () => {
+    const alerts = Array.from({ length: 8 }, (_, index) =>
+      alert({ id: `fall-${index}`, aiSummary: `낙상 ${index}`, detectedAt: `2026-07-03T00:0${index}:00.000Z` }),
+    );
+    const { alertService } = await import("@/services/alertService");
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "그룹 확인" }));
+
+    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledTimes(8));
+    for (const item of alerts) expect(alertService.resolve).toHaveBeenCalledWith(item.id);
+  });
+
+  it("renders the newest event first within each group", () => {
+    const alerts = [
+      alert({ id: "old", aiSummary: "오래된 알림", detectedAt: "2026-07-03T00:01:00.000Z" }),
+      alert({ id: "new", aiSummary: "최신 알림", detectedAt: "2026-07-03T00:03:00.000Z" }),
+      alert({ id: "middle", aiSummary: "중간 알림", detectedAt: "2026-07-03T00:02:00.000Z" }),
+    ];
+
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} />);
+
+    expect(screen.getAllByRole("listitem")[0].textContent).toContain("최신 알림");
+  });
+
+  it("renders each alert's formatted detected time", () => {
+    const detectedAt = "2026-07-03T00:00:00.000Z";
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert({ detectedAt })]} onClose={vi.fn()} />);
+
+    expect(screen.getByText(formatDateTime(detectedAt))).toBeTruthy();
+  });
 
   it("keeps collapsed status fallback but does not require it for real alert grouping", () => {
     const alertStatus = { ...status("a", "DANGER"), bedsideActivity: true, soloMovementAttempt: true };
@@ -134,6 +195,58 @@ describe("RoomActionPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 
+  it("traps focus in the modal and restores it to the opener when closed", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const onClose = vi.fn();
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={onClose} />);
+
+    const dialog = screen.getByRole("dialog", { name: "201호" });
+    const closeButton = screen.getByRole("button", { name: "모달 닫기" });
+    const resolveButton = screen.getByRole("button", { name: "확인완료" });
+    expect(document.activeElement).toBe(dialog);
+
+    resolveButton.focus();
+    fireEvent.keyDown(resolveButton, { key: "Tab" });
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.keyDown(closeButton, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(resolveButton);
+
+    fireEvent.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+  it("restores the original opener after rerendering with a new close handler in StrictMode", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const initialOnClose = vi.fn();
+    const latestOnClose = vi.fn();
+    const panel = (
+      <StrictMode>
+        <RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={initialOnClose} />
+      </StrictMode>
+    );
+    const { rerender } = render(panel);
+
+    const closeButton = screen.getByRole("button", { name: "모달 닫기" });
+    closeButton.focus();
+    rerender(
+      <StrictMode>
+        <RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={latestOnClose} />
+      </StrictMode>,
+    );
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(initialOnClose).not.toHaveBeenCalled();
+    expect(latestOnClose).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
   it("uses the wide modal token and does not render gray disabled tokens", () => {
     const { container } = render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={vi.fn()} />);
 
