@@ -37,4 +37,9 @@ export function useTTSAlerts(alerts: TTSAlertInput[], enabled: boolean) {
     ttsManager.update(alerts, enabled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig, enabled]);
+  useEffect(() => {
+    return () => {
+      ttsManager.update([], false);
+    };
+  }, []);
 }

@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Field, Input, Select } from "@/components/ui/primitives";
 import { createFloor, deleteFloor, listFloors, updateFloor } from "@/services/api/floors";
 import { createSpace, deleteSpace, listSpaces, updateSpace } from "@/services/api/spaces";
+import { apiErrorMessage } from "@/services/apiClient";
 import type { Floor, Space } from "@/types";
 
 type SpaceDraft = Pick<Space, "floorId" | "name" | "isActive"> & { id?: string };
@@ -24,6 +25,7 @@ export function AdminSpacesPage() {
   const [editingFloorName, setEditingFloorName] = useState("");
   const [spaceDraft, setSpaceDraft] = useState<SpaceDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
     const [nextFloors, nextSpaces] = await Promise.all([listFloors(), listSpaces()]);
@@ -44,51 +46,95 @@ export function AdminSpacesPage() {
     const name = newFloorName.trim();
     if (!name) return;
     setError(null);
-    await createFloor({ name });
-    setNewFloorName("");
-    await load();
+    setNotice(null);
+    try {
+      await createFloor({ name });
+      setNewFloorName("");
+      await load();
+    } catch (e) {
+      setError(apiErrorMessage(e, "층을 추가할 수 없습니다. 다시 시도하세요."));
+    }
   }
 
   async function saveFloor(id: string) {
     const name = editingFloorName.trim();
     if (!name) return;
     setError(null);
-    await updateFloor(id, { name });
-    setEditingFloorId(null);
-    await load();
+    setNotice(null);
+    try {
+      await updateFloor(id, { name });
+      setEditingFloorId(null);
+      await load();
+    } catch (e) {
+      setError(apiErrorMessage(e, "층 이름을 저장할 수 없습니다. 다시 시도하세요."));
+    }
   }
 
   async function removeFloor(id: string) {
     setError(null);
+    setNotice(null);
     try {
       await deleteFloor(id);
       await load();
+      setNotice("층을 삭제했습니다.");
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        apiErrorMessage(
+          e,
+          "층을 삭제할 수 없습니다. 다시 시도하세요."
+        )
+      );
     }
   }
 
   async function saveSpace() {
     if (!spaceDraft || !spaceDraft.name.trim() || !spaceDraft.floorId) return;
     setError(null);
+    setNotice(null);
     const input = {
       floorId: spaceDraft.floorId,
       name: spaceDraft.name.trim(),
       isActive: spaceDraft.isActive,
     };
-    if (spaceDraft.id) {
-      await updateSpace(spaceDraft.id, input);
-    } else {
-      await createSpace({ ...input, type: "ROOM", capacity: 1 });
+    try {
+      if (spaceDraft.id) {
+        await updateSpace(spaceDraft.id, input);
+      } else {
+        await createSpace({ ...input, type: "ROOM", capacity: 1 });
+      }
+      setSpaceDraft(null);
+      await load();
+    } catch (e) {
+      setError(apiErrorMessage(e, "공간을 저장할 수 없습니다. 다시 시도하세요."));
     }
-    setSpaceDraft(null);
-    await load();
   }
 
-  async function removeSpace(id: string) {
+  async function removeSpace(space: Space) {
     setError(null);
-    await deleteSpace(id);
-    await load();
+    setNotice(null);
+    try {
+      await deleteSpace(space.id);
+      setSpaces((current) =>
+        current.map((item) => (item.id === space.id ? { ...item, isActive: false } : item))
+      );
+      setNotice(`${space.name} 공간을 숨겼습니다.`);
+    } catch (e) {
+      setError(apiErrorMessage(e, "공간을 숨길 수 없습니다. 다시 시도하세요."));
+    }
+  }
+
+  async function restoreSpace(space: Space) {
+    setError(null);
+    setNotice(null);
+    try {
+      await updateSpace(space.id, { isActive: true });
+      setSpaces((current) =>
+        current.map((item) => (item.id === space.id ? { ...item, isActive: true } : item))
+      );
+      setNotice(`${space.name} 공간을 복원했습니다.`);
+    } catch (e) {
+      setError(apiErrorMessage(e, "공간을 복원할 수 없습니다. 다시 시도하세요."));
+    }
   }
 
   return (
@@ -124,9 +170,16 @@ export function AdminSpacesPage() {
             층 추가
           </Button>
         </div>
-        {error && (
-          <p className="rounded-lg bg-status-dangerBg px-3 py-2 text-sm text-status-danger">
-            {error}
+        {(error || notice) && (
+          <p
+            className={
+              "rounded-lg px-3 py-2 text-sm " +
+              (error
+                ? "bg-status-dangerBg text-status-danger"
+                : "bg-status-stableBg text-status-stable")
+            }
+          >
+            {error ?? notice}
           </p>
         )}
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -139,14 +192,15 @@ export function AdminSpacesPage() {
                 <>
                   <Input
                     className="h-9 flex-1"
+                    aria-label={`${floor.name} 층 이름 편집`}
                     value={editingFloorName}
                     onChange={(e) => setEditingFloorName(e.target.value)}
                     autoFocus
                   />
-                  <Button size="sm" onClick={() => saveFloor(floor.id)}>
+                  <Button size="sm" aria-label="층 이름 저장" onClick={() => saveFloor(floor.id)}>
                     <Check className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingFloorId(null)}>
+                  <Button size="sm" variant="ghost" aria-label="수정 취소" onClick={() => setEditingFloorId(null)}>
                     <X className="h-4 w-4" />
                   </Button>
                 </>
@@ -261,13 +315,19 @@ export function AdminSpacesPage() {
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
-                    <button
-                      className="rounded-md p-2 text-status-danger hover:bg-status-dangerBg"
-                      aria-label={`${space.name} 삭제`}
-                      onClick={() => removeSpace(space.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {space.isActive ? (
+                      <button
+                        className="rounded-md p-2 text-status-danger hover:bg-status-dangerBg"
+                        aria-label={`${space.name} 숨김`}
+                        onClick={() => removeSpace(space)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <Button size="sm" aria-label={`${space.name} 복원`} onClick={() => restoreSpace(space)}>
+                        복원
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

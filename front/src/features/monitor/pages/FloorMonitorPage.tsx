@@ -10,7 +10,7 @@ import { useMonitorStore } from "@/stores/monitorStore";
 import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
-import { ACCESS_DENIED_PATH } from "@/lib/routeAccess";
+import { ACCESS_DENIED_PATH, floorPath } from "@/lib/routeAccess";
 import type { Facility, Floor, Space } from "@/types";
 
 
@@ -24,8 +24,11 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
 
   const nightMode = useMonitorSettingsStore((s) => s.nightMode);
   const visibleSpaceIds = useMonitorSettingsStore((s) => s.visibleSpaceIds);
-  const soundEnabled = useMonitorStore((s) => s.soundEnabled);
-  const setSound = useMonitorStore((s) => s.setSound);
+  const alertSound = useMonitorSettingsStore((s) => s.alertSound);
+  const cardSize = useMonitorSettingsStore((s) => s.cardSize);
+  const allowAllView = useMonitorSettingsStore((s) => s.allowAllView);
+  const defaultFloorId = useMonitorSettingsStore((s) => s.defaultFloorId);
+  const updateSettings = useMonitorSettingsStore((s) => s.update);
 
   const [facility, setFacility] = useState<Facility | null>(null);
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -67,7 +70,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
     () => buildTTSAlerts(shownSpaces, statuses, floors),
     [shownSpaces, statuses, floors]
   );
-  useTTSAlerts(ttsAlerts, soundEnabled);
+  useTTSAlerts(ttsAlerts, alertSound);
   const alertsBySpace = useMemo(() => {
     const groups: Record<string, NonNullable<typeof dashboard>["unacknowledgedEvents"]> = {};
     for (const alert of dashboard?.unacknowledgedEvents ?? []) groups[alert.spaceId] = [...(groups[alert.spaceId] ?? []), alert];
@@ -81,7 +84,27 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const floorTitle = allView ? "전체 층" : `${floorName} ${floorLabel(floorId, allSpaces)}`;
 
 
+  const redirectFloorId = floors.find((floor) => floor.id === defaultFloorId)?.id ?? floors[0]?.id ?? null;
+  useEffect(() => {
+    const hasDefaultFloor = floors.some((floor) => floor.id === defaultFloorId);
+    if (
+      floors.length > 0 &&
+      ((!allowAllView && defaultFloorId === "all") ||
+        (defaultFloorId !== "all" && !hasDefaultFloor))
+    ) {
+      updateSettings({ defaultFloorId: floors[0].id });
+    }
+  }, [allowAllView, defaultFloorId, floors, updateSettings]);
+
+
   if (!facilityId) return <Navigate to={ACCESS_DENIED_PATH} replace />;
+  if (
+    redirectFloorId &&
+    ((allView && !allowAllView) ||
+      (!allView && floors.length > 0 && !floors.some((floor) => floor.id === floorId)))
+  ) {
+    return <Navigate to={floorPath(facilityId, redirectFloorId)} replace />;
+  }
 
   if (!facility) {
     return <div className="flex min-h-screen items-center justify-center bg-bg text-xl text-ink-soft">현황판을 준비하는 중...</div>;
@@ -100,13 +123,14 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           totalPeople={totalPeople}
           connection={connection}
           lastUpdateAt={lastUpdateAt}
-          soundEnabled={soundEnabled}
-          onToggleSound={() => setSound(!soundEnabled)}
+          soundEnabled={alertSound}
+          onToggleSound={() => updateSettings({ alertSound: !alertSound })}
           onRefresh={() => void reload()}
           fullscreenRef={rootRef}
           floors={floors}
           currentFloorId={allView ? null : (floorId ?? null)}
           facilityId={facilityId}
+          showAllView={allowAllView}
         />
 
         <div className="mt-4 flex min-h-0 flex-1">
@@ -119,6 +143,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
             lastUpdateAt={lastUpdateAt}
             variant="staff"
             layout={allView ? "overview" : "focus"}
+            cardSize={cardSize}
             selectedSpace={selected}
             onSelectSpace={setSelected}
             onClosePanel={() => setSelected(null)}

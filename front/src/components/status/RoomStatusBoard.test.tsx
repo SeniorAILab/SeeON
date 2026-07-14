@@ -1,6 +1,6 @@
-import { act, render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { connectionChipLabel, useDebouncedStatuses } from "./RoomStatusBoard";
+import { RoomStatusBoard, connectionChipLabel, useDebouncedStatuses } from "./RoomStatusBoard";
 import { groupRoomsByFloor } from "./RoomStatusTreemap";
 import { textFor } from "@/features/monitor/services/tts/audioMap";
 import { FloorMonitorPage } from "@/features/monitor/pages/FloorMonitorPage";
@@ -113,5 +113,29 @@ describe("useDebouncedStatuses", () => {
     act(() => vi.advanceTimersByTime(1));
     expect(seen.at(-1)).toBe("DANGER");
     vi.useRealTimers();
+  });
+});
+describe("RoomStatusBoard card size", () => {
+  it("applies card size to room tiles without resizing action-panel controls", () => {
+    const selectedSpace = spaces[0];
+    const props = {
+      spaces: [selectedSpace],
+      statuses: { [selectedSpace.id]: status(selectedSpace.id, "STABLE") },
+      floors,
+      connection: "NORMAL" as const,
+      lastUpdateAt: null,
+      selectedSpace,
+    };
+
+    const { rerender } = render(<RoomStatusBoard {...props} cardSize="lg" />);
+    const tile = screen.getByRole("button", { name: "202호 안정" });
+    const closeButton = screen.getByRole("button", { name: "모달 닫기" });
+    expect(tile.className).toContain("p-5");
+    expect(closeButton.className).not.toContain("p-7");
+
+    rerender(<RoomStatusBoard {...props} cardSize="xl" />);
+    expect(tile.className).toContain("p-7");
+    expect(tile.className).not.toContain("p-5");
+    expect(closeButton.className).not.toContain("p-7");
   });
 });

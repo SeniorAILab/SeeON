@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import type { DashboardResponse, SpaceStatus } from "@/types";
+import type { DashboardResponse, Space, SpaceStatus } from "@/types";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
+const activeSpace: Space = {
+  id: "sp_201",
+  facilityId: SCOPED_FACILITY_ID,
+  floorId: "floor_2",
+  name: "201호",
+  type: "ROOM",
+  capacity: 1,
+  isActive: true,
+};
+
 
 
 function okJsonResponse(body: unknown): Response {
@@ -45,7 +55,7 @@ function alertDtoWith(overrides: Partial<typeof alertDto> = {}) {
   return { ...alertDto, ...overrides };
 }
 
-function dashboardFetch(alerts: unknown[] = []) {
+function dashboardFetch(alerts: unknown[] = [], spaces: Space[] = [activeSpace]) {
   return vi.fn<typeof fetch>(async (input, init) => {
     const url = String(input);
     if (url.endsWith("/auth/me")) {
@@ -68,9 +78,7 @@ function dashboardFetch(alerts: unknown[] = []) {
       });
     }
     if (url.endsWith("/floors")) return okJsonResponse([]);
-    if (url.endsWith("/spaces")) {
-      return okJsonResponse([{ id: "sp_201", facilityId: SCOPED_FACILITY_ID, floorId: "floor_2", name: "201호" }]);
-    }
+    if (url.endsWith("/spaces")) return okJsonResponse(spaces);
     if ((url.endsWith("/alerts") || url.endsWith("/alerts?status=NEW")) && !init?.method) return okJsonResponse(alerts);
     throw new Error(`Unexpected request ${url}`);
   });
@@ -113,7 +121,11 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function dashboardFor(facilityId: string, statuses: Record<string, SpaceStatus> = {}): DashboardResponse {
+function dashboardFor(
+  facilityId: string,
+  statuses: Record<string, SpaceStatus> = {},
+  spaces: Space[] = [{ ...activeSpace, facilityId }],
+): DashboardResponse {
   return {
     facility: {
       id: facilityId,
@@ -122,7 +134,7 @@ function dashboardFor(facilityId: string, statuses: Record<string, SpaceStatus> 
       phone: "02-0000-0000",
     },
     floors: [],
-    spaces: [],
+    spaces,
     statuses,
     summary: {
       totalSpaces: Object.keys(statuses).length,
@@ -256,8 +268,9 @@ describe("monitorStore live alert merge", () => {
 
     const { useMonitorStore } = await import("./monitorStore");
     useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
 
     sendMessage(newerAlertDto);
     sendMessage(olderResolvedAlertDto);
@@ -340,8 +353,9 @@ describe("monitorStore live alert merge", () => {
 
     const { useMonitorStore } = await import("./monitorStore");
     useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
 
     sendMessage(alertDtoWith({ id: "alert_seq_10", alertSeq: "10", detectedAt: "2026-06-22T01:10:00.000Z" }));
     sendMessage(alertDtoWith({ id: "alert_seq_2", alertSeq: "2", detectedAt: "2026-06-22T01:02:00.000Z" }));
@@ -370,6 +384,26 @@ describe("monitorStore live alert merge", () => {
     useMonitorStore.getState().stop();
   });
 
+  it("keeps inactive-space alerts out of live statuses and summary totals", async () => {
+    const inactiveSpace: Space = { ...activeSpace, id: "sp_inactive", isActive: false };
+    const inactiveAlert = alertDtoWith({ id: "alert_inactive", spaceId: inactiveSpace.id, alertSeq: "11" });
+    vi.stubGlobal("fetch", dashboardFetch([alertDto, inactiveAlert], [activeSpace, inactiveSpace]));
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(useMonitorStore.getState().statuses).toMatchObject({ sp_201: { status: "DANGER" } });
+    expect(useMonitorStore.getState().statuses).not.toHaveProperty(inactiveSpace.id);
+    expect(useMonitorStore.getState().dashboard?.summary).toMatchObject({ totalSpaces: 1, danger: 1 });
+    expect(useMonitorStore.getState().dashboard?.unacknowledgedEvents).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: inactiveAlert.id })]),
+    );
+
+    useMonitorStore.getState().stop();
+  });
 });
 describe("monitorStore resolve", () => {
   beforeEach(() => {

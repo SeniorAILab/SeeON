@@ -40,7 +40,7 @@ beforeEach(() => {
 });
 
 describe("SuperAdminDashboardPage", () => {
-  it("renders the facility selector without preloading facility-scoped dashboard APIs", async () => {
+  it("renders the facility selector and only the available facility count without preloading facility-scoped dashboard APIs", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
       if (url.endsWith("/facilities")) return okJsonResponse([seededFacility]);
@@ -56,9 +56,37 @@ describe("SuperAdminDashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: "요양원 전역 개요" })).toBeTruthy();
     expect(await screen.findByText("행복한요양원 녹양역점")).toBeTruthy();
+    expect(screen.getByText("요양원")).toBeTruthy();
+    expect(screen.getByText("1")).toBeTruthy();
+    expect(screen.queryByText("공간")).toBeNull();
+    expect(screen.queryByText("미확인")).toBeNull();
+    expect(screen.queryByText("층")).toBeNull();
+    expect(screen.queryByText("알림")).toBeNull();
+    expect(screen.queryByText("-")).toBeNull();
     expect(screen.queryByText("대시보드 연결 실패")).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v1/facilities");
+  });
+  it("renders a friendly fallback instead of a raw API error body when facilities fail to load", async () => {
+    const rawError = JSON.stringify({ error: "Internal Server Error", statusCode: 500 });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () =>
+        new Response(rawError, {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("시설 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")).toBeTruthy();
+    expect(screen.queryByText(rawError)).toBeNull();
   });
 
   it("stores the selected facility before entering a facility-scoped route", async () => {
