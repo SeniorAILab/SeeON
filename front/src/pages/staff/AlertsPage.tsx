@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { CheckCheck } from "lucide-react";
 import { StaffStatusBadge } from "@/components/staff/StaffStatusBadge";
 import { formatDateTime } from "@/lib/format";
-import { alertService } from "@/services/alertService";
+import { alertService, type AlertNote } from "@/services/alertService";
 import type { AlertStatus, AlertView, SpaceStatusLevel } from "@/types";
 
 const typeLabels: Record<string, string> = {
@@ -22,7 +22,13 @@ export function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [notesAlert, setNotesAlert] = useState<AlertView | null>(null);
+  const [notes, setNotes] = useState<AlertNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const notesRequestId = useRef(0);
+  const notesDialogRef = useRef<HTMLDivElement>(null);
+  const notesTriggerRef = useRef<HTMLButtonElement | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -48,13 +54,46 @@ export function AlertsPage() {
     [alerts]
   );
 
-  async function resolveNew(alert: AlertView) {
-    await runAction(alert.id, () => alertService.resolveNew(alert.id));
-  }
-
   async function resolve(alert: AlertView) {
     await runAction(alert.id, () => alertService.resolve(alert.id));
   }
+
+  function openNotes(alert: AlertView) {
+    const requestId = ++notesRequestId.current;
+    setNotesAlert(alert);
+    setNotes([]);
+    setNotesLoading(true);
+    setNotesError(null);
+    void alertService.listNotes(alert.id)
+      .then((loadedNotes) => {
+        if (notesRequestId.current === requestId) setNotes(loadedNotes);
+      })
+      .catch((err) => {
+        if (notesRequestId.current === requestId) setNotesError(errorMessage(err));
+      })
+      .finally(() => {
+        if (notesRequestId.current === requestId) setNotesLoading(false);
+      });
+  }
+
+  const closeNotes = useCallback(() => {
+    notesRequestId.current += 1;
+    setNotesAlert(null);
+    setNotes([]);
+    setNotesLoading(false);
+    setNotesError(null);
+    notesTriggerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!notesAlert) return;
+    notesDialogRef.current?.focus();
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") closeNotes();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [closeNotes, notesAlert]);
 
   async function runAction(id: string, action: () => Promise<AlertView>) {
     if (busyId) return;
@@ -67,6 +106,26 @@ export function AlertsPage() {
       setError(errorMessage(err));
     } finally {
       setBusyId(null);
+    }
+  }
+  function trapNotesFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = notesDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) {
+      event.preventDefault();
+      notesDialogRef.current?.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === notesDialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === notesDialogRef.current)) {
+      event.preventDefault();
+      first.focus();
     }
   }
 
@@ -92,7 +151,7 @@ export function AlertsPage() {
             renderAction={(alert) => (
               <button
                 disabled={busyId !== null}
-                onClick={() => resolveNew(alert)}
+                onClick={() => resolve(alert)}
                 className="min-h-[56px] rounded-xl bg-brand px-6 text-staff-btn text-white disabled:opacity-60"
               >
                 확인
@@ -127,7 +186,64 @@ export function AlertsPage() {
                 alert.resolvedAt ?? alert.detectedAt
               )}`
             }
+            renderAction={(alert) => (
+              <button
+                type="button"
+                onClick={(event) => {
+                  notesTriggerRef.current = event.currentTarget;
+                  void openNotes(alert);
+                }}
+                className="min-h-[56px] rounded-xl border border-border px-6 text-staff-btn text-ink hover:bg-surface2"
+              >
+                메모 보기
+              </button>
+            )}
           />
+          {notesAlert && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onMouseDown={closeNotes}>
+              <div
+                ref={notesDialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label={`${notesAlert.room} 메모 히스토리`}
+                tabIndex={-1}
+                className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-border bg-surface p-5 shadow-modal"
+                onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={trapNotesFocus}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-staff-status text-ink">{notesAlert.room} 메모 히스토리</h2>
+                  <button
+                    type="button"
+                    onClick={closeNotes}
+                    className="min-h-12 rounded-xl border border-border px-4 text-staff-btn text-ink hover:bg-surface2"
+                  >
+                    닫기
+                  </button>
+                </div>
+                {notesLoading ? (
+                  <p className="mt-3 text-staff-body text-ink-soft">메모를 불러오는 중입니다.</p>
+                ) : notesError ? (
+                  <p role="alert" className="mt-3 rounded-xl bg-status-dangerBg p-4 text-staff-body text-status-danger">
+                    {notesError}
+                  </p>
+                ) : notes.length === 0 ? (
+                  <p className="mt-3 text-staff-body text-ink-soft">저장된 메모가 없습니다.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {notes.map((note) => (
+                      <li key={note.id} className="rounded-xl bg-surface2 px-3 py-2">
+                        <div className="text-staff-body font-black text-ink">{note.note}</div>
+                        <div className="mt-1 text-base font-bold text-ink-soft">
+                          {note.authorRole} · {formatDateTime(note.createdAt)}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

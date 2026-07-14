@@ -3,6 +3,7 @@ import {
   listAlertsEndpoint,
   mapAlert,
   mapAlertDto,
+  resolveAlert,
   resolveAlertEndpoint,
   type AlertDto,
 } from "./alertEndpoints";
@@ -215,6 +216,16 @@ describe("alerts API seam", () => {
     await resolveAlertEndpoint("a1");
 
     expect(requestJsonMock).toHaveBeenCalledWith("/alerts/a1/resolve", { method: "PATCH" });
+  });
+  it("uses the identical encoded PATCH route for both resolve exports", async () => {
+    const id = "alert/a b";
+    requestJsonMock.mockResolvedValue({ ...baseDto, id, status: "RESOLVED" });
+
+    await resolveAlert(id);
+    await resolveAlertEndpoint(id);
+
+    expect(requestJsonMock).toHaveBeenNthCalledWith(1, "/alerts/alert%2Fa%20b/resolve", { method: "PATCH" });
+    expect(requestJsonMock).toHaveBeenNthCalledWith(2, "/alerts/alert%2Fa%20b/resolve", { method: "PATCH" });
   });
 
   it("throws on malformed list entries", async () => {
