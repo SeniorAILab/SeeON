@@ -117,9 +117,12 @@ export async function fetchActiveAlertSnapshot(): Promise<FrontendAlert[]> {
 /**
  * Hits the same PATCH `/alerts/:id/resolve` route as resolveAlertEndpoint, but parses FrontendAlert for event/monitor flows via resolveAlert/acknowledgeAlert.
  */
+async function requestResolve(id: string): Promise<unknown> {
+  return requestJson(`/alerts/${encodeURIComponent(id)}/resolve`, { method: "PATCH" });
+}
+
 export async function resolveAlert(id: string): Promise<FrontendAlert> {
-  const body = await requestJson(`/alerts/${encodeURIComponent(id)}/resolve`, { method: "PATCH" });
-  return mapAlertDto(body as BackendAlertDto);
+  return mapAlertDto((await requestResolve(id)) as BackendAlertDto);
 }
 
 export const acknowledgeAlert = resolveAlert;
@@ -213,7 +216,7 @@ export async function listAlertsEndpoint(params: {
  * Hits the same PATCH `/alerts/:id/resolve` route as resolveAlert, but parses AlertView for the UI resolve seam.
  */
 export async function resolveAlertEndpoint(id: string): Promise<AlertView> {
-  return parseAlert(await requestJson(`/alerts/${id}/resolve`, { method: "PATCH" }));
+  return parseAlert(await requestResolve(id));
 }
 
 function parseAlert(value: unknown): AlertView {
