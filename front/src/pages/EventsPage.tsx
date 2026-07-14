@@ -18,7 +18,14 @@ const FILTERS = [
   { key: "ALL", label: "전체" },
   { key: "OPEN", label: "미확인" },
   { key: "ACK", label: "확인 완료" },
-];
+] as const;
+
+type EventFilter = (typeof FILTERS)[number]["key"];
+
+function eventFilterFromSearchParams(searchParams: URLSearchParams): EventFilter {
+  const requestedFilter = searchParams.get("filter");
+  return FILTERS.find((candidate) => candidate.key === requestedFilter)?.key ?? "ALL";
+}
 
 export function EventsPage() {
   const navigate = useNavigate();
@@ -27,11 +34,8 @@ export function EventsPage() {
 
   const [events, setEvents] = useState<DetectionEvent[]>([]);
   const [spaceNames, setSpaceNames] = useState<Record<string, string>>({});
-  const [searchParams] = useSearchParams();
-  const requestedFilter = searchParams.get("filter") ?? "ALL";
-  const [filter, setFilter] = useState(() =>
-    FILTERS.some((candidate) => candidate.key === requestedFilter) ? requestedFilter : "ALL"
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = eventFilterFromSearchParams(searchParams);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -74,7 +78,13 @@ export function EventsPage() {
         {FILTERS.map((f) => (
           <button
             key={f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() =>
+              setSearchParams((params) => {
+                if (f.key === "ALL") params.delete("filter");
+                else params.set("filter", f.key);
+                return params;
+              })
+            }
             className={
               "h-8 rounded-lg px-3 text-sm font-medium transition-colors " +
               (filter === f.key

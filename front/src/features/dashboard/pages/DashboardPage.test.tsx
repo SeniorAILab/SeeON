@@ -23,7 +23,7 @@ function LocationProbe() {
 }
 
 const dashboard: DashboardResponse = {
-  facility: { id: "facility-dashboard-test", name: "테스트 요양원", address: "서울" },
+  facility: { id: "facility-dashboard-test", name: "테스트 요양원", address: "서울", phone: "02-0000-0000" },
   floors: [],
   spaces: [],
   statuses: {},

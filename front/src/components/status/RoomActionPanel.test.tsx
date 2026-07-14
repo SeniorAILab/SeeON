@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomActionPanel, eventGroupsFor } from "./RoomActionPanel";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
+import { formatDateTime } from "@/lib/format";
 import type { AlertNote } from "@/services/alertService";
 
 vi.mock("@/services/alertService", () => ({
@@ -164,6 +165,13 @@ describe("RoomActionPanel", () => {
     expect(screen.getAllByRole("listitem")[0].textContent).toContain("최신 알림");
   });
 
+  it("renders each alert's formatted detected time", () => {
+    const detectedAt = "2026-07-03T00:00:00.000Z";
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert({ detectedAt })]} onClose={vi.fn()} />);
+
+    expect(screen.getByText(formatDateTime(detectedAt))).toBeTruthy();
+  });
+
   it("keeps collapsed status fallback but does not require it for real alert grouping", () => {
     const alertStatus = { ...status("a", "DANGER"), bedsideActivity: true, soloMovementAttempt: true };
     expect(eventGroupsFor(alertStatus).map((group) => group.label)).toEqual(["낙상 위험", "침대 주변 활동", "단독 이동 시도"]);
@@ -186,6 +194,30 @@ describe("RoomActionPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 
+  it("traps focus in the modal and restores it to the opener when closed", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const onClose = vi.fn();
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={onClose} />);
+
+    const dialog = screen.getByRole("dialog", { name: "201호" });
+    const closeButton = screen.getByRole("button", { name: "모달 닫기" });
+    const resolveButton = screen.getByRole("button", { name: "확인완료" });
+    expect(document.activeElement).toBe(dialog);
+
+    resolveButton.focus();
+    fireEvent.keyDown(resolveButton, { key: "Tab" });
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.keyDown(closeButton, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(resolveButton);
+
+    fireEvent.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
   it("uses the wide modal token and does not render gray disabled tokens", () => {
     const { container } = render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={vi.fn()} />);
 
