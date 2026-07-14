@@ -82,4 +82,38 @@ describe("eventService real mode actions", () => {
     );
     expect(event.actions[0]).toMatchObject({ note: "keep this", createdBy: "Care Staff" });
   });
+  it("lists facility events without loading alert notes for each event", async () => {
+    const listAlertNotesMock = vi.fn();
+    vi.doMock("@/services/api/alertNotes", () => ({
+      createAlertNote: vi.fn(),
+      listAlertNotes: listAlertNotesMock,
+    }));
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      if (String(input).endsWith("/alerts")) {
+        return okJsonResponse([
+          alertDto,
+          { ...alertDto, id: "alert_202", alertSeq: "11", detectedAt: "2026-06-22T02:00:00.000Z" },
+        ]);
+      }
+      throw new Error(`Unexpected request ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const { eventService } = await import("./eventService");
+
+      const events = await eventService.listByFacility(SCOPED_FACILITY_ID);
+
+      expect(events).toHaveLength(2);
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "alert_201", actions: [] }),
+          expect.objectContaining({ id: "alert_202", actions: [] }),
+        ]),
+      );
+      expect(listAlertNotesMock).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("@/services/api/alertNotes");
+    }
+  });
 });
