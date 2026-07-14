@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomActionPanel, eventGroupsFor } from "./RoomActionPanel";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
@@ -215,6 +216,34 @@ describe("RoomActionPanel", () => {
 
     fireEvent.click(closeButton);
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+  it("restores the original opener after rerendering with a new close handler in StrictMode", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const initialOnClose = vi.fn();
+    const latestOnClose = vi.fn();
+    const panel = (
+      <StrictMode>
+        <RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={initialOnClose} />
+      </StrictMode>
+    );
+    const { rerender } = render(panel);
+
+    const closeButton = screen.getByRole("button", { name: "모달 닫기" });
+    closeButton.focus();
+    rerender(
+      <StrictMode>
+        <RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={latestOnClose} />
+      </StrictMode>,
+    );
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(initialOnClose).not.toHaveBeenCalled();
+    expect(latestOnClose).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(opener);
     opener.remove();
   });
