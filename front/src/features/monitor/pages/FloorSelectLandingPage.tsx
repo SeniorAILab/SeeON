@@ -6,6 +6,7 @@ import { ACCESS_DENIED_PATH, dashboardPath, floorPath } from "@/lib/routeAccess"
 import { dashboardService } from "@/services/dashboardService";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
+import { useMonitorSettingsStore } from "@/features/monitor";
 import type { DashboardResponse } from "@/types";
 
 export function FloorSelectLandingPage() {
@@ -13,6 +14,7 @@ export function FloorSelectLandingPage() {
   const user = useAuthStore((s) => s.user);
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
   const facilityId = user?.role === "SUPER_ADMIN" ? currentFacilityId : user?.facilityId;
+  const allowAllView = useMonitorSettingsStore((s) => s.allowAllView);
 
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,11 @@ export function FloorSelectLandingPage() {
 
   const groups = useMemo(() => {
     if (!dashboard) return [];
-    return groupRoomsByFloor(dashboard.spaces, dashboard.statuses, dashboard.floors);
+    return groupRoomsByFloor(
+      dashboard.spaces.filter((space) => space.isActive),
+      dashboard.statuses,
+      dashboard.floors,
+    );
   }, [dashboard]);
   const floorGroups = useMemo(
     (): Array<RoomFloorGroup & { floor: NonNullable<RoomFloorGroup["floor"]> }> =>
@@ -110,13 +116,15 @@ export function FloorSelectLandingPage() {
             />
           </div>
         ))}
-        <div className="min-h-0" role="listitem">
-          <FloorSelectCard
-            floorName="전체 보기"
-            alertCount={totalAlertCount}
-            onSelect={() => navigate(dashboardPath(facilityId))}
-          />
-        </div>
+        {allowAllView && (
+          <div className="min-h-0" role="listitem">
+            <FloorSelectCard
+              floorName="전체 보기"
+              alertCount={totalAlertCount}
+              onSelect={() => navigate(dashboardPath(facilityId))}
+            />
+          </div>
+        )}
       </div>
     </section>
   );

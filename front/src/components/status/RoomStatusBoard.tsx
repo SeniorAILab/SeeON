@@ -41,6 +41,7 @@ export function RoomStatusBoard({
   connection,
   lastUpdateAt,
   variant: _variant = "staff",
+  cardSize = "lg",
   selectedSpace,
   onSelectSpace,
   onClosePanel,
@@ -54,6 +55,7 @@ export function RoomStatusBoard({
   connection: ConnectionState;
   lastUpdateAt: string | null;
   variant?: "staff" | "admin";
+  cardSize?: "lg" | "xl";
   selectedSpace?: Space | null;
   onSelectSpace?: (space: Space) => void;
   onClosePanel?: () => void;
@@ -65,7 +67,7 @@ export function RoomStatusBoard({
   const activeAlerts = activeSpace ? (alertsBySpace[activeSpace.id] ?? []) : [];
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-surface p-3 shadow-card 2xl:p-4" aria-label="방 상태 보드">
+    <section data-card-size={cardSize} className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-surface p-3 shadow-card 2xl:p-4" aria-label="방 상태 보드">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-base font-black text-ink-soft 2xl:text-lg">
           <span className="rounded-full bg-status-dangerBg px-3 py-1 text-status-danger">위험</span>
@@ -76,7 +78,7 @@ export function RoomStatusBoard({
         <ConnectionChip connection={connection} lastUpdateAt={lastUpdateAt} />
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} layout={layout} />
+        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} layout={layout} cardSize={cardSize} />
       </div>
       {activeSpace && (
         <RoomActionPanel space={activeSpace} status={visibleStatuses[activeSpace.id]} alerts={activeAlerts} onClose={onClosePanel ?? (() => undefined)} onResolved={onResolved} />

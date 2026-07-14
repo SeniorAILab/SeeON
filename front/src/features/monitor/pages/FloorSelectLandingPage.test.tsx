@@ -5,6 +5,7 @@ import { dashboardPath, floorPath } from "@/lib/routeAccess";
 import { dashboardService } from "@/services/dashboardService";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
+import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
 import type { DashboardResponse, SpaceStatus } from "@/types";
 
 const mockNavigate = vi.fn();
@@ -88,6 +89,7 @@ describe("FloorSelectLandingPage", () => {
       initialized: true,
     });
     vi.mocked(dashboardService.getDashboard).mockResolvedValue(dashboard);
+    useMonitorSettingsStore.setState({ allowAllView: true });
   });
 
   it("renders floor cards with danger counts and routes floor and all-view clicks", async () => {
@@ -111,5 +113,39 @@ describe("FloorSelectLandingPage", () => {
 
     fireEvent.click(allViewCard);
     expect(mockNavigate).toHaveBeenLastCalledWith(dashboardPath(facilityId));
+  });
+  it("hides the all-floor option when all-floor viewing is disabled", async () => {
+    useMonitorSettingsStore.setState({ allowAllView: false });
+    render(<FloorSelectLandingPage />);
+
+    await screen.findByRole("list", { name: "층 선택 목록" });
+    expect(screen.queryByRole("button", { name: "전체 보기 이동, 위험 1건" })).toBeNull();
+  });
+  it("does not offer floors that contain only inactive spaces", async () => {
+    const inactiveFloorId = "fl_hidden";
+    vi.mocked(dashboardService.getDashboard).mockResolvedValue({
+      ...dashboard,
+      floors: [
+        ...dashboard.floors,
+        { id: inactiveFloorId, facilityId, name: "숨김층", orderIndex: 3 },
+      ],
+      spaces: [
+        ...dashboard.spaces,
+        {
+          id: "space_hidden",
+          facilityId,
+          floorId: inactiveFloorId,
+          name: "숨김 생활실",
+          type: "ROOM",
+          capacity: 2,
+          isActive: false,
+        },
+      ],
+    });
+
+    render(<FloorSelectLandingPage />);
+
+    await screen.findByRole("list", { name: "층 선택 목록" });
+    expect(screen.queryByRole("button", { name: "숨김층 이동, 위험 0건" })).toBeNull();
   });
 });

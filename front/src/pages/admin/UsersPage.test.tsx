@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UsersPage } from "./UsersPage";
 import { useAuthStore } from "@/stores/authStore";
 import { createUser, listUsers, updateUserRole } from "@/services/api/users";
+import { ApiError } from "@/services/apiClient";
 
 vi.mock("@/services/api/users", () => ({
   listUsers: vi.fn(async () => [
@@ -79,5 +80,22 @@ describe("UsersPage", () => {
     await waitFor(() => {
       expect(updateUserRoleMock).toHaveBeenCalledWith("user-1", "STAFF");
     });
+  });
+  it("409 API 오류는 원시 JSON 대신 사용자 생성 안내 문구로 표시한다", async () => {
+    const rawError = JSON.stringify({
+      message: "Email already registered",
+      error: "Conflict",
+      statusCode: 409,
+    });
+    createUserMock.mockRejectedValueOnce(new ApiError(409, rawError));
+    render(<UsersPage />);
+
+    const inputs = await screen.findAllByDisplayValue("");
+    fireEvent.change(inputs[0], { target: { value: "요양보호사" } });
+    fireEvent.change(inputs[1], { target: { value: "staff@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(await screen.findByText("이미 사용 중인 이메일입니다.")).toBeTruthy();
+    expect(screen.queryByText(rawError)).toBeNull();
   });
 });

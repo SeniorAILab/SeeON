@@ -33,6 +33,7 @@ export function MonitorHeader({
   floors,
   currentFloorId,
   facilityId,
+  showAllView = true,
   exitPath,
 }: {
   facilityName: string;
@@ -48,6 +49,7 @@ export function MonitorHeader({
   floors: Floor[];
   currentFloorId?: string | null;
   facilityId: string;
+  showAllView?: boolean;
   exitPath?: string;
 }) {
   const navigate = useNavigate();
@@ -123,14 +125,16 @@ export function MonitorHeader({
       </div>
       {hasFloorSelector && (
         <nav aria-label="층 선택" className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => navigate(dashboardPath(facilityId))}
-            aria-current={currentFloorId == null ? "page" : undefined}
-            className={floorTabClass(currentFloorId == null)}
-          >
-            전체
-          </button>
+          {showAllView && (
+            <button
+              type="button"
+              onClick={() => navigate(dashboardPath(facilityId))}
+              aria-current={currentFloorId == null ? "page" : undefined}
+              className={floorTabClass(currentFloorId == null)}
+            >
+              전체
+            </button>
+          )}
           {orderedFloors.map((floor) => {
             const active = currentFloorId === floor.id;
             return (

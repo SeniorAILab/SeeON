@@ -100,6 +100,49 @@ describe("dashboardEndpoints", () => {
     expect(dashboard.summary.danger).toBe(1);
   });
 
+  it("keeps alerts for inactive spaces out of dashboard statuses and summary totals", async () => {
+    const inactiveSpace = { ...spaces[0], id: "sp_202", name: "202호", isActive: false };
+    const inactiveSpaceAlert = {
+      ...bedExitAlert,
+      id: "alert_202",
+      cameraId: "cam_sp_202",
+      spaceId: inactiveSpace.id,
+      room: inactiveSpace.name,
+    };
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/auth/me")) {
+        return okJsonResponse({
+          id: "user-1",
+          email: "admin@sen.ai",
+          nickname: "원장",
+          role: "ADMIN",
+          facilityId: facility.id,
+        });
+      }
+      if (url.endsWith(`/facilities/${facility.id}`)) return okJsonResponse(facility);
+      if (url.endsWith("/floors")) return okJsonResponse(floors);
+      if (url.endsWith("/spaces")) return okJsonResponse([...spaces, inactiveSpace]);
+      if (url.endsWith("/alerts")) return okJsonResponse([bedExitAlert, inactiveSpaceAlert]);
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getDashboardFromBackend } = await import("./dashboardEndpoints");
+    const dashboard = await getDashboardFromBackend();
+
+    expect(dashboard.spaces).toHaveLength(2);
+    expect(dashboard.statuses).toEqual(
+      expect.objectContaining({
+        sp_201: expect.objectContaining({ spaceId: "sp_201", status: "DANGER" }),
+      })
+    );
+    expect(dashboard.statuses).not.toHaveProperty(inactiveSpace.id);
+    expect(dashboard.summary).toMatchObject({ totalSpaces: 1, danger: 1 });
+    expect(dashboard.unacknowledgedEvents).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: inactiveSpaceAlert.id })])
+    );
+  });
   it("gets the current facility through /auth/me then /facilities/:id", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);

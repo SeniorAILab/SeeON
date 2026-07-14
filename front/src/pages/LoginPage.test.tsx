@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
 import { SignupPage } from "./SignupPage";
 import { useAuthStore } from "@/stores/authStore";
+import { ApiError } from "@/services/apiClient";
 
 beforeEach(() => {
   localStorage.clear();
@@ -112,6 +113,52 @@ describe("LoginPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
 
     await waitFor(() => expect(screen.getByText("DASHBOARD")).toBeTruthy());
+  });
+  it("401 API 오류는 원시 JSON 대신 안내 문구로 표시한다", async () => {
+    const rawError = JSON.stringify({
+      message: "Invalid email or password",
+      error: "Unauthorized",
+      statusCode: 401,
+    });
+    useAuthStore.setState({ login: vi.fn().mockRejectedValue(new ApiError(401, rawError)) });
+    renderLogin();
+
+    fireEvent.change(screen.getByPlaceholderText("name@facility.com"), {
+      target: { value: "admin@sen.ai" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("비밀번호"), {
+      target: { value: "wrong-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "이메일로 로그인" }));
+
+    expect(await screen.findByText("이메일 또는 비밀번호가 올바르지 않습니다.")).toBeTruthy();
+    expect(screen.queryByText(rawError)).toBeNull();
+  });
+
+  it("회원가입 화면 마운트 시 이전 인증 오류를 지운다", async () => {
+    useAuthStore.setState({
+      error: JSON.stringify({ message: "Invalid email or password", statusCode: 401 }),
+    });
+    renderLogin("/signup");
+
+    await waitFor(() => expect(useAuthStore.getState().error).toBeNull());
+    expect(screen.queryByText("Invalid email or password")).toBeNull();
+  });
+
+  it("409 API 오류는 원시 JSON 대신 회원가입 안내 문구로 표시한다", async () => {
+    const rawError = JSON.stringify({
+      message: "Email already registered",
+      error: "Conflict",
+      statusCode: 409,
+    });
+    useAuthStore.setState({ register: vi.fn().mockRejectedValue(new ApiError(409, rawError)) });
+    renderLogin("/signup");
+    fillValidSignupFields();
+    agreeToSignupConsent();
+    fireEvent.click(screen.getByRole("button", { name: "회원가입" }));
+
+    expect(await screen.findByText("이미 사용 중인 이메일입니다.")).toBeTruthy();
+    expect(screen.queryByText(rawError)).toBeNull();
   });
 
   it("회원가입 버튼 클릭 시 회원가입 폼 화면으로 이동한다", () => {

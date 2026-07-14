@@ -5,6 +5,7 @@ import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { adminPath, dashboardPath } from "@/lib/routeAccess";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
+import { apiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
@@ -31,8 +32,7 @@ export function SuperAdminDashboardPage() {
         setFacilitiesStore(nextFacilities);
       } catch (caught) {
         if (!active) return;
-        const message = caught instanceof Error ? caught.message : "시설 목록을 불러오지 못했습니다.";
-        setError(message);
+        setError(apiErrorMessage(caught, "시설 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요."));
         setFacilities([]);
         setFacilitiesStore([]);
       } finally {
@@ -84,10 +84,8 @@ export function SuperAdminDashboardPage() {
             </div>
             <h2 className="mt-1 break-keep text-2xl font-extrabold text-ink">요양원 전역 개요</h2>
           </div>
-          <div className="grid w-full grid-cols-3 gap-2 text-center md:w-auto">
+          <div className="grid w-full grid-cols-1 gap-2 text-center md:w-auto">
             <Metric label="요양원" value={facilities.length} />
-            <Metric label="공간" value={null} />
-            <Metric label="미확인" value={null} />
           </div>
         </div>
 
@@ -116,11 +114,6 @@ export function SuperAdminDashboardPage() {
                     <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
                     <p className="mt-0.5 text-sm text-ink-soft">{facility.phone}</p>
                   </div>
-                  <div className="grid w-full grid-cols-3 gap-2 text-center md:w-[180px]">
-                    <Metric label="층" value={null} compact />
-                    <Metric label="공간" value={null} compact />
-                    <Metric label="알림" value={null} compact />
-                  </div>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -142,10 +135,10 @@ export function SuperAdminDashboardPage() {
   );
 }
 
-function Metric({ label, value, compact = false }: { label: string; value: number | null; compact?: boolean }) {
+function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className={compact ? "rounded-md bg-surface2 px-2 py-1.5" : "rounded-lg bg-surface px-3 py-2"}>
-      <div className={compact ? "text-base font-extrabold text-ink" : "text-xl font-extrabold text-ink"}>{value ?? "-"}</div>
+    <div className="rounded-lg bg-surface px-3 py-2">
+      <div className="text-xl font-extrabold text-ink">{value}</div>
       <div className="text-[11px] text-ink-faint">{label}</div>
     </div>
   );

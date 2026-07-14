@@ -8,13 +8,14 @@ import { defaultPathForUser } from "@/lib/routeAccess";
 import { useFacilityStore } from "@/stores/facilityStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
+import { apiErrorMessage } from "@/services/apiClient";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const login = useAuthStore((s) => s.login);
-  const error = useAuthStore((s) => s.error);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const loading = useAuthStore((s) => s.loading);
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
   const setTheme = useUiStore((s) => s.setTheme);
@@ -23,21 +24,21 @@ export function LoginPage() {
   const authError = authErrorMessage(searchParams.get("auth_error"));
 
   useEffect(() => {
+    useAuthStore.setState({ error: null });
     document.documentElement.classList.remove("dark");
     setTheme(new Date().getHours() >= 19 || new Date().getHours() < 7 ? "dark" : "light");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setTheme]);
 
   async function handleEmailLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    useAuthStore.setState({ error: null });
+    setSubmitError(null);
     try {
       const user = await login({ email, password });
       resolveForUser(user.facilityId);
       navigate(loginDestination(location.state, user), { replace: true });
     } catch (caught) {
-      if (!(caught instanceof Error)) {
-        throw caught;
-      }
+      setSubmitError(apiErrorMessage(caught, "로그인에 실패했습니다. 다시 시도해 주세요."));
     }
   }
 
@@ -95,10 +96,10 @@ export function LoginPage() {
             회원가입
           </Button>
 
-          {(authError || error) && (
+          {(authError || submitError) && (
             <div className="mt-4">
               <p className="rounded-lg bg-status-dangerBg px-3 py-2 text-sm text-status-danger">
-                {authError ?? error}
+                {authError ?? submitError}
               </p>
             </div>
           )}
