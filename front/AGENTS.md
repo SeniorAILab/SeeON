@@ -37,10 +37,7 @@ See `src/AGENTS.md` before changing frontend application code.
 - Login in dev/prod is backend-owned email/password auth. It must mint the
   same httpOnly backend JWT cookie and restore via `/api/v1/auth/me`. Do not
   reintroduce frontend mock auth users or localStorage auth sessions.
-- `src/data/mockData.ts`, `src/services/db.ts`, and services that import them are
-  inactive fixtures kept only for reversibly hidden pages. Do not route live
-  runtime code through them; reactivation requires real backend wiring or deletion
-  with the hidden pages.
+- The fixture island (`src/data/mockData.ts`, `src/services/db.ts`, `src/services/adminService.ts`) is DELETED. Never reintroduce runtime mock/fixture islands; new or reactivated pages must wire to the real backend.
 - `strictPort` 3000 (ADR); pnpm only, never an npm lockfile.
 
 ## Run

@@ -179,10 +179,10 @@ src/
 
 공간 아래 **침대/구역 단위**로 이벤트를 다룹니다. 모든 호실에 침대A·침대B가 있고, 어르신을 침대에 배정하면 이벤트가 "**202호 침대A** 침상 이탈"처럼 표기됩니다(얼굴 인식 없이 침대 위치만).
 
-- **관리자 · 구역/침대 배정**: `assignments` 관리자 화면은 가역 숨김 상태입니다. 재활성 시 `/admin/assignments` 아래에서 실백엔드로 배선합니다.
-- 실제 백엔드 이벤트는 현재 camera/space/alert 중심이며 resident-risk-summary route는 없습니다. 구역/침대 배정 화면은 가역 숨김 상태이고, `services/zoneService.ts`는 해당 숨김 페이지 전용 비활 fixture입니다.
-- 공간 상세 패널에 "구역/침대 배정" 표시, 관심 어르신 화면에 침대 위치 표기, 이벤트 타임라인에 구역 칩 표시.
-- 서비스: `services/zoneService.ts`. 엔티티: `Zone`, `ResidentAssignment`.
+- **관리자 · 구역/침대 배정**: 구역/침대 배정 관리자 화면과 fixture service `services/zoneService.ts`는 제거되었습니다. 재도입하려면 `/admin/assignments` 아래에 실제 백엔드 route를 배선해야 합니다.
+- 실제 백엔드 이벤트는 현재 camera/space/alert 중심이며 resident-risk-summary route는 없습니다.
+- 재도입 시 공간 상세 패널에 "구역/침대 배정"을 표시하고, 관심 어르신 화면에 침대 위치를 표기하며, 이벤트 타임라인에 구역 칩을 표시합니다.
+- 재도입 모델 엔티티: `Zone`, `ResidentAssignment`.
 
 > 이후 단계(로드맵): 실제 카메라 2~5대 연동(Camera Agnostic 어댑터), Rule Engine 명시화(주간/야간 침상 이탈, 바닥 자세=응급), 멀티 시설 확장.
 
@@ -197,7 +197,7 @@ src/
 AI가 오늘 더 자주 확인할 어르신을 자동 선별해 보여줍니다. "감시 대상"이 아니라 "집중 관찰 지원" 톤으로 표현합니다(위험 인물·문제 행동 같은 표현 배제).
 
 - **직원 화면**: "지금 확인할 곳"(`/dashboard`) 상단에 "오늘 집중 관찰 필요 N명" 섹션. 점수·모델 설명 없이 "○○호 ○○○ · 오늘 더 자주 확인해주세요. (이유)"만 보여주고 **확인함 / 직원 방문 중 / 도움 요청** 3버튼을 제공합니다. "음성으로 듣기" 버튼으로 TTS 안내를 들을 수 있습니다.
-- **관리자 화면**: `focus-residents` 관리자 화면은 남아 있지만 가역 숨김 상태이며 현재 백엔드에는 `/api/v1/resident-risk-summaries` route가 없습니다. `services/residentService.ts`와 fixture 데이터는 재활성 전까지 비활 fixture로만 보존합니다.
+- **관리자 화면**: `focus-residents` 관리자 화면과 fixture `services/residentService.ts`는 제거되었습니다. 재도입하려면 실제 백엔드 route를 배선해야 합니다.
 - **TTS 안내(미구현)**: 설계상으로는 "오늘 집중 관찰 대상은 N분입니다." → "○○호 ○○○ 어르신을 더 자주 확인해주세요." 순으로 안내할 계획이었습니다. `services/tts/announceFocus.ts` 스텁은 삭제되었으며, 기능 재구현은 issue #474에서 추적합니다.
 - **데이터 모델**: `Resident`와 배정 정보는 실제 백엔드 route가 있고, `ResidentRiskSummary`/`ResidentAction`은 현재 프론트 UI 호환 타입입니다.
 
