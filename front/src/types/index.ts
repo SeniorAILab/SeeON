@@ -149,60 +149,6 @@ export interface AuthSession {
   user: User;
 }
 
-// ---------- 영상(이슈 근거 클립) ----------
-// 정책: 실시간 CCTV 스트리밍이 아니라, AI가 위험으로 감지한 이벤트 구간의
-//       짧은 클립(감지 10초 전 ~ 10초 후, 20~30초)만 관리자에게 제공.
-
-export type VideoStorageStatus =
-  | "PROCESSING" // 클립 생성 중
-  | "AVAILABLE" // 조회 가능
-  | "EXPIRED" // 보관기간 만료
-  | "DELETED"; // 자동 삭제됨
-
-export type VideoAccessLevel = "ADMIN_ONLY";
-
-export type VideoAccessAction =
-  | "VIEW" // 상세 진입(메타 조회)
-  | "PLAY" // 재생
-  | "FULLSCREEN" // 전체화면
-  | "DOWNLOAD_BLOCKED"; // 다운로드 시도(차단됨)
-
-export interface VideoClip {
-  id: string;
-  eventId: string;
-  facilityId: string;
-  spaceId: string;
-  cameraId: string;
-  clipUrl: string; // 직접 노출 금지 — signed URL 발급 후에만 사용
-  thumbnailUrl: string;
-  detectedAt: string;
-  clipStartAt: string; // 감지 10초 전
-  clipEndAt: string; // 감지 10초 후
-  durationSeconds: number;
-  storageStatus: VideoStorageStatus;
-  accessLevel: VideoAccessLevel;
-  expiresAt: string; // 보관기간/자동삭제 기준
-  createdAt: string;
-}
-
-export interface VideoAccessLog {
-  id: string;
-  videoClipId: string;
-  userId: string;
-  userName: string;
-  facilityId: string;
-  action: VideoAccessAction;
-  accessedAt: string;
-  ipAddress: string;
-  userAgent: string;
-}
-
-/** signed URL 발급 응답 */
-export interface SignedVideoUrl {
-  url: string;
-  expiresAt: string;
-}
-
 // ---------- API 합성 응답 ----------
 
 /** 대시보드 한 화면을 그리기 위한 합성 응답 */

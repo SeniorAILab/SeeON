@@ -4,8 +4,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 /**
  * 영상 접근 권한 가드.
- * 관리자만 children(영상 영역)을 렌더. 그 외에는 안내 문구만.
- * (서버에서도 동일 검증을 해야 하며, 직원은 signed URL 자체를 받지 못한다.)
+ * 서버 권한 검증에 앞서 관리자에게만 alert-bound 영상 영역을 렌더한다.
  */
 export function VideoPermissionGuard({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
