@@ -26,6 +26,8 @@ COPY front ./front
 # /api/v1 path that nginx reverse-proxies to the backend, so no absolute API host is baked.
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_EVENT_CLIPS_ENABLED=false
+ENV VITE_EVENT_CLIPS_ENABLED=$VITE_EVENT_CLIPS_ENABLED
 ARG NODE_OPTIONS=--max-old-space-size=1536
 ENV NODE_OPTIONS=$NODE_OPTIONS
 RUN pnpm --filter front build
