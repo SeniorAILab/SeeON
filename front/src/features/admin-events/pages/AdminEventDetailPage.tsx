@@ -7,14 +7,12 @@ import { AlertStatusBadge } from "@/components/AlertStatusBadge";
 import { AIInsightBox } from "@/features/admin-events/components/AIInsightBox";
 import { EventTimeline } from "@/features/admin-events/components/EventTimeline";
 import { ActionLogForm } from "@/features/admin-events/components/ActionLogForm";
+import { AlertEvidencePanel } from "@/features/admin-events/components/video/AlertEvidencePanel";
 import { VideoPermissionGuard } from "@/features/admin-events/components/video/VideoPermissionGuard";
-import { VideoUnavailableState } from "@/features/admin-events/components/video/VideoUnavailableState";
 import { VideoAccessNotice } from "@/features/admin-events/components/video/VideoAccessNotice";
-import { AdminEventVideoPlayer } from "@/features/admin-events/components/video/AdminEventVideoPlayer";
-import { VideoAccessLogTable } from "@/features/admin-events/components/video/VideoAccessLogTable";
+import { isEventClipsEnabled } from "@/features/admin-events/eventClipFeature";
 import { eventService } from "@/services/eventService";
 import { dashboardService } from "@/services/dashboardService";
-import { videoService } from "@/features/admin-events/services/videoService";
 import { useAuthStore } from "@/stores/authStore";
 import { canAcknowledge } from "@/lib/roles";
 import { formatDateTime } from "@/lib/format";
@@ -26,7 +24,6 @@ import type {
   Level,
   Space,
   SpaceStatusLevel,
-  VideoClip,
 } from "@/types";
 
 const riskToStatus: Record<Level, SpaceStatusLevel> = {
@@ -42,13 +39,10 @@ export function AdminEventDetailPage() {
 
   const [event, setEvent] = useState<DetectionEvent | null>(null);
   const [timeline, setTimeline] = useState<DetectionEvent[]>([]);
-  const [clip, setClip] = useState<VideoClip | null>(null);
   const [space, setSpace] = useState<Space | null>(null);
   const [floor, setFloor] = useState<Floor | null>(null);
-  const [clipChecked, setClipChecked] = useState(false);
   const [memo, setMemo] = useState("");
   const [memoSaving, setMemoSaving] = useState(false);
-  const [logKey, setLogKey] = useState(0);
 
   async function loadEvent() {
     if (!eventId) return;
@@ -76,19 +70,6 @@ export function AdminEventDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  // 영상 메타 로드(관리자 권한 검증 + VIEW 로그) — 권한 가드는 UI, 서비스는 보안 경계
-  useEffect(() => {
-    if (!eventId) return;
-    videoService
-      .getEventVideo(eventId, user)
-      .then((c) => setClip(c))
-      .catch(() => setClip(null))
-      .finally(() => {
-        setClipChecked(true);
-        setLogKey((k) => k + 1);
-      });
-  }, [eventId, user]);
-
   if (!event) {
     return <p className="py-16 text-center text-sm text-ink-soft">불러오는 중...</p>;
   }
@@ -96,6 +77,7 @@ export function AdminEventDetailPage() {
   const spaceName = space?.name ?? event.room ?? event.spaceId;
   const floorName = floor?.name ?? "층 정보 없음";
   const acked = event.alertStatus === "ACKNOWLEDGED";
+  const eventClipsEnabled = isEventClipsEnabled();
 
   async function handleAction(type: ActionType, note: string) {
     if (!user || !event) return;
@@ -166,29 +148,26 @@ export function AdminEventDetailPage() {
         </div>
       </Card>
 
-      {/* 영상 영역 (관리자 전용) */}
-      <Card className="p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-ink">
-          <Film className="h-4.5 w-4.5 h-[18px] w-[18px]" />
-          감지 근거 영상
-        </h2>
-        <p className="mb-3 text-sm text-ink-faint">
-          관리자 권한으로 감지 시점의 안전 확인용 클립만 확인할 수 있습니다. 연결된 영상이 없거나
-          보관 상태를 확인할 수 없으면 그 상태를 그대로 표시합니다.
-        </p>
-        <VideoPermissionGuard>
-          {!clipChecked ? (
-            <p className="text-sm text-ink-soft">영상 정보를 확인하는 중...</p>
-          ) : clip ? (
-            <AdminEventVideoPlayer clip={clip} />
-          ) : (
-            <div className="space-y-2">
+      {eventClipsEnabled && user !== null ? (
+        <Card className="p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-ink">
+            <Film aria-hidden="true" className="h-[18px] w-[18px]" />
+            감지 근거 영상
+          </h2>
+          <p className="mb-3 text-sm leading-relaxed text-ink-faint break-keep">
+            관리자 권한으로 이 알림에 연결된 안전 확인용 클립만 확인할 수 있습니다.
+            보관 상태를 확인할 수 없으면 해당 상태를 그대로 표시합니다.
+          </p>
+          <VideoPermissionGuard>
+            <div className="space-y-3">
               <VideoAccessNotice />
-              <VideoUnavailableState />
+              <AlertEvidencePanel
+                identity={{ facilityId: event.facilityId, alertId: event.id, userId: user.id }}
+              />
             </div>
-          )}
-        </VideoPermissionGuard>
-      </Card>
+          </VideoPermissionGuard>
+        </Card>
+      ) : null}
 
       {/* 이벤트 타임라인 */}
       <Card className="p-5">
@@ -242,18 +221,13 @@ export function AdminEventDetailPage() {
         <ActionLogForm onSubmit={handleAction} disabled={!canAcknowledge(user)} />
       </Card>
 
-      {/* 알림 + 영상 접근 로그 */}
       <Card className="p-5">
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-base font-semibold text-ink">알림 / 접근 기록</h2>
+          <h2 className="text-base font-semibold text-ink">알림 상태</h2>
           <AlertStatusBadge status={event.alertStatus} />
           <span className="text-xs text-ink-faint">{alertLabel[event.alertStatus]}</span>
         </div>
-        {clip ? (
-          <VideoAccessLogTable videoClipId={clip.id} refreshKey={logKey} />
-        ) : (
-          <p className="text-sm text-ink-faint">연결된 영상이 없어 접근 기록이 없습니다.</p>
-        )}
+        <p className="text-sm text-ink-faint">알림 처리 내역은 위의 타임라인과 메모에서 확인할 수 있습니다.</p>
       </Card>
     </div>
   );
