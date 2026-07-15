@@ -1,6 +1,12 @@
 import type { AlertView } from "@/types";
 import { listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertEndpoints";
 import { createAlertNote, listAlertNotes, type AlertNote } from "./api/alertNotes";
+import {
+  getAlertMediaEndpoint,
+  recordAlertMediaAccessEndpoint,
+  type AlertMediaAccessRequest,
+  type AlertMediaMetadata,
+} from "./api/alertMedia";
 
 export const alertService = {
   listOpen(): Promise<AlertView[]> {
@@ -32,5 +38,12 @@ export const alertService = {
   createNote(alertId: string, note: string): Promise<AlertNote> {
     return createAlertNote(alertId, note);
   },
+  getMedia(alertId: string, signal: AbortSignal): Promise<AlertMediaMetadata> {
+    return getAlertMediaEndpoint(alertId, signal);
+  },
+  recordMediaAccess(request: AlertMediaAccessRequest): Promise<void> {
+    return recordAlertMediaAccessEndpoint(request);
+  },
 };
 export type { AlertNote } from "./api/alertNotes";
+export type { AlertMediaAccessRequest, AlertMediaMetadata } from "./api/alertMedia";
