@@ -122,6 +122,15 @@ All spacing derives from 4px.
 - **Accessibility**: the checkbox label is the click target; `required` marks form obligation.
 - **Motion**: color transition only.
 
+### Alert Evidence Panel
+
+- **Structure**: alert-bound metadata state above a native 16:9 MP4 `video`; never accept a clip ID, storage path, token, or edge URL in browser state.
+- **Variants**: loading, pending, ready, unavailable, expired, deleted, denied, and retryable error.
+- **Spacing**: `space-3` between the access notice, media, metadata, and retention copy; state surfaces use at least `space-6` horizontal padding.
+- **States**: semantic status copy and icons distinguish every lifecycle state; playback errors may refresh metadata once before becoming an explicit error.
+- **Accessibility**: native keyboard/touch controls, visible 16:9 dimensions, Korean `break-keep` copy, labelled media, and status/alert live semantics.
+- **Motion**: only the loading icon spins; playback controls remain browser-native and `prefers-reduced-motion` compatible.
+
 ## 6. Motion & Interaction
 
 | Type | Duration | Easing | Usage |
