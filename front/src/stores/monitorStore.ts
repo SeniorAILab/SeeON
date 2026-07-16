@@ -91,7 +91,18 @@ function dashboardWithStatuses(
   statuses: Record<string, SpaceStatus>,
 ): DashboardResponse | null {
   if (!dashboard) return dashboard;
-  return { ...dashboard, statuses, summary: deriveSummaryFromStatuses(dashboard.summary, statuses) };
+  const unacknowledgedEvents = activeFacilityId
+    ? alertsForFacility(alertMergeState, activeFacilityId).filter(isActiveAlert)
+    : dashboard.unacknowledgedEvents;
+  return {
+    ...dashboard,
+    statuses,
+    unacknowledgedEvents,
+    summary: {
+      ...deriveSummaryFromStatuses(dashboard.summary, statuses),
+      unacknowledged: unacknowledgedEvents.length,
+    },
+  };
 }
 
 async function reconcileSnapshot(facilityId: string): Promise<void> {

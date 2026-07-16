@@ -279,7 +279,7 @@ describe("monitorStore live alert merge", () => {
       status: "DANGER",
       alertStatus: "PENDING",
       lastDetectedAt: newerAlertDto.detectedAt,
-      emergency: true,
+      emergency: false,
     });
 
     useMonitorStore.getState().stop();
@@ -311,7 +311,7 @@ describe("monitorStore live alert merge", () => {
       status: "DANGER",
       alertStatus: "PENDING",
       lastDetectedAt: newerActive.detectedAt,
-      emergency: true,
+      emergency: false,
     });
 
     useMonitorStore.getState().stop();
@@ -343,6 +343,8 @@ describe("monitorStore live alert merge", () => {
       emergency: false,
       bedsideActivity: false,
     });
+    expect(useMonitorStore.getState().dashboard?.unacknowledgedEvents).toEqual([]);
+    expect(useMonitorStore.getState().dashboard?.summary.unacknowledged).toBe(0);
 
     useMonitorStore.getState().stop();
   });

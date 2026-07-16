@@ -96,7 +96,7 @@ export function mapAlertDto(dto: BackendAlertDto): FrontendAlert {
     acknowledgedAt: alertStatus === "ACKNOWLEDGED" ? new Date().toISOString() : undefined,
     actions: [],
     confidence: probability,
-    emergency: eventType === "BED_EXIT" || eventType === "FALL_RISK",
+    emergency: eventType === "FALL_RISK",
     backendStatus: dto.status,
     backendType: type,
   };

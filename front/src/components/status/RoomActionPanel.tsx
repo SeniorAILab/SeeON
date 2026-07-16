@@ -13,7 +13,7 @@ interface EventGroup {
   alerts: DetectionEvent[];
 }
 
-export function eventGroupsFor(status?: SpaceStatus, alerts: DetectionEvent[] = []): EventGroup[] {
+export function eventGroupsFor(_status?: SpaceStatus, alerts: DetectionEvent[] = []): EventGroup[] {
   if (alerts.length > 0) {
     const byType = new Map<string, DetectionEvent[]>();
     for (const alert of alerts) byType.set(alert.eventType, [...(byType.get(alert.eventType) ?? []), alert]);
@@ -24,15 +24,7 @@ export function eventGroupsFor(status?: SpaceStatus, alerts: DetectionEvent[] = 
       alerts: [...events].sort((a, b) => Date.parse(b.detectedAt) - Date.parse(a.detectedAt)),
     }));
   }
-  if (!status) return [];
-  const groups: EventGroup[] = [];
-  if (status.emergency) groups.push({ key: "emergency", label: "응급", count: 1, alerts: [] });
-  if (status.fallRiskLevel === "HIGH" || status.status === "DANGER") groups.push({ key: "fall", label: "낙상 위험", count: 1, alerts: [] });
-  if (status.bedsideActivity) groups.push({ key: "bedside", label: "침대 주변 활동", count: 1, alerts: [] });
-  if (status.soloMovementAttempt) groups.push({ key: "solo", label: "단독 이동 시도", count: 1, alerts: [] });
-  if (status.prolongedInactivity) groups.push({ key: "inactivity", label: "장시간 미움직임", count: 1, alerts: [] });
-  if (groups.length === 0 && status.status !== "STABLE") groups.push({ key: "status", label: status.aiSummary || "상태 확인", count: 1, alerts: [] });
-  return groups;
+  return [];
 }
 
 const statusWord = { STABLE: "안정", CAUTION: "주의", DANGER: "위험", CHECK_NEEDED: "확인 필요" } as const;
@@ -276,6 +268,7 @@ export function RoomActionPanel({
       </div>
 
       <label className="mt-4 block text-staff-body font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
+      <p className="mt-1 text-base font-bold text-ink-soft">메모 저장은 기록만 남깁니다. 알람을 끄려면 확인완료를 눌러주세요.</p>
       {!canWriteNote && <div className="mt-2 rounded-2xl bg-surface2 px-4 py-3 text-staff-body font-bold text-ink-soft">현재 기록할 이벤트가 없습니다.</div>}
       <textarea
         id={`note-${space.id}`}
