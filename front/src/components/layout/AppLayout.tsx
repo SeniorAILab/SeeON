@@ -202,7 +202,7 @@ export function AppLayout() {
             )}
           </div>
 
-          <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:gap-3">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:gap-3">
             <div className="hidden text-sm font-semibold text-ink-soft md:block">
               {user ? roleLabel(user.role) : ""}
             </div>
