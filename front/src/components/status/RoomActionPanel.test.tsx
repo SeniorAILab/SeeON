@@ -173,9 +173,15 @@ describe("RoomActionPanel", () => {
     expect(screen.getByText(formatDateTime(detectedAt))).toBeTruthy();
   });
 
-  it("keeps collapsed status fallback but does not require it for real alert grouping", () => {
+  it("does not fabricate actionable groups from stale status flags", () => {
     const alertStatus = { ...status("a", "DANGER"), bedsideActivity: true, soloMovementAttempt: true };
-    expect(eventGroupsFor(alertStatus).map((group) => group.label)).toEqual(["낙상 위험", "침대 주변 활동", "단독 이동 시도"]);
+    expect(eventGroupsFor(alertStatus)).toEqual([]);
+  });
+
+  it("explains that saving a memo does not clear the alarm", () => {
+    render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={vi.fn()} />);
+
+    expect(screen.getByText("메모 저장은 기록만 남깁니다. 알람을 끄려면 확인완료를 눌러주세요.")).toBeTruthy();
   });
 
   it("renders as a modal dialog and closes from Escape, backdrop, and close button", () => {

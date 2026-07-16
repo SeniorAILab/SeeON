@@ -44,6 +44,7 @@ describe("alertEndpoints", () => {
       room: "201호",
       backendStatus: "NEW",
       backendType: "bed-exit",
+      emergency: false,
     });
   });
 
@@ -88,6 +89,7 @@ describe("alertEndpoints", () => {
     expect(mapped.backendType).toBe("fall");
     expect(mapped.riskLevel).toBe("HIGH");
     expect(mapped.confidence).toBe(0.2);
+    expect(mapped.emergency).toBe(true);
   });
 
   it("maps RESOLVED as terminal backend status", () => {
