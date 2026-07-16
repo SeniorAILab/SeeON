@@ -154,7 +154,7 @@ export function AdminEventDetailPage() {
             <Film aria-hidden="true" className="h-[18px] w-[18px]" />
             감지 근거 영상
           </h2>
-          <p className="mb-3 text-sm leading-relaxed text-ink-faint break-keep">
+          <p className="mb-3 text-sm leading-relaxed text-ink-soft break-keep">
             관리자 권한으로 이 알림에 연결된 안전 확인용 클립만 확인할 수 있습니다.
             보관 상태를 확인할 수 없으면 해당 상태를 그대로 표시합니다.
           </p>

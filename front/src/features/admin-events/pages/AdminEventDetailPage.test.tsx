@@ -120,6 +120,12 @@ describe("AdminEventDetailPage alert evidence integration", () => {
 
     expect(await screen.findByRole("heading", { name: "감지 근거 영상" })).toBeTruthy();
     expect(await screen.findByText("이 알림에 연결된 근거 영상이 없습니다.")).toBeTruthy();
+    const description = screen.getByText(
+      /관리자 권한으로 이 알림에 연결된 안전 확인용 클립만 확인할 수 있습니다/,
+    );
+
+    expect(description.classList.contains("text-ink-soft")).toBe(true);
+    expect(description.classList.contains("text-ink-faint")).toBe(false);
     expect(alertService.getMedia).toHaveBeenCalledWith(EVENT.id, expect.any(AbortSignal));
   });
 });
