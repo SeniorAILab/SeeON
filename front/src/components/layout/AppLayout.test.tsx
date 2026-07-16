@@ -127,4 +127,27 @@ describe("AppLayout facility selector", () => {
       `${DUPLICATE_FACILITY_NAME} (orphan)`,
     ]);
   });
+
+  it("right-aligns the account actions when the header wraps below desktop", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(okJsonResponse([nokyangFacility])),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route path="/admin" element={<AppLayout />}>
+            <Route index element={<div>Admin child</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("combobox");
+    const dashboardButton = screen.getByRole("button", { name: "대시보드" });
+    const accountActions = dashboardButton.parentElement;
+
+    expect(accountActions?.classList.contains("justify-end")).toBe(true);
+  });
 });
