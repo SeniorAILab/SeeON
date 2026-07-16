@@ -94,7 +94,7 @@ describe("dashboardEndpoints", () => {
       status: "DANGER",
       alertStatus: "SENT",
       bedsideActivity: true,
-      emergency: true,
+      emergency: false,
     });
     expect(dashboard.unacknowledgedEvents).toHaveLength(1);
     expect(dashboard.summary.danger).toBe(1);
