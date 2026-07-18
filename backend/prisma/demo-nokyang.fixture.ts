@@ -1,6 +1,6 @@
 import { SpaceType } from '@prisma/client';
 
-export const NOKYANG_ADMIN_EMAIL = 'happy8568090@gmail.com';
+export const NOKYANG_ADMIN_EMAIL = 'nokyang-admin@example.com';
 
 export type FixtureItem = {
   readonly id: string;

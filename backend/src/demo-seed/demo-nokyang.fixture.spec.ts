@@ -20,7 +20,7 @@ describe('nokyang demo fixture', () => {
     expect(nokyangCameras.every((camera) => !('facilityId' in camera))).toBe(
       true,
     );
-    expect(NOKYANG_ADMIN_EMAIL).toBe('happy8568090@gmail.com');
+    expect(NOKYANG_ADMIN_EMAIL).toBe('nokyang-admin@example.com');
     expect(nokyangFloors.map((floor) => floor.id)).toEqual([
       'fl_b1',
       'fl_1f',
