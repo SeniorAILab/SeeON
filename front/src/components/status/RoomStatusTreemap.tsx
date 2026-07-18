@@ -4,7 +4,9 @@ import { timeAgo } from "@/lib/format";
 import { computeGridSpec } from "./gridSpec";
 import { useFlipAnimation } from "./useFlipAnimation";
 import { pulseClassFor, StatusPulseRing, type PulseTone } from "./StatusPulse";
-import type { Floor, Space, SpaceStatus, SpaceStatusLevel } from "@/types";
+import { recordDashboardPresentation } from "@/services/dashboardReceiptService";
+import type { DashboardReceiptSurface, DashboardReceiptSurfaceBase } from "@/services/dashboardReceiptService";
+import type { DetectionEvent, Floor, Space, SpaceStatus, SpaceStatusLevel } from "@/types";
 
 export interface RoomFloorGroup {
   floor: Floor | null;
@@ -96,6 +98,8 @@ export function RoomStatusTreemap({
   onSelect,
   layout = "overview",
   cardSize = "lg",
+  presentationAlertsBySpace = {},
+  receiptSurface = "monitor-room-board",
 }: {
   spaces: Space[];
   statuses: Record<string, SpaceStatus>;
@@ -104,6 +108,8 @@ export function RoomStatusTreemap({
   onSelect?: (space: Space) => void;
   layout?: RoomStatusLayout;
   cardSize?: "lg" | "xl";
+  presentationAlertsBySpace?: Record<string, DetectionEvent>;
+  receiptSurface?: DashboardReceiptSurfaceBase;
 }) {
   const groups = groupRoomsByFloor(spaces, statuses, floors);
 
@@ -126,11 +132,11 @@ export function RoomStatusTreemap({
             </span>
           </div>
           {layout === "focus" ? (
-            <FocusRoomGrid rooms={group.rooms} statuses={statuses} selectedSpaceId={selectedSpaceId} onSelect={onSelect} cardSize={cardSize} />
+            <FocusRoomGrid rooms={group.rooms} statuses={statuses} selectedSpaceId={selectedSpaceId} onSelect={onSelect} cardSize={cardSize} presentationAlertsBySpace={presentationAlertsBySpace} receiptSurface={receiptSurface} />
           ) : (
             <div className="grid auto-rows-[minmax(160px,auto)] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="list">
               {group.rooms.map((space) => (
-                <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout="overview" cardSize={cardSize} />
+                <RoomTile key={space.id} space={space} status={statuses[space.id]} selected={selectedSpaceId === space.id} onSelect={onSelect} layout="overview" cardSize={cardSize} presentationAlert={presentationAlertsBySpace[space.id]} receiptSurface={receiptSurface} />
               ))}
             </div>
           )}
@@ -153,12 +159,16 @@ function FocusRoomGrid({
   selectedSpaceId,
   onSelect,
   cardSize,
+  presentationAlertsBySpace,
+  receiptSurface,
 }: {
   rooms: Space[];
   statuses: Record<string, SpaceStatus>;
   selectedSpaceId?: string | null;
   onSelect?: (space: Space) => void;
   cardSize: "lg" | "xl";
+  presentationAlertsBySpace: Record<string, DetectionEvent>;
+  receiptSurface: DashboardReceiptSurfaceBase;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -213,6 +223,8 @@ function FocusRoomGrid({
             style={heroTileStyle(isFirstHero, span)}
             flipKey={space.id}
             cardSize={cardSize}
+            presentationAlert={presentationAlertsBySpace[space.id]}
+            receiptSurface={receiptSurface}
           />
         );
       })}
@@ -229,6 +241,8 @@ function RoomTile({
   style,
   flipKey,
   cardSize,
+  presentationAlert,
+  receiptSurface,
 }: {
   space: Space;
   status?: SpaceStatus;
@@ -238,7 +252,10 @@ function RoomTile({
   style?: CSSProperties;
   flipKey?: string;
   cardSize: "lg" | "xl";
+  presentationAlert?: DetectionEvent;
+  receiptSurface: DashboardReceiptSurfaceBase;
 }) {
+  const tileRef = useRef<HTMLButtonElement>(null);
   const level = worstStatus(status);
   const Icon = iconFor(level);
   const hero = layout === "focus" && isEmergencyLevel(level);
@@ -247,14 +264,45 @@ function RoomTile({
   const isSafe = level === "STABLE" && !isDanger;
   const pulseTone: PulseTone | null = isDanger || isCheck ? "danger" : isSafe ? "safe" : null;
   const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
+  const surface: DashboardReceiptSurface = `${receiptSurface}:${layout}`;
+
+  // Depend on primitives, not the alert object: presentationAlertsBySpace is
+  // rebuilt on every poll cycle, so an object dependency would re-fire this
+  // effect for every visible tile on every tick.
+  const presentationAlertId = presentationAlert?.id;
+  const presentationAlertSeq = presentationAlert?.alertSeq;
+  const presentationEventId = presentationAlert?.backendEventId;
+  useLayoutEffect(() => {
+    const tile = tileRef.current;
+    if (
+      level === "STABLE" ||
+      !tile?.isConnected ||
+      !presentationAlertId ||
+      !presentationAlertSeq ||
+      !presentationEventId
+    ) {
+      return;
+    }
+    void recordDashboardPresentation(
+      {
+        id: presentationAlertId,
+        alertSeq: presentationAlertSeq,
+        backendEventId: presentationEventId,
+      },
+      surface,
+    ).catch(() => undefined);
+  }, [level, presentationAlertId, presentationAlertSeq, presentationEventId, surface]);
 
   return (
     <button
+      ref={tileRef}
       type="button"
       aria-label={`${space.name} ${STATUS_WORD[level]}`}
       onClick={() => onSelect?.(space)}
       style={style}
       data-flip-key={flipKey}
+      data-alert-id={presentationAlert?.id}
+      data-backend-event-id={presentationAlert?.backendEventId ?? undefined}
       className={`relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-2xl ${cardSize === "xl" ? "p-7" : "p-5"} text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
         layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""
       } ${

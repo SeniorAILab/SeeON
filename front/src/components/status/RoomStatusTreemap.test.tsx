@@ -1,7 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomStatusTreemap, heroTileStyle } from "./RoomStatusTreemap";
-import type { Floor, Space, SpaceStatus } from "@/types";
+import type { DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
+
+const { recordDashboardPresentationMock } = vi.hoisted(() => ({
+  recordDashboardPresentationMock: vi.fn(),
+}));
+
+vi.mock("@/services/dashboardReceiptService", () => ({
+  recordDashboardPresentation: recordDashboardPresentationMock,
+}));
 
 const floors: Floor[] = [{ id: "2", facilityId: "fac", name: "2F", orderIndex: 2 }];
 
@@ -22,6 +30,28 @@ function status(spaceId: string, level: SpaceStatus["status"], aiSummary: string
     alertStatus: level === "STABLE" ? "NONE" : "PENDING",
   };
 }
+
+function presentationAlert(spaceId: string): DetectionEvent {
+  return {
+    id: `alert-${spaceId}`,
+    backendEventId: `event-${spaceId}`,
+    facilityId: "fac",
+    spaceId,
+    alertSeq: "42",
+    eventType: "BED_EXIT",
+    riskLevel: "HIGH",
+    message: "침상 이탈 감지",
+    aiSummary: "침상 이탈이 감지되었습니다.",
+    detectedAt: "2026-07-17T03:00:00.000Z",
+    alertStatus: "PENDING",
+    actions: [],
+  };
+}
+
+beforeEach(() => {
+  recordDashboardPresentationMock.mockReset();
+  recordDashboardPresentationMock.mockResolvedValue(null);
+});
 
 describe("RoomStatusTreemap aiSummary guard", () => {
   it("hides stale aiSummary residue on a STABLE tile without breaking the tile", () => {
@@ -200,5 +230,52 @@ describe("heroTileStyle", () => {
 
   it("leaves non-first tiles unpinned, spanning in place", () => {
     expect(heroTileStyle(false, 2)).toEqual({ gridColumn: "span 2", gridRow: "span 2" });
+  });
+});
+
+describe("RoomStatusTreemap presentation receipts", () => {
+  it("records once after a correlated danger tile is committed to the DOM", () => {
+    const dangerSpace = space("receipt-room", "205호");
+    const event = presentationAlert(dangerSpace.id);
+    const props = {
+      spaces: [dangerSpace],
+      floors,
+      statuses: {
+        [dangerSpace.id]: status(dangerSpace.id, "DANGER", "침상 이탈 감지"),
+      },
+      presentationAlertsBySpace: { [dangerSpace.id]: event },
+      receiptSurface: "admin-room-board" as const,
+    };
+
+    const { container, rerender } = render(<RoomStatusTreemap {...props} />);
+
+    expect(container.querySelector('[data-backend-event-id="event-receipt-room"]')?.isConnected).toBe(true);
+    expect(recordDashboardPresentationMock).toHaveBeenCalledTimes(1);
+    expect(recordDashboardPresentationMock).toHaveBeenCalledWith(
+      { id: event.id, alertSeq: event.alertSeq, backendEventId: event.backendEventId },
+      "admin-room-board:overview",
+    );
+
+    rerender(<RoomStatusTreemap {...props} />);
+    expect(recordDashboardPresentationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not claim presentation while the tile still renders stable", () => {
+    const stableSpace = space("delayed-room", "206호");
+
+    render(
+      <RoomStatusTreemap
+        spaces={[stableSpace]}
+        floors={floors}
+        statuses={{
+          [stableSpace.id]: status(stableSpace.id, "STABLE", ""),
+        }}
+        presentationAlertsBySpace={{
+          [stableSpace.id]: presentationAlert(stableSpace.id),
+        }}
+      />,
+    );
+
+    expect(recordDashboardPresentationMock).not.toHaveBeenCalled();
   });
 });

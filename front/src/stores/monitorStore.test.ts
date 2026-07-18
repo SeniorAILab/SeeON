@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import type { DashboardResponse, Space, SpaceStatus } from "@/types";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
 const activeSpace: Space = {
@@ -382,6 +382,68 @@ describe("monitorStore live alert merge", () => {
 
     expect(useMonitorStore.getState().statuses.sp_201.status).toBe("DANGER");
     expect(useMonitorStore.getState().dashboard?.summary.danger).toBe(1);
+
+    useMonitorStore.getState().stop();
+  });
+
+  it("records delivery only after a correlated SSE alert enters the normalized feed", async () => {
+    const sendMessage = stubEventSource();
+    const baseFetch = dashboardFetch();
+    const correlatedAlert = {
+      ...alertDto,
+      id: "alert_receipt",
+      backendEventId: "event_receipt",
+      alertSeq: "88",
+    };
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/dashboard/receipts/delivery") && init?.method === "POST") {
+        return new Response(
+          JSON.stringify({
+            deliveryId: "delivery-88",
+            backendEventId: correlatedAlert.backendEventId,
+            alertId: correlatedAlert.id,
+            alertSeq: correlatedAlert.alertSeq,
+            kind: "delivery",
+            surface: "normalized-feed",
+            observedAt: "2026-07-17T03:00:00.000Z",
+            recordedAt: "2026-07-17T03:00:01.000Z",
+            duplicate: false,
+          }),
+          { status: 201, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return baseFetch(input, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 60_000);
+    for (let i = 0; i < 30 && !useMonitorStore.getState().dashboard; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    sendMessage(correlatedAlert);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/dashboard/receipts/delivery",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"backendEventId":"event_receipt"'),
+        }),
+      ),
+    );
+    expect(
+      useMonitorStore.getState().dashboard?.unacknowledgedEvents,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "alert_receipt",
+          backendEventId: "event_receipt",
+        }),
+      ]),
+    );
 
     useMonitorStore.getState().stop();
   });
