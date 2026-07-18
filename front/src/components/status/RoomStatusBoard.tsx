@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { RoomActionPanel } from "./RoomActionPanel";
 import { RoomStatusTreemap } from "./RoomStatusTreemap";
+import { compareAlertSeq } from "@/services/alertMerge";
+import type { DashboardReceiptSurfaceBase } from "@/services/dashboardReceiptService";
 import type { ConnectionState, DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 
 const DEBOUNCE_MS = 2000;
@@ -23,15 +25,46 @@ function signature(spaces: Space[], statuses: Record<string, SpaceStatus>): stri
     .join("|");
 }
 
+const STATUS_SEVERITY: Record<SpaceStatus["status"], number> = {
+  STABLE: 1,
+  CAUTION: 2,
+  CHECK_NEEDED: 3,
+  DANGER: 4,
+};
+
+function severity(status?: SpaceStatus): number {
+  if (status?.emergency) return 5;
+  return STATUS_SEVERITY[status?.status ?? "STABLE"];
+}
+
+function mergeImmediateRiskUpdates(
+  visible: Record<string, SpaceStatus>,
+  incoming: Record<string, SpaceStatus>,
+): Record<string, SpaceStatus> {
+  const next = { ...visible };
+  for (const [spaceId, status] of Object.entries(incoming)) {
+    if (severity(status) >= severity(visible[spaceId])) {
+      next[spaceId] = status;
+    }
+  }
+  return next;
+}
+
 export function useDebouncedStatuses(spaces: Space[], statuses: Record<string, SpaceStatus>, delayMs = DEBOUNCE_MS) {
   const [visible, setVisible] = useState(statuses);
   const sig = useMemo(() => signature(spaces, statuses), [spaces, statuses]);
   useEffect(() => {
+    setVisible((prev) => mergeImmediateRiskUpdates(prev, statuses));
     const timer = window.setTimeout(() => setVisible(statuses), delayMs);
     return () => window.clearTimeout(timer);
   }, [sig, statuses, delayMs]);
   return visible;
 }
+
+const RECEIPT_SURFACE_BY_VARIANT: Record<"staff" | "admin", DashboardReceiptSurfaceBase> = {
+  staff: "monitor-room-board",
+  admin: "admin-room-board",
+};
 
 export function RoomStatusBoard({
   spaces,
@@ -65,6 +98,16 @@ export function RoomStatusBoard({
   const visibleStatuses = useDebouncedStatuses(spaces, statuses);
   const activeSpace = selectedSpace && spaces.some((space) => space.id === selectedSpace.id) ? selectedSpace : null;
   const activeAlerts = activeSpace ? (alertsBySpace[activeSpace.id] ?? []) : [];
+  const presentationAlertsBySpace = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(alertsBySpace).flatMap(([spaceId, alerts]) => {
+          const latest = latestAlert(alerts);
+          return latest ? [[spaceId, latest]] : [];
+        }),
+      ),
+    [alertsBySpace],
+  );
 
   return (
     <section data-card-size={cardSize} className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-surface p-3 shadow-card 2xl:p-4" aria-label="방 상태 보드">
@@ -78,13 +121,29 @@ export function RoomStatusBoard({
         <ConnectionChip connection={connection} lastUpdateAt={lastUpdateAt} />
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} layout={layout} cardSize={cardSize} />
+        <RoomStatusTreemap spaces={spaces} statuses={visibleStatuses} floors={floors} selectedSpaceId={activeSpace?.id} onSelect={onSelectSpace} layout={layout} cardSize={cardSize} presentationAlertsBySpace={presentationAlertsBySpace} receiptSurface={RECEIPT_SURFACE_BY_VARIANT[_variant]} />
       </div>
       {activeSpace && (
         <RoomActionPanel space={activeSpace} status={visibleStatuses[activeSpace.id]} alerts={activeAlerts} onClose={onClosePanel ?? (() => undefined)} onResolved={onResolved} />
       )}
     </section>
   );
+}
+
+function hasComparableSeq(alert: DetectionEvent): boolean {
+  return /^\d+$/.test(alert.alertSeq ?? "");
+}
+
+function latestAlert(alerts: DetectionEvent[]): DetectionEvent | undefined {
+  return alerts.reduce<DetectionEvent | undefined>((latest, alert) => {
+    if (!latest) return alert;
+    if (hasComparableSeq(alert) && hasComparableSeq(latest)) {
+      return compareAlertSeq(alert.alertSeq!, latest.alertSeq!) > 0 ? alert : latest;
+    }
+    return new Date(alert.detectedAt) > new Date(latest.detectedAt)
+      ? alert
+      : latest;
+  }, undefined);
 }
 
 function ConnectionChip({ connection, lastUpdateAt }: { connection: ConnectionState; lastUpdateAt: string | null }) {

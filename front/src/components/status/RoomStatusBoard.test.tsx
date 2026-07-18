@@ -97,7 +97,7 @@ describe("TTS", () => {
 });
 
 describe("useDebouncedStatuses", () => {
-  it("applies rapid changes once after debounce", () => {
+  it("shows rapid risk escalation immediately", () => {
     vi.useFakeTimers();
     const seen: string[] = [];
     function Probe({ statuses }: { statuses: Record<string, SpaceStatus> }) {
@@ -108,10 +108,62 @@ describe("useDebouncedStatuses", () => {
     const { rerender } = render(<Probe statuses={{ a: status("a", "STABLE") }} />);
     rerender(<Probe statuses={{ a: status("a", "CAUTION") }} />);
     rerender(<Probe statuses={{ a: status("a", "DANGER") }} />);
-    act(() => vi.advanceTimersByTime(1999));
-    expect(seen.at(-1)).toBe("STABLE");
-    act(() => vi.advanceTimersByTime(1));
     expect(seen.at(-1)).toBe("DANGER");
+    vi.useRealTimers();
+  });
+
+  it("delays risk de-escalation until the debounce window ends", () => {
+    vi.useFakeTimers();
+    let visible = "none";
+    function Probe({ statuses }: { statuses: Record<string, SpaceStatus> }) {
+      visible = useDebouncedStatuses(spaces, statuses, 2000).a?.status ?? "none";
+      return null;
+    }
+    const { rerender } = render(<Probe statuses={{ a: status("a", "DANGER") }} />);
+    rerender(<Probe statuses={{ a: status("a", "STABLE") }} />);
+    act(() => vi.advanceTimersByTime(1999));
+    expect(visible).toBe("DANGER");
+    act(() => vi.advanceTimersByTime(1));
+    expect(visible).toBe("STABLE");
+    vi.useRealTimers();
+  });
+
+  it("does not clear one room while another room escalates", () => {
+    vi.useFakeTimers();
+    let visible: Record<string, SpaceStatus> = {};
+    function Probe({ statuses }: { statuses: Record<string, SpaceStatus> }) {
+      visible = useDebouncedStatuses(spaces, statuses, 2000);
+      return null;
+    }
+    const { rerender } = render(
+      <Probe statuses={{ a: status("a", "DANGER"), b: status("b", "STABLE") }} />,
+    );
+    rerender(
+      <Probe statuses={{ a: status("a", "STABLE"), b: status("b", "DANGER") }} />,
+    );
+    expect(visible.a?.status).toBe("DANGER");
+    expect(visible.b?.status).toBe("DANGER");
+    act(() => vi.advanceTimersByTime(2000));
+    expect(visible.a?.status).toBe("STABLE");
+    expect(visible.b?.status).toBe("DANGER");
+    vi.useRealTimers();
+  });
+
+  it("shows emergency escalation immediately and delays its clearance", () => {
+    vi.useFakeTimers();
+    let visible: Record<string, SpaceStatus> = {};
+    function Probe({ statuses }: { statuses: Record<string, SpaceStatus> }) {
+      visible = useDebouncedStatuses(spaces, statuses, 2000);
+      return null;
+    }
+    const danger = status("a", "DANGER");
+    const { rerender } = render(<Probe statuses={{ a: danger }} />);
+    rerender(<Probe statuses={{ a: { ...danger, emergency: true } }} />);
+    expect(visible.a?.emergency).toBe(true);
+    rerender(<Probe statuses={{ a: danger }} />);
+    expect(visible.a?.emergency).toBe(true);
+    act(() => vi.advanceTimersByTime(2000));
+    expect(visible.a?.emergency).toBeFalsy();
     vi.useRealTimers();
   });
 });

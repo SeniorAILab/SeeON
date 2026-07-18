@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { fetchActiveAlertSnapshot, mapAlertDto, resolveAlert, type FrontendAlert } from "@/services/api/alertEndpoints";
 import { buildSseUrl, isAbsoluteApiUrl } from "@/services/apiClient";
 import { dashboardService } from "@/services/dashboardService";
+import { recordDashboardDelivery } from "@/services/dashboardReceiptService";
 import {
   alertsForFacility,
   createAlertMergeState,
@@ -40,6 +41,15 @@ function isActiveFacility(facilityId: string): boolean {
   return activeFacilityId === facilityId;
 }
 
+// Single funnel for delivery receipts: every alert-arrival path goes through
+// here, and alerts from another facility (e.g. a facility-switch race) are
+// dropped before they can 404 against the session-scoped backend lookup.
+function recordDeliveries(alerts: readonly FrontendAlert[], facilityId: string): void {
+  for (const alert of alerts) {
+    if (alert.facilityId !== facilityId) continue;
+    void recordDashboardDelivery(alert).catch(() => undefined);
+  }
+}
 
 
 function closeLiveConnection(): void {
@@ -109,6 +119,7 @@ async function reconcileSnapshot(facilityId: string): Promise<void> {
   const alerts = await fetchActiveAlertSnapshot();
   if (!isActiveFacility(facilityId)) return;
   alertMergeState = reconcileActiveAlertSnapshot(alertMergeState, facilityId, alerts);
+  recordDeliveries(alerts, facilityId);
 }
 
 function eventSourceFor(facilityId: string): EventSource {
@@ -136,6 +147,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     dashboardService.getDashboard(facilityId).then(async (dashboard) => {
       if (!isActiveFacility(facilityId)) return;
       alertMergeState = createAlertMergeState(dashboard.unacknowledgedEvents as FrontendAlert[]);
+      recordDeliveries(dashboard.unacknowledgedEvents as FrontendAlert[], facilityId);
       await reconcileSnapshot(facilityId);
       if (!isActiveFacility(facilityId)) return;
       const statuses = deriveMergedStatuses(dashboard, dashboard.statuses);
@@ -182,6 +194,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
           lastUpdateAt: alert.detectedAt,
         };
       });
+      recordDeliveries([alert], facilityId);
     };
     eventSource.addEventListener("alert", (event) => mergeAlertMessage(event as MessageEvent));
     eventSource.addEventListener("alert-updated", (event) => {
@@ -239,6 +252,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     const dashboard = await dashboardService.getDashboard(facilityId);
     if (!isActiveFacility(facilityId)) return;
     alertMergeState = createAlertMergeState(dashboard.unacknowledgedEvents as FrontendAlert[]);
+    recordDeliveries(dashboard.unacknowledgedEvents as FrontendAlert[], facilityId);
     await reconcileSnapshot(facilityId);
     if (!isActiveFacility(facilityId)) return;
     const statuses = deriveMergedStatuses(dashboard, dashboard.statuses);
