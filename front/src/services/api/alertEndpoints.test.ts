@@ -22,6 +22,7 @@ describe("alertEndpoints", () => {
     const mapped = mapAlertDto({
       alertSeq: "10",
       id: "a1",
+      backendEventId: "event-a1",
       facilityId: SCOPED_FACILITY_ID,
       residentId: "r1",
       cameraId: "cam_sp_201",
@@ -36,6 +37,7 @@ describe("alertEndpoints", () => {
 
     expect(mapped).toMatchObject({
       id: "a1",
+      backendEventId: "event-a1",
       alertSeq: "10",
       eventType: "BED_EXIT",
       riskLevel: "HIGH",

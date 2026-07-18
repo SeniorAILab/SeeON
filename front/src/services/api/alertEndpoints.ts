@@ -4,6 +4,7 @@ import type { AlertLifecycleStatus, AlertStatus, AlertView, DetectionEvent, Dete
 export interface BackendAlertDto {
   alertSeq: string | number;
   id: string;
+  backendEventId?: string | null;
   facilityId: string;
   residentId: string | null;
   cameraId: string | null;
@@ -81,6 +82,7 @@ export function mapAlertDto(dto: BackendAlertDto): FrontendAlert {
 
   return {
     id,
+    backendEventId: asNullableString(dto.backendEventId),
     alertSeq: String(dto.alertSeq),
     facilityId,
     residentId: asNullableString(dto.residentId),
@@ -142,6 +144,7 @@ interface AlertSpaceDto {
 export interface AlertDto {
   alertSeq?: string;
   id: string;
+  backendEventId?: string | null;
   facilityId: string;
   residentId?: string | null;
   cameraId?: string | null;
@@ -178,6 +181,7 @@ export function mapAlert(dto: AlertDto): AlertView {
   return {
     alertSeq: dto.alertSeq ?? dto.id,
     id: dto.id,
+    backendEventId: dto.backendEventId ?? null,
     facilityId: dto.facilityId,
     residentId: dto.residentId ?? null,
     cameraId: dto.cameraId ?? null,
