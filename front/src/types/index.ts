@@ -98,6 +98,7 @@ export interface SpaceStatus {
 
 export interface DetectionEvent {
   id: string;
+  backendEventId?: string | null;
   facilityId: string;
   spaceId: string;
   alertSeq?: string; // backend causal sequence for dashboard-stream merge
@@ -195,6 +196,7 @@ export type AlertStatus = "NEW" | "ACKED" | "RESOLVED";
 export interface AlertView {
   alertSeq: string;
   id: string;
+  backendEventId: string | null;
   facilityId: string;
   residentId: string | null;
   cameraId: string | null;
