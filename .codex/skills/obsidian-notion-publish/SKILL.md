@@ -7,15 +7,9 @@ description: Use this project-scoped skill when publishing Obsidian project note
 
 ## Scope
 
-This skill publishes notes from this project to Notion as one Notion page per Obsidian note. It is intentionally project-local and should only be used for notes under:
+This skill publishes notes from this project to Notion as one Notion page per Obsidian note. It is intentionally project-local and should only be used for notes under the user's local Obsidian vault directory for this project (ask the user for the path if it is not already known in the session).
 
-- `<obsidian-vault-project-dir>`
-
-Known project Notion parent candidate:
-
-- `https://app.notion.com/p/AI-<notion-page-id>?source=copy_link`
-
-Fetch the parent before writing. If the user gives a different Notion parent, use the user-provided parent.
+Ask the user for the target Notion parent page. Fetch the parent before writing. If the user gives a different Notion parent, use the user-provided parent.
 
 ## Tooling
 
