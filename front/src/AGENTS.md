@@ -9,11 +9,12 @@ tests for the Vite React app.
 | Task | Location | Notes |
 | --- | --- | --- |
 | App entry | `main.tsx`, `router.tsx` | React bootstrap and route tree. |
-| Feature modules | `features/<name>/` | Bulletproof-react style feature folders (`monitor`, `admin-events`, `dashboard`); each has its own `components/`, `hooks/`, `pages/`, `services/`, `stores/` as needed, plus an `index.ts` public API. |
+| Feature modules | `features/<name>/` | Bulletproof-react style feature folders (`monitor`, `admin-events`, `dashboard`); each has its own `components/`, `hooks/`, `pages/`, `services/`, `stores/` as needed, plus an `index.ts` public API. `monitor/` and `admin-events/` carry their own `AGENTS.md`. |
+| Route tree | `router.tsx` | Canonical routes are facility-scoped (`/facilities/:facilityId/...`); `/dashboard/*` and `/admin/*` are redirect-only legacy paths. Do not add new routes outside the facility scope. |
 | Backend access | `services/api/` | Endpoint mappers and backend DTO validation. |
 | Workflows | `services/` | Service-level orchestration over endpoint functions. |
 | Domain types | `types/index.ts` | Frontend type mirror of the PRD/API contract. |
-| Pages | `pages/` | Route-level UI surfaces not owned by a feature (shared/cross-feature pages). |
+| Pages | `pages/` | Route-level UI surfaces not owned by a feature; `pages/admin/**` and `pages/staff/**` split by audience. |
 | Reusable UI | `components/` | Shared/cross-feature dashboard widgets, layout, status board, UI primitives. Feature-specific UI lives under `features/<name>/components/`. |
 | State containers | `stores/` | Zustand state containers for shared/cross-feature state (e.g. `monitorStore`, `authStore`, `facilityStore`, `uiStore`). Feature-scoped state lives under `features/<name>/stores/`. |
 | Reusable hooks | `hooks/` | Reusable React hooks over services, state, and route context, shared across features (e.g. `useActiveFacilityId`). Feature-scoped hooks live under `features/<name>/hooks/`. |
