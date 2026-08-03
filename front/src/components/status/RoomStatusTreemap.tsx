@@ -341,8 +341,8 @@ function RoomTile({
             {isDisconnected ? "연결 끊김" : STATUS_WORD[level]}
           </span>
         )}
-        {level !== "STABLE" && status?.aiSummary && <span className={`${hero ? "mt-3" : "mt-1.5"} line-clamp-2 block text-staff-body font-bold opacity-90 2xl:text-xl`}>{status.aiSummary}</span>}
-        {recentDetectedAt && <span className="mt-3 block text-sm font-black opacity-75 2xl:text-base">최근 감지 {recentDetectedAt}</span>}
+        {level !== "STABLE" && status?.aiSummary && <span className={`${hero ? "mt-3" : "mt-1.5"} line-clamp-2 block text-staff-body font-bold opacity-90`}>{status.aiSummary}</span>}
+        {recentDetectedAt && <span className="mt-3 block text-staff-body font-black opacity-75">최근 감지 {recentDetectedAt}</span>}
       </span>
     </button>
   );
