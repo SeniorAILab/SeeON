@@ -325,4 +325,22 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
     const tile = screen.getByRole("button", { name: "205호 연결 끊김" });
     expect(tile.getAttribute("data-status")).toBe("DANGER");
   });
+
+  it("끊긴 타일에 체크 아이콘을 남기지 않는다", () => {
+    // 체크 표시는 "이상 없음"으로 읽힌다. '연결 끊김'이라는 글자와 정반대
+    // 신호를 주면 지나가며 보는 사람에게는 체크만 눈에 들어온다.
+    renderTile("STABLE", "STALE");
+    const tile = screen.getByRole("button", { name: "205호 연결 끊김" });
+    const cls = tile.querySelector("svg")?.getAttribute("class") ?? "";
+    expect(cls).toContain("lucide-video-off");
+    expect(cls).not.toContain("lucide-circle-check");
+  });
+
+  it("연결된 타일은 기존 상태 아이콘을 유지한다", () => {
+    renderTile("STABLE", "LIVE");
+    const tile = screen.getByRole("button", { name: /205호/ });
+    const cls = tile.querySelector("svg")?.getAttribute("class") ?? "";
+    expect(cls).toContain("lucide-circle-check");
+    expect(cls).not.toContain("lucide-video-off");
+  });
 });

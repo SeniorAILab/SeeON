@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck, VideoOff } from "lucide-react";
 import { timeAgo } from "@/lib/format";
 import { computeGridSpec } from "./gridSpec";
 import { useFlipAnimation } from "./useFlipAnimation";
@@ -257,7 +257,6 @@ function RoomTile({
 }) {
   const tileRef = useRef<HTMLButtonElement>(null);
   const level = worstStatus(status);
-  const Icon = iconFor(level);
   const hero = layout === "focus" && isEmergencyLevel(level);
   const isDanger = level === "DANGER" || status?.emergency;
   const isCheck = level === "CHECK_NEEDED";
@@ -273,6 +272,9 @@ function RoomTile({
       : isSafe
         ? "safe"
         : null;
+  // 끊긴 방에 체크 아이콘을 남기면 "연결 끊김"이라는 글자와 정반대 신호를
+  // 준다. 지나가며 보는 요양보호사에게는 체크 표시만 눈에 들어온다.
+  const Icon = isDisconnected ? VideoOff : iconFor(level);
   const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
   const surface: DashboardReceiptSurface = `${receiptSurface}:${layout}`;
 
