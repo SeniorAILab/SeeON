@@ -51,6 +51,7 @@ describe("SuperAdminDashboardPage", () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
       if (url.endsWith("/facilities")) return okJsonResponse([seededFacility]);
+      if (url.endsWith("/cameras")) return okJsonResponse([]);
       throw new Error(`Unexpected request ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -71,8 +72,10 @@ describe("SuperAdminDashboardPage", () => {
     expect(screen.queryByText("알림")).toBeNull();
     expect(screen.queryByText("-")).toBeNull();
     expect(screen.queryByText("대시보드 연결 실패")).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v1/facilities");
+    // 시설 목록 + 카메라 건강상태만 부른다. 시설 스코프 대시보드 API를
+    // 미리 당겨오지 않는다는 원래 의도는 그대로다.
+    const requested = fetchMock.mock.calls.map((call) => String(call[0])).sort();
+    expect(requested).toEqual(["/api/v1/cameras", "/api/v1/facilities"]);
   });
   it("renders a friendly fallback instead of a raw API error body when facilities fail to load", async () => {
     const rawError = JSON.stringify({ error: "Internal Server Error", statusCode: 500 });
@@ -201,5 +204,72 @@ describe("I11 — 기사 인계용 시설 ID", () => {
         screen.getByTestId(`facility-id-${SCOPED_FACILITY_ID}`).textContent
       ).toBe(SCOPED_FACILITY_ID)
     );
+  });
+});
+
+describe("I12 — 전역 카메라 건강상태", () => {
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const justNow = new Date().toISOString();
+
+  function stubFetch(cameras: unknown[]) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) return okJsonResponse(cameras);
+        return okJsonResponse([seededFacility]);
+      })
+    );
+  }
+
+  function renderPage() {
+    return render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+  }
+
+  it("끊긴 카메라 수를 전역 화면에서 먼저 보여준다", async () => {
+    stubFetch([
+      { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: justNow },
+      { id: "c2", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_2", online: true, lastSeenAt: twoDaysAgo },
+      { id: "c3", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_3", online: true, lastSeenAt: null },
+    ]);
+
+    renderPage();
+
+    const stale = await screen.findByTestId("camera-health-stale");
+    // online=true여도 lastSeenAt 기준으로 2건이 끊김이다.
+    expect(stale.textContent).toContain("2");
+  });
+
+  it("전부 살아 있으면 끊김 0으로 표시한다", async () => {
+    stubFetch([
+      { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: justNow },
+    ]);
+
+    renderPage();
+
+    const stale = await screen.findByTestId("camera-health-stale");
+    expect(stale.textContent).toContain("0");
+  });
+
+  it("카메라 조회가 실패해도 시설 목록은 그대로 보인다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) throw new Error("boom");
+        return okJsonResponse([seededFacility]);
+      })
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { name: DUPLICATE_FACILITY_NAME })
+    ).toBeTruthy();
+    expect(screen.queryByTestId("camera-health-stale")).toBeNull();
   });
 });

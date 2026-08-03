@@ -5,6 +5,7 @@ import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { adminPath, dashboardPath } from "@/lib/routeAccess";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
+import { buildFreshnessBySpace, listCameras } from "@/services/api/cameras";
 import { apiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
@@ -21,6 +22,13 @@ export function SuperAdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   // 기사님에게 시설 ID를 불러주는 대신 복사해 전달할 수 있게 한다.
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  /**
+   * 카메라 건강상태. 전역 화면이 시설 목록만 보여주면 운영자가 엣지 단절을
+   * 고객 전화로 처음 알게 된다. 끊긴 카메라 수를 여기서 먼저 본다.
+   */
+  const [cameraHealth, setCameraHealth] = useState<{ total: number; stale: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -46,6 +54,25 @@ export function SuperAdminDashboardPage() {
       active = false;
     };
   }, [setFacilitiesStore]);
+
+  useEffect(() => {
+    let active = true;
+    listCameras()
+      .then((cameras) => {
+        if (!active) return;
+        const freshness = Object.values(buildFreshnessBySpace(cameras, Date.now()));
+        setCameraHealth({
+          total: cameras.length,
+          stale: freshness.filter((entry) => entry.connection === "STALE").length,
+        });
+      })
+      .catch(() => {
+        // 카메라 조회 실패가 시설 목록 표시를 막지 않는다.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleLogout() {
     switchFacility(null);
@@ -98,8 +125,28 @@ export function SuperAdminDashboardPage() {
             </div>
             <h2 className="mt-1 break-keep text-2xl font-extrabold text-ink">요양원 전역 개요</h2>
           </div>
-          <div className="grid w-full grid-cols-1 gap-2 text-center md:w-auto">
+          <div className="grid w-full grid-cols-1 gap-2 text-center md:w-auto sm:grid-cols-3">
             <Metric label="요양원" value={facilities.length} />
+            {cameraHealth && (
+              <>
+                <Metric label="카메라" value={cameraHealth.total} />
+                <div
+                  data-testid="camera-health-stale"
+                  className={`rounded-lg px-3 py-2 ${
+                    cameraHealth.stale > 0 ? "bg-status-dangerBg" : "bg-surface"
+                  }`}
+                >
+                  <div
+                    className={`text-xl font-extrabold ${
+                      cameraHealth.stale > 0 ? "text-status-danger" : "text-ink"
+                    }`}
+                  >
+                    {cameraHealth.stale}
+                  </div>
+                  <div className="text-[11px] text-ink-faint">연결 끊김</div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
