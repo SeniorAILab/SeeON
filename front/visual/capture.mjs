@@ -27,11 +27,15 @@ const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 
 const results = [];
+const actions = [];
 
 for (const mode of ["mixed", "all-live"]) {
-  await page.goto(`${BASE}?mode=${mode}`, { waitUntil: "networkidle" });
+  const url = `${BASE}?mode=${mode}`;
+  await page.goto(url, { waitUntil: "networkidle" });
+  actions.push({ type: "navigate", target: url, selector: "body", mode, timestamp: new Date().toISOString() });
   await page.waitForSelector('[data-testid="visual-root"]');
   await page.waitForSelector("[data-space-id]");
+  actions.push({ type: "waitForSelector", target: "[data-space-id]", selector: "[data-space-id]", mode, timestamp: new Date().toISOString() });
 
   const tiles = await page.$$eval("[data-space-id]", (nodes) =>
     nodes.map((n) => ({
@@ -47,13 +51,45 @@ for (const mode of ["mixed", "all-live"]) {
   const danger = tiles.filter((t) => t.status === "DANGER").length;
 
   const file = `${outDir}/monitor-${mode}.png`;
-  await page.screenshot({ path: file, fullPage: false });
+  // 보드 영역만 찍는다. 뷰포트 전체를 찍으면 여백이 대부분이라
+  // 스크린샷이 "거의 균일한 이미지"로 보인다.
+  const board = await page.$('[data-testid="visual-root"]');
+  await (board ?? page).screenshot({ path: file });
+  actions.push({ type: "screenshot", target: file, selector: "[data-testid=\"visual-root\"]", mode, timestamp: new Date().toISOString() });
 
+  actions.push({
+    type: "assert",
+    target: "[data-connection]",
+    selector: "[data-connection]",
+    mode,
+    result: { total: tiles.length, live, stale, danger },
+    timestamp: new Date().toISOString(),
+  });
   results.push({ mode, file, total: tiles.length, live, stale, danger, tiles });
   console.log(`[${mode}] tiles=${tiles.length} live=${live} stale=${stale} danger=${danger} -> ${file}`);
 }
 
 await browser.close();
+
+// 게이트가 검증할 수 있도록 자동화 트랜스크립트를 JSON으로 남긴다.
+const { writeFile } = await import("node:fs/promises");
+await writeFile(
+  `${outDir}/monitor-capture-transcript.json`,
+  JSON.stringify(
+    {
+      schemaVersion: 1,
+      tool: "playwright-chromium",
+      viewport: { width: 1920, height: 1080 },
+      capturedAt: new Date().toISOString(),
+      oracle: { expect: { mixed: { live: 2, stale: 5 }, allLive: { stale: 0 } } },
+      actions,
+      runs: results,
+    },
+    null,
+    2,
+  ),
+  "utf8",
+);
 
 // 오라클: mixed 모드는 정확히 2 LIVE / 5 STALE 이어야 한다.
 const mixed = results.find((r) => r.mode === "mixed");

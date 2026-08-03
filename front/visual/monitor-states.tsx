@@ -71,10 +71,21 @@ const MODE = new URLSearchParams(location.search).get("mode") ?? "mixed";
 
 const statuses: Record<string, SpaceStatus> =
   MODE === "all-live"
-    ? Object.fromEntries(spaces.map((s) => [s.id, status(s.id, "STABLE", "LIVE")]))
+    ? {
+        // 전 카메라 연결 정상. 그 안에서 위험/주의/안정이 섞인 실제 운영
+        // 화면을 보여준다 — 연결이 살아 있을 때 위험도가 제대로 드러나는지.
+        sp_a: status("sp_a", "DANGER", "LIVE"),
+        sp_b: status("sp_b", "CAUTION", "LIVE"),
+        sp_c: status("sp_c", "STABLE", "LIVE"),
+        sp_d: status("sp_d", "CHECK_NEEDED", "LIVE"),
+        sp_e: status("sp_e", "STABLE", "LIVE"),
+        sp_f: status("sp_f", "STABLE", "LIVE"),
+        sp_g: status("sp_g", "STABLE", "LIVE"),
+      }
     : {
-        // 살아 있는 2대
-        sp_d: status("sp_d", "STABLE", "LIVE"),
+        // 살아 있는 2대. 그 중 한 방에서 낙상이 감지된 상태를 함께 보여준다
+        // — 연결이 끊긴 방들 사이에서 실제 위험이 묻히지 않는지 확인하는 장면.
+        sp_d: status("sp_d", "DANGER", "LIVE"),
         sp_g: status("sp_g", "STABLE", "LIVE"),
         // 끊긴 5대
         sp_a: status("sp_a", "STABLE", "STALE"),
@@ -85,8 +96,8 @@ const statuses: Record<string, SpaceStatus> =
       };
 
 createRoot(document.getElementById("root")!).render(
-  <div data-testid="visual-root" className="min-h-screen bg-bg p-6">
-    <div style={{ height: "80vh" }} className="flex">
+  <div data-testid="visual-root" className="inline-block bg-bg p-2" style={{ width: 1800 }}>
+    <div style={{ height: 640 }} className="flex">
       <RoomStatusBoard
         spaces={spaces}
         statuses={statuses}
