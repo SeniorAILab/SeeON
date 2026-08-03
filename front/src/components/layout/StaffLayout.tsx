@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { FACILITIES_PICKER_PATH, adminPath, alertsPath, floorSelectPath } from "@/lib/routeAccess";
 
@@ -16,8 +17,12 @@ export function StaffLayout() {
   const navigate = useNavigate();
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
-  const soundEnabled = useUiStore((s) => s.soundEnabled);
-  const toggleSound = useUiStore((s) => s.toggleSound);
+  // 소리의 SSOT는 monitorSettingsStore.alertSound 하나다. 예전에는 여기서
+  // uiStore.soundEnabled를 토글했는데 실제 TTS는 alertSound를 읽어서,
+  // 헤더는 "켜짐"인데 소리는 안 나는 상태가 됐다.
+  const soundEnabled = useMonitorSettingsStore((s) => s.alertSound);
+  const updateSettings = useMonitorSettingsStore((s) => s.update);
+  const toggleSound = () => updateSettings({ alertSound: !soundEnabled });
   const userFacilityId = user?.facilityId ?? null;
   const userId = user?.id;
   const userRole = user?.role;

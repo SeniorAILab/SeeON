@@ -3,6 +3,7 @@ import {
   compareAlertSeq,
   createAlertMergeState,
   deriveStatusesFromAlerts,
+  RESOLVED_RETENTION_LIMIT,
   alertsForFacility,
   mergeAck,
   mergeAlerts,
@@ -11,7 +12,7 @@ import {
   mergeAlertUpdatesIntoDashboard,
 } from "./alertMerge";
 import type { FrontendAlert } from "./api/alertEndpoints";
-import type { DashboardResponse } from "@/types";
+import type { DashboardResponse, SpaceStatus } from "@/types";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
 
 function alert(overrides: Partial<FrontendAlert> = {}): FrontendAlert {
@@ -296,5 +297,113 @@ describe("alertMerge", () => {
     vi.resetModules();
     const { buildSseUrl } = await import("./apiClient");
     expect(buildSseUrl()).toBe("/api/v1/dashboard/stream");
+  });
+});
+
+describe("freshness-preserved — 신선도는 위험도와 직교한다", () => {
+  function baseStatus(overrides: Partial<SpaceStatus> = {}): SpaceStatus {
+    return {
+      id: "status-sp_205",
+      spaceId: "sp_205",
+      peopleCount: 0,
+      movementLevel: "LOW",
+      fallRiskLevel: "LOW",
+      status: "STABLE",
+      connection: "STALE",
+      lastSeenAt: "2026-08-01T06:47:44.174Z",
+      lastDetectedAt: "",
+      alertStatus: "NONE",
+      ...overrides,
+    };
+  }
+
+  it("DANGER 알림이 들어와도 STALE 연결 상태가 지워지지 않는다", () => {
+    const base = { sp_205: baseStatus() };
+    const statuses = deriveStatusesFromAlerts(base, [alert({ spaceId: "sp_205" })]);
+    expect(statuses.sp_205.status).toBe("DANGER");
+    expect(statuses.sp_205.connection).toBe("STALE");
+    expect(statuses.sp_205.lastSeenAt).toBe("2026-08-01T06:47:44.174Z");
+  });
+
+  it("LIVE 연결 상태도 DANGER 전이에서 보존된다", () => {
+    const base = { sp_205: baseStatus({ connection: "LIVE", lastSeenAt: "2026-08-03T11:59:30.000Z" }) };
+    const statuses = deriveStatusesFromAlerts(base, [alert({ spaceId: "sp_205" })]);
+    expect(statuses.sp_205.status).toBe("DANGER");
+    expect(statuses.sp_205.connection).toBe("LIVE");
+  });
+
+  it("알림이 해소돼 STABLE로 돌아가도 신선도는 그대로다", () => {
+    const base = { sp_205: baseStatus({ connection: "STALE" }) };
+    const resolved = deriveStatusesFromAlerts(base, [
+      alert({ spaceId: "sp_205", backendStatus: "RESOLVED", alertStatus: "ACKNOWLEDGED" }),
+    ]);
+    expect(resolved.sp_205.status).toBe("STABLE");
+    expect(resolved.sp_205.connection).toBe("STALE");
+  });
+
+  it("previous가 없는 공간은 보수적으로 STALE로 생성된다", () => {
+    const statuses = deriveStatusesFromAlerts({}, [alert({ spaceId: "sp_999" })]);
+    expect(statuses.sp_999.connection).toBe("STALE");
+    expect(statuses.sp_999.lastSeenAt).toBeNull();
+  });
+});
+
+describe("bounded-merge — TV 상시 구동에서 메모리가 무한히 늘지 않는다", () => {
+  function resolvedAlert(seq: number) {
+    return alert({
+      id: `alert_${seq}`,
+      alertSeq: String(seq),
+      spaceId: `sp_${seq % 7}`,
+      backendStatus: "RESOLVED",
+      alertStatus: "ACKNOWLEDGED",
+    });
+  }
+
+  it("해결된 알림은 보관 상한을 넘지 않는다", () => {
+    let state = createAlertMergeState();
+    // 30일치 이벤트를 흉내낸다.
+    for (let i = 1; i <= RESOLVED_RETENTION_LIMIT + 300; i += 1) {
+      state = mergeAlerts(state, [resolvedAlert(i)]);
+    }
+
+    const stored = Object.values(state.byId);
+    expect(stored.length).toBeLessThanOrEqual(RESOLVED_RETENTION_LIMIT);
+  });
+
+  it("tombstone도 함께 정리되어 따로 자라지 않는다", () => {
+    let state = createAlertMergeState();
+    for (let i = 1; i <= RESOLVED_RETENTION_LIMIT + 300; i += 1) {
+      state = mergeAlerts(state, [resolvedAlert(i)]);
+    }
+
+    expect(Object.keys(state.terminalResolvedSeqById).length).toBeLessThanOrEqual(
+      RESOLVED_RETENTION_LIMIT
+    );
+  });
+
+  it("가장 최근 해결 알림이 남고 오래된 것이 밀려난다", () => {
+    let state = createAlertMergeState();
+    for (let i = 1; i <= RESOLVED_RETENTION_LIMIT + 50; i += 1) {
+      state = mergeAlerts(state, [resolvedAlert(i)]);
+    }
+
+    const newest = RESOLVED_RETENTION_LIMIT + 50;
+    expect(state.byId[`alert_${newest}`]).toBeDefined();
+    expect(state.byId["alert_1"]).toBeUndefined();
+  });
+
+  it("활성 알림은 상한과 무관하게 유지된다", () => {
+    let state = createAlertMergeState();
+    // 활성 알림 5건 + 해결 알림 대량.
+    for (let i = 1; i <= 5; i += 1) {
+      state = mergeAlerts(state, [alert({ id: `active_${i}`, alertSeq: String(100000 + i), spaceId: `sp_a${i}` })]);
+    }
+    for (let i = 1; i <= RESOLVED_RETENTION_LIMIT + 300; i += 1) {
+      state = mergeAlerts(state, [resolvedAlert(i)]);
+    }
+
+    for (let i = 1; i <= 5; i += 1) {
+      expect(state.byId[`active_${i}`]).toBeDefined();
+    }
   });
 });

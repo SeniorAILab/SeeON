@@ -2,16 +2,21 @@ import { create } from "zustand";
 
 type Theme = "light" | "dark";
 
+/**
+ * 테마 전용 스토어.
+ *
+ * 소리 상태는 여기 두지 않는다. 예전에는 `uiStore.soundEnabled`(기본 켜짐)와
+ * `monitorSettingsStore.alertSound`(기본 꺼짐)가 따로 존재해서, 헤더는
+ * "소리 알림 켜짐"이라고 표시하는데 실제 TTS는 울리지 않았다. 소리의 SSOT는
+ * `monitorSettingsStore.alertSound` 하나다.
+ */
 interface UiState {
   theme: Theme;
-  soundEnabled: boolean;
   toggleTheme: () => void;
   setTheme: (t: Theme) => void;
-  toggleSound: () => void;
 }
 
 const THEME_KEY = "senai.theme";
-const SOUND_KEY = "senai.sound";
 
 function initialTheme(): Theme {
   const saved = localStorage.getItem(THEME_KEY);
@@ -23,8 +28,6 @@ function initialTheme(): Theme {
 
 export const useUiStore = create<UiState>((set, get) => ({
   theme: initialTheme(),
-  soundEnabled: localStorage.getItem(SOUND_KEY) !== "off",
-
   toggleTheme: () => {
     const next: Theme = get().theme === "dark" ? "light" : "dark";
     localStorage.setItem(THEME_KEY, next);
@@ -33,10 +36,5 @@ export const useUiStore = create<UiState>((set, get) => ({
   setTheme: (t) => {
     localStorage.setItem(THEME_KEY, t);
     set({ theme: t });
-  },
-  toggleSound: () => {
-    const next = !get().soundEnabled;
-    localStorage.setItem(SOUND_KEY, next ? "on" : "off");
-    set({ soundEnabled: next });
   },
 }));

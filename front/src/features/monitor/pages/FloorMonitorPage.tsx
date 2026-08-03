@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/primitives";
 import { Navigate, useParams } from "react-router-dom";
 import { MonitorHeader } from "@/features/monitor/components/MonitorHeader";
 
@@ -45,14 +46,31 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const dashboard = useMonitorStore((s) => s.dashboard);
   const effectiveFacilityId = facilityId ?? "";
 
+  // 초기 조회. catch가 없으면 실패 시 facility가 영원히 null이라
+  // "현황판을 준비하는 중..."에 갇힌다 — 원장님이 아침에 처음 보는 화면이
+  // 무한 로딩이면 제품이 죽은 것처럼 보인다.
+  const [initialLoadFailed, setInitialLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     if (!facilityId) return;
-    dashboardService.getDashboard(facilityId).then((d) => {
-      setFacility(d.facility);
-      setFloors(d.floors);
-      setAllSpaces(d.spaces);
-    });
-  }, [facilityId]);
+    let cancelled = false;
+    setInitialLoadFailed(false);
+    dashboardService
+      .getDashboard(facilityId)
+      .then((d) => {
+        if (cancelled) return;
+        setFacility(d.facility);
+        setFloors(d.floors);
+        setAllSpaces(d.spaces);
+      })
+      .catch(() => {
+        if (!cancelled) setInitialLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [facilityId, loadAttempt]);
 
   // 표시 대상 공간
   const shownSpaces = useMemo(() => {
@@ -76,6 +94,19 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
     for (const alert of dashboard?.unacknowledgedEvents ?? []) groups[alert.spaceId] = [...(groups[alert.spaceId] ?? []), alert];
     return groups;
   }, [dashboard?.unacknowledgedEvents]);
+
+  // 연결이 끊긴 방. 상단 가로 배너 대신 헤더 벨 배지로만 알린다.
+  const disconnectedRooms = useMemo(
+    () =>
+      shownSpaces
+        .filter((space) => statuses[space.id]?.connection === "STALE")
+        .map((space) => ({
+          spaceId: space.id,
+          name: space.name,
+          lastSeenAt: statuses[space.id]?.lastSeenAt ?? null,
+        })),
+    [shownSpaces, statuses]
+  );
 
 
   const floorName = allView
@@ -107,6 +138,28 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   }
 
   if (!facility) {
+    if (initialLoadFailed) {
+      return (
+        <div
+          role="alert"
+          className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg px-6 text-center"
+        >
+          <p className="text-xl font-semibold text-ink">
+            안전 현황을 불러오지 못했습니다.
+          </p>
+          <p className="text-lg text-ink-soft">
+            인터넷 연결을 확인한 뒤 다시 시도해 주세요.
+          </p>
+          <Button
+            type="button"
+            className="min-h-12 px-8 text-lg"
+            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+          >
+            다시 시도
+          </Button>
+        </div>
+      );
+    }
     return <div className="flex min-h-screen items-center justify-center bg-bg text-xl text-ink-soft">현황판을 준비하는 중...</div>;
   }
 
@@ -131,6 +184,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
           currentFloorId={allView ? null : (floorId ?? null)}
           facilityId={facilityId}
           showAllView={allowAllView}
+          disconnectedRooms={disconnectedRooms}
         />
 
         <div className="mt-4 flex min-h-0 flex-1">

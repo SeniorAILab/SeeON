@@ -262,7 +262,17 @@ function RoomTile({
   const isDanger = level === "DANGER" || status?.emergency;
   const isCheck = level === "CHECK_NEEDED";
   const isSafe = level === "STABLE" && !isDanger;
-  const pulseTone: PulseTone | null = isDanger || isCheck ? "danger" : isSafe ? "safe" : null;
+  // 연결 끊김은 위험도와 직교한다. status를 덮지 않고 오버레이로만 표현하며,
+  // 끊긴 방은 펄스를 멈춘다(움직임 없음 = 감지 안 됨). 다만 침묵만으로는
+  // "이상 없음"과 구분되지 않으므로 회색 해칭과 라벨을 함께 얹는다.
+  const isDisconnected = status?.connection === "STALE";
+  const pulseTone: PulseTone | null = isDisconnected
+    ? null
+    : isDanger || isCheck
+      ? "danger"
+      : isSafe
+        ? "safe"
+        : null;
   const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
   const surface: DashboardReceiptSurface = `${receiptSurface}:${layout}`;
 
@@ -297,27 +307,40 @@ function RoomTile({
     <button
       ref={tileRef}
       type="button"
-      aria-label={`${space.name} ${STATUS_WORD[level]}`}
+      aria-label={`${space.name} ${isDisconnected ? "연결 끊김" : STATUS_WORD[level]}`}
       onClick={() => onSelect?.(space)}
       style={style}
       data-flip-key={flipKey}
       data-alert-id={presentationAlert?.id}
       data-backend-event-id={presentationAlert?.backendEventId ?? undefined}
+      data-space-id={space.id}
+      data-status={level}
+      data-connection={status?.connection ?? "STALE"}
       className={`relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-2xl ${cardSize === "xl" ? "p-7" : "p-5"} text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-4 focus-visible:ring-brand motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
         layout === "overview" && isDanger ? "border-l-8 border-status-danger" : ""
       } ${
         layout === "overview" && isCheck ? "border-l-8 border-status-check" : ""
       } ${fillFor(level)} ${textFor(level)} ${selected ? "ring-4 ring-brand" : ""} ${pulseClassFor(pulseTone)}`}
     >
-      {isDanger && <StatusPulseRing tone="danger" />}
-      {isSafe && <StatusPulseRing tone="safe" />}
+      {isDisconnected && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-surface2/80 [background-image:repeating-linear-gradient(45deg,transparent,transparent_8px,rgba(0,0,0,0.08)_8px,rgba(0,0,0,0.08)_16px)]"
+        />
+      )}
+      {!isDisconnected && isDanger && <StatusPulseRing tone="danger" />}
+      {!isDisconnected && isSafe && <StatusPulseRing tone="safe" />}
       <span className="relative flex items-center gap-2 text-staff-status">
         <Icon className="h-7 w-7 shrink-0 2xl:h-9 2xl:w-9" aria-hidden />
-        <span>{STATUS_WORD[level]}</span>
+        <span>{isDisconnected ? "연결 끊김" : STATUS_WORD[level]}</span>
       </span>
       <span className={`${hero ? "flex flex-1 flex-col items-center justify-center text-center" : "block"} relative mt-4`}>
         <span className={`${hero ? "text-5xl 2xl:text-6xl" : "text-3xl 2xl:text-4xl"} block break-keep line-clamp-2 font-black tracking-tight`}>{space.name}</span>
-        {hero && <span className="mt-3 text-staff-status font-black">{STATUS_WORD[level]}</span>}
+        {hero && (
+          <span className="mt-3 text-staff-status font-black">
+            {isDisconnected ? "연결 끊김" : STATUS_WORD[level]}
+          </span>
+        )}
         {level !== "STABLE" && status?.aiSummary && <span className={`${hero ? "mt-3" : "mt-1.5"} line-clamp-2 block text-staff-body font-bold opacity-90 2xl:text-xl`}>{status.aiSummary}</span>}
         {recentDetectedAt && <span className="mt-3 block text-sm font-black opacity-75 2xl:text-base">최근 감지 {recentDetectedAt}</span>}
       </span>

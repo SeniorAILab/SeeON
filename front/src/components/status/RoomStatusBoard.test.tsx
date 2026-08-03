@@ -27,6 +27,8 @@ function status(id: string, level: SpaceStatus["status"]): SpaceStatus {
     status: level,
     aiSummary: "확인이 필요합니다.",
     lastDetectedAt: "2026-07-03T00:00:00.000Z",
+    connection: "LIVE",
+    lastSeenAt: "2026-08-03T11:59:30.000Z",
     alertStatus: "PENDING",
   };
 }

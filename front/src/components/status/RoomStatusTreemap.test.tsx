@@ -27,6 +27,8 @@ function status(spaceId: string, level: SpaceStatus["status"], aiSummary: string
     status: level,
     aiSummary,
     lastDetectedAt: "2026-07-04T00:00:00.000Z",
+    connection: "LIVE",
+    lastSeenAt: "2026-08-03T11:59:30.000Z",
     alertStatus: level === "STABLE" ? "NONE" : "PENDING",
   };
 }
@@ -277,5 +279,50 @@ describe("RoomStatusTreemap presentation receipts", () => {
     );
 
     expect(recordDashboardPresentationMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
+  function renderTile(level: SpaceStatus["status"], connection: "LIVE" | "STALE") {
+    const room = space("sp_205", "205호");
+    const base = status(room.id, level, "");
+    return render(
+      <RoomStatusTreemap
+        spaces={[room]}
+        floors={floors}
+        statuses={{
+          [room.id]: {
+            ...base,
+            connection,
+            lastSeenAt: connection === "STALE" ? "2026-08-01T06:47:44.174Z" : base.lastSeenAt,
+          },
+        }}
+      />,
+    );
+  }
+
+  it("STALE인 방은 연결 끊김으로 표기되고 data 속성이 노출된다", () => {
+    renderTile("STABLE", "STALE");
+
+    const tile = screen.getByRole("button", { name: "205호 연결 끊김" });
+    expect(tile.getAttribute("data-connection")).toBe("STALE");
+    expect(tile.getAttribute("data-space-id")).toBe("sp_205");
+    // 위험도는 연결 상태에 덮이지 않는다.
+    expect(tile.getAttribute("data-status")).toBe("STABLE");
+  });
+
+  it("LIVE인 방은 기존 상태 문구를 그대로 쓴다", () => {
+    renderTile("STABLE", "LIVE");
+
+    const tile = screen.getByRole("button", { name: /205호/ });
+    expect(tile.getAttribute("data-connection")).toBe("LIVE");
+    expect(tile.getAttribute("aria-label")).not.toContain("연결 끊김");
+  });
+
+  it("DANGER인 방이 끊겨도 위험도가 사라지지 않는다", () => {
+    renderTile("DANGER", "STALE");
+
+    const tile = screen.getByRole("button", { name: "205호 연결 끊김" });
+    expect(tile.getAttribute("data-status")).toBe("DANGER");
   });
 });

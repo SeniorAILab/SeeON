@@ -11,11 +11,22 @@ export interface SpeakOptions {
   volume?: number;
 }
 
+/** 발화 실패 사유. UI가 사용자에게 무엇을 하라고 안내할지 결정한다. */
+export type TTSFailureReason =
+  /** 브라우저가 음성합성을 지원하지 않음 */
+  | "unsupported"
+  /** autoplay 정책 차단 — 사용자가 화면을 한 번 눌러야 함 */
+  | "blocked"
+  /** 음성 엔진 오류 */
+  | "engine";
+
+export type TTSSpeakResult = { ok: true } | { ok: false; reason: TTSFailureReason };
+
 export interface TTSProvider {
   readonly name: string;
   isSupported(): boolean;
-  /** 발화 완료 시 resolve. 중단되면 reject 없이 resolve. */
-  speak(text: string, opts?: SpeakOptions): Promise<void>;
+  /** 발화 결과를 보고한다. 실패를 성공처럼 삼키지 않는다. */
+  speak(text: string, opts?: SpeakOptions): Promise<TTSSpeakResult>;
   cancel(): void;
 }
 
@@ -44,8 +55,10 @@ export class BrowserTTSProvider implements TTSProvider {
       voices.find((v) => prefer.some((p) => v.name.toLowerCase().includes(p))) ?? voices[0];
   }
 
-  speak(text: string, opts: SpeakOptions = {}): Promise<void> {
-    if (!this.isSupported()) return Promise.resolve();
+  speak(text: string, opts: SpeakOptions = {}): Promise<TTSSpeakResult> {
+    if (!this.isSupported()) {
+      return Promise.resolve({ ok: false, reason: "unsupported" });
+    }
     return new Promise((resolve) => {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "ko-KR";
@@ -53,8 +66,15 @@ export class BrowserTTSProvider implements TTSProvider {
       u.rate = opts.rate ?? 0.96; // 차분하게
       u.pitch = opts.pitch ?? 1.0;
       u.volume = opts.volume ?? 1.0;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
+      u.onend = () => resolve({ ok: true });
+      // 실패를 성공처럼 삼키면 안 된다. TV를 켜두기만 하고 아무도 클릭하지
+      // 않으면 브라우저 autoplay 정책이 첫 발화를 막는데, 예전에는 그걸
+      // resolve()로 조용히 넘겨서 "소리 켜짐"인데 영영 안 울렸다.
+      u.onerror = (event) =>
+        resolve({
+          ok: false,
+          reason: event.error === "not-allowed" ? "blocked" : "engine",
+        });
       window.speechSynthesis.speak(u);
     });
   }

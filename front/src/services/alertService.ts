@@ -1,5 +1,5 @@
 import type { AlertView } from "@/types";
-import { listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertEndpoints";
+import { ackAlertEndpoint, listAlertsEndpoint, resolveAlertEndpoint } from "./api/alertEndpoints";
 import { createAlertNote, listAlertNotes, type AlertNote } from "./api/alertNotes";
 import {
   getAlertMediaEndpoint,
@@ -28,6 +28,10 @@ export const alertService = {
   async ackedAlertForSpace(spaceId: string): Promise<AlertView | null> {
     const acked = await listAlertsEndpoint({ status: "ACKED" });
     return acked.find((alert) => alert.spaceId === spaceId) ?? null;
+  },
+  /** NEW → ACKED. resolve와 다른 라우트다(예전에는 같은 것을 불렀다). */
+  acknowledge(id: string): Promise<AlertView> {
+    return ackAlertEndpoint(id);
   },
   resolve(id: string): Promise<AlertView> {
     return resolveAlertEndpoint(id);

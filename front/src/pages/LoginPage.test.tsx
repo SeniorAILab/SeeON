@@ -327,3 +327,30 @@ describe("LoginPage", () => {
     expect(passwordConfirmInput.getAttribute("type")).toBe("password");
   });
 });
+
+describe("LoginPage — 세션 만료 안내", () => {
+  it("?reason=session-invalid로 튕겨오면 만료 사유를 보여준다", () => {
+    // authStore.setUnauthorizedHandler가 401에서 이 URL로 보낸다.
+    renderLogin("/login?reason=session-invalid");
+
+    expect(
+      screen.getByText("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.")
+    ).not.toBeNull();
+  });
+
+  it("사유 없이 로그인 화면에 들어오면 만료 문구를 띄우지 않는다", () => {
+    renderLogin("/login");
+
+    expect(
+      screen.queryByText("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.")
+    ).toBeNull();
+  });
+
+  it("알 수 없는 사유 코드는 문구를 만들어내지 않는다", () => {
+    renderLogin("/login?reason=whatever");
+
+    expect(
+      screen.queryByText("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.")
+    ).toBeNull();
+  });
+});

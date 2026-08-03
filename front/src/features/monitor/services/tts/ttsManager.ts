@@ -6,6 +6,7 @@
 //   · 재생은 playTTS(브라우저 음성)
 // =============================================================
 import { playTTS, cancelTTS } from "./playTTS";
+import type { TTSFailureReason } from "./ttsProvider";
 import { textFor } from "./audioMap";
 import type { AudioLevel } from "./ttsConfig";
 
@@ -103,10 +104,15 @@ class TTSManager {
     this.queue.sort((a, b) => a.priority - b.priority);
     const next = this.queue.shift()!;
     this.speaking = true;
-    playTTS(next.text).finally(() => {
-      this.speaking = false;
-      this.drain();
-    });
+    playTTS(next.text)
+      .then((result) => {
+        // 실패를 조용히 넘기면 "소리 켜짐"인데 영영 안 울리는 상태가 된다.
+        setTTSFailure(result.ok ? null : result.reason);
+      })
+      .finally(() => {
+        this.speaking = false;
+        this.drain();
+      });
   }
 
   private silenceAll() {
@@ -118,3 +124,45 @@ class TTSManager {
 }
 
 export const ttsManager = new TTSManager();
+
+// ── 발화 실패 표면 ────────────────────────────────────────────
+// TV를 켜두기만 하고 아무도 클릭하지 않으면 브라우저 autoplay 정책이 첫
+// 발화를 막는다. 예전에는 그 실패를 삼켜서 "소리 켜짐"인데 영영 안 울렸다.
+// UI가 이 상태를 구독해 사용자에게 무엇을 하라고 안내한다.
+
+let failureReason: TTSFailureReason | null = null;
+const failureListeners = new Set<(reason: TTSFailureReason | null) => void>();
+
+function setTTSFailure(reason: TTSFailureReason | null): void {
+  if (failureReason === reason) return;
+  failureReason = reason;
+  for (const listener of failureListeners) listener(reason);
+}
+
+/** 현재 발화 실패 사유. 정상이면 null. */
+export function getTTSFailureReason(): TTSFailureReason | null {
+  return failureReason;
+}
+
+/** 발화 실패 상태 변화를 구독한다. 해제 함수를 돌려준다. */
+export function subscribeTTSFailure(
+  listener: (reason: TTSFailureReason | null) => void,
+): () => void {
+  failureListeners.add(listener);
+  return () => {
+    failureListeners.delete(listener);
+  };
+}
+
+/** 테스트/재시도용 — 실패 상태를 지운다. */
+export function clearTTSFailure(): void {
+  setTTSFailure(null);
+}
+
+/**
+ * 테스트 전용 — drain()이 실패를 보고하는 것과 **같은 경로**로 상태를 민다.
+ * 별도 우회로가 아니라 프로덕션과 동일한 setter를 쓴다.
+ */
+export function __setTTSFailureForTest(reason: TTSFailureReason | null): void {
+  setTTSFailure(reason);
+}

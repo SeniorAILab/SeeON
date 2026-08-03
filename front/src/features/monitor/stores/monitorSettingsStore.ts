@@ -6,7 +6,10 @@ const KEY = "senai.monitor.settings";
 const DEFAULTS: MonitorSettings = {
   defaultFloorId: "",
   refreshMs: 6000, // 현실감을 위해 5~10초 권장
-  alertSound: false, // 소리 기본값은 꺼짐
+  // 소리 알림의 SSOT. TV에 상시 띄워둔 화면에서 요양보호사가 낙상 알림을
+  // 소리로 받는 것이 기본 운영 형태이므로 켜짐으로 시작한다.
+  // (autoplay 차단 가능성은 소리 토글 UI에서 안내로 처리한다.)
+  alertSound: true,
   nightMode: false,
   cardSize: "lg", // 14공간 화면 기준 기본 크기
   visibleSpaceIds: null,
