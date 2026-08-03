@@ -141,6 +141,17 @@ export async function acknowledgeAlert(id: string): Promise<FrontendAlert> {
   return mapAlertDto(body as BackendAlertDto);
 }
 
+/**
+ * GET `/alerts/:id` — 단건 직접 조회.
+ *
+ * 예전에는 상세를 목록에서 찾았는데, 목록이 기본 50건이라 그 밖의 사건은
+ * 영영 열리지 않고 "불러오는 중"에 갇혔다(프로덕션 이벤트 370건).
+ */
+export async function getAlertById(id: string): Promise<FrontendAlert> {
+  const body = await requestJson(`/alerts/${encodeURIComponent(id)}`);
+  return mapAlertDto(body as BackendAlertDto);
+}
+
 interface AlertActorDto {
   nickname: string;
 }

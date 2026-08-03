@@ -119,3 +119,38 @@ describe("eventService real mode actions", () => {
     }
   });
 });
+
+describe("I1 — 목록 50건 밖 사건도 열린다", () => {
+  it("getById는 목록이 아니라 단건 라우트를 직접 조회한다", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      // 목록 라우트를 부르면 실패시킨다 — 목록 의존이 남아 있으면 여기서 터진다.
+      if (url.endsWith("/alerts")) throw new Error("목록을 조회하면 안 된다");
+      if (url.endsWith("/alerts/alert_999")) return okJsonResponse(alertDto);
+      if (url.endsWith("/alerts/alert_999/notes")) return okJsonResponse([]);
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { eventService } = await import("./eventService");
+    const event = await eventService.getById("alert_999");
+
+    expect(event).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/alerts/alert_999",
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
+
+  it("없는 사건은 목록을 뒤지지 않고 undefined를 돌려준다", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/alerts")) throw new Error("목록을 조회하면 안 된다");
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { eventService } = await import("./eventService");
+    await expect(eventService.getById("alert_missing")).resolves.toBeUndefined();
+  });
+});

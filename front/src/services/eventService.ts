@@ -1,5 +1,5 @@
 import { listAlertNotes, createAlertNote } from "@/services/api/alertNotes";
-import { acknowledgeAlert, listAlerts } from "@/services/api/alertEndpoints";
+import { acknowledgeAlert, getAlertById, listAlerts } from "@/services/api/alertEndpoints";
 import type { ActionType, DetectionEvent } from "@/types";
 
 let alertCache: DetectionEvent[] = [];
@@ -10,9 +10,14 @@ function actionAcknowledges(type: ActionType): boolean {
 
 export const eventService = {
   async getById(eventId: string): Promise<DetectionEvent | undefined> {
-    const event = (await listAlerts()).find((e) => e.id === eventId);
-    if (!event) return undefined;
-    return { ...event, actions: await listAlertNotes(event.id) };
+    // 목록에서 찾지 않는다. 목록은 기본 50건이라 그 밖의 사건은 영영
+    // 열리지 않았다(프로덕션 이벤트 370건). 단건 라우트로 직접 간다.
+    try {
+      const event = await getAlertById(eventId);
+      return { ...event, actions: await listAlertNotes(event.id) };
+    } catch {
+      return undefined;
+    }
   },
 
   /** 공간의 현재 미확인 이벤트(최신) — 침대/사유 표시용 */
