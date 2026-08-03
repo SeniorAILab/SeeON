@@ -54,10 +54,19 @@ export function ActionLogForm({
         <Button onClick={() => submit("MEMO")} disabled={busy !== null || note.trim().length === 0} variant="secondary">
           {busy === "memo" ? "메모 저장 중..." : "메모 저장"}
         </Button>
-        <Button onClick={() => submit(ACK_ACTION_TYPE)} disabled={busy !== null} className="w-full">
+        <Button
+          onClick={() => submit(ACK_ACTION_TYPE)}
+          disabled={busy !== null || note.trim().length === 0}
+          className="w-full"
+        >
           {busy === "ack" ? "확인 처리 중..." : "확인 완료 처리"}
         </Button>
       </div>
+      {note.trim().length === 0 && (
+        <p className="text-sm text-ink-soft">
+          조치 결과를 먼저 입력해야 확인 완료로 바꿀 수 있습니다.
+        </p>
+      )}
     </div>
   );
 }
