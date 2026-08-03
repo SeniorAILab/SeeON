@@ -115,7 +115,7 @@ describe("SuperAdminDashboardPage", () => {
       expect(useFacilityStore.getState().currentFacilityId).toBe(SCOPED_FACILITY_ID)
     );
   });
-  it("disambiguates a duplicate facility with a null backend address using its ID suffix", async () => {
+  it("disambiguates duplicate facility names by always showing the full facility ID", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(async () =>
@@ -133,6 +133,73 @@ describe("SuperAdminDashboardPage", () => {
       await screen.findAllByRole("heading", { name: DUPLICATE_FACILITY_NAME }),
     ).toHaveLength(2);
     expect(screen.getByText("경기도 의정부시 녹양로 12")).toBeTruthy();
-    expect(screen.getByText("시설 ID: orphan")).toBeTruthy();
+    // 이름이 겹칠 때만 끝 6자리를 보여주던 것을 폐기했다. 기사님이 엣지 연결
+    // 설정에 붙여넣어야 하므로 항상 전체 ID를 노출한다.
+    expect(
+      screen.getByTestId(`facility-id-${orphanDuplicateFacility.id}`).textContent,
+    ).toBe(orphanDuplicateFacility.id);
+    expect(
+      screen.getByTestId(`facility-id-${SCOPED_FACILITY_ID}`).textContent,
+    ).toBe(SCOPED_FACILITY_ID);
+  });
+});
+
+describe("I11 — 기사 인계용 시설 ID", () => {
+  function renderWithFacilities() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => okJsonResponse([seededFacility]))
+    );
+    return render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+  }
+
+  it("시설 ID를 끝 6자리가 아니라 전체로 보여준다", async () => {
+    renderWithFacilities();
+
+    const idNode = await screen.findByTestId(`facility-id-${SCOPED_FACILITY_ID}`);
+    expect(idNode.textContent).toBe(SCOPED_FACILITY_ID);
+  });
+
+  it("복사 버튼이 전체 시설 ID를 클립보드에 넣는다", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+
+    renderWithFacilities();
+
+    const copyBtn = await screen.findByRole("button", {
+      name: `${DUPLICATE_FACILITY_NAME} 시설 ID 복사`,
+    });
+    fireEvent.click(copyBtn);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(SCOPED_FACILITY_ID));
+  });
+
+  it("클립보드 권한이 없어도 ID는 화면에 그대로 남는다", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+      configurable: true,
+      writable: true,
+    });
+
+    renderWithFacilities();
+
+    const copyBtn = await screen.findByRole("button", {
+      name: `${DUPLICATE_FACILITY_NAME} 시설 ID 복사`,
+    });
+    fireEvent.click(copyBtn);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(`facility-id-${SCOPED_FACILITY_ID}`).textContent
+      ).toBe(SCOPED_FACILITY_ID)
+    );
   });
 });

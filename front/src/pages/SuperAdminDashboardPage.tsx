@@ -10,14 +10,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
 
-function duplicateFacilityNames(facilities: Facility[]) {
-  const nameCounts = new Map<string, number>();
-  for (const facility of facilities) {
-    nameCounts.set(facility.name, (nameCounts.get(facility.name) ?? 0) + 1);
-  }
-  return new Set([...nameCounts].filter(([, count]) => count > 1).map(([name]) => name));
-}
-
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -27,6 +19,8 @@ export function SuperAdminDashboardPage() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 기사님에게 시설 ID를 불러주는 대신 복사해 전달할 수 있게 한다.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -63,7 +57,18 @@ export function SuperAdminDashboardPage() {
     switchFacility(facilityId);
     navigate(path);
   }
-  const duplicatedFacilityNames = duplicateFacilityNames(facilities);
+  async function copyFacilityId(facilityId: string) {
+    try {
+      await navigator.clipboard?.writeText(facilityId);
+      setCopiedId(facilityId);
+      setTimeout(
+        () => setCopiedId((current) => (current === facilityId ? null : current)),
+        2000,
+      );
+    } catch {
+      // 클립보드 권한이 없어도 ID 자체는 화면에 그대로 보이므로 막지 않는다.
+    }
+  }
 
   return (
     <div className="min-h-screen bg-bg">
@@ -122,9 +127,26 @@ export function SuperAdminDashboardPage() {
                     <h3 className="break-keep text-lg font-bold text-ink">{facility.name}</h3>
                     {(facility.address ?? "").trim() ? (
                       <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
-                    ) : duplicatedFacilityNames.has(facility.name) ? (
-                      <p className="mt-1 text-sm text-ink-soft">시설 ID: {facility.id.slice(-6)}</p>
                     ) : null}
+                    {/* 기사님 현장 인계용. 엣지 연결 설정에 그대로 붙여넣어야 하므로
+                        끝 6자리가 아니라 전체 ID를 보여주고 복사까지 제공한다. */}
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-sm text-ink-soft">시설 ID</span>
+                      <code
+                        data-testid={`facility-id-${facility.id}`}
+                        className="break-all rounded bg-surface2 px-1.5 py-0.5 font-mono text-sm text-ink"
+                      >
+                        {facility.id}
+                      </code>
+                      <button
+                        type="button"
+                        aria-label={`${facility.name} 시설 ID 복사`}
+                        onClick={() => void copyFacilityId(facility.id)}
+                        className="rounded-lg border border-border px-2 py-1 text-sm font-semibold text-ink-soft hover:bg-surface2"
+                      >
+                        {copiedId === facility.id ? "복사됨" : "복사"}
+                      </button>
+                    </div>
                     <p className="mt-0.5 text-sm text-ink-soft">{facility.phone}</p>
                   </div>
                 </div>
