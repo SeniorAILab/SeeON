@@ -207,11 +207,21 @@ EDGE_FACILITY_TOKEN    시설 토큰
 
 ### 스트림 2개 (`rtsp-generator`, `README.md:39-59`)
 
+> **영상 파일을 먼저 준비한다.** `rtsp-generator start`는 영상 경로가
+> **필수 인자**인데(`cli.py:27-35`), 워크스페이스 어디에도 `.mp4`가 없다
+> (야간에 전수 검색으로 확인). README의 `fall-sample.mp4`는 예시 이름일 뿐
+> 저장소에 포함돼 있지 않다.
+>
+> 낙상 장면이 담긴 영상 하나를 `rtsp-generator/` 아래 두고 아래 명령의
+> 경로를 그 파일로 바꾼다. 같은 파일을 두 경로에 써도 오라클은 성립한다
+> — 판정 기준은 heartbeat 도달 여부이지 영상 내용이 아니다.
+
 ```bash
 cd "rtsp-generator"
 uv sync --group dev
-uv run rtsp-generator start ./fall-sample.mp4 --path cam_sp_205 \
-                            ./fall-sample.mp4 --path cam_sp_2f_prog \
+# ./YOUR-VIDEO.mp4 를 실제 파일 경로로 바꾼다 (위 주의 참조)
+uv run rtsp-generator start ./YOUR-VIDEO.mp4 --path cam_sp_205 \
+                            ./YOUR-VIDEO.mp4 --path cam_sp_2f_prog \
                             --name nursing-home --detach
 uv run rtsp-generator list        # RTSP URL 확인
 ```
