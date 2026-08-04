@@ -168,6 +168,7 @@ export function AlertsPage() {
           <AlertSection
             title="확인됨"
             empty="확인된 알림이 없습니다."
+            note="해결 완료는 조치 기록이 있어야 처리됩니다. 기록은 현황판에서 방을 눌러 남길 수 있습니다."
             alerts={grouped.ACKED}
             renderMeta={(alert) =>
               `${alert.ackedByName ?? "직원"} 확인 · ${formatDateTime(alert.ackedAt ?? alert.detectedAt)}`
@@ -259,12 +260,15 @@ export function AlertsPage() {
 function AlertSection({
   title,
   empty,
+  note,
   alerts,
   renderMeta,
   renderAction,
 }: {
   title: string;
   empty: string;
+  /** 이 목록에서 할 수 없는 일이 있을 때, 어디서 해야 하는지 알려준다. */
+  note?: string;
   alerts: AlertView[];
   renderMeta: (alert: AlertView) => string;
   renderAction?: (alert: AlertView) => ReactNode;
@@ -274,6 +278,9 @@ function AlertSection({
       <h2 id={`${title}-heading`} className="text-staff-status text-ink">
         {title}
       </h2>
+      {note && alerts.length > 0 && (
+        <p className="text-staff-body text-ink-soft">{note}</p>
+      )}
       {alerts.length === 0 ? (
         <div className="rounded-2xl border-2 border-border bg-surface px-6 py-10 text-center">
           <CheckCheck className="mx-auto mb-3 h-12 w-12 text-ink-faint" />
