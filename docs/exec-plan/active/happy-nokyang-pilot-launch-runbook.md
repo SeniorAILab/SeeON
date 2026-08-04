@@ -146,6 +146,45 @@ EDGE_FACILITY_TOKEN    시설 토큰
 
 ---
 
+## 3.5-c 합성 스트림 + 카메라 등록
+
+**순서가 중요하다.** 카메라 등록의 연결 테스트는 실제로 스트림에 붙어봐야
+통과하므로 rtsp-generator를 **먼저** 띄운다. 그리고 4번 smoke는 카메라가
+등록돼 있어야 볼 것이 있다.
+
+### 스트림 2개 (`rtsp-generator`, `README.md:39-59`)
+
+```bash
+cd "rtsp-generator"
+uv sync --group dev
+uv run rtsp-generator start ./fall-sample.mp4 --path cam_sp_205 \
+                            ./fall-sample.mp4 --path cam_sp_2f_prog \
+                            --name nursing-home --detach
+uv run rtsp-generator list        # RTSP URL 확인
+```
+
+### 엣지에 카메라 2대 등록
+
+엣지 대시보드(3.5-b에서 연 화면)에서 카메라를 추가한다.
+
+- RTSP 주소는 위 `list`가 출력한 URL을 쓴다.
+- **"설치된 방"에서 `205호`와 `프로그램실`을 고른다.** 방을 안 고르면
+  클라우드 push 대상에서 제외돼 현황판에 영영 안 나타난다.
+- **"방 목록을 아직 받지 못했습니다" 안내가 뜨면 여기서 멈춘다** —
+  클라우드 roster가 아직 안 온 것이므로 3.5-b 연결 설정을 다시 본다.
+- 저장 전 **연결** 버튼이 성공해야 한다. 주소를 고쳤으면 다시 눌러야 한다
+  (통과한 주소와 지금 값이 다르면 저장이 거부된다).
+
+**진행 조건:** 카메라 2대가 각각 `205호` / `프로그램실`에 매핑된 상태로 저장됨.
+
+정리(끝난 뒤):
+
+```bash
+uv run rtsp-generator stop --name nursing-home
+```
+
+---
+
 ## 4. Smoke — **엣지부터**
 
 ### 4-1. 엣지 대시보드 (제일 먼저)
@@ -271,36 +310,12 @@ SELECT count(*) FROM spaces WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
 
 ## 7. 2녹색 / 5회색 오라클
 
-맥북 + rtsp-generator로 카메라 2대 구동. GPU 도착 전이므로 2대만.
+스트림 기동과 카메라 등록은 **3.5-c**에서 이미 했다. 여기서는 판정만 한다.
+GPU 도착 전이므로 살아 있는 카메라는 2대다.
 
-### 7-1. 합성 스트림 2개 띄우기
-
-`rtsp-generator` 저장소 (`README.md:39-59`, `pyproject.toml:17`):
-
-```bash
-cd "rtsp-generator"
-uv sync --group dev
-
-# 한 스택에서 2개 경로를 서빙한다 — --video와 --path를 쌍으로 반복
-uv run rtsp-generator start ./fall-sample.mp4 --path cam_sp_205 \
-                            ./fall-sample.mp4 --path cam_sp_2f_prog \
-                            --name nursing-home --detach
-
-uv run rtsp-generator list        # 생성된 RTSP URL 확인
-```
-
-정리:
-
-```bash
-uv run rtsp-generator stop --name nursing-home
-```
-
-> **카메라 id 주의.** 프로덕션에 이미 있는 카메라는 `cam_sp_205`(205호)와
-> `cam_sp_2f_prog`(프로그램실)이다. 엣지 등록 시 이 두 방에 매핑해야
-> 오라클이 성립한다. 새 id로 등록하면 클라우드에 카메라가 추가돼
-> 7대가 아니라 9대가 된다.
-
-### 7-2. 판정
+> **카메라 id 주의(3.5-c 재확인).** 프로덕션에 이미 있는 `cam_sp_205`(205호)와
+> `cam_sp_2f_prog`(프로그램실)에 매핑돼 있어야 한다. 새 id로 등록했다면
+> 클라우드에 카메라가 추가돼 7대가 아니라 9대가 되고 기대값이 깨진다.
 
 **어느 화면에서 재는지가 중요하다.** 카메라 7대는 2F·3F·4F에 흩어져 있어
 **층별 화면에서는 7개가 다 안 보인다** — `FloorMonitorPage.tsx:78`이
