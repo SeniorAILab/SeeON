@@ -16,9 +16,17 @@ git status --short          # compose.yaml 외 dirty 없어야 함
 gh pr checks 657 --repo SeniorAILab/eldercare-fall-ai
 gh pr checks 658 --repo SeniorAILab/eldercare-fall-ai
 gh pr checks 142 --repo SeniorAILab/eldercare-fall-ml-v2
+
+# 프로덕션 접속 경로 — 3~6단계에서 쓴다. 여기서 미리 확인한다.
+ssh -o BatchMode=yes iwinv 'echo ok && hostname'
+# 기대: ok / seniorsailab-314580
 ```
 
-**진행 조건:** 세 PR 모두 전 항목 pass.
+**진행 조건:** 세 PR 모두 전 항목 pass, `ssh iwinv` 응답 확인.
+
+> 접속 정보는 `~/.ssh/config`의 `Host iwinv`(49.247.204.81, root,
+> `~/.ssh/eldercare-fall-ai-iwinv`)만 쓴다. **tailscale blackwell 노드
+> (100.65.171.71)는 접근하지 않는다.**
 
 ---
 
