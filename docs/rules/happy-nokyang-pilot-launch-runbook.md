@@ -7,6 +7,27 @@
 `package.json:33`(`release:prod`), `scripts/deploy/iwinv-deploy.sh:22`(usage),
 `iwinv-deploy.sh:342`(`verify_services` = 정확 SHA + DB health).
 
+## 시작하기 전에 손으로 준비할 것 3가지
+
+아래는 저장소에 없거나 사람만 정할 수 있는 값이다. **0단계로 들어가기 전에
+미리 챙긴다.** 안 그러면 병합·릴리스를 되돌릴 수 없는 지점까지 지나간 뒤
+3.5단계에서 막힌다.
+
+**1. 낙상 장면 영상 파일 하나**
+`rtsp-generator/` 아래에 둔다. 저장소에 포함돼 있지 않고 워크스페이스
+어디에도 `.mp4`가 없다(야간 전수 검색으로 확인). 3.5-c에서 쓴다.
+같은 파일을 카메라 두 대에 함께 써도 된다.
+
+**2. 엣지 대시보드 계정** — `.env.edge`의
+`API_DASHBOARD_USERNAME` / `API_DASHBOARD_PASSWORD`.
+비우면 컨테이너가 아예 뜨지 않는다. 그게 안전장치다 — 비워두면
+`admin/admin`으로 뜨는 게 아니라 기동 자체가 막힌다.
+
+**3. 백엔드 주소** — `.env.edge`의 `API_BACKEND_BASE_URL`(권장) 또는
+`API_BACKEND_EVENTS_URL`+`API_BACKEND_CONFIG_URL`.
+**둘 다 비우면 가짜 도메인이 기본값으로 들어가고 heartbeat가 안 나간다.**
+`.env.edge.prod.example`에는 `BASE_URL`이 없으니 직접 추가해야 한다.
+
 ---
 
 ## 0. 시작 전 확인
