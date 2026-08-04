@@ -1,5 +1,5 @@
 import { listAlertNotes, createAlertNote } from "@/services/api/alertNotes";
-import { acknowledgeAlert, getAlertById, listAlerts } from "@/services/api/alertEndpoints";
+import { acknowledgeAlert, getAlertById, listAllAlerts } from "@/services/api/alertEndpoints";
 import type { ActionType, DetectionEvent } from "@/types";
 
 let alertCache: DetectionEvent[] = [];
@@ -29,7 +29,9 @@ export const eventService = {
   },
 
   async listByFacility(facilityId: string): Promise<DetectionEvent[]> {
-    const events = (await listAlerts()).map((event) => ({ ...event, actions: [] }));
+    // 목록 화면은 과거 사건을 찾는 곳이므로 전부 모은다. 서버 기본값(50건)만
+    // 받으면 그보다 오래된 사건이 화면에서 사라진 것처럼 보인다.
+    const events = (await listAllAlerts()).map((event) => ({ ...event, actions: [] }));
     alertCache = events;
     return events
       .filter((e) => e.facilityId === facilityId)

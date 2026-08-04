@@ -110,6 +110,60 @@ export async function listAlerts(): Promise<FrontendAlert[]> {
   return body.map((item) => mapAlertDto(item as BackendAlertDto));
 }
 
+/**
+ * 이벤트 목록용 — 서버가 나눠 주는 페이지를 끝까지 따라가 전부 모은다.
+ *
+ * `listAlerts()`는 파라미터 없이 부르므로 서버 기본값 50건만 온다
+ * (`backend/src/alerts/alerts.service.ts:31`). 실제 시설에는 수백 건이
+ * 쌓여 있어서, 목록 화면이 조용히 최근 50건만 보여주고 나머지는 없는 것처럼
+ * 된다. 요양원에서 "지난주 그 사건"을 찾으려는 사람에게는 사라진 것과 같다.
+ *
+ * 대시보드(`dashboardEndpoints.ts`)는 지금 상태만 필요하므로 계속
+ * `listAlerts()`를 쓴다. 실시간 갱신마다 전체를 끌면 낭비다.
+ *
+ * 서버는 `alertSeq desc`로 주고 `beforeSeq`로 그보다 오래된 것을 준다
+ * (`alerts.controller.ts:54`, `alerts.service.ts:35,47`). 그래서 마지막
+ * 항목의 `alertSeq`를 다음 커서로 넘긴다.
+ */
+export async function listAllAlerts(): Promise<FrontendAlert[]> {
+  // 서버 상한이 200이다(`alerts.service.ts:32`). 그보다 크게 요청해도 잘린다.
+  const PAGE = 200;
+  // 끝나지 않는 응답에 갇히지 않도록 상한을 둔다. 200 * 50 = 10,000건이면
+  // 이 화면이 감당할 범위를 이미 넘어선다.
+  const MAX_PAGES = 50;
+
+  const collected: FrontendAlert[] = [];
+  const seen = new Set<string>();
+  let beforeSeq: string | undefined;
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const query = beforeSeq === undefined
+      ? `/alerts?limit=${PAGE}`
+      : `/alerts?limit=${PAGE}&beforeSeq=${encodeURIComponent(beforeSeq)}`;
+    const body = await requestJson(query);
+    if (!Array.isArray(body)) throw new Error("Invalid alerts response");
+    if (body.length === 0) break;
+
+    const mapped = body.map((item) => mapAlertDto(item as BackendAlertDto));
+    for (const alert of mapped) {
+      // 커서가 겹쳐 같은 건이 두 번 와도 목록에 중복으로 쌓지 않는다.
+      if (seen.has(alert.id)) continue;
+      seen.add(alert.id);
+      collected.push(alert);
+    }
+
+    // 한 페이지를 다 못 채웠으면 마지막 페이지다.
+    if (body.length < PAGE) break;
+
+    const next = mapped[mapped.length - 1]?.alertSeq;
+    // 커서를 못 얻으면 같은 페이지를 무한히 다시 부르게 되므로 멈춘다.
+    if (!next || next === beforeSeq) break;
+    beforeSeq = next;
+  }
+
+  return collected;
+}
+
 export async function fetchActiveAlertSnapshot(): Promise<FrontendAlert[]> {
   const body = await requestJson("/alerts?status=NEW");
   if (!Array.isArray(body)) throw new Error("Invalid active alerts response");

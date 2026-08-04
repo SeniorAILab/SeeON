@@ -91,7 +91,9 @@ describe("eventService real mode actions", () => {
       listAlertNotes: listAlertNotesMock,
     }));
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
-      if (String(input).endsWith("/alerts")) {
+      // 목록은 페이지를 끝까지 따라가므로 limit/beforeSeq가 붙는다.
+      // 여기서는 한 장으로 끝나는 응답을 준다(200건 미만).
+      if (String(input).includes("/alerts")) {
         return okJsonResponse([
           alertDto,
           { ...alertDto, id: "alert_202", alertSeq: "11", detectedAt: "2026-06-22T02:00:00.000Z" },

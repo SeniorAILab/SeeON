@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listAlertsEndpoint,
+  listAllAlerts,
   mapAlert,
   mapAlertDto,
   acknowledgeAlert,
@@ -326,5 +327,76 @@ describe("ACK와 RESOLVE는 다른 라우트다 (I4)", () => {
 
   it("acknowledgeAlert가 resolveAlert의 별칭이 아니다", () => {
     expect(acknowledgeAlert).not.toBe(resolveAlert);
+  });
+});
+
+describe("listAllAlerts — 목록이 서버 기본값에서 잘리지 않는다", () => {
+  // 실제 시설에는 수백 건이 쌓인다. 서버는 기본 50건, 최대 200건만 준다.
+  // 목록이 한 페이지만 받고 끝내면 그보다 오래된 사건은 화면에서 사라진다.
+  const dto = (seq: number): AlertDto => ({
+    alertSeq: String(seq),
+    id: `a${seq}`,
+    facilityId: SCOPED_FACILITY_ID,
+    spaceId: "sp1",
+    type: "FALL",
+    riskLevel: "DANGER",
+    status: "NEW",
+    probability: 0.9,
+    detectedAt: "2026-08-04T00:00:00.000Z",
+  } as AlertDto);
+
+  beforeEach(() => {
+    requestJsonMock.mockReset();
+  });
+
+  it("페이지가 가득 차면 커서로 다음 장을 이어 받는다", async () => {
+    const first = Array.from({ length: 200 }, (_, i) => dto(370 - i));
+    const second = Array.from({ length: 170 }, (_, i) => dto(170 - i));
+    requestJsonMock
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+
+    const all = await listAllAlerts();
+
+    expect(all).toHaveLength(370);
+    // 두 번째 요청은 첫 장 마지막 항목의 alertSeq를 커서로 써야 한다.
+    const secondUrl = requestJsonMock.mock.calls[1]?.[0] as string;
+    expect(secondUrl).toContain("beforeSeq=171");
+    expect(secondUrl).toContain("limit=200");
+  });
+
+  it("첫 장이 덜 찼으면 한 번만 부른다", async () => {
+    requestJsonMock.mockResolvedValueOnce([dto(3), dto(2), dto(1)]);
+
+    const all = await listAllAlerts();
+
+    expect(all).toHaveLength(3);
+    expect(requestJsonMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("커서가 겹쳐 같은 건이 다시 와도 중복으로 쌓지 않는다", async () => {
+    const first = Array.from({ length: 200 }, (_, i) => dto(300 - i));
+    // 두 번째 장이 마지막 한 건을 다시 포함해서 온다.
+    const second = [dto(101), dto(100)];
+    requestJsonMock
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+
+    const all = await listAllAlerts();
+
+    expect(all).toHaveLength(201);
+    expect(new Set(all.map((a) => a.id)).size).toBe(201);
+  });
+
+  it("커서가 나아가지 않으면 같은 장을 무한히 다시 부르지 않는다", async () => {
+    // 서버가 커서를 무시하고 계속 같은 장을 준다고 가정한다.
+    const page = Array.from({ length: 200 }, (_, i) => dto(200 - i));
+    requestJsonMock.mockResolvedValue(page);
+
+    const all = await listAllAlerts();
+
+    // MAX_PAGES 상한에 걸려 멈추고, 중복은 걸러진다.
+    expect(all).toHaveLength(200);
+    expect(requestJsonMock.mock.calls.length).toBeLessThanOrEqual(50);
   });
 });
