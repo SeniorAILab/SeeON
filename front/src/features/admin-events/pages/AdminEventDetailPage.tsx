@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiErrorMessage } from "@/services/apiClient";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Film } from "lucide-react";
 import { Card, Button, Textarea } from "@/components/ui/primitives";
@@ -43,6 +44,9 @@ export function AdminEventDetailPage() {
   const [floor, setFloor] = useState<Floor | null>(null);
   const [memo, setMemo] = useState("");
   const [memoSaving, setMemoSaving] = useState(false);
+  // 조치/메모 저장 실패 사유. catch가 없으면 실패해도 화면이 조용해서
+  // 관리자가 저장됐다고 믿는다.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function loadEvent() {
     if (!eventId) return;
@@ -81,17 +85,30 @@ export function AdminEventDetailPage() {
 
   async function handleAction(type: ActionType, note: string) {
     if (!user || !event) return;
-    await eventService.addAction(event.id, type, note || undefined, user.name);
-    await loadEvent();
+    setActionError(null);
+    try {
+      await eventService.addAction(event.id, type, note || undefined, user.name);
+      await loadEvent();
+    } catch (caught) {
+      // 서버가 거부해도 조용히 넘어가면 관리자는 처리됐다고 믿는다.
+      setActionError(
+        apiErrorMessage(caught, "조치를 저장하지 못했습니다. 다시 시도해 주세요."),
+      );
+    }
   }
 
   async function handleMemoSave() {
     if (!event || memo.trim().length === 0) return;
     setMemoSaving(true);
+    setActionError(null);
     try {
       await eventService.addAction(event.id, "MEMO", memo.trim(), user?.name ?? "관리자");
       setMemo("");
       await loadEvent();
+    } catch (caught) {
+      setActionError(
+        apiErrorMessage(caught, "메모를 저장하지 못했습니다. 다시 시도해 주세요."),
+      );
     } finally {
       setMemoSaving(false);
     }
@@ -219,6 +236,11 @@ export function AdminEventDetailPage() {
           <p className="mb-4 text-sm text-ink-faint">아직 요양보호사 메모가 없습니다.</p>
         )}
         <ActionLogForm onSubmit={handleAction} disabled={!canAcknowledge(user)} />
+        {actionError && (
+          <p role="alert" className="mt-3 rounded-lg bg-status-dangerBg px-3 py-2 text-sm font-semibold text-status-danger">
+            {actionError}
+          </p>
+        )}
       </Card>
 
       <Card className="p-5">
