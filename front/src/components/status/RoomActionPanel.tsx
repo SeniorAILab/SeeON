@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { alertService, type AlertNote } from "@/services/alertService";
-import { ApiError } from "@/services/apiClient";
+import { ApiError, apiErrorMessage } from "@/services/apiClient";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import { eventTypeLabel } from "@/lib/labels";
 import { formatDateTime } from "@/lib/format";
@@ -69,6 +69,8 @@ export function RoomActionPanel({
   const historyIsCurrent = history.spaceId === space.id;
   const visibleNotes = historyIsCurrent ? notes : [];
   const visibleNoteError = historyIsCurrent ? noteError : null;
+  // 해결 완료 실패 사유. 서버가 조치 기록 없이 거부하면 여기에 뜬다.
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (history.spaceId !== space.id) {
@@ -149,9 +151,20 @@ export function RoomActionPanel({
     const ids = alertIds ?? alerts.map((alert) => alert.id);
     if (ids.length === 0 || busy) return;
     setBusy(true);
+    setResolveError(null);
     try {
       await Promise.all(ids.map((id) => alertService.resolve(id)));
       onResolved?.();
+    } catch (caught) {
+      // catch가 없으면 서버가 거부해도 화면에서 아무 일도 일어나지 않는다.
+      // 요양보호사는 처리했다고 믿고 자리를 뜬다 — 침묵으로 장애를 표현하는
+      // 것과 같다. 조치 기록 없이 해결을 막는 규칙(I4)이 생긴 뒤 실제로 발생한다.
+      setResolveError(
+        apiErrorMessage(
+          caught,
+          "해결 완료로 바꾸지 못했습니다. 다시 시도해 주세요.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -289,6 +302,11 @@ export function RoomActionPanel({
       {visibleNoteError && (
         <div role="alert" className="mt-2 rounded-2xl bg-status-dangerBg px-4 py-3 text-staff-body font-bold text-status-danger">
           {visibleNoteError}
+        </div>
+      )}
+      {resolveError && (
+        <div role="alert" className="mt-2 rounded-2xl bg-status-dangerBg px-4 py-3 text-staff-body font-bold text-status-danger">
+          {resolveError}
         </div>
       )}
       <div className="mt-4 rounded-2xl bg-bg px-4 py-3">
