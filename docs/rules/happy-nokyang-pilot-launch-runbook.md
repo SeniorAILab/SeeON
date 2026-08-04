@@ -506,6 +506,9 @@ WHERE s.facility_id = 'cmrkv2mqd0000nz5t44td921i'
 
 -- 4) 삭제 후 같은 count 쿼리 → 0
 -- 5) 남은 방 수 확인 → 7 (카메라가 붙은 방)
+--    남는 방: 2층 4개(202·203·205·프로그램실), 3층 2개(301·305), 4층 1개(401)
+--    1층과 5층에는 방이 하나도 안 남는다 — 현황판에서 그 층 그룹이 통째로
+--    사라진다. 정상이다(빈 층은 렌더하지 않는다, RoomStatusTreemap:82).
 SELECT count(*) FROM spaces WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
 ```
 

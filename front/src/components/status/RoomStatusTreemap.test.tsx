@@ -458,4 +458,29 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
       }
     });
   });
+
+  // 47행 DELETE 후 프로덕션에는 1층과 5층에 방이 하나도 안 남는다.
+  // 빈 층 그룹이 화면에 뜨면 원장이 "방이 사라졌다"로 읽는다.
+  describe("방이 없는 층은 화면에 나타나지 않는다", () => {
+    it("빈 층은 그룹째 빠진다", () => {
+      const room = { ...space("sp_205", "205호"), floorId: "fl_2f" };
+      const emptyFloors = [
+        { id: "fl_1f", facilityId: "fac", name: "1층", orderIndex: 1, isActive: true },
+        { id: "fl_2f", facilityId: "fac", name: "2층", orderIndex: 2, isActive: true },
+        { id: "fl_5f", facilityId: "fac", name: "5층", orderIndex: 5, isActive: true },
+      ];
+
+      render(
+        <RoomStatusTreemap
+          spaces={[room]}
+          floors={emptyFloors}
+          statuses={{ [room.id]: status(room.id, "STABLE", "") }}
+        />,
+      );
+
+      expect(screen.getByText("2층")).toBeTruthy();
+      expect(screen.queryByText("1층")).toBeNull();
+      expect(screen.queryByText("5층")).toBeNull();
+    });
+  });
 });
