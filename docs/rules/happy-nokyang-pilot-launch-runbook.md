@@ -171,6 +171,23 @@ webhook을 놓친 것이므로 수동 트리거.
 
 ## 3.5 엣지 기동 (맥북)
 
+> **맥북 엣지와 현장 엣지는 설정이 다르다. 섞지 않는다.**
+>
+> | | 맥북 (오늘) | 현장 GPU 호스트 |
+> |---|---|---|
+> | env 파일 | `.env.edge.prod` | `.env.edge.deploy` |
+> | compose | `compose.edge.yaml` | `+ compose.edge.local.yaml`(저장소에 없음) |
+> | 프로필 | `mps` | `cuda` |
+>
+> 현장 호스트 절차는
+> `eldercare-fall-ml-v2/docs/runbooks/driver-cuda-alignment.md`에 따로 있다.
+> 그 문서가 경고하듯 **`.env.edge.deploy`에는 `ML_WORKER_PROFILE`이 없어
+> compose 명령이 그대로는 실패하고, compose로 재생성하면 현재 컨테이너와
+> 다른 `restart` 정책이 붙는다**(알려진 배포 재현성 결함). 오늘은 맥북만
+> 다루므로 그 경로를 건드리지 않는다.
+>
+> GPU가 도착해 현장으로 옮길 때 그 런북을 먼저 읽는다.
+
 현장 엣지는 GPU 고장으로 오프라인이고, GPU는 오늘 도착 예정이다. 오늘은
 **맥북에 엣지를 새로 띄운다.** 아래 단계 없이 4번으로 가면 볼 것이 없다.
 
