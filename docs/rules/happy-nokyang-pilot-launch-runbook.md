@@ -331,6 +331,50 @@ GPU 도착 전이므로 살아 있는 카메라는 2대다.
 전체 층 진입이 안 되면 모니터 설정의 `allowAllView`가 꺼진 것이다
 (`FloorMonitorPage.tsx:134`가 그때 다른 화면으로 보낸다).
 
+### 7-2-a. DB 쪽 판정 (SQL)
+
+DOM을 보기 전에 데이터가 맞는지부터 본다. 화면이 틀린 것과 데이터가 틀린
+것은 고치는 곳이 다르다.
+
+> 계획 §6의 SQL은 `"Camera"` / `SpaceStatusSnapshot` 같은 Prisma 모델명을
+> 쓰는데, 실제 테이블은 `cameras`이고 **`SpaceStatusSnapshot`은 존재하지
+> 않는다**(상태는 프론트 `alertMerge.ts`가 합성한다). 실제 스키마
+> (`backend/prisma/schema.prisma`)에 맞춰 다시 썼다.
+
+```sql
+-- (1) 카메라 총 7대, 방과 1:1
+SELECT count(*) AS cameras, count(DISTINCT space_id) AS spaces
+FROM cameras WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
+-- 기대: 7 / 7
+
+-- (2) 최근 3분 내 heartbeat = 2대
+SELECT count(*) FROM cameras
+WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i'
+  AND last_seen_at >= now() - interval '3 minutes';
+-- 기대: 2
+
+-- (3) 어느 카메라가 살아 있는지 — 등록한 두 대와 일치해야 한다
+SELECT id, space_id, last_seen_at FROM cameras
+WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i'
+  AND last_seen_at >= now() - interval '3 minutes'
+ORDER BY id;
+-- 기대: cam_sp_205 / cam_sp_2f_prog
+
+-- (4) 그 두 방에 활성 알림이 없어야 "녹색"이 된다
+SELECT space_id, count(*) FROM alerts
+WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i'
+  AND space_id IN ('sp_205', 'sp_2f_prog')
+  AND status IN ('NEW', 'ACKED')
+GROUP BY space_id;
+-- 기대: 0행
+```
+
+**(2)가 0이면 heartbeat가 안 오는 것이다** — 4-1의 "클라우드 전송"으로
+돌아간다. **(4)에 행이 있으면** 그 방은 정직하게 빨강이므로 알림을 해결한
+뒤 다시 잰다.
+
+### 7-2-b. 화면 쪽 판정 (DOM)
+
 **기계 판정(육안 아님)** — 위 dashboard 화면에서 개발자도구 콘솔:
 
 ```js
