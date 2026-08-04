@@ -5,6 +5,12 @@ import {
   type ReadyAlertMediaClip,
 } from "./api/alertMedia";
 
+/**
+ * 백엔드가 "근거 영상 기능이 꺼져 있음"을 알릴 때 쓰는 코드.
+ * `backend/src/media/alert-media.service.ts`의 상수와 같은 값이어야 한다.
+ */
+export const MEDIA_FEATURE_DISABLED_CODE = "MEDIA_FEATURE_DISABLED";
+
 export type AlertMediaPanelState =
   | { readonly kind: "LOADING"; readonly requestKey: string }
   | {
@@ -18,6 +24,11 @@ export type AlertMediaPanelState =
       readonly clip: ReadyAlertMediaClip;
     }
   | { readonly kind: "UNAVAILABLE"; readonly requestKey: string }
+  /**
+   * 근거 영상 기능 자체가 꺼져 있음. UNAVAILABLE("이 알림에 클립이 없음")과
+   * 반드시 구분해야 한다 — 섞으면 화면이 지어낸 상태를 말하게 된다.
+   */
+  | { readonly kind: "FEATURE_DISABLED"; readonly requestKey: string }
   | {
       readonly kind: "EXPIRED";
       readonly requestKey: string;
@@ -194,7 +205,13 @@ function failureState(
     if (error.status === 401 || error.status === 403) {
       return { kind: "DENIED", requestKey, status: error.status };
     }
-    if (error.status === 404) return { kind: "UNAVAILABLE", requestKey };
+    if (error.status === 404) {
+      // 백엔드가 기능 비활성을 구분 가능한 코드로 알려준다.
+      if (error.message.includes(MEDIA_FEATURE_DISABLED_CODE)) {
+        return { kind: "FEATURE_DISABLED", requestKey };
+      }
+      return { kind: "UNAVAILABLE", requestKey };
+    }
     return {
       kind: "ERROR",
       requestKey,
