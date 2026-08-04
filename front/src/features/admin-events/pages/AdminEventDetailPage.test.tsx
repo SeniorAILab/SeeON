@@ -178,4 +178,20 @@ describe("조치/메모 저장 실패를 침묵으로 넘기지 않는다", () =
     await waitFor(() => expect(eventService.addAction).toHaveBeenCalled());
     expect(screen.queryByText(/저장하지 못했습니다/)).toBeNull();
   });
+
+  it("실패해도 입력한 메모를 지우지 않는다", async () => {
+    // 실패했는데 작성 내용까지 사라지면 처음부터 다시 써야 한다.
+    vi.mocked(eventService.addAction).mockRejectedValueOnce(new Error("network down"));
+
+    renderDetail();
+
+    const input = (await screen.findByPlaceholderText(
+      "메모를 입력하세요.",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "방문해 확인함" } });
+    fireEvent.click(screen.getByRole("button", { name: "확인 완료 처리" }));
+
+    await screen.findByRole("alert");
+    expect(input.value).toBe("방문해 확인함");
+  });
 });

@@ -94,6 +94,9 @@ export function AdminEventDetailPage() {
       setActionError(
         apiErrorMessage(caught, "조치를 저장하지 못했습니다. 다시 시도해 주세요."),
       );
+      // 다시 던져야 ActionLogForm이 입력한 메모를 지우지 않는다. 삼키면
+      // 실패했는데 작성 내용까지 사라져 처음부터 다시 써야 한다.
+      throw caught;
     }
   }
 

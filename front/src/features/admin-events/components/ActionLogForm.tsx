@@ -21,7 +21,11 @@ export function ActionLogForm({
     setBusy(type === ACK_ACTION_TYPE ? "ack" : "memo");
     try {
       await onSubmit(type, trimmed);
+      // 성공했을 때만 비운다. 실패에도 비우면 관리자가 쓴 내용을 잃는다.
       setNote("");
+    } catch {
+      // 사유 표시는 부모(AdminEventDetailPage)가 한다. 여기서는 입력을
+      // 보존하고 unhandled rejection만 막는다.
     } finally {
       setBusy(null);
     }
