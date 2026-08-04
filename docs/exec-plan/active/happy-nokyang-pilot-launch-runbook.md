@@ -149,6 +149,35 @@ WHERE NOT EXISTS (SELECT 1 FROM cameras c WHERE c.space_id = s.id)
 
 맥북 + rtsp-generator로 카메라 2대 구동. GPU 도착 전이므로 2대만.
 
+### 7-1. 합성 스트림 2개 띄우기
+
+`rtsp-generator` 저장소 (`README.md:39-59`, `pyproject.toml:17`):
+
+```bash
+cd "rtsp-generator"
+uv sync --group dev
+
+# 한 스택에서 2개 경로를 서빙한다 — --video와 --path를 쌍으로 반복
+uv run rtsp-generator start ./fall-sample.mp4 --path cam_sp_205 \
+                            ./fall-sample.mp4 --path cam_sp_2f_prog \
+                            --name nursing-home --detach
+
+uv run rtsp-generator list        # 생성된 RTSP URL 확인
+```
+
+정리:
+
+```bash
+uv run rtsp-generator stop --name nursing-home
+```
+
+> **카메라 id 주의.** 프로덕션에 이미 있는 카메라는 `cam_sp_205`(205호)와
+> `cam_sp_2f_prog`(프로그램실)이다. 엣지 등록 시 이 두 방에 매핑해야
+> 오라클이 성립한다. 새 id로 등록하면 클라우드에 카메라가 추가돼
+> 7대가 아니라 9대가 된다.
+
+### 7-2. 판정
+
 **기계 판정(육안 아님)** — 현황판에서 개발자도구 콘솔:
 
 ```js
