@@ -223,7 +223,21 @@ uv run rtsp-generator stop --name nursing-home
 
 ### 7-2. 판정
 
-**기계 판정(육안 아님)** — 현황판에서 개발자도구 콘솔:
+**어느 화면에서 재는지가 중요하다.** 카메라 7대는 2F·3F·4F에 흩어져 있어
+**층별 화면에서는 7개가 다 안 보인다** — `FloorMonitorPage.tsx:78`이
+`allView`가 아니면 해당 층만 필터한다.
+
+전체 층 화면에서 잰다 (`router.tsx:83,89`):
+
+```
+/facilities/cmrkv2mqd0000nz5t44td921i/dashboard        ← allView, 여기서 잰다
+/facilities/cmrkv2mqd0000nz5t44td921i/floor/<floorId>  ← 층별, 여기선 안 됨
+```
+
+전체 층 진입이 안 되면 모니터 설정의 `allowAllView`가 꺼진 것이다
+(`FloorMonitorPage.tsx:134`가 그때 다른 화면으로 보낸다).
+
+**기계 판정(육안 아님)** — 위 dashboard 화면에서 개발자도구 콘솔:
 
 ```js
 [...document.querySelectorAll('[data-connection]')]
