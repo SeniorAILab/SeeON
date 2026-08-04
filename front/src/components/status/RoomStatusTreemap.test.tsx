@@ -343,4 +343,33 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
     expect(cls).toContain("lucide-circle-check");
     expect(cls).not.toContain("lucide-video-off");
   });
+
+  it("이미 확인한 알림은 확인됨 배지를 단다", () => {
+    // 표시하지 않으면 두 번째 요양보호사가 같은 방으로 또 달려간다.
+    const room = space("sp_205", "205호");
+    const base = status(room.id, "DANGER", "낙상 감지");
+    render(
+      <RoomStatusTreemap
+        spaces={[room]}
+        floors={floors}
+        statuses={{ [room.id]: { ...base, alertStatus: "ACKNOWLEDGED" } }}
+      />,
+    );
+
+    expect(screen.getByTestId("acknowledged-badge").textContent).toBe("확인됨");
+  });
+
+  it("아직 확인 전이면 배지를 달지 않는다", () => {
+    const room = space("sp_205", "205호");
+    const base = status(room.id, "DANGER", "낙상 감지");
+    render(
+      <RoomStatusTreemap
+        spaces={[room]}
+        floors={floors}
+        statuses={{ [room.id]: { ...base, alertStatus: "PENDING" } }}
+      />,
+    );
+
+    expect(screen.queryByTestId("acknowledged-badge")).toBeNull();
+  });
 });

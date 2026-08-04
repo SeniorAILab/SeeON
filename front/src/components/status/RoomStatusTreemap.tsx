@@ -275,6 +275,10 @@ function RoomTile({
   // 끊긴 방에 체크 아이콘을 남기면 "연결 끊김"이라는 글자와 정반대 신호를
   // 준다. 지나가며 보는 요양보호사에게는 체크 표시만 눈에 들어온다.
   const Icon = isDisconnected ? VideoOff : iconFor(level);
+  // 이미 누군가 확인한 알림인지. 표시하지 않으면 두 번째 요양보호사가
+  // 같은 방으로 또 달려간다(I4로 확인/해결이 분리된 뒤 생긴 상태).
+  const isAcknowledged =
+    level !== "STABLE" && status?.alertStatus === "ACKNOWLEDGED" && !isDisconnected;
   const recentDetectedAt = hero && status?.lastDetectedAt ? timeAgo(status.lastDetectedAt) : null;
   const surface: DashboardReceiptSurface = `${receiptSurface}:${layout}`;
 
@@ -335,6 +339,14 @@ function RoomTile({
       <span className="relative flex items-center gap-2 text-staff-status">
         <Icon className="h-7 w-7 shrink-0 2xl:h-9 2xl:w-9" aria-hidden />
         <span>{isDisconnected ? "연결 끊김" : STATUS_WORD[level]}</span>
+        {isAcknowledged && (
+          <span
+            data-testid="acknowledged-badge"
+            className="ml-auto shrink-0 rounded-lg bg-surface px-2 py-0.5 text-staff-body font-black opacity-90"
+          >
+            확인됨
+          </span>
+        )}
       </span>
       <span className={`${hero ? "flex flex-1 flex-col items-center justify-center text-center" : "block"} relative mt-4`}>
         <span className={`${hero ? "text-5xl 2xl:text-6xl" : "text-3xl 2xl:text-4xl"} block break-keep line-clamp-2 font-black tracking-tight`}>{space.name}</span>
