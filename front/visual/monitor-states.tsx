@@ -14,15 +14,20 @@ import "@/index.css";
 
 const FACILITY = "fac_demo";
 
+// 프로덕션 실측 구조다. 카메라 7대는 한 층이 아니라 2F/3F/4F에 흩어져 있다
+// (cam_sp_202/203/205/2f_prog, cam_sp_301/305, cam_sp_401).
+// 한 층으로 뭉쳐 찍으면 승인한 화면과 현장 화면의 층 구성이 달라진다.
 const floors: Floor[] = [
   { id: "fl_2f", facilityId: FACILITY, name: "2층", orderIndex: 2, isActive: true },
+  { id: "fl_3f", facilityId: FACILITY, name: "3층", orderIndex: 3, isActive: true },
+  { id: "fl_4f", facilityId: FACILITY, name: "4층", orderIndex: 4, isActive: true },
 ];
 
-function space(id: string, name: string): Space {
+function space(id: string, name: string, floorId = "fl_2f"): Space {
   return {
     id,
     facilityId: FACILITY,
-    floorId: "fl_2f",
+    floorId,
     name,
     type: "ROOM",
     capacity: 1,
@@ -58,13 +63,13 @@ function status(
  * 오라클이 기대하는 2녹색 / 5회색을 그대로 재현한다.
  */
 const spaces: Space[] = [
-  space("sp_a", "201호"),
   space("sp_b", "202호"),
   space("sp_c", "203호"),
   space("sp_d", "205호"),
-  space("sp_e", "301호"),
-  space("sp_f", "305호"),
   space("sp_g", "프로그램실"),
+  space("sp_e", "301호", "fl_3f"),
+  space("sp_f", "305호", "fl_3f"),
+  space("sp_a", "401호", "fl_4f"),
 ];
 
 const MODE = new URLSearchParams(location.search).get("mode") ?? "mixed";
