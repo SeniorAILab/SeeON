@@ -10,8 +10,9 @@ function actionAcknowledges(type: ActionType): boolean {
 
 export const eventService = {
   async getById(eventId: string): Promise<DetectionEvent | undefined> {
-    // 목록에서 찾지 않는다. 목록은 기본 50건이라 그 밖의 사건은 영영
-    // 열리지 않았다(프로덕션 이벤트 370건). 단건 라우트로 직접 간다.
+    // 목록 캐시에서 찾지 않고 단건 라우트로 직접 간다. 목록을 거치면
+    // 상세 열람이 "목록을 어디까지 받아왔는가"에 매인다. 링크로 바로
+    // 들어오는 경우처럼 목록을 아직 안 받은 상태에서도 열려야 한다.
     try {
       const event = await getAlertById(eventId);
       return { ...event, actions: await listAlertNotes(event.id) };
