@@ -81,6 +81,47 @@ webhook을 놓친 것이므로 수동 트리거.
 
 ---
 
+## 3.5 엣지 기동 (맥북)
+
+현장 엣지는 GPU 고장으로 오프라인이고, GPU는 오늘 도착 예정이다. 오늘은
+**맥북에 엣지를 새로 띄운다.** 아래 단계 없이 4번으로 가면 볼 것이 없다.
+
+`eldercare-fall-ml-v2`에서 (`compose.edge.yaml`, `.env.edge.prod.example`):
+
+```bash
+cd "eldercare-fall-ml-v2"
+cp .env.edge.prod.example .env.edge    # 없으면
+```
+
+**필수 env 8개** — 하나라도 비면 컨테이너가 아예 뜨지 않는다
+(`compose.edge.yaml`에서 `:?`로 강제):
+
+```
+ML_API_IMAGE  ML_WORKER_IMAGE  ML_WORKER_PROFILE
+API_EDGE_RELAY_TOKEN  API_DASHBOARD_USERNAME  API_DASHBOARD_PASSWORD
+API_FACILITY_ID  CLIP_STORE_HOST_DIR
+```
+
+**맥북에서 반드시 바꿀 것:**
+
+```bash
+# .env.edge.prod.example:33 기본값이 cuda다. 맥북은 mps.
+ML_WORKER_PROFILE=mps
+API_FACILITY_ID=cmrkv2mqd0000nz5t44td921i
+```
+
+```bash
+docker compose --env-file .env.edge -f compose.edge.yaml up -d
+docker compose -f compose.edge.yaml ps
+```
+
+**진행 조건:** ml-api와 worker 컨테이너가 모두 Up.
+
+> 컨테이너가 안 뜨면 십중팔구 필수 env 누락이다 — `docker compose ... config`가
+> 어떤 변수가 비었는지 이름으로 알려준다.
+
+---
+
 ## 4. Smoke — **엣지부터**
 
 ### 4-1. 엣지 대시보드 (제일 먼저)
