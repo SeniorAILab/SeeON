@@ -372,4 +372,57 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
 
     expect(screen.queryByTestId("acknowledged-badge")).toBeNull();
   });
+
+  // 계획의 H1/H2 수용 기준은 이 파일의 `readability` 이름으로 실행된다
+  // (`vitest run ... -t readability`). 타이포 하한 자체는
+  // src/lib/staffTypography.test.ts가 tailwind 설정을 직접 검증하고,
+  // 여기서는 타일이 그 스케일을 실제로 쓰는지 본다.
+  describe("readability — 4m 거리에서 읽히는 크기를 쓴다", () => {
+    // 계획의 H1/H2 수용 기준이 이 이름으로 실행된다
+    // (`vitest run ... -t readability`). 타이포 하한 자체는
+    // src/lib/staffTypography.test.ts가 tailwind 설정을 검증하고,
+    // 여기서는 타일이 그 스케일을 실제로 쓰는지 본다.
+    function renderRichTile() {
+      const room = space("sp_205", "205호");
+      const base = status(room.id, "DANGER", "낙상이 감지되었습니다.");
+      return render(
+        <RoomStatusTreemap
+          spaces={[room]}
+          floors={floors}
+          statuses={{
+            [room.id]: {
+              ...base,
+              connection: "LIVE",
+              lastDetectedAt: new Date().toISOString(),
+            },
+          }}
+          layout="focus"
+        />,
+      );
+    }
+
+    it("상태 문구가 대형 상태 스케일을 쓴다", () => {
+      renderRichTile();
+      const tile = screen.getByRole("button", { name: /205호/ });
+      const statusLine = tile.querySelector(".text-staff-status");
+      expect(statusLine).not.toBeNull();
+      expect(statusLine?.textContent).toContain("위험");
+    });
+
+    it("설명 문구가 본문 스케일을 쓴다", () => {
+      renderRichTile();
+      const tile = screen.getByRole("button", { name: /205호/ });
+      const summary = tile.querySelector(".text-staff-body");
+      expect(summary).not.toBeNull();
+      expect(summary?.textContent).toContain("낙상");
+    });
+
+    it("타일 어디에도 14px 이하 클래스가 남지 않는다", () => {
+      // 예전에는 '최근 감지'가 text-sm(14px)로 남아 4m에서 안 보였다.
+      renderRichTile();
+      const tile = screen.getByRole("button", { name: /205호/ });
+      expect(tile.querySelector(".text-sm")).toBeNull();
+      expect(tile.querySelector(".text-xs")).toBeNull();
+    });
+  });
 });
