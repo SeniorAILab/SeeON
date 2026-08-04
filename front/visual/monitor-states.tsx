@@ -14,9 +14,10 @@ import "@/index.css";
 
 const FACILITY = "fac_demo";
 
-// 프로덕션 실측 구조다. 카메라 7대는 한 층이 아니라 2F/3F/4F에 흩어져 있다
-// (cam_sp_202/203/205/2f_prog, cam_sp_301/305, cam_sp_401).
-// 한 층으로 뭉쳐 찍으면 승인한 화면과 현장 화면의 층 구성이 달라진다.
+// 카메라 7대가 한 층이 아니라 세 층에 흩어진 구성. 층당 4/2/1개다.
+// 한 층으로 뭉쳐 찍으면 승인한 화면과 현장 화면의 층 구성이 달라지므로
+// 실제 배치와 같은 분포를 쓴다. 방 이름은 데모 값이다 —
+// 이 저장소는 공개이고 실제 호실 번호는 입주자 위치 정보다.
 const floors: Floor[] = [
   { id: "fl_2f", facilityId: FACILITY, name: "2층", orderIndex: 2, isActive: true },
   { id: "fl_3f", facilityId: FACILITY, name: "3층", orderIndex: 3, isActive: true },
@@ -63,13 +64,13 @@ function status(
  * 오라클이 기대하는 2녹색 / 5회색을 그대로 재현한다.
  */
 const spaces: Space[] = [
-  space("sp_b", "202호"),
-  space("sp_c", "203호"),
-  space("sp_d", "205호"),
-  space("sp_g", "프로그램실"),
-  space("sp_e", "301호", "fl_3f"),
-  space("sp_f", "305호", "fl_3f"),
-  space("sp_a", "401호", "fl_4f"),
+  space("sp_b", "A-1"),
+  space("sp_c", "A-2"),
+  space("sp_d", "A-3"),
+  space("sp_g", "공용실"),
+  space("sp_e", "B-1", "fl_3f"),
+  space("sp_f", "B-2", "fl_3f"),
+  space("sp_a", "C-1", "fl_4f"),
 ];
 
 const MODE = new URLSearchParams(location.search).get("mode") ?? "mixed";
