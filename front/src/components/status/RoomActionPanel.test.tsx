@@ -524,3 +524,70 @@ describe("확인(ACK)과 해결 완료(RESOLVE)는 다른 동작이다 (I4)", ()
     expect(screen.getByRole("button", { name: "해결 완료" })).toBeTruthy();
   });
 });
+
+describe("ack-outcome-resolve-sequence — 확인→기록→해결 순서가 강제된다", () => {
+  // 계획의 I4 수용 기준이 이 이름으로 실행된다
+  // (`vitest run src/components/status/RoomActionPanel.test.tsx -t ack-outcome-resolve-sequence`).
+  async function svc() {
+    const { alertService } = await import("@/services/alertService");
+    return alertService;
+  }
+
+  function renderPanel() {
+    render(
+      <RoomActionPanel
+        space={spaces[1]}
+        status={status("a", "DANGER")}
+        alerts={[alert({ id: "event-1" })]}
+        onClose={vi.fn()}
+        onResolved={vi.fn()}
+      />,
+    );
+  }
+
+  it("확인은 ACK만 호출하고 해결로 넘어가지 않는다", async () => {
+    const alertService = await svc();
+    vi.mocked(alertService.acknowledge).mockClear();
+    vi.mocked(alertService.resolve).mockClear();
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalledWith("event-1"));
+    expect(alertService.resolve).not.toHaveBeenCalled();
+  });
+
+  it("조치 기록 없이 해결하면 서버 거부 사유가 화면에 뜬다", async () => {
+    const alertService = await svc();
+    const { ApiError } = await import("@/services/apiClient");
+    vi.mocked(alertService.resolve).mockRejectedValueOnce(
+      new ApiError(
+        400,
+        JSON.stringify({
+          statusCode: 400,
+          message: "조치 결과를 먼저 기록해야 해결 완료로 바꿀 수 있습니다.",
+        }),
+      ),
+    );
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "해결 완료" }));
+
+    const nodes = await screen.findAllByRole("alert");
+    expect(
+      nodes.some((n) => (n.textContent ?? "").includes("조치 결과를 먼저 기록")),
+    ).toBe(true);
+  });
+
+  it("확인 후에도 메모와 해결 완료가 남아 순서를 이어갈 수 있다", async () => {
+    const alertService = await svc();
+    vi.mocked(alertService.acknowledge).mockClear();
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalled());
+
+    expect(screen.getByPlaceholderText("조치 내용을 입력하세요")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "해결 완료" })).toBeTruthy();
+  });
+});
