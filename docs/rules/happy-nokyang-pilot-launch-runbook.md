@@ -17,6 +17,12 @@ gh pr checks 657 --repo SeniorAILab/eldercare-fall-ai
 gh pr checks 658 --repo SeniorAILab/eldercare-fall-ai
 gh pr checks 142 --repo SeniorAILab/eldercare-fall-ml-v2
 
+# 오늘 쓰는 도구가 다 있는지. 야간에 이 맥에서 확인한 값을 주석에 남긴다.
+for t in uv gh docker pnpm node; do printf '%-8s ' "$t"; command -v "$t" >/dev/null && "$t" --version | head -1 || echo 없음; done
+docker info >/dev/null && echo "docker 데몬 실행 중"
+# 확인된 버전: uv 0.10.4 / gh 2.97.0 / docker 29.6.1 / pnpm 11.0.0 / node v24.19.0
+# psql은 로컬에 없어도 된다 — 6단계는 docker exec로 DB 컨테이너 안에서 실행한다.
+
 # 프로덕션 접속 경로 — 3~6단계에서 쓴다. 여기서 미리 확인한다.
 ssh -o BatchMode=yes iwinv 'echo ok && hostname'
 # 기대: ok / seniorsailab-314580
