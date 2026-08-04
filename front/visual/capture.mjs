@@ -51,11 +51,10 @@ for (const mode of ["mixed", "all-live"]) {
   const danger = tiles.filter((t) => t.status === "DANGER").length;
 
   const file = `${outDir}/monitor-${mode}.png`;
-  // 보드 영역만 찍는다. 뷰포트 전체를 찍으면 여백이 대부분이라
-  // 스크린샷이 "거의 균일한 이미지"로 보인다.
-  const board = await page.$('[data-testid="visual-root"]');
-  await (board ?? page).screenshot({ path: file });
-  actions.push({ type: "screenshot", target: file, selector: "[data-testid=\"visual-root\"]", mode, timestamp: new Date().toISOString() });
+  // 요양보호사가 실제로 보는 것은 TV 화면 전체다. 보드 요소만 잘라 찍으면
+  // 여백·배치·밀도를 승인할 수 없고, 승인한 화면과 배포된 화면이 달라진다.
+  await page.screenshot({ path: file, fullPage: false });
+  actions.push({ type: "screenshot", target: file, selector: "viewport:1920x1080", mode, timestamp: new Date().toISOString() });
 
   actions.push({
     type: "assert",

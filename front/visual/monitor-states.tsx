@@ -96,9 +96,13 @@ const statuses: Record<string, SpaceStatus> =
         sp_f: status("sp_f", "STABLE", "STALE"),
       };
 
+// 실제 TV(1920x1080)를 채운다. 고정 크기로 잘라 두면 승인한 화면과
+// 현장에서 보이는 화면의 여백·타일 크기가 달라진다.
 createRoot(document.getElementById("root")!).render(
-  <div data-testid="visual-root" className="inline-block bg-bg p-2" style={{ width: 1800 }}>
-    <div style={{ height: 640 }} className="flex">
+  <div data-testid="visual-root" className="flex h-screen w-screen flex-col bg-bg p-4">
+    {/* FloorMonitorPage:190과 같은 컨테이너다 — 보드가 남은 높이를 채운다.
+        하니스가 고정 높이를 쓰면 승인한 화면과 TV에 뜨는 화면이 달라진다. */}
+    <div className="mt-4 flex min-h-0 flex-1">
       <RoomStatusBoard
         spaces={spaces}
         statuses={statuses}
