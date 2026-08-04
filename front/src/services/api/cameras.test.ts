@@ -3,11 +3,12 @@ import { buildFreshnessBySpace, resolveCameraConnection, type SpaceFreshness } f
 import type { CameraStatus } from "./cameras";
 import { STALE_CUTOFF_MS } from "@/types";
 
+const SCOPED_FACILITY_ID = "fac_happy_nokyang";
 const NOW = Date.parse("2026-08-03T12:00:00.000Z");
 
 function camera(overrides: Partial<CameraStatus> & Pick<CameraStatus, "id" | "spaceId">): CameraStatus {
   return {
-    facilityId: "fac_1",
+    facilityId: SCOPED_FACILITY_ID,
     online: true,
     lastSeenAt: null,
     ...overrides,
