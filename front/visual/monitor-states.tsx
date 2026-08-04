@@ -86,7 +86,8 @@ const statuses: Record<string, SpaceStatus> =
         // 살아 있는 2대. 그 중 한 방에서 낙상이 감지된 상태를 함께 보여준다
         // — 연결이 끊긴 방들 사이에서 실제 위험이 묻히지 않는지 확인하는 장면.
         sp_d: status("sp_d", "DANGER", "LIVE"),
-        sp_g: status("sp_g", "STABLE", "LIVE"),
+        // 이미 다른 요양보호사가 확인한 방. 배지가 붙어야 중복 출동을 막는다.
+        sp_g: { ...status("sp_g", "DANGER", "LIVE"), alertStatus: "ACKNOWLEDGED" as const },
         // 끊긴 5대
         sp_a: status("sp_a", "STABLE", "STALE"),
         sp_b: status("sp_b", "STABLE", "STALE"),
