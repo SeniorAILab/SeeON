@@ -168,10 +168,23 @@ docker compose -f compose.edge.yaml ps
 env로 줄 수 있는 값 (`backend/app/features/connection/store.py:75,153-154`):
 
 ```
-API_BACKEND_BASE_URL   예: https://<프로덕션 호스트>
+API_BACKEND_BASE_URL   예: https://<프로덕션 호스트>   ← 이거 하나로 충분
 API_FACILITY_ID        cmrkv2mqd0000nz5t44td921i
 EDGE_FACILITY_TOKEN    시설 토큰
 ```
+
+> **`.env.edge.prod.example`에는 `API_BACKEND_BASE_URL`이 없다.** 그 파일은
+> `API_BACKEND_EVENTS_URL`과 `API_BACKEND_CONFIG_URL`을 각각 전체 URL로
+> 지정하는 옛 방식을 예시로 든다. 둘 중 아무 방식이나 되지만,
+> **`BASE_URL`을 안 쓰면 `compose.edge.yaml:25`의 기본값
+> `https://api.eldercare-fall-ai.example`(가짜 도메인)이 들어간다.**
+>
+> 따라서 둘 중 하나를 반드시 한다:
+> - `API_BACKEND_BASE_URL`을 실제 호스트로 채운다(권장), 또는
+> - `API_BACKEND_EVENTS_URL`/`API_BACKEND_CONFIG_URL`을 전체 URL로 채운다
+>
+> 어느 쪽이든 3.5-b 진행 조건대로 **연결 설정 화면에서 실제 값을 눈으로
+> 확인**한다. 가짜 도메인이 남아 있으면 heartbeat가 나가지 않는다.
 
 > **`/api`는 붙이지 않아도 된다.** base에서 `/api/v1/events`를 파생하도록
 > 이번에 고쳤다(`store.py:_normalize_api_base`). 이미 `/api`로 끝나면
