@@ -22,7 +22,16 @@
 ../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4
 ```
 
-실재 확인함(132MB). 같은 디렉터리에 다른 클립도 여러 개 있다.
+실재 확인함(132MB, HEVC 2520x970, 31.3초). 같은 디렉터리에 다른 클립도 있다.
+
+**쓰기 전에 해시를 확인한다.** 위 런북이 핀을 명시하고 다르면 중단하라고
+한다. 야간에 대조해 일치를 확인했다:
+
+```bash
+CLIP="../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4"
+shasum -a 256 "$CLIP"
+# 기대: 4d5aff92898196fb78e461cc7fd484999f5953de9213900b66d5c52786aba209
+```
 
 > **저장소 안으로 복사하지 않는다.** 위 런북이 명시한다 —
 > "Do not add MediaMTX, an FFmpeg publisher, a video file, or any other
@@ -247,6 +256,13 @@ EDGE_FACILITY_TOKEN    시설 토큰
 ### 스트림 2개 (`rtsp-generator`, `README.md:39-59`)
 
 > **영상은 dataset-ops의 핀된 클립을 경로로 참조한다**(준비물 1번 참조).
+>
+> `rtsp-generator`는 MediaMTX와 FFmpeg 퍼블리싱을 Docker로 묶어 돌린다
+> (`rtsp-generator/README.md:98`). 즉
+> `eldercare-fall-ml-v2/docs/runbooks/local-e2e-rtsp-source.md`가 설명하는
+> 수동 3터미널 절차(MediaMTX 직접 실행 + ffmpeg 퍼블리시 + ffprobe 게이트)의
+> 자동화 버전이다. **둘 중 하나만 쓴다.** 아래는 CLI 방식이고, 수동으로
+> 확인하고 싶으면 그 런북을 따르면 된다.
 > README의 `fall-sample.mp4`는 예시 이름일 뿐 저장소에 없다.
 > 같은 파일을 두 경로에 써도 오라클은 성립한다 — 판정 기준은 heartbeat
 > 도달 여부이지 영상 내용이 아니다.
