@@ -120,6 +120,30 @@ docker compose -f compose.edge.yaml ps
 > 컨테이너가 안 뜨면 십중팔구 필수 env 누락이다 — `docker compose ... config`가
 > 어떤 변수가 비었는지 이름으로 알려준다.
 
+### 3.5-b 클라우드 연결 설정
+
+컨테이너가 떠도 **클라우드 연결은 별도 설정**이다. 이게 없으면 heartbeat가
+안 나가고 4번에서 볼 것이 없다.
+
+env로 줄 수 있는 값 (`backend/app/features/connection/store.py:75,153-154`):
+
+```
+API_BACKEND_BASE_URL   예: https://<프로덕션 호스트>
+API_FACILITY_ID        cmrkv2mqd0000nz5t44td921i
+EDGE_FACILITY_TOKEN    시설 토큰
+```
+
+> **`/api`는 붙이지 않아도 된다.** base에서 `/api/v1/events`를 파생하도록
+> 이번에 고쳤다(`store.py:_normalize_api_base`). 이미 `/api`로 끝나면
+> 중복해서 붙이지 않는다.
+
+> **함정 — 저장된 설정이 env를 이긴다.** `store.py:153-154`가
+> `saved.get(...) or os.environ.get(...)` 순서다. 예전에 대시보드에서 저장한
+> 값이 남아 있으면 env를 바꿔도 반영되지 않는다. **연결 설정 화면에서 실제
+> 값을 눈으로 확인하고, 다르면 화면에서 저장한다.**
+
+**진행 조건:** 연결 설정 화면의 시설 ID와 이벤트 URL이 의도한 값이다.
+
 ---
 
 ## 4. Smoke — **엣지부터**
