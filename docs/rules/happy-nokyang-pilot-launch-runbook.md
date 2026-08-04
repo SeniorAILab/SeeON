@@ -272,6 +272,11 @@ ssh iwinv 'set -a; . /opt/eldercare-fall-ai/shared/.env; set +a;
 ```
 
 ```sql
+-- 0-a) 테이블명 확인 — spaces/facilities는 마이그레이션 DDL로 확정하지 못했다
+\dt
+-- 기대: spaces, cameras, events, alerts, facilities
+--       다르면 아래 모든 쿼리의 이름을 실제 값으로 맞춘다
+
 -- 0) 시설 id 확인 — 이후 모든 쿼리에 이 값을 넣는다
 SELECT id, name FROM facilities;
 -- 행복한요양원 녹양역점 = cmrkv2mqd0000nz5t44td921i
@@ -340,6 +345,17 @@ DOM을 보기 전에 데이터가 맞는지부터 본다. 화면이 틀린 것�
 > 쓰는데, 실제 테이블은 `cameras`이고 **`SpaceStatusSnapshot`은 존재하지
 > 않는다**(상태는 프론트 `alertMerge.ts`가 합성한다). 실제 스키마
 > (`backend/prisma/schema.prisma`)에 맞춰 다시 썼다.
+
+**먼저 테이블명을 확인한다.** 아래 SQL은 `schema.prisma`의 `@@map`과
+마이그레이션 DDL(`Camera → cameras`, `Alert → alerts`,
+`lastSeenAt → last_seen_at`, `AlertStatus = NEW|ACKED|RESOLVED`)에서
+확인했지만, `spaces`/`facilities`는 리네임 이력이 없어 DDL로 확정하지
+못했다. 한 줄로 실제 이름을 확인하고 시작한다.
+
+```sql
+\dt
+-- 기대: cameras, spaces, alerts, facilities (다르면 아래 SQL의 이름을 맞춘다)
+```
 
 ```sql
 -- (1) 카메라 총 7대, 방과 1:1
