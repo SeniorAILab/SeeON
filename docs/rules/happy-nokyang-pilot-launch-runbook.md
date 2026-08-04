@@ -39,12 +39,12 @@ shasum -a 256 "$CLIP"
 > 워크스페이스 `AGENTS.md`도 private media 커밋을 금지한다.
 > `rtsp-generator`는 저장소 밖 경로를 인자로 받으므로 그대로 넘기면 된다.
 
-**2. 엣지 대시보드 계정** — `.env.edge`의
+**2. 엣지 대시보드 계정** — `.env.edge.prod`의
 `API_DASHBOARD_USERNAME` / `API_DASHBOARD_PASSWORD`.
 비우면 컨테이너가 아예 뜨지 않는다. 그게 안전장치다 — 비워두면
 `admin/admin`으로 뜨는 게 아니라 기동 자체가 막힌다.
 
-**3. 백엔드 주소** — `.env.edge`의 `API_BACKEND_BASE_URL`(권장) 또는
+**3. 백엔드 주소** — `.env.edge.prod`의 `API_BACKEND_BASE_URL`(권장) 또는
 `API_BACKEND_EVENTS_URL`+`API_BACKEND_CONFIG_URL`.
 **둘 다 비우면 가짜 도메인이 기본값으로 들어가고 heartbeat가 안 나간다.**
 `.env.edge.prod.example`에는 `BASE_URL`이 없으니 직접 추가해야 한다.
@@ -178,7 +178,7 @@ webhook을 놓친 것이므로 수동 트리거.
 
 ```bash
 cd "eldercare-fall-ml-v2"
-cp .env.edge.prod.example .env.edge    # 없으면
+cp .env.edge.prod.example .env.edge.prod   # 없으면
 ```
 
 **필수 env 8개** — 하나라도 비면 컨테이너가 아예 뜨지 않는다
@@ -199,7 +199,7 @@ API_FACILITY_ID=cmrkv2mqd0000nz5t44td921i
 ```
 
 ```bash
-docker compose --env-file .env.edge -f compose.edge.yaml up -d
+docker compose --env-file .env.edge.prod -f compose.edge.yaml up -d
 docker compose -f compose.edge.yaml ps
 ```
 
@@ -355,6 +355,12 @@ ssh iwinv '/opt/eldercare-fall-ai/repo/scripts/deploy/iwinv-deploy.sh --rollback
 ```
 
 롤백 후 **4번 smoke를 처음부터 다시** 실행한다.
+
+> **엣지 워커가 이상할 때는 여기가 아니다.** 위 절차는 클라우드(iwinv)
+> 배포용이다. 엣지 워커 이미지를 되돌려야 하면
+> `eldercare-fall-ml-v2/docs/runbooks/worker-migration-rollback.md`를 따른다 —
+> 소스 revert가 아니라 `ML_WORKER_IMAGE`를 이전 digest로 되돌리고 그 서비스만
+> 재시작하는 방식이며, 모델·상태·클립 볼륨은 보존된다.
 
 ---
 
