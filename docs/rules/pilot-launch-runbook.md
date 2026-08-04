@@ -1,4 +1,4 @@
-# 행복한요양원 녹양역점 파일럿 — 아침 실행 런북
+# 단일 요양원 파일럿 — 아침 실행 런북
 
 **모든 단계는 사람이 직접 실행한다.** 각 단계에 "다음으로 넘어가도 되는 조건"을
 적었다. 조건이 안 맞으면 멈춘다.
@@ -19,7 +19,7 @@
 (`eldercare-fall-ml-v2/docs/runbooks/local-e2e-rtsp-source.md`에 문서화됨):
 
 ```text
-../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4
+../eldercare-dataset-ops/ml/data/releases/v1/clips/<핀된 클립>
 ```
 
 실재 확인함(132MB, HEVC 2520x970, 31.3초). 같은 디렉터리에 다른 클립도 있다.
@@ -28,9 +28,9 @@
 한다. 야간에 대조해 일치를 확인했다:
 
 ```bash
-CLIP="../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4"
+CLIP="../eldercare-dataset-ops/ml/data/releases/v1/clips/<핀된 클립>"
 shasum -a 256 "$CLIP"
-# 기대: 4d5aff92898196fb78e461cc7fd484999f5953de9213900b66d5c52786aba209
+# 기대: local-e2e-rtsp-source.md에 적힌 핀 값과 일치해야 한다
 ```
 
 > **저장소 안으로 복사하지 않는다.** 위 런북이 명시한다 —
@@ -67,13 +67,12 @@ docker info >/dev/null && echo "docker 데몬 실행 중"
 
 # 프로덕션 접속 경로 — 3~6단계에서 쓴다. 여기서 미리 확인한다.
 ssh -o BatchMode=yes iwinv 'echo ok && hostname'
-# 기대: ok / seniorsailab-314580
+# 기대: ok + 프로덕션 호스트명 (~/.ssh/config의 Host iwinv가 가리키는 서버)
 ```
 
 **진행 조건:** 세 PR 모두 전 항목 pass, `ssh iwinv` 응답 확인.
 
-> 접속 정보는 `~/.ssh/config`의 `Host iwinv`(49.247.204.81, root,
-> `~/.ssh/eldercare-fall-ai-iwinv`)만 쓴다. **tailscale blackwell 노드
+> 접속 정보는 `~/.ssh/config`의 `Host iwinv`(공인 IP 직결, root)만 쓴다. **tailscale blackwell 노드
 > (100.65.171.71)는 접근하지 않는다.**
 
 ---
@@ -96,7 +95,7 @@ ssh -o BatchMode=yes iwinv 'echo ok && hostname'
 
 **스크린샷은 실제 TV 화면(1920×1080)이고 층 구성도 프로덕션과 같다**
 
-2층(202·203·205·프로그램실) / 3층(301·305) / 4층(401). 내일 실제로 뜰
+카메라가 있는 층만 나온다(2층 4개 / 3층 2개 / 4층 1개). 내일 실제로 뜰
 화면과 같은 구조다.
 
 > 야간에 두 번 고쳤다. 처음에는 보드 요소만 잘라 1800×656으로 찍고 있었고,
@@ -238,7 +237,7 @@ API_FACILITY_ID  CLIP_STORE_HOST_DIR
 ```bash
 # .env.edge.prod.example:33 기본값이 cuda다. 맥북은 mps.
 ML_WORKER_PROFILE=mps
-API_FACILITY_ID=cmrkv2mqd0000nz5t44td921i
+API_FACILITY_ID=<FACILITY_ID>
 ```
 
 ```bash
@@ -260,7 +259,7 @@ env로 줄 수 있는 값 (`backend/app/features/connection/store.py:75,153-154`
 
 ```
 API_BACKEND_BASE_URL   예: https://<프로덕션 호스트>   ← 이거 하나로 충분
-API_FACILITY_ID        cmrkv2mqd0000nz5t44td921i
+API_FACILITY_ID        <FACILITY_ID>
 EDGE_FACILITY_TOKEN    시설 토큰
 ```
 
@@ -314,9 +313,9 @@ EDGE_FACILITY_TOKEN    시설 토큰
 cd "rtsp-generator"
 uv sync --group dev
 # dataset-ops의 핀된 클립을 저장소 밖 경로 그대로 넘긴다 (복사 금지)
-CLIP=../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4
-uv run rtsp-generator start "$CLIP" --path cam_sp_205 \
-                            "$CLIP" --path cam_sp_2f_prog \
+CLIP="../eldercare-dataset-ops/ml/data/releases/v1/clips/<핀된 클립>"
+uv run rtsp-generator start "$CLIP" --path <카메라A> \
+                            "$CLIP" --path <카메라B> \
                             --name nursing-home --detach
 uv run rtsp-generator list        # RTSP URL 확인
 ```
@@ -326,14 +325,14 @@ uv run rtsp-generator list        # RTSP URL 확인
 엣지 대시보드(3.5-b에서 연 화면)에서 카메라를 추가한다.
 
 - RTSP 주소는 위 `list`가 출력한 URL을 쓴다.
-- **"설치된 방"에서 `205호`와 `프로그램실`을 고른다.** 방을 안 고르면
+- **"설치된 방"에서 **대상 방 두 곳**을 고른다.** 방을 안 고르면
   클라우드 push 대상에서 제외돼 현황판에 영영 안 나타난다.
 - **"방 목록을 아직 받지 못했습니다" 안내가 뜨면 여기서 멈춘다** —
   클라우드 roster가 아직 안 온 것이므로 3.5-b 연결 설정을 다시 본다.
 - 저장 전 **연결** 버튼이 성공해야 한다. 주소를 고쳤으면 다시 눌러야 한다
   (통과한 주소와 지금 값이 다르면 저장이 거부된다).
 
-**진행 조건:** 카메라 2대가 각각 `205호` / `프로그램실`에 매핑된 상태로 저장됨.
+**진행 조건:** 카메라 2대가 각각 대상 방 두 곳에 매핑된 상태로 저장됨.
 
 정리(끝난 뒤):
 
@@ -482,7 +481,7 @@ ssh iwinv 'set -a; . /opt/eldercare-fall-ai/shared/.env; set +a;
 
 -- 0) 시설 id 확인 — 이후 모든 쿼리에 이 값을 넣는다
 SELECT id, name FROM facilities;
--- 행복한요양원 녹양역점 = cmrkv2mqd0000nz5t44td921i
+-- 이 결과의 id를 아래 <FACILITY_ID> 자리에 넣는다
 
 -- 2) 삭제 대상 수 확인 — 47이어야 한다
 --    카메라·이벤트·알림이 전무한 방만 해당
@@ -490,7 +489,7 @@ SELECT id, name FROM facilities;
 --    (facility_id, space_id) 복합키다. 시설 스코프를 빼면 다른 시설의
 --    행까지 대상이 되므로 반드시 넣는다.
 SELECT count(*) FROM spaces s
-WHERE s.facility_id = 'cmrkv2mqd0000nz5t44td921i'
+WHERE s.facility_id = '<FACILITY_ID>'
   AND NOT EXISTS (
     SELECT 1 FROM cameras c
     WHERE c.facility_id = s.facility_id AND c.space_id = s.id)
@@ -506,10 +505,10 @@ WHERE s.facility_id = 'cmrkv2mqd0000nz5t44td921i'
 
 -- 4) 삭제 후 같은 count 쿼리 → 0
 -- 5) 남은 방 수 확인 → 7 (카메라가 붙은 방)
---    남는 방: 2층 4개(202·203·205·프로그램실), 3층 2개(301·305), 4층 1개(401)
+--    남는 방: 2층 4개, 3층 2개, 4층 1개 (카메라가 붙은 방만)
 --    1층과 5층에는 방이 하나도 안 남는다 — 현황판에서 그 층 그룹이 통째로
 --    사라진다. 정상이다(빈 층은 렌더하지 않는다, RoomStatusTreemap:82).
-SELECT count(*) FROM spaces WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
+SELECT count(*) FROM spaces WHERE facility_id = '<FACILITY_ID>';
 ```
 
 **중단 조건:** 2번 결과가 47이 아니면 **멈춘다.** 시드 이후 데이터가 붙었다는
@@ -524,8 +523,8 @@ SELECT count(*) FROM spaces WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
 스트림 기동과 카메라 등록은 **3.5-c**에서 이미 했다. 여기서는 판정만 한다.
 GPU 도착 전이므로 살아 있는 카메라는 2대다.
 
-> **카메라 id 주의(3.5-c 재확인).** 프로덕션에 이미 있는 `cam_sp_205`(205호)와
-> `cam_sp_2f_prog`(프로그램실)에 매핑돼 있어야 한다. 새 id로 등록했다면
+> **카메라 id 주의(3.5-c 재확인).** 프로덕션에 이미 있는 `<카메라A>`(첫 번째 대상 방)와
+> `<카메라B>`(두 번째 대상 방)에 매핑돼 있어야 한다. 새 id로 등록했다면
 > 클라우드에 카메라가 추가돼 7대가 아니라 9대가 되고 기대값이 깨진다.
 
 **어느 화면에서 재는지가 중요하다.** 카메라 7대는 2F·3F·4F에 흩어져 있어
@@ -535,8 +534,8 @@ GPU 도착 전이므로 살아 있는 카메라는 2대다.
 전체 층 화면에서 잰다 (`router.tsx:83,89`):
 
 ```
-/facilities/cmrkv2mqd0000nz5t44td921i/dashboard        ← allView, 여기서 잰다
-/facilities/cmrkv2mqd0000nz5t44td921i/floor/<floorId>  ← 층별, 여기선 안 됨
+/facilities/<FACILITY_ID>/dashboard        ← allView, 여기서 잰다
+/facilities/<FACILITY_ID>/floor/<floorId>  ← 층별, 여기선 안 됨
 ```
 
 전체 층 진입이 안 되면 모니터 설정의 `allowAllView`가 꺼진 것이다
@@ -566,26 +565,26 @@ DOM을 보기 전에 데이터가 맞는지부터 본다. 화면이 틀린 것�
 ```sql
 -- (1) 카메라 총 7대, 방과 1:1
 SELECT count(*) AS cameras, count(DISTINCT space_id) AS spaces
-FROM cameras WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
+FROM cameras WHERE facility_id = '<FACILITY_ID>';
 -- 기대: 7 / 7
 
 -- (2) 최근 3분 내 heartbeat = 2대
 SELECT count(*) FROM cameras
-WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i'
+WHERE facility_id = '<FACILITY_ID>'
   AND last_seen_at >= now() - interval '3 minutes';
 -- 기대: 2
 
 -- (3) 어느 카메라가 살아 있는지 — 등록한 두 대와 일치해야 한다
 SELECT id, space_id, last_seen_at FROM cameras
-WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i'
+WHERE facility_id = '<FACILITY_ID>'
   AND last_seen_at >= now() - interval '3 minutes'
 ORDER BY id;
--- 기대: cam_sp_205 / cam_sp_2f_prog
+-- 기대: <카메라A> / <카메라B>
 
 -- (4) 그 두 방에 활성 알림이 없어야 "녹색"이 된다
 SELECT space_id, count(*) FROM alerts
-WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i'
-  AND space_id IN ('sp_205', 'sp_2f_prog')
+WHERE facility_id = '<FACILITY_ID>'
+  AND space_id IN ('<방A>', '<방B>')
   AND status IN ('NEW', 'ACKED')
 GROUP BY space_id;
 -- 기대: 0행
