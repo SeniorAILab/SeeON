@@ -13,10 +13,22 @@
 미리 챙긴다.** 안 그러면 병합·릴리스를 되돌릴 수 없는 지점까지 지나간 뒤
 3.5단계에서 막힌다.
 
-**1. 낙상 장면 영상 파일 하나**
-`rtsp-generator/` 아래에 둔다. 저장소에 포함돼 있지 않고 워크스페이스
-어디에도 `.mp4`가 없다(야간 전수 검색으로 확인). 3.5-c에서 쓴다.
-같은 파일을 카메라 두 대에 함께 써도 된다.
+**1. 영상 파일 — 이미 있다. 복사하지 말고 경로로 참조한다.**
+
+`eldercare-dataset-ops`의 핀된 릴리스 클립을 쓴다
+(`eldercare-fall-ml-v2/docs/runbooks/local-e2e-rtsp-source.md`에 문서화됨):
+
+```text
+../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4
+```
+
+실재 확인함(132MB). 같은 디렉터리에 다른 클립도 여러 개 있다.
+
+> **저장소 안으로 복사하지 않는다.** 위 런북이 명시한다 —
+> "Do not add MediaMTX, an FFmpeg publisher, a video file, or any other
+> RTSP serving surface to this repository." 사설 의료 영상이고
+> 워크스페이스 `AGENTS.md`도 private media 커밋을 금지한다.
+> `rtsp-generator`는 저장소 밖 경로를 인자로 받으므로 그대로 넘기면 된다.
 
 **2. 엣지 대시보드 계정** — `.env.edge`의
 `API_DASHBOARD_USERNAME` / `API_DASHBOARD_PASSWORD`.
@@ -234,21 +246,18 @@ EDGE_FACILITY_TOKEN    시설 토큰
 
 ### 스트림 2개 (`rtsp-generator`, `README.md:39-59`)
 
-> **영상 파일을 먼저 준비한다.** `rtsp-generator start`는 영상 경로가
-> **필수 인자**인데(`cli.py:27-35`), 워크스페이스 어디에도 `.mp4`가 없다
-> (야간에 전수 검색으로 확인). README의 `fall-sample.mp4`는 예시 이름일 뿐
-> 저장소에 포함돼 있지 않다.
->
-> 낙상 장면이 담긴 영상 하나를 `rtsp-generator/` 아래 두고 아래 명령의
-> 경로를 그 파일로 바꾼다. 같은 파일을 두 경로에 써도 오라클은 성립한다
-> — 판정 기준은 heartbeat 도달 여부이지 영상 내용이 아니다.
+> **영상은 dataset-ops의 핀된 클립을 경로로 참조한다**(준비물 1번 참조).
+> README의 `fall-sample.mp4`는 예시 이름일 뿐 저장소에 없다.
+> 같은 파일을 두 경로에 써도 오라클은 성립한다 — 판정 기준은 heartbeat
+> 도달 여부이지 영상 내용이 아니다.
 
 ```bash
 cd "rtsp-generator"
 uv sync --group dev
-# ./YOUR-VIDEO.mp4 를 실제 파일 경로로 바꾼다 (위 주의 참조)
-uv run rtsp-generator start ./YOUR-VIDEO.mp4 --path cam_sp_205 \
-                            ./YOUR-VIDEO.mp4 --path cam_sp_2f_prog \
+# dataset-ops의 핀된 클립을 저장소 밖 경로 그대로 넘긴다 (복사 금지)
+CLIP=../eldercare-dataset-ops/ml/data/releases/v1/clips/bo1-77e200e0fe334433e287e551.mp4
+uv run rtsp-generator start "$CLIP" --path cam_sp_205 \
+                            "$CLIP" --path cam_sp_2f_prog \
                             --name nursing-home --detach
 uv run rtsp-generator list        # RTSP URL 확인
 ```
