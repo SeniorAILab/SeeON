@@ -92,7 +92,11 @@ gh pr merge 142 --repo SeniorAILab/eldercare-fall-ml-v2 --merge
 ## 3. 릴리스 발행
 
 ```bash
-pnpm release:prod -- vX.Y.Z
+# 현재 최신 릴리스는 v0.5.7이므로 다음은 v0.5.8이다.
+# 태그는 vMAJOR.MINOR.PATCH만 받는다 — v0.5.8-rc1 같은 형식은 거부된다
+# (create-production-release.mjs:70). 야간에 --dry-run으로 검증 확인함.
+pnpm release:prod -- v0.5.8 --dry-run   # 먼저 이걸로 명령을 확인
+pnpm release:prod -- v0.5.8             # 확인 후 실제 발행
 ```
 
 > **태그 push로는 배포가 안 나간다.** `release: published` 트리거만 동작한다.
