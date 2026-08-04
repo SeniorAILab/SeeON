@@ -9,6 +9,7 @@ import type { AlertNote } from "@/services/alertService";
 vi.mock("@/services/alertService", () => ({
   alertService: {
     resolve: vi.fn(async () => ({})),
+    acknowledge: vi.fn(async () => ({})),
     createNote: vi.fn(async () => ({
       id: "note-new",
       type: "MEMO",
@@ -61,7 +62,7 @@ function alert(overrides: Partial<DetectionEvent> = {}): DetectionEvent {
 
 beforeEach(async () => {
   const { alertService } = await import("@/services/alertService");
-  vi.mocked(alertService.resolve).mockClear();
+  vi.mocked(alertService.acknowledge).mockClear();
   vi.mocked(alertService.createNote).mockClear();
   vi.mocked(alertService.listNotes).mockReset();
   vi.mocked(alertService.listNotes).mockResolvedValue([]);
@@ -94,8 +95,8 @@ describe("RoomActionPanel", () => {
     const onResolved = vi.fn();
     render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={alerts} onClose={vi.fn()} onResolved={onResolved} />);
     fireEvent.click(screen.getAllByRole("button", { name: "개별 확인" })[1]);
-    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledWith("fall-2"));
-    expect(alertService.resolve).not.toHaveBeenCalledWith("alert-a");
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalledWith("fall-2"));
+    expect(alertService.acknowledge).not.toHaveBeenCalledWith("alert-a");
     expect(onResolved).toHaveBeenCalled();
   });
 
@@ -110,10 +111,10 @@ describe("RoomActionPanel", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "그룹 확인" })[0]);
 
-    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledTimes(2));
-    expect(alertService.resolve).toHaveBeenCalledWith("fall-1");
-    expect(alertService.resolve).toHaveBeenCalledWith("fall-2");
-    expect(alertService.resolve).not.toHaveBeenCalledWith("bed-1");
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalledTimes(2));
+    expect(alertService.acknowledge).toHaveBeenCalledWith("fall-1");
+    expect(alertService.acknowledge).toHaveBeenCalledWith("fall-2");
+    expect(alertService.acknowledge).not.toHaveBeenCalledWith("bed-1");
   });
   it("pages alert groups by 20 rows and collapses back to five rows", () => {
     const alerts = Array.from({ length: 30 }, (_, index) =>
@@ -152,8 +153,8 @@ describe("RoomActionPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "그룹 확인" }));
 
-    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledTimes(8));
-    for (const item of alerts) expect(alertService.resolve).toHaveBeenCalledWith(item.id);
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalledTimes(8));
+    for (const item of alerts) expect(alertService.acknowledge).toHaveBeenCalledWith(item.id);
   });
 
   it("renders the newest event first within each group", () => {
@@ -183,7 +184,7 @@ describe("RoomActionPanel", () => {
   it("explains that saving a memo does not clear the alarm", () => {
     render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={vi.fn()} />);
 
-    expect(screen.getByText("메모 저장은 기록만 남깁니다. 알람을 끄려면 확인완료를 눌러주세요.")).toBeTruthy();
+    expect(screen.getByText(/알림을 받았다고 알리세요/)).toBeTruthy();
   });
 
   it("renders as a modal dialog and closes from Escape, backdrop, and close button", () => {
@@ -212,7 +213,7 @@ describe("RoomActionPanel", () => {
 
     const dialog = screen.getByRole("dialog", { name: "201호" });
     const closeButton = screen.getByRole("button", { name: "모달 닫기" });
-    const resolveButton = screen.getByRole("button", { name: "확인완료" });
+    const resolveButton = screen.getByRole("button", { name: "해결 완료" });
     expect(document.activeElement).toBe(dialog);
 
     resolveButton.focus();
@@ -306,10 +307,10 @@ describe("RoomActionPanel", () => {
     const { alertService } = await import("@/services/alertService");
     render(<RoomActionPanel space={spaces[1]} status={{ ...status("a", "DANGER"), id: "status-a" }} alerts={[]} onClose={vi.fn()} />);
 
-    const resolveButton = screen.getByRole("button", { name: "확인완료" }) as HTMLButtonElement;
+    const resolveButton = screen.getByRole("button", { name: "확인" }) as HTMLButtonElement;
     expect(resolveButton.disabled).toBe(true);
     fireEvent.click(resolveButton);
-    expect(alertService.resolve).not.toHaveBeenCalled();
+    expect(alertService.acknowledge).not.toHaveBeenCalled();
   });
   it("keeps loaded memo history after the active alert is resolved", async () => {
     const { alertService } = await import("@/services/alertService");
@@ -420,7 +421,7 @@ describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
     );
 
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "확인완료" }));
+    fireEvent.click(screen.getByRole("button", { name: "해결 완료" }));
 
     const nodes = await screen.findAllByRole("alert");
     expect(
@@ -433,7 +434,7 @@ describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
     vi.mocked(alertService.resolve).mockRejectedValueOnce(new Error("network down"));
 
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "확인완료" }));
+    fireEvent.click(screen.getByRole("button", { name: "해결 완료" }));
 
     const nodes = await screen.findAllByRole("alert");
     expect(
@@ -446,9 +447,65 @@ describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
     vi.mocked(alertService.resolve).mockResolvedValueOnce({} as never);
 
     const onResolved = renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "확인완료" }));
+    fireEvent.click(screen.getByRole("button", { name: "해결 완료" }));
 
     await waitFor(() => expect(onResolved).toHaveBeenCalled());
     expect(screen.queryByText(/해결 완료로 바꾸지 못했습니다/)).toBeNull();
+  });
+});
+
+describe("확인(ACK)과 해결 완료(RESOLVE)는 다른 동작이다 (I4)", () => {
+  async function svc() {
+    const { alertService } = await import("@/services/alertService");
+    return alertService;
+  }
+
+  function renderPanel() {
+    render(
+      <RoomActionPanel
+        space={spaces[1]}
+        status={status("a", "DANGER")}
+        alerts={[alert({ id: "event-1" })]}
+        onClose={vi.fn()}
+        onResolved={vi.fn()}
+      />,
+    );
+  }
+
+  it("확인은 메모 없이도 눌리고 ACK만 호출한다", async () => {
+    // TV 앞에서 타이핑하기 전에 "내가 간다"를 먼저 알려야 한다.
+    const alertService = await svc();
+    vi.mocked(alertService.resolve).mockClear();
+    vi.mocked(alertService.acknowledge).mockClear();
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalledWith("event-1"));
+    expect(alertService.resolve).not.toHaveBeenCalled();
+  });
+
+  it("해결 완료는 RESOLVE를 호출한다", async () => {
+    const alertService = await svc();
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "해결 완료" }));
+
+    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledWith("event-1"));
+  });
+
+  it("이미 확인된 알림만 있으면 확인 버튼이 비활성이다", () => {
+    render(
+      <RoomActionPanel
+        space={spaces[1]}
+        status={status("a", "DANGER")}
+        alerts={[alert({ id: "event-1", alertStatus: "ACKNOWLEDGED" })]}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      (screen.getByRole("button", { name: "확인" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

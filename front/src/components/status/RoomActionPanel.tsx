@@ -55,6 +55,8 @@ export function RoomActionPanel({
   const [visibleAlertCounts, setVisibleAlertCounts] = useState<Record<string, number>>({});
   const groups = useMemo(() => eventGroupsFor(status, alerts), [status, alerts]);
   const canResolve = alerts.length > 0;
+  // 아직 아무도 확인하지 않은 알림이 있을 때만 "확인"이 의미가 있다.
+  const canAcknowledge = alerts.some((alert) => alert.alertStatus !== "ACKNOWLEDGED");
   // B4 alert-notes attach to a real Alert id. SpaceStatus.id is a synthetic
   // `status-<spaceId>` key (see alertMerge), never a valid alert id, so notes
   // target the current event's real alert id from `alerts`.
@@ -147,6 +149,35 @@ export function RoomActionPanel({
   }
 
 
+  /**
+   * 확인(ACK). 알림을 받았다는 신호만 보낸다 — 조치 기록을 요구하지 않는다.
+   * TV 앞에서 타이핑하기 전에 "내가 간다"를 먼저 알려야 다른 요양보호사가
+   * 같은 방으로 중복 출동하지 않는다.
+   */
+  async function handleAcknowledge() {
+    await handleAcknowledgeIds(
+      alerts
+        .filter((alert) => alert.alertStatus !== "ACKNOWLEDGED")
+        .map((alert) => alert.id),
+    );
+  }
+
+  async function handleAcknowledgeIds(ids: string[]) {
+    if (ids.length === 0 || busy) return;
+    setBusy(true);
+    setResolveError(null);
+    try {
+      await Promise.all(ids.map((id) => alertService.acknowledge(id)));
+      onResolved?.();
+    } catch (caught) {
+      setResolveError(
+        apiErrorMessage(caught, "확인 처리를 하지 못했습니다. 다시 시도해 주세요."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleResolve(alertIds?: string[]) {
     const ids = alertIds ?? alerts.map((alert) => alert.id);
     if (ids.length === 0 || busy) return;
@@ -226,7 +257,7 @@ export function RoomActionPanel({
                   <div className="mt-1 text-staff-body font-bold text-ink-soft">{group.count}건</div>
                 </div>
                 {group.alerts.length > 0 && (
-                  <button type="button" disabled={busy} onClick={() => void handleResolve(group.alerts.map((alert) => alert.id))} className="min-h-12 rounded-xl bg-brand px-3 py-2 text-staff-btn text-white disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-faint">
+                  <button type="button" disabled={busy} onClick={() => void handleAcknowledgeIds(group.alerts.map((alert) => alert.id))} className="min-h-12 rounded-xl bg-brand px-3 py-2 text-staff-btn text-white disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-faint">
                     그룹 확인
                   </button>
                 )}
@@ -244,7 +275,7 @@ export function RoomActionPanel({
                             <div className="truncate text-sm font-bold text-ink-soft">{alert.aiSummary || alert.message}</div>
                             <div className="mt-1 text-sm font-bold text-ink-faint">{formatDateTime(alert.detectedAt)}</div>
                           </div>
-                          <button type="button" disabled={busy} onClick={() => void handleResolve([alert.id])} className="min-h-12 shrink-0 rounded-lg border border-border px-2 py-1 text-staff-btn text-ink disabled:cursor-not-allowed disabled:text-ink-faint">
+                          <button type="button" disabled={busy} onClick={() => void handleAcknowledgeIds([alert.id])} className="min-h-12 shrink-0 rounded-lg border border-border px-2 py-1 text-staff-btn text-ink disabled:cursor-not-allowed disabled:text-ink-faint">
                             개별 확인
                           </button>
                         </li>
@@ -281,7 +312,10 @@ export function RoomActionPanel({
       </div>
 
       <label className="mt-4 block text-staff-body font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
-      <p className="mt-1 text-base font-bold text-ink-soft">메모 저장은 기록만 남깁니다. 알람을 끄려면 확인완료를 눌러주세요.</p>
+      <p className="mt-1 text-base font-bold text-ink-soft">
+        먼저 <b>확인</b>을 눌러 알림을 받았다고 알리세요. 조치를 마친 뒤
+        내용을 적고 <b>해결 완료</b>를 누르면 알람이 꺼집니다.
+      </p>
       {!canWriteNote && <div className="mt-2 rounded-2xl bg-surface2 px-4 py-3 text-staff-body font-bold text-ink-soft">현재 기록할 이벤트가 없습니다.</div>}
       <textarea
         id={`note-${space.id}`}
@@ -292,11 +326,22 @@ export function RoomActionPanel({
         placeholder={canWriteNote ? "조치 내용을 입력하세요" : "현재 기록할 이벤트가 없습니다"}
       />
       <div className="mt-3 flex flex-wrap gap-2">
+        {/* 확인(ACK)은 메모를 요구하지 않는다. TV 앞에서 타이핑하기 전에
+            "내가 간다"를 먼저 알려야 다른 사람이 중복으로 달려가지 않는다.
+            해결 완료(RESOLVE)만 조치 기록을 요구한다(I4). */}
+        <button
+          type="button"
+          disabled={!canAcknowledge || busy}
+          onClick={() => void handleAcknowledge()}
+          className="h-14 rounded-2xl border border-brand px-5 text-staff-btn text-brand hover:bg-brand-soft disabled:cursor-not-allowed disabled:border-border disabled:text-ink-faint"
+        >
+          {busy ? "처리 중" : "확인"}
+        </button>
         <button type="button" disabled={!canWriteNote || note.trim().length === 0 || noteSaving || notesLoading} onClick={() => void handleSaveNote()} className="h-14 rounded-2xl border border-border px-5 text-staff-btn text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:text-ink-faint">
           {noteSaving ? "저장 중" : "메모 저장"}
         </button>
         <button type="button" disabled={!canResolve || busy} onClick={() => void handleResolve()} className="h-14 rounded-2xl bg-brand px-5 text-staff-btn text-white shadow-card disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-faint">
-          {busy ? "처리 중" : "확인완료"}
+          {busy ? "처리 중" : "해결 완료"}
         </button>
       </div>
       {visibleNoteError && (
