@@ -4,6 +4,7 @@
  * 프로덕션에 접근하지 않고 로컬 dev 서버에서 두 상태를 찍는다.
  *   - mixed:    카메라 2대 LIVE / 5대 STALE (내일 아침 실제 구성, 2녹색 5회색)
  *   - all-live: 전부 LIVE (정상 상태 대조군)
+ *   - panel:    위험한 방을 눌렀을 때의 조작면 (I4 확인/해결 완료 분리)
  *
  * 사용: node visual/capture.mjs <출력디렉터리>
  */
@@ -29,7 +30,7 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const results = [];
 const actions = [];
 
-for (const mode of ["mixed", "all-live"]) {
+for (const mode of ["mixed", "all-live", "panel"]) {
   const url = `${BASE}?mode=${mode}`;
   await page.goto(url, { waitUntil: "networkidle" });
   actions.push({ type: "navigate", target: url, selector: "body", mode, timestamp: new Date().toISOString() });
@@ -91,6 +92,7 @@ await writeFile(
 );
 
 // 오라클: mixed 모드는 정확히 2 LIVE / 5 STALE 이어야 한다.
+// panel 모드는 조작면 승인용이라 타일 카운트 오라클 대상이 아니다.
 const mixed = results.find((r) => r.mode === "mixed");
 if (mixed.live !== 2 || mixed.stale !== 5) {
   console.error(`ORACLE FAIL: expected 2 live / 5 stale, got ${mixed.live}/${mixed.stale}`);

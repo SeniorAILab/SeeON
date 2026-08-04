@@ -109,6 +109,31 @@ createRoot(document.getElementById("root")!).render(
         하니스가 고정 높이를 쓰면 승인한 화면과 TV에 뜨는 화면이 달라진다. */}
     <div className="mt-4 flex min-h-0 flex-1">
       <RoomStatusBoard
+        // panel 모드: 요양보호사가 위험한 방을 눌렀을 때 뜨는 조작면.
+        // I4로 확인(ACK)과 해결 완료(RESOLVE)를 나눈 결과를 눈으로 승인한다.
+        selectedSpace={MODE === "panel" ? spaces.find((sp) => sp.id === "sp_d") ?? null : null}
+        alertsBySpace={
+          MODE === "panel"
+            ? {
+                sp_d: [
+                  {
+                    id: "evt-1",
+                    facilityId: FACILITY,
+                    spaceId: "sp_d",
+                    eventType: "FALL_RISK",
+                    riskLevel: "DANGER",
+                    message: "낙상이 감지되었습니다.",
+                    aiSummary: "낙상이 감지되었습니다.",
+                    detectedAt: new Date().toISOString(),
+                    alertStatus: "PENDING",
+                    actions: [],
+                    confidence: 0.92,
+                    emergency: true,
+                  },
+                ],
+              }
+            : {}
+        }
         spaces={spaces}
         statuses={statuses}
         floors={floors}

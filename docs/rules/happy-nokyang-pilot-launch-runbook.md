@@ -84,6 +84,7 @@ ssh -o BatchMode=yes iwinv 'echo ok && hostname'
 .gjc/_session-019fc81a-.../ultragoal/artifacts/
   monitor-mixed.png      위험 1 + 확인됨 1 + 연결 끊김 5
   monitor-all-live.png   전 카메라 연결, 위험/확인필요/주의/안정 혼재
+  monitor-panel.png      위험한 방을 눌렀을 때의 조작면 (I4 확인/해결 분리)
 ```
 
 **볼 것**
@@ -104,13 +105,13 @@ ssh -o BatchMode=yes iwinv 'echo ok && hostname'
 
 **이 스크린샷이 덮지 않는 것**
 
-승인용 이미지는 요양보호사 현황판 2종뿐이다. 이번 릴리스에 포함되지만
+승인용 이미지는 현황판 2종과 조작면 1종이다. 이번 릴리스에 포함되지만
 **시각 증거가 없는 화면**이 있다 — 승인 범위를 정확히 알고 넘어간다.
 
 | 화면 | 상태 |
 |---|---|
 | 현황판(위험/확인됨/연결끊김) | 스크린샷 있음 |
-| TV 조작면 확인/해결 분리 | 테스트만(`RoomActionPanel.test.tsx` 30건) |
+| TV 조작면 확인/해결 분리 | **스크린샷 있음**(`monitor-panel.png`) + 테스트 30건 |
 | 관리자 이벤트 목록·상세 | 테스트만(`AdminEventDetailPage` 6건 외) |
 | 슈퍼관리자 전역 화면 | 테스트만(`SuperAdminDashboardPage` 12건) |
 | 엣지 대시보드 연결/카메라 | 테스트만(`ml-v2` front 514건에 포함) |
