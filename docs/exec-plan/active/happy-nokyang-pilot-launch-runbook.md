@@ -127,15 +127,33 @@ ssh iwinv 'docker exec eldercare-fall-db pg_dump -U <user> -d <db> \
 ```
 
 ```sql
+-- 0) 시설 id 확인 — 이후 모든 쿼리에 이 값을 넣는다
+SELECT id, name FROM facilities;
+-- 행복한요양원 녹양역점 = cmrkv2mqd0000nz5t44td921i
+
 -- 2) 삭제 대상 수 확인 — 47이어야 한다
 --    카메라·이벤트·알림이 전무한 방만 해당
+--    spaces/cameras/events/alerts는 모두 facility_id를 갖고 FK가
+--    (facility_id, space_id) 복합키다. 시설 스코프를 빼면 다른 시설의
+--    행까지 대상이 되므로 반드시 넣는다.
 SELECT count(*) FROM spaces s
-WHERE NOT EXISTS (SELECT 1 FROM cameras c WHERE c.space_id = s.id)
-  AND NOT EXISTS (SELECT 1 FROM events e WHERE e.space_id = s.id)
-  AND NOT EXISTS (SELECT 1 FROM alerts a WHERE a.space_id = s.id);
+WHERE s.facility_id = 'cmrkv2mqd0000nz5t44td921i'
+  AND NOT EXISTS (
+    SELECT 1 FROM cameras c
+    WHERE c.facility_id = s.facility_id AND c.space_id = s.id)
+  AND NOT EXISTS (
+    SELECT 1 FROM events e
+    WHERE e.facility_id = s.facility_id AND e.space_id = s.id)
+  AND NOT EXISTS (
+    SELECT 1 FROM alerts a
+    WHERE a.facility_id = s.facility_id AND a.space_id = s.id);
 
--- 3) 47이 확인된 뒤에만 DELETE
--- 4) 삭제 후 다시 count → 0
+-- 3) 47이 확인된 뒤에만 DELETE — 위 WHERE를 그대로 옮긴다
+-- DELETE FROM spaces s WHERE s.facility_id = '...' AND NOT EXISTS (...);
+
+-- 4) 삭제 후 같은 count 쿼리 → 0
+-- 5) 남은 방 수 확인 → 7 (카메라가 붙은 방)
+SELECT count(*) FROM spaces WHERE facility_id = 'cmrkv2mqd0000nz5t44td921i';
 ```
 
 **중단 조건:** 2번 결과가 47이 아니면 **멈춘다.** 시드 이후 데이터가 붙었다는
