@@ -60,17 +60,32 @@ ssh -o BatchMode=yes iwinv 'echo ok && hostname'
 
 ## 2. PR 병합 — 순서 고정
 
+> **squash를 쓰면 안 된다.** #658 브랜치는 #657의 커밋 7건을 그대로 포함한다.
+> #657을 squash하면 `main`에는 그 7건과 다른 새 커밋 하나가 생기고, 이어서
+> #658을 squash할 때 같은 변경이 두 갈래로 들어와 충돌한다.
+>
+> 야간에 실제로 시뮬레이션했다(`git worktree` + `merge --squash`):
+> **squash → 5개 파일 충돌**
+> (`RoomStatusTreemap.tsx`, `RoomStatusTreemap.test.tsx`, `alertEndpoints.ts`,
+> `cameras.test.ts`, `monitorStore.test.ts`).
+> **merge commit → 충돌 0건.**
+
 ```bash
-gh pr merge 657 --repo SeniorAILab/eldercare-fall-ai --squash
+gh pr merge 657 --repo SeniorAILab/eldercare-fall-ai --merge
 # main CI 통과 확인 후
-gh pr merge 658 --repo SeniorAILab/eldercare-fall-ai --squash
-gh pr merge 142 --repo SeniorAILab/eldercare-fall-ml-v2 --squash
+gh pr merge 658 --repo SeniorAILab/eldercare-fall-ai --merge
+# ml-v2는 독립이라 방식 무관하지만 통일한다
+gh pr merge 142 --repo SeniorAILab/eldercare-fall-ml-v2 --merge
 ```
 
 **순서를 지켜야 하는 이유:** #658은 `SpaceStatus.connection` 타입을 쓴다.
 #657 없이 병합하면 빌드가 깨진다.
 
 **진행 조건:** `main` CI green.
+
+> 저장소 정책이 squash를 강제한다면, #657을 먼저 squash 병합한 뒤
+> `fix/pilot-admin-surfaces`를 `main`에 rebase해서 중복 커밋을 걷어낸 다음
+> #658을 올린다. 그 경우 rebase 후 CI를 다시 통과시켜야 한다.
 
 ---
 
