@@ -3,6 +3,8 @@ import type { FrontendAlert } from "@/services/api/alertEndpoints";
 
 const ACTIVE_BACKEND_TYPES = new Set(["fall", "bed-exit"]);
 const RESOLVED_STATUS = "RESOLVED";
+/** 요양보호사가 확인했지만 아직 해결되지 않은 상태(I4로 분리됨). */
+const ACKED_STATUS = "ACKED";
 
 export interface AlertUpdateDelta {
   id: string;
@@ -143,7 +145,13 @@ function isResolvedBackendStatus(status: string): boolean {
 }
 
 function mapBackendStatusToAlertStatus(status: string): FrontendAlert["alertStatus"] {
-  return isResolvedBackendStatus(status) ? "ACKNOWLEDGED" : "PENDING";
+  // ACKED를 PENDING으로 두면 확인 전과 화면이 똑같다. 요양보호사가 눌러도
+  // 아무 변화가 없어 다른 사람이 같은 방으로 또 달려간다.
+  // 유니온의 ACKNOWLEDGED가 곧 "직원 확인 완료"다.
+  if (isResolvedBackendStatus(status) || status === ACKED_STATUS) {
+    return "ACKNOWLEDGED";
+  }
+  return "PENDING";
 }
 
 function statusFromAlert(previous: SpaceStatus | undefined, alert: FrontendAlert): SpaceStatus {

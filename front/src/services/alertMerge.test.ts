@@ -7,10 +7,13 @@ import {
   alertsForFacility,
   mergeAck,
   mergeAlerts,
+  mergeAlertUpdates,
+  isActiveAlert,
   reconcileActiveAlertSnapshot,
   mergeAlertsIntoDashboard,
   mergeAlertUpdatesIntoDashboard,
 } from "./alertMerge";
+import type { AlertUpdateDelta } from "./alertMerge";
 import type { FrontendAlert } from "./api/alertEndpoints";
 import type { DashboardResponse, SpaceStatus } from "@/types";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
@@ -405,5 +408,42 @@ describe("bounded-merge — TV 상시 구동에서 메모리가 무한히 늘지
     for (let i = 1; i <= 5; i += 1) {
       expect(state.byId[`active_${i}`]).toBeDefined();
     }
+  });
+});
+
+describe("ACKED는 확인 전과 구분된다 (I4)", () => {
+  // 요양보호사가 "확인"을 누르면 SSE alert-updated 델타로 도착한다.
+  // 이 경로가 ACKED를 PENDING으로 뭉개면 화면이 눌러도 그대로여서
+  // 다른 사람이 같은 방으로 또 달려간다.
+  function ackDelta(id: string, spaceId: string): AlertUpdateDelta {
+    return { id, alertSeq: "2", spaceId, status: "ACKED" } as AlertUpdateDelta;
+  }
+
+  it("확인 델타가 도착하면 ACKNOWLEDGED로 바뀐다", () => {
+    const base = createAlertMergeState([alert({ id: "a1", spaceId: "sp_205" })]);
+
+    const merged = mergeAlertUpdates(base, [ackDelta("a1", "sp_205")]);
+
+    expect(merged.byId.a1.alertStatus).toBe("ACKNOWLEDGED");
+  });
+
+  it("확인해도 알림은 활성으로 남아 방이 DANGER를 유지한다", () => {
+    // 확인은 해결이 아니다. 아직 사람이 가는 중이므로 위험 표시는 유지된다.
+    const base = createAlertMergeState([alert({ id: "a1", spaceId: "sp_205" })]);
+
+    const merged = mergeAlertUpdates(base, [ackDelta("a1", "sp_205")]);
+    const statuses = deriveStatusesFromAlerts({}, alertsForFacility(merged, SCOPED_FACILITY_ID));
+
+    expect(isActiveAlert(merged.byId.a1)).toBe(true);
+    expect(statuses.sp_205.status).toBe("DANGER");
+    expect(statuses.sp_205.alertStatus).toBe("ACKNOWLEDGED");
+  });
+
+  it("확인 전 상태는 PENDING으로 남아 구분된다", () => {
+    const base = createAlertMergeState([alert({ id: "a2", spaceId: "sp_206" })]);
+
+    const statuses = deriveStatusesFromAlerts({}, alertsForFacility(base, SCOPED_FACILITY_ID));
+
+    expect(statuses.sp_206.alertStatus).toBe("PENDING");
   });
 });
