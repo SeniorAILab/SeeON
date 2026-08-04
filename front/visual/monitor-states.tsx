@@ -15,6 +15,27 @@ import { MonitorHeader } from "@/features/monitor/components/MonitorHeader";
 import type { DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 import "@/index.css";
 
+// 조작면은 메모 목록을 서버에서 불러온다. 하니스에는 백엔드가 없으므로
+// 그대로 두면 승인 화면에 **"메모를 불러오지 못했습니다" 빨간 오류가 뜬다.**
+// 방/상태/알림을 이미 고정값으로 주고 있으므로 메모도 같은 방식으로 준다.
+// 오류 배너가 박힌 그림을 승인시키면 정상 화면을 승인한 것이 아니게 된다.
+//
+// 빈 배열을 주는 이유: 갓 발생한 알림에는 메모가 없다. 그 상태의 문구
+// ("저장된 메모가 없습니다")가 내일 현장에서 실제로 보일 문구다.
+const realFetch = window.fetch.bind(window);
+window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (/\/alerts\/[^/]+$/.test(url) && (init?.method ?? "GET").toUpperCase() === "GET") {
+    return Promise.resolve(
+      new Response(JSON.stringify({ notes: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }
+  return realFetch(input as RequestInfo, init);
+}) as typeof window.fetch;
+
 const FACILITY = "fac_demo";
 // 시설명도 데모 값이다. 실제 이름은 어느 요양원인지 특정한다.
 const FACILITY_NAME = "데모 요양원";
