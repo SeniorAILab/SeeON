@@ -341,7 +341,35 @@ GPU 도착 전이므로 살아 있는 카메라는 2대다.
 
 타일마다 `data-space-id` / `data-status` / `data-connection`이 붙어 있다.
 
-**완료 조건:** `LIVE: 2, STALE: 5`.
+> **`LIVE=2`만으로는 "2녹색"이 아니다.** `LIVE`인데 `DANGER`면 그 타일은
+> 빨강이지 녹색이 아니다. 계획 §6이 semantic 판정을 따로 요구하는 이유다.
+
+이어서 실행한다:
+
+```js
+const tiles = [...document.querySelectorAll('[data-connection]')].map((n) => ({
+  space: n.dataset.spaceId,
+  status: n.dataset.status,
+  conn: n.dataset.connection,
+  label: n.getAttribute('aria-label'),
+}));
+
+// (5) LIVE 2개가 전부 STABLE인가 — 이래야 "녹색"이다
+const live = tiles.filter((t) => t.conn === 'LIVE');
+console.log('live', live.length, live.every((t) => t.status === 'STABLE'));
+// 기대: 2 true
+
+// (6) STALE 5개가 status와 무관하게 "연결 끊김" 라벨을 다는가
+const stale = tiles.filter((t) => t.conn === 'STALE');
+console.log('stale', stale.length, stale.every((t) => t.label?.includes('연결 끊김')));
+// 기대: 5 true
+```
+
+**완료 조건:** `LIVE: 2, STALE: 5` **그리고** (5) `2 true`, (6) `5 true`.
+
+> **(5)가 실패해도 시스템 결함이 아닐 수 있다.** 판정 시점에 실제 낙상이
+> 진행 중이면 `LIVE + DANGER`가 정직하게 나타난다 — 오라클 실패가 아니라
+> 시스템이 옳게 동작하는 것이다. 이벤트가 없는 시점에 다시 잰다.
 
 ---
 

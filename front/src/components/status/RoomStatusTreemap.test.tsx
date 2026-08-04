@@ -425,4 +425,37 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
       expect(tile.querySelector(".text-xs")).toBeNull();
     });
   });
+
+  // 계획 §6 CRIT-P3-017: LIVE=2/STALE=5 카운트는 "2녹색5회색"과 동치가 아니다.
+  // LIVE인데 DANGER면 그 타일은 빨강이다. 오라클이 그걸 녹색으로 세지
+  // 않는지 고정한다.
+  describe("green-gray-semantics — 카운트가 색을 보장하지 않는다", () => {
+    it("LIVE + DANGER는 STABLE이 아니므로 녹색 집합에 들지 않는다", () => {
+      renderTile("DANGER", "LIVE");
+      const tile = screen.getByRole("button", { name: /205호/ });
+
+      expect(tile.getAttribute("data-connection")).toBe("LIVE");
+      // 오라클 (5)의 판정식과 같은 조건.
+      expect(tile.getAttribute("data-status")).not.toBe("STABLE");
+    });
+
+    it("LIVE + STABLE만 녹색 집합에 든다", () => {
+      renderTile("STABLE", "LIVE");
+      const tile = screen.getByRole("button", { name: /205호/ });
+
+      expect(tile.getAttribute("data-connection")).toBe("LIVE");
+      expect(tile.getAttribute("data-status")).toBe("STABLE");
+    });
+
+    it("STALE은 underlying status와 무관하게 연결 끊김 라벨을 단다", () => {
+      // 오라클 (6)의 판정식과 같은 조건.
+      for (const level of ["STABLE", "DANGER", "CAUTION", "CHECK_NEEDED"] as const) {
+        const { unmount } = renderTile(level, "STALE");
+        const tile = screen.getByRole("button", { name: /205호/ });
+        expect(tile.getAttribute("aria-label")).toContain("연결 끊김");
+        expect(tile.getAttribute("data-connection")).toBe("STALE");
+        unmount();
+      }
+    });
+  });
 });
