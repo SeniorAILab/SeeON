@@ -508,4 +508,19 @@ describe("확인(ACK)과 해결 완료(RESOLVE)는 다른 동작이다 (I4)", ()
       (screen.getByRole("button", { name: "확인" }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  it("확인 후에도 패널이 열려 있어 메모를 이어서 쓸 수 있다", async () => {
+    // 확인 → 방문 → 기록 → 해결 완료가 한 흐름이다. 확인에서 패널이 닫히면
+    // 요양보호사가 다시 찾아 들어와야 하고, 그 사이 기록이 누락된다.
+    const alertService = await svc();
+    vi.mocked(alertService.acknowledge).mockClear();
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalled());
+
+    // 메모 입력과 해결 완료가 그대로 남아 있다.
+    expect(screen.getByPlaceholderText("조치 내용을 입력하세요")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "해결 완료" })).toBeTruthy();
+  });
 });
