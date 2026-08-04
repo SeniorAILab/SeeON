@@ -108,7 +108,8 @@ ssh iwinv 'docker ps --format "{{.Names}}\t{{.Status}}"'
 **`current.json`은 구버전인데 깨진 신버전 컨테이너가 떠 있을 수 있다.**
 
 ```bash
-ssh iwinv '<app_root>/scripts/deploy/iwinv-deploy.sh --rollback'
+# 경로는 iwinv-deploy.sh:5-6 기준 (APP_ROOT=/opt/eldercare-fall-ai, APP_DIR=$APP_ROOT/repo)
+ssh iwinv '/opt/eldercare-fall-ai/repo/scripts/deploy/iwinv-deploy.sh --rollback'
 # 특정 SHA로: --rollback <sha>
 ```
 
@@ -120,10 +121,28 @@ ssh iwinv '<app_root>/scripts/deploy/iwinv-deploy.sh --rollback'
 
 **반드시 덤프 먼저.**
 
+경로는 `scripts/deploy/iwinv-deploy.sh:5-11`에서 확인했다 —
+`APP_ROOT=/opt/eldercare-fall-ai`, env는 `$APP_ROOT/shared/.env`.
+DB 자격증명은 그 env 파일에만 있으므로 **하드코딩하지 말고 읽어서 쓴다.**
+
 ```bash
-# 1) 덤프
-ssh iwinv 'docker exec eldercare-fall-db pg_dump -U <user> -d <db> \
-  -t spaces -t floors --data-only' > spaces-floors-$(date +%Y%m%d-%H%M).sql
+# 1) 덤프 — 자격증명을 env에서 읽어 쓴다(추측 금지)
+ssh iwinv 'set -a; . /opt/eldercare-fall-ai/shared/.env; set +a;
+  docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" eldercare-fall-db \
+    pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    -t spaces -t floors --data-only' \
+  > spaces-floors-$(date +%Y%m%d-%H%M).sql
+
+# 덤프가 비어 있지 않은지 확인 — 0바이트면 여기서 멈춘다
+wc -l spaces-floors-*.sql
+```
+
+이후 SQL은 같은 방식으로 접속한다:
+
+```bash
+ssh iwinv 'set -a; . /opt/eldercare-fall-ai/shared/.env; set +a;
+  docker exec -it -e PGPASSWORD="$POSTGRES_PASSWORD" eldercare-fall-db \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
 ```sql
