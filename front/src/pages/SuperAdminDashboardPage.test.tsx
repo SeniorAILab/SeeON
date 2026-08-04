@@ -272,4 +272,54 @@ describe("I12 — 전역 카메라 건강상태", () => {
     ).toBeTruthy();
     expect(screen.queryByTestId("camera-health-stale")).toBeNull();
   });
+
+  it("시설이 둘 이상이면 카메라 지표를 전역인 척 보여주지 않는다", async () => {
+    // GET /cameras는 한 시설에만 스코프된다. 다중 시설 화면에 그 값을 올리면
+    // 한 시설 숫자를 전체로 말하게 된다.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) {
+          return okJsonResponse([
+            { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: null },
+          ]);
+        }
+        return okJsonResponse([seededFacility, orphanDuplicateFacility]);
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+
+    await screen.findAllByRole("heading", { name: DUPLICATE_FACILITY_NAME });
+    expect(screen.queryByTestId("camera-health-stale")).toBeNull();
+  });
+
+  it("시설이 하나면 스코프가 일치하므로 보여준다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) {
+          return okJsonResponse([
+            { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: null },
+          ]);
+        }
+        return okJsonResponse([seededFacility]);
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+
+    const stale = await screen.findByTestId("camera-health-stale");
+    expect(stale.textContent).toContain("1");
+  });
 });

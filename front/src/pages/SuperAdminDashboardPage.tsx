@@ -55,7 +55,21 @@ export function SuperAdminDashboardPage() {
     };
   }, [setFacilitiesStore]);
 
+  /**
+   * `GET /cameras`는 `requireFacilityId`로 **한 시설**에만 스코프된다.
+   * 그래서 시설이 둘 이상일 때 이 숫자를 전역 지표로 올리면 한 시설의 값을
+   * 전체인 것처럼 말하게 된다 — 지어낸 상태다.
+   *
+   * 시설이 정확히 하나일 때만(= 스코프와 화면이 일치할 때만) 보여준다.
+   * 다중 시설 전역 집계는 시설별 API가 생긴 뒤에 다시 붙인다.
+   */
+  const singleFacilityId = facilities.length === 1 ? facilities[0].id : null;
+
   useEffect(() => {
+    if (!singleFacilityId) {
+      setCameraHealth(null);
+      return;
+    }
     let active = true;
     listCameras()
       .then((cameras) => {
@@ -72,7 +86,7 @@ export function SuperAdminDashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [singleFacilityId]);
 
   async function handleLogout() {
     switchFacility(null);
