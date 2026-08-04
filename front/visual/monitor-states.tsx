@@ -7,21 +7,26 @@
  *
  * 개발 전용. 프로덕션 번들에 포함되지 않는다.
  */
+import { useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import { RoomStatusBoard } from "@/components/status/RoomStatusBoard";
-import type { Floor, Space, SpaceStatus } from "@/types";
+import { MonitorHeader } from "@/features/monitor/components/MonitorHeader";
+import type { DetectionEvent, Floor, Space, SpaceStatus } from "@/types";
 import "@/index.css";
 
 const FACILITY = "fac_demo";
+// 시설명도 데모 값이다. 실제 이름은 어느 요양원인지 특정한다.
+const FACILITY_NAME = "데모 요양원";
 
 // 카메라 7대가 한 층이 아니라 세 층에 흩어진 구성. 층당 4/2/1개다.
 // 한 층으로 뭉쳐 찍으면 승인한 화면과 현장 화면의 층 구성이 달라지므로
 // 실제 배치와 같은 분포를 쓴다. 방 이름은 데모 값이다 —
 // 이 저장소는 공개이고 실제 호실 번호는 입주자 위치 정보다.
 const floors: Floor[] = [
-  { id: "fl_2f", facilityId: FACILITY, name: "2층", orderIndex: 2, isActive: true },
-  { id: "fl_3f", facilityId: FACILITY, name: "3층", orderIndex: 3, isActive: true },
-  { id: "fl_4f", facilityId: FACILITY, name: "4층", orderIndex: 4, isActive: true },
+  { id: "fl_2f", facilityId: FACILITY, name: "2층", orderIndex: 2 },
+  { id: "fl_3f", facilityId: FACILITY, name: "3층", orderIndex: 3 },
+  { id: "fl_4f", facilityId: FACILITY, name: "4층", orderIndex: 4 },
 ];
 
 function space(id: string, name: string, floorId = "fl_2f"): Space {
@@ -104,17 +109,59 @@ const statuses: Record<string, SpaceStatus> =
 
 // 실제 TV(1920x1080)를 채운다. 고정 크기로 잘라 두면 승인한 화면과
 // 현장에서 보이는 화면의 여백·타일 크기가 달라진다.
-createRoot(document.getElementById("root")!).render(
-  <div data-testid="visual-root" className="flex h-screen w-screen flex-col bg-bg p-4">
-    {/* FloorMonitorPage:190과 같은 컨테이너다 — 보드가 남은 높이를 채운다.
-        하니스가 고정 높이를 쓰면 승인한 화면과 TV에 뜨는 화면이 달라진다. */}
-    <div className="mt-4 flex min-h-0 flex-1">
+//
+// 헤더까지 함께 그린다. 처음에는 보드만 그렸는데, 그러면 승인 화면에
+// **알림 벨 배지가 아예 없다.** 벨 배지는 "상단 가로 배너를 만들지 말고
+// 벨 숫자 배지로만 알린다"는 요구의 산출물이라, 그게 빠진 스크린샷을
+// 승인받으면 정작 요구한 물건을 승인하지 못한 것이 된다.
+// FloorMonitorPage:172가 헤더를 보드 위에 두는 것과 같은 구성이다.
+function Harness() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const disconnected = spaces
+    .filter((sp) => statuses[sp.id]?.connection === "STALE")
+    .map((sp) => ({ spaceId: sp.id, name: sp.name, lastSeenAt: null }));
+  const danger = Object.values(statuses).filter((st) => st.status === "DANGER").length;
+  const stable = Object.values(statuses).filter((st) => st.status === "STABLE").length;
+
+  return (
+    <div
+      ref={rootRef}
+      data-testid="visual-root"
+      className="flex h-screen w-screen flex-col bg-bg p-4"
+    >
+      <MonitorHeader
+        facilityName={FACILITY_NAME}
+        floorTitle="전체"
+        summary={{
+          totalSpaces: spaces.length,
+          stable,
+          caution: 0,
+          danger,
+          checkNeeded: danger,
+          unacknowledged: MODE === "all-live" ? 1 : 2,
+        }}
+        totalPeople={spaces.length}
+        connection="NORMAL"
+        lastUpdateAt={new Date().toISOString()}
+        soundEnabled
+        onToggleSound={() => {}}
+        onRefresh={() => {}}
+        fullscreenRef={rootRef as React.RefObject<HTMLElement>}
+        floors={floors}
+        currentFloorId={null}
+        facilityId={FACILITY}
+        // 연결 끊긴 방이 벨 배지의 숫자가 된다. 지어낸 숫자를 쓰지 않는다.
+        disconnectedRooms={disconnected}
+      />
+      {/* FloorMonitorPage:190과 같은 컨테이너다 — 보드가 남은 높이를 채운다.
+          하니스가 고정 높이를 쓰면 승인한 화면과 TV에 뜨는 화면이 달라진다. */}
+      <div className="mt-4 flex min-h-0 flex-1">
       <RoomStatusBoard
         // panel 모드: 요양보호사가 위험한 방을 눌렀을 때 뜨는 조작면.
         // I4로 확인(ACK)과 해결 완료(RESOLVE)를 나눈 결과를 눈으로 승인한다.
         selectedSpace={MODE === "panel" ? spaces.find((sp) => sp.id === "sp_d") ?? null : null}
         alertsBySpace={
-          MODE === "panel"
+          (MODE === "panel"
             ? {
                 sp_d: [
                   {
@@ -133,7 +180,7 @@ createRoot(document.getElementById("root")!).render(
                   },
                 ],
               }
-            : {}
+            : {}) as Record<string, DetectionEvent[]>
         }
         spaces={spaces}
         statuses={statuses}
@@ -142,8 +189,20 @@ createRoot(document.getElementById("root")!).render(
         lastUpdateAt={new Date().toISOString()}
         variant="staff"
         layout="overview"
-        cardSize="xl"
+        // 프로덕션 기본값과 같은 값을 쓴다(monitorSettingsStore.ts:14 = "lg").
+        // 여기서 "xl"을 쓰면 승인한 화면이 실제 TV보다 크게 그려져,
+        // 넘침 여부를 승인 시점에 판별할 수 없다.
+        cardSize="lg"
       />
+      </div>
     </div>
-  </div>,
+  );
+}
+
+// MonitorHeader가 라우터 훅(useNavigate)을 쓰므로 Router로 감싼다.
+// 감싸지 않으면 하니스가 흰 화면으로 뜨고, 그걸 승인 산출물로 착각하기 쉽다.
+createRoot(document.getElementById("root")!).render(
+  <MemoryRouter>
+    <Harness />
+  </MemoryRouter>,
 );
