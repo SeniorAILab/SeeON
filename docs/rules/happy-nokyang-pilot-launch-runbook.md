@@ -101,6 +101,18 @@ pnpm release:prod -- v0.5.8             # 확인 후 실제 발행
 
 > **태그 push로는 배포가 안 나간다.** `release: published` 트리거만 동작한다.
 
+**발행 전에 서버 여유를 먼저 본다.** 완전히 안전한 검사다 — 메모리와
+디스크만 읽고 즉시 종료하며 아무것도 바꾸지 않는다
+(`iwinv-deploy.sh:30-37`, `--preflight-only`는 `preflight` 실행 후 `exit 0`).
+
+```bash
+ssh iwinv '/opt/eldercare-fall-ai/repo/scripts/deploy/iwinv-deploy.sh --preflight-only'
+# 필요: 메모리+스왑 1024MiB 이상, 디스크 2048MiB 이상
+```
+
+여기서 부족하다고 나오면 **발행하지 않는다.** 배포 도중 같은 검사로 멈추면
+컨테이너만 교체된 채 릴리스 포인터가 갱신되지 않는 상태가 된다(5단계 참조).
+
 배포 경로: Actions → Jenkins webhook(30초, 재시도 없음) → SHA resolve →
 `iwinv-deploy.sh --sha <sha>`
 
