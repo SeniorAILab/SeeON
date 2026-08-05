@@ -51,6 +51,7 @@ describe("SuperAdminDashboardPage", () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
       if (url.endsWith("/facilities")) return okJsonResponse([seededFacility]);
+      if (url.endsWith("/cameras")) return okJsonResponse([]);
       throw new Error(`Unexpected request ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -71,8 +72,10 @@ describe("SuperAdminDashboardPage", () => {
     expect(screen.queryByText("알림")).toBeNull();
     expect(screen.queryByText("-")).toBeNull();
     expect(screen.queryByText("대시보드 연결 실패")).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v1/facilities");
+    // 시설 목록 + 카메라 건강상태만 부른다. 시설 스코프 대시보드 API를
+    // 미리 당겨오지 않는다는 원래 의도는 그대로다.
+    const requested = fetchMock.mock.calls.map((call) => String(call[0])).sort();
+    expect(requested).toEqual(["/api/v1/cameras", "/api/v1/facilities"]);
   });
   it("renders a friendly fallback instead of a raw API error body when facilities fail to load", async () => {
     const rawError = JSON.stringify({ error: "Internal Server Error", statusCode: 500 });
@@ -115,7 +118,7 @@ describe("SuperAdminDashboardPage", () => {
       expect(useFacilityStore.getState().currentFacilityId).toBe(SCOPED_FACILITY_ID)
     );
   });
-  it("disambiguates a duplicate facility with a null backend address using its ID suffix", async () => {
+  it("disambiguates duplicate facility names by always showing the full facility ID", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(async () =>
@@ -133,6 +136,190 @@ describe("SuperAdminDashboardPage", () => {
       await screen.findAllByRole("heading", { name: DUPLICATE_FACILITY_NAME }),
     ).toHaveLength(2);
     expect(screen.getByText("경기도 의정부시 녹양로 12")).toBeTruthy();
-    expect(screen.getByText("시설 ID: orphan")).toBeTruthy();
+    // 이름이 겹칠 때만 끝 6자리를 보여주던 것을 폐기했다. 기사님이 엣지 연결
+    // 설정에 붙여넣어야 하므로 항상 전체 ID를 노출한다.
+    expect(
+      screen.getByTestId(`facility-id-${orphanDuplicateFacility.id}`).textContent,
+    ).toBe(orphanDuplicateFacility.id);
+    expect(
+      screen.getByTestId(`facility-id-${SCOPED_FACILITY_ID}`).textContent,
+    ).toBe(SCOPED_FACILITY_ID);
+  });
+});
+
+describe("I11 — 기사 인계용 시설 ID", () => {
+  function renderWithFacilities() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => okJsonResponse([seededFacility]))
+    );
+    return render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+  }
+
+  it("시설 ID를 끝 6자리가 아니라 전체로 보여준다", async () => {
+    renderWithFacilities();
+
+    const idNode = await screen.findByTestId(`facility-id-${SCOPED_FACILITY_ID}`);
+    expect(idNode.textContent).toBe(SCOPED_FACILITY_ID);
+  });
+
+  it("복사 버튼이 전체 시설 ID를 클립보드에 넣는다", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+
+    renderWithFacilities();
+
+    const copyBtn = await screen.findByRole("button", {
+      name: `${DUPLICATE_FACILITY_NAME} 시설 ID 복사`,
+    });
+    fireEvent.click(copyBtn);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(SCOPED_FACILITY_ID));
+  });
+
+  it("클립보드 권한이 없어도 ID는 화면에 그대로 남는다", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+      configurable: true,
+      writable: true,
+    });
+
+    renderWithFacilities();
+
+    const copyBtn = await screen.findByRole("button", {
+      name: `${DUPLICATE_FACILITY_NAME} 시설 ID 복사`,
+    });
+    fireEvent.click(copyBtn);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(`facility-id-${SCOPED_FACILITY_ID}`).textContent
+      ).toBe(SCOPED_FACILITY_ID)
+    );
+  });
+});
+
+describe("I12 — 전역 카메라 건강상태", () => {
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const justNow = new Date().toISOString();
+
+  function stubFetch(cameras: unknown[]) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) return okJsonResponse(cameras);
+        return okJsonResponse([seededFacility]);
+      })
+    );
+  }
+
+  function renderPage() {
+    return render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+  }
+
+  it("끊긴 카메라 수를 전역 화면에서 먼저 보여준다", async () => {
+    stubFetch([
+      { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: justNow },
+      { id: "c2", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_2", online: true, lastSeenAt: twoDaysAgo },
+      { id: "c3", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_3", online: true, lastSeenAt: null },
+    ]);
+
+    renderPage();
+
+    const stale = await screen.findByTestId("camera-health-stale");
+    // online=true여도 lastSeenAt 기준으로 2건이 끊김이다.
+    expect(stale.textContent).toContain("2");
+  });
+
+  it("전부 살아 있으면 끊김 0으로 표시한다", async () => {
+    stubFetch([
+      { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: justNow },
+    ]);
+
+    renderPage();
+
+    const stale = await screen.findByTestId("camera-health-stale");
+    expect(stale.textContent).toContain("0");
+  });
+
+  it("카메라 조회가 실패해도 시설 목록은 그대로 보인다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) throw new Error("boom");
+        return okJsonResponse([seededFacility]);
+      })
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { name: DUPLICATE_FACILITY_NAME })
+    ).toBeTruthy();
+    expect(screen.queryByTestId("camera-health-stale")).toBeNull();
+  });
+
+  it("시설이 둘 이상이면 카메라 지표를 전역인 척 보여주지 않는다", async () => {
+    // GET /cameras는 한 시설에만 스코프된다. 다중 시설 화면에 그 값을 올리면
+    // 한 시설 숫자를 전체로 말하게 된다.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) {
+          return okJsonResponse([
+            { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: null },
+          ]);
+        }
+        return okJsonResponse([seededFacility, orphanDuplicateFacility]);
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+
+    await screen.findAllByRole("heading", { name: DUPLICATE_FACILITY_NAME });
+    expect(screen.queryByTestId("camera-health-stale")).toBeNull();
+  });
+
+  it("시설이 하나면 스코프가 일치하므로 보여준다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/cameras")) {
+          return okJsonResponse([
+            { id: "c1", facilityId: SCOPED_FACILITY_ID, spaceId: "sp_1", online: true, lastSeenAt: null },
+          ]);
+        }
+        return okJsonResponse([seededFacility]);
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <SuperAdminDashboardPage />
+      </MemoryRouter>
+    );
+
+    const stale = await screen.findByTestId("camera-health-stale");
+    expect(stale.textContent).toContain("1");
   });
 });

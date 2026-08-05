@@ -189,3 +189,38 @@ describe("alert media request coordinator", () => {
     expect(completedSignals[0]?.aborted).toBe(false);
   });
 });
+
+describe("근거 영상 기능 비활성 — 지어낸 상태를 말하지 않는다", () => {
+  const requestKey = createAlertMediaRequestKey({
+    facilityId: "fac_happy_nokyang",
+    alertId: "alert-1",
+    userId: "user-1",
+  });
+  const loading: AlertMediaPanelState = { kind: "LOADING", requestKey };
+
+  function failWith(error: unknown): AlertMediaPanelState {
+    return reduceAlertMediaState(loading, { type: "REQUEST_FAILED", requestKey, error });
+  }
+
+  it("기능이 꺼져 있으면 FEATURE_DISABLED로 구분한다", () => {
+    // 백엔드 requireEnabled()가 이 코드를 본문에 실어 404를 던진다.
+    const body = JSON.stringify({
+      statusCode: 404,
+      message: "media",
+      code: "MEDIA_FEATURE_DISABLED",
+    });
+
+    expect(failWith(new ApiError(404, body)).kind).toBe("FEATURE_DISABLED");
+  });
+
+  it("코드 없는 404는 여전히 UNAVAILABLE이다", () => {
+    // "이 알림에 클립이 없음"은 다른 사실이므로 섞으면 안 된다.
+    const body = JSON.stringify({ statusCode: 404, message: "media" });
+
+    expect(failWith(new ApiError(404, body)).kind).toBe("UNAVAILABLE");
+  });
+
+  it("권한 실패는 기능 비활성으로 오인되지 않는다", () => {
+    expect(failWith(new ApiError(403, "Forbidden")).kind).toBe("DENIED");
+  });
+});

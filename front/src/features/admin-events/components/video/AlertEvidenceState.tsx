@@ -57,6 +57,15 @@ export function AlertEvidenceState({ state, onRetry }: AlertEvidenceStateProps) 
           <p>이 알림에 연결된 근거 영상이 없습니다.</p>
         </StateFrame>
       );
+    case "FEATURE_DISABLED":
+      return (
+        <StateFrame Icon={VideoOff} role="status">
+          <p>근거 영상 저장이 아직 켜져 있지 않습니다.</p>
+          <p className="mt-1 text-sm text-ink-faint">
+            이 알림의 녹화가 실패한 것이 아니라, 기능이 꺼져 있는 상태입니다.
+          </p>
+        </StateFrame>
+      );
     case "EXPIRED":
       return (
         <StateFrame Icon={ArchiveX} role="status">

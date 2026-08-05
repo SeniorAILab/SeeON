@@ -1,0 +1,106 @@
+/**
+ * 아침 승인용 현황판 스크린샷 캡처.
+ *
+ * 프로덕션에 접근하지 않고 로컬 dev 서버에서 두 상태를 찍는다.
+ *   - mixed:    카메라 2대 LIVE / 5대 STALE (내일 아침 실제 구성, 2녹색 5회색)
+ *   - all-live: 전부 LIVE (정상 상태 대조군)
+ *   - panel:    위험한 방을 눌렀을 때의 조작면 (I4 확인/해결 완료 분리)
+ *
+ * 사용: node visual/capture.mjs <출력디렉터리>
+ */
+// playwright는 프로젝트 의존성이 아니라 npx 캐시에 있다.
+// PLAYWRIGHT_PACKAGE로 경로를 넘기면 그걸 쓴다.
+const pwPath = process.env.PLAYWRIGHT_PACKAGE ?? "playwright";
+const { chromium } = await import(pwPath);
+import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const outDir = resolve(process.argv[2] ?? "./visual-out");
+const BASE = "http://localhost:5199/visual/monitor-states.html";
+
+await mkdir(outDir, { recursive: true });
+
+// 브라우저 바이너리는 PLAYWRIGHT_CHROMIUM으로 지정할 수 있다.
+// (npx 캐시의 playwright 버전과 다운로드된 빌드가 어긋날 때 사용)
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM || undefined;
+const browser = await chromium.launch(executablePath ? { executablePath } : {});
+// TV 벽면 기준 해상도. 4m 가독성을 이 크기에서 판단한다.
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+
+const results = [];
+const actions = [];
+
+for (const mode of ["mixed", "all-live", "panel"]) {
+  const url = `${BASE}?mode=${mode}`;
+  await page.goto(url, { waitUntil: "networkidle" });
+  actions.push({ type: "navigate", target: url, selector: "body", mode, timestamp: new Date().toISOString() });
+  await page.waitForSelector('[data-testid="visual-root"]');
+  await page.waitForSelector("[data-space-id]");
+  actions.push({ type: "waitForSelector", target: "[data-space-id]", selector: "[data-space-id]", mode, timestamp: new Date().toISOString() });
+
+  const tiles = await page.$$eval("[data-space-id]", (nodes) =>
+    nodes.map((n) => ({
+      spaceId: n.getAttribute("data-space-id"),
+      status: n.getAttribute("data-status"),
+      connection: n.getAttribute("data-connection"),
+      label: n.getAttribute("aria-label"),
+    })),
+  );
+
+  const live = tiles.filter((t) => t.connection === "LIVE").length;
+  const stale = tiles.filter((t) => t.connection === "STALE").length;
+  const danger = tiles.filter((t) => t.status === "DANGER").length;
+
+  const file = `${outDir}/monitor-${mode}.png`;
+  // 요양보호사가 실제로 보는 것은 TV 화면 전체다. 보드 요소만 잘라 찍으면
+  // 여백·배치·밀도를 승인할 수 없고, 승인한 화면과 배포된 화면이 달라진다.
+  await page.screenshot({ path: file, fullPage: false });
+  actions.push({ type: "screenshot", target: file, selector: "viewport:1920x1080", mode, timestamp: new Date().toISOString() });
+
+  actions.push({
+    type: "assert",
+    target: "[data-connection]",
+    selector: "[data-connection]",
+    mode,
+    result: { total: tiles.length, live, stale, danger },
+    timestamp: new Date().toISOString(),
+  });
+  results.push({ mode, file, total: tiles.length, live, stale, danger, tiles });
+  console.log(`[${mode}] tiles=${tiles.length} live=${live} stale=${stale} danger=${danger} -> ${file}`);
+}
+
+await browser.close();
+
+// 게이트가 검증할 수 있도록 자동화 트랜스크립트를 JSON으로 남긴다.
+const { writeFile } = await import("node:fs/promises");
+await writeFile(
+  `${outDir}/monitor-capture-transcript.json`,
+  JSON.stringify(
+    {
+      schemaVersion: 1,
+      tool: "playwright-chromium",
+      viewport: { width: 1920, height: 1080 },
+      capturedAt: new Date().toISOString(),
+      oracle: { expect: { mixed: { live: 2, stale: 5 }, allLive: { stale: 0 } } },
+      actions,
+      runs: results,
+    },
+    null,
+    2,
+  ),
+  "utf8",
+);
+
+// 오라클: mixed 모드는 정확히 2 LIVE / 5 STALE 이어야 한다.
+// panel 모드는 조작면 승인용이라 타일 카운트 오라클 대상이 아니다.
+const mixed = results.find((r) => r.mode === "mixed");
+if (mixed.live !== 2 || mixed.stale !== 5) {
+  console.error(`ORACLE FAIL: expected 2 live / 5 stale, got ${mixed.live}/${mixed.stale}`);
+  process.exit(1);
+}
+const allLive = results.find((r) => r.mode === "all-live");
+if (allLive.stale !== 0) {
+  console.error(`ORACLE FAIL: all-live expected 0 stale, got ${allLive.stale}`);
+  process.exit(1);
+}
+console.log("ORACLE PASS: mixed=2 live/5 stale, all-live=0 stale");

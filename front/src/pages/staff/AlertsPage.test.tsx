@@ -122,3 +122,35 @@ describe("AlertsPage resolved notes", () => {
     expect(document.activeElement).toBe(reopenedTrigger);
   });
 });
+
+describe("확인됨 목록은 해결 경로를 안내한다", () => {
+  async function svc() {
+    const { alertService } = await import("@/services/alertService");
+    return alertService;
+  }
+
+  it("확인된 알림이 있으면 조치 기록을 어디서 남기는지 알려준다", async () => {
+    // 이 화면에는 메모 작성 UI가 없다. 안내가 없으면 '해결 완료'를 눌러도
+    // 거부만 반복되고 어디로 가야 할지 알 수 없는 막다른 길이 된다.
+    const alertService = await svc();
+    vi.mocked(alertService.listRecent).mockResolvedValue([
+      { ...resolvedAlert, id: "alert-acked", status: "ACKED" } as AlertView,
+    ]);
+
+    render(<AlertsPage />);
+
+    expect(
+      await screen.findByText(/기록은 현황판에서 방을 눌러 남길 수 있습니다/),
+    ).toBeTruthy();
+  });
+
+  it("확인된 알림이 없으면 안내를 띄우지 않는다", async () => {
+    const alertService = await svc();
+    vi.mocked(alertService.listRecent).mockResolvedValue([resolvedAlert]);
+
+    render(<AlertsPage />);
+
+    await screen.findByText("확인된 알림이 없습니다.");
+    expect(screen.queryByText(/기록은 현황판에서/)).toBeNull();
+  });
+});

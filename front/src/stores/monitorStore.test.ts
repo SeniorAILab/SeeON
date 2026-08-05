@@ -627,3 +627,46 @@ describe("camera freshness — 죽은 카메라를 정상으로 표시하지 않
     useMonitorStore.getState().stop();
   });
 });
+
+describe("stale-boundary — 3분 경계가 스토어까지 반영된다", () => {
+  // 계획의 B1 수용 기준이 이 이름으로 실행된다
+  // (`vitest run src/stores/monitorStore.test.ts -t stale-boundary`).
+  // 순수 함수 경계는 services/api/cameras.test.ts가 검증하고, 여기서는
+  // 그 판정이 실제 스토어 상태까지 도달하는지 본다.
+  // 실제 시계를 쓰면 픽스처 생성과 판정 사이에 시간이 흘러 정확히 180초가
+  // 181초가 된다. 경계 검증은 시계를 고정해야 의미가 있다.
+  const FIXED_NOW = Date.parse("2026-08-04T00:00:00.000Z");
+
+  function cameraSeenMsAgo(ms: number): CameraDto {
+    return {
+      ...staleCameraDto,
+      lastSeenAt: new Date(FIXED_NOW - ms).toISOString(),
+    };
+  }
+
+  it("정확히 180초 경과는 LIVE로 남는다", async () => {
+    vi.setSystemTime(FIXED_NOW);
+    vi.stubGlobal("fetch", dashboardFetch([], [activeSpace], [cameraSeenMsAgo(180_000)]));
+    vi.stubGlobal("EventSource", undefined);
+    const { useMonitorStore } = await import("./monitorStore");
+
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 10_000);
+    await waitFor(() => expect(useMonitorStore.getState().statuses.sp_201).toBeDefined());
+
+    expect(useMonitorStore.getState().statuses.sp_201.connection).toBe("LIVE");
+    useMonitorStore.getState().stop();
+  });
+
+  it("181초 경과는 STALE이 된다", async () => {
+    vi.setSystemTime(FIXED_NOW);
+    vi.stubGlobal("fetch", dashboardFetch([], [activeSpace], [cameraSeenMsAgo(181_000)]));
+    vi.stubGlobal("EventSource", undefined);
+    const { useMonitorStore } = await import("./monitorStore");
+
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 10_000);
+    await waitFor(() => expect(useMonitorStore.getState().statuses.sp_201).toBeDefined());
+
+    expect(useMonitorStore.getState().statuses.sp_201.connection).toBe("STALE");
+    useMonitorStore.getState().stop();
+  });
+});

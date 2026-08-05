@@ -5,18 +5,11 @@ import { LogoMark } from "@/components/Logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { adminPath, dashboardPath } from "@/lib/routeAccess";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
+import { buildFreshnessBySpace, listCameras } from "@/services/api/cameras";
 import { apiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import type { Facility } from "@/types";
-
-function duplicateFacilityNames(facilities: Facility[]) {
-  const nameCounts = new Map<string, number>();
-  for (const facility of facilities) {
-    nameCounts.set(facility.name, (nameCounts.get(facility.name) ?? 0) + 1);
-  }
-  return new Set([...nameCounts].filter(([, count]) => count > 1).map(([name]) => name));
-}
 
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
@@ -27,6 +20,15 @@ export function SuperAdminDashboardPage() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 기사님에게 시설 ID를 불러주는 대신 복사해 전달할 수 있게 한다.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  /**
+   * 카메라 건강상태. 전역 화면이 시설 목록만 보여주면 운영자가 엣지 단절을
+   * 고객 전화로 처음 알게 된다. 끊긴 카메라 수를 여기서 먼저 본다.
+   */
+  const [cameraHealth, setCameraHealth] = useState<{ total: number; stale: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -53,6 +55,39 @@ export function SuperAdminDashboardPage() {
     };
   }, [setFacilitiesStore]);
 
+  /**
+   * `GET /cameras`는 `requireFacilityId`로 **한 시설**에만 스코프된다.
+   * 그래서 시설이 둘 이상일 때 이 숫자를 전역 지표로 올리면 한 시설의 값을
+   * 전체인 것처럼 말하게 된다 — 지어낸 상태다.
+   *
+   * 시설이 정확히 하나일 때만(= 스코프와 화면이 일치할 때만) 보여준다.
+   * 다중 시설 전역 집계는 시설별 API가 생긴 뒤에 다시 붙인다.
+   */
+  const singleFacilityId = facilities.length === 1 ? facilities[0].id : null;
+
+  useEffect(() => {
+    if (!singleFacilityId) {
+      setCameraHealth(null);
+      return;
+    }
+    let active = true;
+    listCameras()
+      .then((cameras) => {
+        if (!active) return;
+        const freshness = Object.values(buildFreshnessBySpace(cameras, Date.now()));
+        setCameraHealth({
+          total: cameras.length,
+          stale: freshness.filter((entry) => entry.connection === "STALE").length,
+        });
+      })
+      .catch(() => {
+        // 카메라 조회 실패가 시설 목록 표시를 막지 않는다.
+      });
+    return () => {
+      active = false;
+    };
+  }, [singleFacilityId]);
+
   async function handleLogout() {
     switchFacility(null);
     await logout();
@@ -63,7 +98,18 @@ export function SuperAdminDashboardPage() {
     switchFacility(facilityId);
     navigate(path);
   }
-  const duplicatedFacilityNames = duplicateFacilityNames(facilities);
+  async function copyFacilityId(facilityId: string) {
+    try {
+      await navigator.clipboard?.writeText(facilityId);
+      setCopiedId(facilityId);
+      setTimeout(
+        () => setCopiedId((current) => (current === facilityId ? null : current)),
+        2000,
+      );
+    } catch {
+      // 클립보드 권한이 없어도 ID 자체는 화면에 그대로 보이므로 막지 않는다.
+    }
+  }
 
   return (
     <div className="min-h-screen bg-bg">
@@ -93,8 +139,28 @@ export function SuperAdminDashboardPage() {
             </div>
             <h2 className="mt-1 break-keep text-2xl font-extrabold text-ink">요양원 전역 개요</h2>
           </div>
-          <div className="grid w-full grid-cols-1 gap-2 text-center md:w-auto">
+          <div className="grid w-full grid-cols-1 gap-2 text-center md:w-auto sm:grid-cols-3">
             <Metric label="요양원" value={facilities.length} />
+            {cameraHealth && (
+              <>
+                <Metric label="카메라" value={cameraHealth.total} />
+                <div
+                  data-testid="camera-health-stale"
+                  className={`rounded-lg px-3 py-2 ${
+                    cameraHealth.stale > 0 ? "bg-status-dangerBg" : "bg-surface"
+                  }`}
+                >
+                  <div
+                    className={`text-xl font-extrabold ${
+                      cameraHealth.stale > 0 ? "text-status-danger" : "text-ink"
+                    }`}
+                  >
+                    {cameraHealth.stale}
+                  </div>
+                  <div className="text-[11px] text-ink-faint">연결 끊김</div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -122,9 +188,26 @@ export function SuperAdminDashboardPage() {
                     <h3 className="break-keep text-lg font-bold text-ink">{facility.name}</h3>
                     {(facility.address ?? "").trim() ? (
                       <p className="mt-1 text-sm text-ink-soft">{facility.address}</p>
-                    ) : duplicatedFacilityNames.has(facility.name) ? (
-                      <p className="mt-1 text-sm text-ink-soft">시설 ID: {facility.id.slice(-6)}</p>
                     ) : null}
+                    {/* 기사님 현장 인계용. 엣지 연결 설정에 그대로 붙여넣어야 하므로
+                        끝 6자리가 아니라 전체 ID를 보여주고 복사까지 제공한다. */}
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-sm text-ink-soft">시설 ID</span>
+                      <code
+                        data-testid={`facility-id-${facility.id}`}
+                        className="break-all rounded bg-surface2 px-1.5 py-0.5 font-mono text-sm text-ink"
+                      >
+                        {facility.id}
+                      </code>
+                      <button
+                        type="button"
+                        aria-label={`${facility.name} 시설 ID 복사`}
+                        onClick={() => void copyFacilityId(facility.id)}
+                        className="rounded-lg border border-border px-2 py-1 text-sm font-semibold text-ink-soft hover:bg-surface2"
+                      >
+                        {copiedId === facility.id ? "복사됨" : "복사"}
+                      </button>
+                    </div>
                     <p className="mt-0.5 text-sm text-ink-soft">{facility.phone}</p>
                   </div>
                 </div>

@@ -325,4 +325,162 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
     const tile = screen.getByRole("button", { name: "205호 연결 끊김" });
     expect(tile.getAttribute("data-status")).toBe("DANGER");
   });
+
+  it("끊긴 타일에 체크 아이콘을 남기지 않는다", () => {
+    // 체크 표시는 "이상 없음"으로 읽힌다. '연결 끊김'이라는 글자와 정반대
+    // 신호를 주면 지나가며 보는 사람에게는 체크만 눈에 들어온다.
+    renderTile("STABLE", "STALE");
+    const tile = screen.getByRole("button", { name: "205호 연결 끊김" });
+    const cls = tile.querySelector("svg")?.getAttribute("class") ?? "";
+    expect(cls).toContain("lucide-video-off");
+    expect(cls).not.toContain("lucide-circle-check");
+  });
+
+  it("연결된 타일은 기존 상태 아이콘을 유지한다", () => {
+    renderTile("STABLE", "LIVE");
+    const tile = screen.getByRole("button", { name: /205호/ });
+    const cls = tile.querySelector("svg")?.getAttribute("class") ?? "";
+    expect(cls).toContain("lucide-circle-check");
+    expect(cls).not.toContain("lucide-video-off");
+  });
+
+  it("이미 확인한 알림은 확인됨 배지를 단다", () => {
+    // 표시하지 않으면 두 번째 요양보호사가 같은 방으로 또 달려간다.
+    const room = space("sp_205", "205호");
+    const base = status(room.id, "DANGER", "낙상 감지");
+    render(
+      <RoomStatusTreemap
+        spaces={[room]}
+        floors={floors}
+        statuses={{ [room.id]: { ...base, alertStatus: "ACKNOWLEDGED" } }}
+      />,
+    );
+
+    expect(screen.getByTestId("acknowledged-badge").textContent).toBe("확인됨");
+  });
+
+  it("아직 확인 전이면 배지를 달지 않는다", () => {
+    const room = space("sp_205", "205호");
+    const base = status(room.id, "DANGER", "낙상 감지");
+    render(
+      <RoomStatusTreemap
+        spaces={[room]}
+        floors={floors}
+        statuses={{ [room.id]: { ...base, alertStatus: "PENDING" } }}
+      />,
+    );
+
+    expect(screen.queryByTestId("acknowledged-badge")).toBeNull();
+  });
+
+  // 계획의 H1/H2 수용 기준은 이 파일의 `readability` 이름으로 실행된다
+  // (`vitest run ... -t readability`). 타이포 하한 자체는
+  // src/lib/staffTypography.test.ts가 tailwind 설정을 직접 검증하고,
+  // 여기서는 타일이 그 스케일을 실제로 쓰는지 본다.
+  describe("readability — 4m 거리에서 읽히는 크기를 쓴다", () => {
+    // 계획의 H1/H2 수용 기준이 이 이름으로 실행된다
+    // (`vitest run ... -t readability`). 타이포 하한 자체는
+    // src/lib/staffTypography.test.ts가 tailwind 설정을 검증하고,
+    // 여기서는 타일이 그 스케일을 실제로 쓰는지 본다.
+    function renderRichTile() {
+      const room = space("sp_205", "205호");
+      const base = status(room.id, "DANGER", "낙상이 감지되었습니다.");
+      return render(
+        <RoomStatusTreemap
+          spaces={[room]}
+          floors={floors}
+          statuses={{
+            [room.id]: {
+              ...base,
+              connection: "LIVE",
+              lastDetectedAt: new Date().toISOString(),
+            },
+          }}
+          layout="focus"
+        />,
+      );
+    }
+
+    it("상태 문구가 대형 상태 스케일을 쓴다", () => {
+      renderRichTile();
+      const tile = screen.getByRole("button", { name: /205호/ });
+      const statusLine = tile.querySelector(".text-staff-status");
+      expect(statusLine).not.toBeNull();
+      expect(statusLine?.textContent).toContain("위험");
+    });
+
+    it("설명 문구가 본문 스케일을 쓴다", () => {
+      renderRichTile();
+      const tile = screen.getByRole("button", { name: /205호/ });
+      const summary = tile.querySelector(".text-staff-body");
+      expect(summary).not.toBeNull();
+      expect(summary?.textContent).toContain("낙상");
+    });
+
+    it("타일 어디에도 14px 이하 클래스가 남지 않는다", () => {
+      // 예전에는 '최근 감지'가 text-sm(14px)로 남아 4m에서 안 보였다.
+      renderRichTile();
+      const tile = screen.getByRole("button", { name: /205호/ });
+      expect(tile.querySelector(".text-sm")).toBeNull();
+      expect(tile.querySelector(".text-xs")).toBeNull();
+    });
+  });
+
+  // 계획 §6 CRIT-P3-017: LIVE=2/STALE=5 카운트는 "2녹색5회색"과 동치가 아니다.
+  // LIVE인데 DANGER면 그 타일은 빨강이다. 오라클이 그걸 녹색으로 세지
+  // 않는지 고정한다.
+  describe("green-gray-semantics — 카운트가 색을 보장하지 않는다", () => {
+    it("LIVE + DANGER는 STABLE이 아니므로 녹색 집합에 들지 않는다", () => {
+      renderTile("DANGER", "LIVE");
+      const tile = screen.getByRole("button", { name: /205호/ });
+
+      expect(tile.getAttribute("data-connection")).toBe("LIVE");
+      // 오라클 (5)의 판정식과 같은 조건.
+      expect(tile.getAttribute("data-status")).not.toBe("STABLE");
+    });
+
+    it("LIVE + STABLE만 녹색 집합에 든다", () => {
+      renderTile("STABLE", "LIVE");
+      const tile = screen.getByRole("button", { name: /205호/ });
+
+      expect(tile.getAttribute("data-connection")).toBe("LIVE");
+      expect(tile.getAttribute("data-status")).toBe("STABLE");
+    });
+
+    it("STALE은 underlying status와 무관하게 연결 끊김 라벨을 단다", () => {
+      // 오라클 (6)의 판정식과 같은 조건.
+      for (const level of ["STABLE", "DANGER", "CAUTION", "CHECK_NEEDED"] as const) {
+        const { unmount } = renderTile(level, "STALE");
+        const tile = screen.getByRole("button", { name: /205호/ });
+        expect(tile.getAttribute("aria-label")).toContain("연결 끊김");
+        expect(tile.getAttribute("data-connection")).toBe("STALE");
+        unmount();
+      }
+    });
+  });
+
+  // 47행 DELETE 후 프로덕션에는 1층과 5층에 방이 하나도 안 남는다.
+  // 빈 층 그룹이 화면에 뜨면 원장이 "방이 사라졌다"로 읽는다.
+  describe("방이 없는 층은 화면에 나타나지 않는다", () => {
+    it("빈 층은 그룹째 빠진다", () => {
+      const room = { ...space("sp_205", "205호"), floorId: "fl_2f" };
+      const emptyFloors = [
+        { id: "fl_1f", facilityId: "fac", name: "1층", orderIndex: 1, isActive: true },
+        { id: "fl_2f", facilityId: "fac", name: "2층", orderIndex: 2, isActive: true },
+        { id: "fl_5f", facilityId: "fac", name: "5층", orderIndex: 5, isActive: true },
+      ];
+
+      render(
+        <RoomStatusTreemap
+          spaces={[room]}
+          floors={emptyFloors}
+          statuses={{ [room.id]: status(room.id, "STABLE", "") }}
+        />,
+      );
+
+      expect(screen.getByText("2층")).toBeTruthy();
+      expect(screen.queryByText("1층")).toBeNull();
+      expect(screen.queryByText("5층")).toBeNull();
+    });
+  });
 });
