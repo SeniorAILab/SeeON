@@ -19,6 +19,23 @@ export type SpaceType =
 /** 공간의 종합 상태 */
 export type SpaceStatusLevel = "STABLE" | "CAUTION" | "DANGER" | "CHECK_NEEDED";
 
+/**
+ * 카메라 신선도. 방 위험도(`SpaceStatusLevel`)와 **직교**한다.
+ *
+ * `SpaceStatusLevel`에 연결 상태를 합치면 실제 `DANGER`가 연결 상태에 덮여
+ * 사라진다. 그래서 별도 축으로 둔다.
+ */
+export type CameraConnection = "LIVE" | "STALE";
+
+/**
+ * heartbeat 유효 시간(ms).
+ *
+ * 엣지 worker가 30초 주기 제한으로 heartbeat를 보내므로(ml-v2
+ * `worker/pipeline/ingest/lifecycle.py`), 3분은 6회 연속 누락에 해당해
+ * 일시적 네트워크 흔들림을 오판하지 않는다.
+ */
+export const STALE_CUTOFF_MS = 180_000;
+
 /** 움직임 수준 / 낙상 위험도 공용 3단계 */
 export type Level = "LOW" | "MEDIUM" | "HIGH";
 
@@ -86,6 +103,15 @@ export interface SpaceStatus {
   movementLevel: Level;
   fallRiskLevel: Level;
   status: SpaceStatusLevel;
+  /**
+   * 카메라 신선도. `status`와 직교하며 서로 덮어쓰지 않는다.
+   * 판정은 백엔드 `online` 필드가 아니라 `lastSeenAt` 경과시간으로만 한다 —
+   * `online`은 `detection-lost` 이벤트로만 false가 되므로 heartbeat가 끊겨도
+   * true로 남는다.
+   */
+  connection: CameraConnection;
+  /** 해당 공간 카메라의 마지막 heartbeat 시각(ISO8601). 한 번도 못 봤으면 null. */
+  lastSeenAt: string | null;
   aiSummary?: string;
   lastDetectedAt: string; // ISO8601
   alertStatus: AlertLifecycleStatus;

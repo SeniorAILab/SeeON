@@ -55,7 +55,28 @@ function alertDtoWith(overrides: Partial<typeof alertDto> = {}) {
   return { ...alertDto, ...overrides };
 }
 
-function dashboardFetch(alerts: unknown[] = [], spaces: Space[] = [activeSpace]) {
+type CameraDto = {
+  id: string;
+  facilityId: string;
+  spaceId: string;
+  online: boolean;
+  lastSeenAt: string | null;
+};
+
+/** 프로덕션과 같은 함정: online=true인데 lastSeenAt은 한참 전. */
+const staleCameraDto: CameraDto = {
+  id: "cam_sp_201",
+  facilityId: SCOPED_FACILITY_ID,
+  spaceId: "sp_201",
+  online: true,
+  lastSeenAt: "2026-06-20T00:00:00.000Z",
+};
+
+function dashboardFetch(
+  alerts: unknown[] = [],
+  spaces: Space[] = [activeSpace],
+  cameras: CameraDto[] = []
+) {
   return vi.fn<typeof fetch>(async (input, init) => {
     const url = String(input);
     if (url.endsWith("/auth/me")) {
@@ -77,6 +98,7 @@ function dashboardFetch(alerts: unknown[] = [], spaces: Space[] = [activeSpace])
         phone: "031-123-4567",
       });
     }
+    if (url.endsWith("/cameras")) return okJsonResponse(cameras);
     if (url.endsWith("/floors")) return okJsonResponse([]);
     if (url.endsWith("/spaces")) return okJsonResponse(spaces);
     if ((url.endsWith("/alerts") || url.endsWith("/alerts?status=NEW")) && !init?.method) return okJsonResponse(alerts);
@@ -108,6 +130,8 @@ const dangerStatus: SpaceStatus = {
   status: "DANGER",
   aiSummary: "침상 이탈이 감지되었습니다.",
   lastDetectedAt: "2026-06-22T01:00:00.000Z",
+  connection: "LIVE",
+  lastSeenAt: "2026-08-03T11:59:30.000Z",
   alertStatus: "SENT",
   bedsideActivity: true,
   emergency: true,
@@ -507,6 +531,98 @@ describe("monitorStore resolve", () => {
       emergency: false,
       bedsideActivity: false,
     });
+
+    useMonitorStore.getState().stop();
+  });
+});
+
+describe("sse-independent — REST 성공이 SSE 장애를 덮지 않는다", () => {
+  function stubEventSourceWithHandles() {
+    const close = vi.fn();
+    const handle: {
+      onopen?: () => void;
+      onerror?: () => void;
+    } = {};
+    vi.stubGlobal(
+      "EventSource",
+      vi.fn().mockImplementation(() => {
+        const source = {
+          addEventListener: vi.fn(),
+          close,
+          set onopen(fn: () => void) {
+            handle.onopen = fn;
+          },
+          set onerror(fn: () => void) {
+            handle.onerror = fn;
+          },
+        };
+        return source;
+      })
+    );
+    return handle;
+  }
+
+  it("SSE가 끊긴 뒤 REST 폴링이 성공해도 connection이 NORMAL로 돌아가지 않는다", async () => {
+    vi.stubGlobal("fetch", dashboardFetch([], [activeSpace], [staleCameraDto]));
+    const sse = stubEventSourceWithHandles();
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 10);
+    sse.onopen?.();
+    await waitFor(() => expect(useMonitorStore.getState().connection).toBe("NORMAL"));
+
+    // SSE 단절. 이 시점부터 REST는 계속 200을 준다.
+    sse.onerror?.();
+
+    await waitFor(() => expect(useMonitorStore.getState().connection).toBe("RECONNECTING"));
+    // REST 폴링이 여러 번 성공해도 여전히 RECONNECTING이어야 한다.
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(useMonitorStore.getState().connection).toBe("RECONNECTING");
+
+    useMonitorStore.getState().stop();
+  });
+
+  it("SSE가 열리기 전에는 REST 성공만으로 NORMAL을 주장하지 않는다", async () => {
+    vi.stubGlobal("fetch", dashboardFetch([], [activeSpace], [staleCameraDto]));
+    stubEventSourceWithHandles();
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 10);
+    await waitFor(() => expect(useMonitorStore.getState().statuses.sp_201).toBeDefined());
+    expect(useMonitorStore.getState().connection).toBe("RECONNECTING");
+
+    useMonitorStore.getState().stop();
+  });
+});
+
+describe("camera freshness — 죽은 카메라를 정상으로 표시하지 않는다", () => {
+  it("online=true라도 lastSeenAt이 오래됐으면 STALE로 실린다", async () => {
+    vi.stubGlobal("fetch", dashboardFetch([], [activeSpace], [staleCameraDto]));
+    vi.stubGlobal("EventSource", undefined);
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 10_000);
+    await waitFor(() => expect(useMonitorStore.getState().statuses.sp_201).toBeDefined());
+
+    const status = useMonitorStore.getState().statuses.sp_201;
+    expect(status.connection).toBe("STALE");
+    expect(status.lastSeenAt).toBe("2026-06-20T00:00:00.000Z");
+    // 위험도는 신선도에 덮이지 않는다.
+    expect(status.status).toBe("STABLE");
+
+    useMonitorStore.getState().stop();
+  });
+
+  it("카메라가 방금 heartbeat를 보냈으면 LIVE로 실린다", async () => {
+    const liveCamera: CameraDto = { ...staleCameraDto, lastSeenAt: new Date().toISOString() };
+    vi.stubGlobal("fetch", dashboardFetch([], [activeSpace], [liveCamera]));
+    vi.stubGlobal("EventSource", undefined);
+
+    const { useMonitorStore } = await import("./monitorStore");
+    useMonitorStore.getState().start(SCOPED_FACILITY_ID, 10_000);
+    await waitFor(() => expect(useMonitorStore.getState().statuses.sp_201).toBeDefined());
+
+    expect(useMonitorStore.getState().statuses.sp_201.connection).toBe("LIVE");
 
     useMonitorStore.getState().stop();
   });

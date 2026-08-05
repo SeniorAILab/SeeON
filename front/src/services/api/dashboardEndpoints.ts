@@ -67,6 +67,11 @@ function statusFromSpace(space: Space): SpaceStatus {
     movementLevel: "LOW",
     fallRiskLevel: "LOW",
     status: "STABLE",
+    // 카메라 신선도를 모르는 생성 지점이다. 안전 제품에서 "모름"을 정상으로
+    // 칠하면 죽은 카메라가 안심으로 읽히므로 STALE로 시작하고, 실제 카메라
+    // 조회 결과가 들어올 때만 LIVE로 올린다.
+    connection: "STALE",
+    lastSeenAt: null,
     aiSummary: "",
     lastDetectedAt: "",
     alertStatus: "NONE",

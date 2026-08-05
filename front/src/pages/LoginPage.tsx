@@ -21,7 +21,12 @@ export function LoginPage() {
   const setTheme = useUiStore((s) => s.setTheme);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const authError = authErrorMessage(searchParams.get("auth_error"));
+  // authStore가 401에서 붙이는 파라미터는 `reason`이다(`?reason=session-invalid`).
+  // `auth_error`만 읽던 기존 코드는 아무것도 못 읽었고, 변환 함수도 항상 null을
+  // 반환해 TV가 조용히 로그인 화면으로 튕겨도 이유가 표시되지 않았다.
+  const authError =
+    authErrorMessage(searchParams.get("reason")) ??
+    authErrorMessage(searchParams.get("auth_error"));
 
   useEffect(() => {
     useAuthStore.setState({ error: null });
@@ -133,6 +138,11 @@ function loginDestination(state: unknown, user: Parameters<typeof defaultPathFor
   return defaultPathForUser(user);
 }
 
-function authErrorMessage(_code: string | null): string | null {
-  return null;
+function authErrorMessage(code: string | null): string | null {
+  switch (code) {
+    case "session-invalid":
+      return "로그인 시간이 만료되었습니다. 다시 로그인해 주세요.";
+    default:
+      return null;
+  }
 }

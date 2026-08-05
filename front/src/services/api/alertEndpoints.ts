@@ -127,7 +127,19 @@ export async function resolveAlert(id: string): Promise<FrontendAlert> {
   return mapAlertDto((await requestResolve(id)) as BackendAlertDto);
 }
 
-export const acknowledgeAlert = resolveAlert;
+/**
+ * 확인(ACK)은 해결(RESOLVE)과 **다른 라우트**다.
+ *
+ * 예전에는 `acknowledgeAlert = resolveAlert` 별칭이라, 요양보호사가 TV에서
+ * "확인"을 누르는 순간 알림이 RESOLVED로 끝나 버렸다. 정상 UI에서 ACKED가
+ * 생성되지 않아 확인됨/해결완료 2단계가 통째로 죽어 있었다.
+ */
+export async function acknowledgeAlert(id: string): Promise<FrontendAlert> {
+  const body = await requestJson(`/alerts/${encodeURIComponent(id)}/ack`, {
+    method: "PATCH",
+  });
+  return mapAlertDto(body as BackendAlertDto);
+}
 
 interface AlertActorDto {
   nickname: string;
@@ -221,6 +233,17 @@ export async function listAlertsEndpoint(params: {
  */
 export async function resolveAlertEndpoint(id: string): Promise<AlertView> {
   return parseAlert(await requestResolve(id));
+}
+
+/**
+ * PATCH `/alerts/:id/ack` — NEW → ACKED. UI 확인 버튼 전용 seam.
+ * resolve와 라우트가 다르다는 점이 핵심이다.
+ */
+export async function ackAlertEndpoint(id: string): Promise<AlertView> {
+  const body = await requestJson(`/alerts/${encodeURIComponent(id)}/ack`, {
+    method: "PATCH",
+  });
+  return parseAlert(body);
 }
 
 function parseAlert(value: unknown): AlertView {

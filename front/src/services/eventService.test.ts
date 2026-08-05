@@ -38,10 +38,10 @@ describe("eventService real mode actions", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes staff confirm actions to backend alert resolve by alert id", async () => {
+  it("routes staff confirm actions to backend alert ack by alert id", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/alerts/alert_201/resolve") && init?.method === "PATCH") {
+      if (url.endsWith("/alerts/alert_201/ack") && init?.method === "PATCH") {
         return okJsonResponse(alertDto);
       }
       throw new Error(`Unexpected request ${url}`);
@@ -51,8 +51,10 @@ describe("eventService real mode actions", () => {
     const { eventService } = await import("./eventService");
     const event = await eventService.addAction("alert_201", "ACKNOWLEDGED", undefined, "Care Staff");
 
+    // 확인(ACK)은 해결(RESOLVE)과 다른 라우트다. 예전에는 확인이 곧바로
+    // RESOLVED로 끝나 확인됨/해결완료 2단계가 죽어 있었다.
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/alerts/alert_201/resolve",
+      "/api/v1/alerts/alert_201/ack",
       expect.objectContaining({ method: "PATCH", credentials: "include" })
     );
     expect(event).toMatchObject({

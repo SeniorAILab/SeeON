@@ -3,6 +3,7 @@ import {
   listAlertsEndpoint,
   mapAlert,
   mapAlertDto,
+  acknowledgeAlert,
   resolveAlert,
   resolveAlertEndpoint,
   type AlertDto,
@@ -283,5 +284,47 @@ describe("mapAlertDto/mapAlert alertStatus equivalence", () => {
 
     expect(dashboardAlert.alertStatus).toBe(expected);
     expect(historyAlert.alertStatus).toBe(expected);
+  });
+});
+
+describe("ACK와 RESOLVE는 다른 라우트다 (I4)", () => {
+  const dto = {
+    alertSeq: "10",
+    id: "alert_1",
+    backendEventId: "event-1",
+    facilityId: SCOPED_FACILITY_ID,
+    residentId: null,
+    cameraId: "cam_sp_205",
+    spaceId: "sp_205",
+    room: "205호",
+    type: "bed-exit",
+    probability: 0.9,
+    snapshotKey: null,
+    detectedAt: "2026-08-03T00:00:00.000Z",
+    status: "ACKED",
+  };
+
+  beforeEach(() => {
+    requestJsonMock.mockReset();
+  });
+
+  it("acknowledgeAlert는 /ack을 PATCH한다", async () => {
+    requestJsonMock.mockResolvedValue(dto);
+
+    await acknowledgeAlert("alert_1");
+
+    expect(requestJsonMock).toHaveBeenCalledWith("/alerts/alert_1/ack", { method: "PATCH" });
+  });
+
+  it("resolveAlert는 /resolve를 PATCH한다", async () => {
+    requestJsonMock.mockResolvedValue(dto);
+
+    await resolveAlert("alert_1");
+
+    expect(requestJsonMock).toHaveBeenCalledWith("/alerts/alert_1/resolve", { method: "PATCH" });
+  });
+
+  it("acknowledgeAlert가 resolveAlert의 별칭이 아니다", () => {
+    expect(acknowledgeAlert).not.toBe(resolveAlert);
   });
 });

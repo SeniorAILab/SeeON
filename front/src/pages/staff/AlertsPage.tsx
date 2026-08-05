@@ -54,6 +54,12 @@ export function AlertsPage() {
     [alerts]
   );
 
+  /** NEW → ACKED. 확인만 하고 아직 해결하지 않는다. */
+  async function acknowledge(alert: AlertView) {
+    await runAction(alert.id, () => alertService.acknowledge(alert.id));
+  }
+
+  /** ACKED → RESOLVED. 백엔드가 조치 기록이 없으면 거부한다. */
   async function resolve(alert: AlertView) {
     await runAction(alert.id, () => alertService.resolve(alert.id));
   }
@@ -151,7 +157,7 @@ export function AlertsPage() {
             renderAction={(alert) => (
               <button
                 disabled={busyId !== null}
-                onClick={() => resolve(alert)}
+                onClick={() => acknowledge(alert)}
                 className="min-h-[56px] rounded-xl bg-brand px-6 text-staff-btn text-white disabled:opacity-60"
               >
                 확인
