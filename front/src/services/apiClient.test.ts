@@ -30,7 +30,7 @@ describe("apiClient.requestJson", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/default-probe",
-      expect.objectContaining({ credentials: "include" })
+      expect.objectContaining({ credentials: "include" }),
     );
   });
 
@@ -45,7 +45,22 @@ describe("apiClient.requestJson", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/no-content-probe",
-      expect.objectContaining({ credentials: "include" })
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("returns authenticated binary responses through the shared client seam", async () => {
+    const response = new Response("clip", { status: 200 });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { requestResponse } = await import("./apiClient");
+    const result = await requestResponse("/alerts/alert-1/media/download");
+
+    expect(result).toBe(response);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/alerts/alert-1/media/download",
+      expect.objectContaining({ credentials: "include" }),
     );
   });
 
@@ -61,7 +76,7 @@ describe("apiClient.requestJson", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8080/api/v1/cameras",
-      expect.objectContaining({ credentials: "include" })
+      expect.objectContaining({ credentials: "include" }),
     );
   });
 
@@ -76,7 +91,7 @@ describe("apiClient.requestJson", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/public-probe",
-      expect.objectContaining({ credentials: "omit" })
+      expect.objectContaining({ credentials: "omit" }),
     );
   });
 
@@ -91,7 +106,7 @@ describe("apiClient.requestJson", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/auth/me",
-      expect.objectContaining({ credentials: "include" })
+      expect.objectContaining({ credentials: "include" }),
     );
   });
 
@@ -105,7 +120,9 @@ describe("apiClient.requestJson", () => {
     const handler = vi.fn();
     setUnauthorizedHandler(handler);
 
-    await expect(requestJson("/protected")).rejects.toMatchObject({ status: 401 });
+    await expect(requestJson("/protected")).rejects.toMatchObject({
+      status: 401,
+    });
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
@@ -131,11 +148,27 @@ describe("apiClient.requestJson", () => {
       url: String(url),
       headers: new Headers(init?.headers),
     }));
-    expect(calls.find((call) => call.url.endsWith("/auth/me"))?.headers.has("x-facility-id")).toBe(false);
-    const facilitiesListCall = calls.find((call) => call.url.endsWith("/api/v1/facilities"));
+    expect(
+      calls
+        .find((call) => call.url.endsWith("/auth/me"))
+        ?.headers.has("x-facility-id"),
+    ).toBe(false);
+    const facilitiesListCall = calls.find((call) =>
+      call.url.endsWith("/api/v1/facilities"),
+    );
     expect(facilitiesListCall?.headers.has("x-facility-id")).toBe(false);
-    for (const path of [SCOPED_FACILITY_PATH, "/dashboard", "/alerts", "/spaces", "/floors"]) {
-      expect(calls.find((call) => call.url.endsWith(path))?.headers.get("x-facility-id")).toBe(SCOPED_FACILITY_ID);
+    for (const path of [
+      SCOPED_FACILITY_PATH,
+      "/dashboard",
+      "/alerts",
+      "/spaces",
+      "/floors",
+    ]) {
+      expect(
+        calls
+          .find((call) => call.url.endsWith(path))
+          ?.headers.get("x-facility-id"),
+      ).toBe(SCOPED_FACILITY_ID);
     }
 
     useFacilityStore.getState().clearFacility();
@@ -162,7 +195,7 @@ describe("apiClient.requestJson", () => {
     useFacilityStore.getState().setFacility(SCOPED_FACILITY_ID);
 
     expect(buildSseUrl()).toBe(
-      `/api/v1/dashboard/stream?facilityId=${SCOPED_FACILITY_ID}`
+      `/api/v1/dashboard/stream?facilityId=${SCOPED_FACILITY_ID}`,
     );
   });
 
@@ -182,7 +215,7 @@ describe("apiClient.requestJson", () => {
     const { buildSseUrl, isAbsoluteApiUrl } = await import("./apiClient");
 
     expect(buildSseUrl(SCOPED_FACILITY_ID)).toBe(
-      `http://localhost:8080/api/v1/dashboard/stream?facilityId=${SCOPED_FACILITY_ID}`
+      `http://localhost:8080/api/v1/dashboard/stream?facilityId=${SCOPED_FACILITY_ID}`,
     );
     expect(isAbsoluteApiUrl(buildSseUrl(SCOPED_FACILITY_ID))).toBe(true);
   });
@@ -194,13 +227,25 @@ describe("apiErrorMessage", () => {
 
     expect(
       apiErrorMessage(
-        new ApiError(401, JSON.stringify({ message: "Invalid email or password", error: "Unauthorized", statusCode: 401 })),
+        new ApiError(
+          401,
+          JSON.stringify({
+            message: "Invalid email or password",
+            error: "Unauthorized",
+            statusCode: 401,
+          }),
+        ),
         fallback,
       ),
     ).toBe("이메일 또는 비밀번호가 올바르지 않습니다.");
     expect(
       apiErrorMessage(
-        new ApiError(409, JSON.stringify({ message: "참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다" })),
+        new ApiError(
+          409,
+          JSON.stringify({
+            message: "참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다",
+          }),
+        ),
         fallback,
       ),
     ).toBe("참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다");
@@ -211,12 +256,31 @@ describe("apiErrorMessage", () => {
     const fallback = "요청을 처리하지 못했습니다.";
 
     expect(
-      apiErrorMessage(new ApiError(400, JSON.stringify({ message: ["첫 번째 오류", "두 번째 오류"] })), fallback),
+      apiErrorMessage(
+        new ApiError(
+          400,
+          JSON.stringify({ message: ["첫 번째 오류", "두 번째 오류"] }),
+        ),
+        fallback,
+      ),
     ).toBe("첫 번째 오류, 두 번째 오류");
-    expect(apiErrorMessage(new ApiError(400, JSON.stringify({ error: "Bad Request", statusCode: 400 })), fallback)).toBe(
+    expect(
+      apiErrorMessage(
+        new ApiError(
+          400,
+          JSON.stringify({ error: "Bad Request", statusCode: 400 }),
+        ),
+        fallback,
+      ),
+    ).toBe(fallback);
+    expect(apiErrorMessage(new ApiError(400, "not json"), fallback)).toBe(
       fallback,
     );
-    expect(apiErrorMessage(new ApiError(400, "not json"), fallback)).toBe(fallback);
-    expect(apiErrorMessage(new Error(JSON.stringify({ message: "raw error" })), fallback)).toBe(fallback);
+    expect(
+      apiErrorMessage(
+        new Error(JSON.stringify({ message: "raw error" })),
+        fallback,
+      ),
+    ).toBe(fallback);
   });
 });
