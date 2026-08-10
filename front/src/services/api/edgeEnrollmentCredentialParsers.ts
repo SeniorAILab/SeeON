@@ -4,6 +4,7 @@ import {
   type IssuedEdgeCredential,
   type RotatedEdgeCredential,
 } from "./edgeEnrollmentTypes";
+import type { ReplacedEdgeInstallation } from "./edgeInstallationAdminTypes";
 import { parseIssueReplay } from "./edgeEnrollmentReplayParsers";
 import {
   readBoundedString,
@@ -88,6 +89,71 @@ export function parseRotateEdgeCredential(
     enrollmentGeneration: readPositiveInteger(record, "enrollmentGeneration"),
     priorTokenId: readTokenId(prior, "tokenId"),
     graceEndsAt: readInstant(prior, "graceEndsAt"),
+  };
+  const display = readCredentialDisplay(record.oneTimeDisplay);
+  switch (display.kind) {
+    case "initial":
+      return {
+        ...base,
+        kind: "initial",
+        oneTimeCredential: display.credential,
+      };
+    case "replay":
+      return {
+        ...base,
+        kind: "replay",
+        replacementTokenId: display.tokenId,
+        replacementPrefix: display.prefix,
+      };
+  }
+}
+
+export function parseReplaceEdgeInstallation(
+  value: unknown,
+): ReplacedEdgeInstallation {
+  const record = readRecord(value, "root");
+  requireExactKeys(record, [
+    "schemaVersion",
+    "operation",
+    "edgeInstallationId",
+    "previousEnrollmentGeneration",
+    "enrollmentGeneration",
+    "installationState",
+    "oneTimeDisplay",
+  ]);
+  requireSchemaVersion(record);
+  if (readString(record, "installationState") !== "PENDING_CLAIM") {
+    throw new EdgeEnrollmentResponseError(
+      "installationState must be PENDING_CLAIM",
+    );
+  }
+  const operation = readRecord(record.operation, "operation");
+  requireExactKeys(operation, [
+    "operationId",
+    "status",
+    "createdAt",
+    "updatedAt",
+  ]);
+  if (readString(operation, "status") !== "SUCCEEDED") {
+    throw new EdgeEnrollmentResponseError("operation status must be SUCCEEDED");
+  }
+  const base = {
+    operation: {
+      operationId: readUuidV7(operation, "operationId"),
+      status: "SUCCEEDED" as const,
+      createdAt: readInstant(operation, "createdAt"),
+      updatedAt: readInstant(operation, "updatedAt"),
+    },
+    edgeInstallationId: readUuid(record, "edgeInstallationId"),
+    previousEnrollmentGeneration: readPositiveInteger(
+      record,
+      "previousEnrollmentGeneration",
+    ),
+    enrollmentGeneration: readPositiveInteger(
+      record,
+      "enrollmentGeneration",
+    ),
+    installationState: "PENDING_CLAIM" as const,
   };
   const display = readCredentialDisplay(record.oneTimeDisplay);
   switch (display.kind) {

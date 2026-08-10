@@ -11,6 +11,7 @@ import {
 import type { AlertMediaAccessAction } from "@/services/api/alertMedia";
 import { AlertEvidencePlayer } from "./AlertEvidencePlayer";
 import { AlertEvidenceState } from "./AlertEvidenceState";
+import { AlertMediaDownloadButton } from "./AlertMediaDownloadButton";
 import { teardownMediaElement } from "./mediaElement";
 
 type AlertEvidencePanelProps = {
@@ -155,6 +156,7 @@ export function AlertEvidencePanel({ identity }: AlertEvidencePanelProps) {
         onPlay={() => void recordAccess("PLAY_STARTED")}
         onPlaybackError={handlePlaybackError}
       />
+      <AlertMediaDownloadButton alertId={alertId} />
       {accessError === null ? null : (
         <p role="alert" className="rounded-lg bg-status-cautionBg px-3 py-2 text-sm text-status-caution">
           {accessError}

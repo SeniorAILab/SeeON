@@ -11,7 +11,8 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:edge-provisioning": "playwright test --config playwright.edge-provisioning.config.ts"
   },
   "dependencies": {
     "clsx": "2.1.1",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "1.61.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.1.0",
     "@types/node": "20.19.43",

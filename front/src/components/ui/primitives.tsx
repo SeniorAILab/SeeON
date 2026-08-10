@@ -1,5 +1,6 @@
 // 경량 UI 프리미티브 (shadcn 톤 — 외부 CLI 없이 직접 구현)
 import { cn } from "@/lib/utils";
+import { forwardRef } from "react";
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -32,17 +33,19 @@ const buttonStyles: Record<ButtonVariant, string> = {
   subtle: "bg-brand-soft text-brand hover:bg-blue-100",
 };
 
-export function Button({
-  className,
-  variant = "primary",
-  size = "md",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant;
-  size?: "sm" | "md";
-}) {
+export const Button = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & {
+    readonly variant?: ButtonVariant;
+    readonly size?: "sm" | "md";
+  }
+>(function Button(
+  { className, variant = "primary", size = "md", ...props },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
         size === "sm" ? "h-8 px-3 text-sm" : "h-10 px-4 text-sm",
@@ -52,7 +55,7 @@ export function Button({
       {...props}
     />
   );
-}
+});
 
 export function Input({
   className,
@@ -115,14 +118,16 @@ export function Field({
   label,
   children,
   hint,
+  htmlFor,
 }: {
   label: string;
   children: React.ReactNode;
   hint?: string;
+  htmlFor?: string;
 }) {
   return (
     <div>
-      <Label>{label}</Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
     </div>
