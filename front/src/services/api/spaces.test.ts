@@ -17,6 +17,7 @@ const backendSpace = {
   capacity: 4,
   isActive: true,
   assignedStaff: null,
+  provisioningSource: "PRODUCT" as const,
   createdAt: "2026-07-03T00:00:00.000Z",
 };
 
@@ -35,6 +36,7 @@ describe("spaces api", () => {
       capacity: 4,
       isActive: true,
       assignedStaff: "김요양",
+      provisioningSource: "PRODUCT",
     });
   });
 
@@ -51,9 +53,19 @@ describe("spaces api", () => {
         capacity: 4,
         isActive: true,
         assignedStaff: undefined,
+        provisioningSource: "PRODUCT",
       },
     ]);
     expect(requestJsonMock).toHaveBeenCalledWith("/spaces");
+  });
+
+  it("maps an EDGE-owned space and rejects an invalid provisioningSource", () => {
+    expect(mapSpaceDto({ ...backendSpace, provisioningSource: "EDGE" })).toMatchObject({
+      provisioningSource: "EDGE",
+    });
+    expect(() =>
+      mapSpaceDto({ ...backendSpace, provisioningSource: "BOGUS" as never }),
+    ).toThrow();
   });
 
   it("creates spaces with transitional backend-required type and capacity defaults", async () => {

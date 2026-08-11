@@ -18,8 +18,8 @@ vi.mock("@/services/api/floors", () => ({ listFloors: vi.fn() }));
 vi.mock("@/services/api/spaces", () => ({ listSpaces: vi.fn() }));
 
 const floors = [
-  { id: "fl_1f", facilityId, name: "1F", orderIndex: 1 },
-  { id: "fl_2f", facilityId, name: "2F", orderIndex: 2 },
+  { id: "fl_1f", facilityId, name: "1F", orderIndex: 1, provisioningSource: "PRODUCT" as const },
+  { id: "fl_2f", facilityId, name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" as const },
 ];
 
 beforeEach(() => {
@@ -35,8 +35,8 @@ beforeEach(() => {
   });
   vi.mocked(listFloors).mockResolvedValue(floors);
   vi.mocked(listSpaces).mockResolvedValue([
-    { id: "space_1", facilityId, floorId: "fl_1f", name: "중앙복도", type: "HALLWAY", capacity: 1, isActive: true },
-    { id: "space_2", facilityId, floorId: "fl_2f", name: "중앙복도", type: "HALLWAY", capacity: 1, isActive: true },
+    { id: "space_1", facilityId, floorId: "fl_1f", name: "중앙복도", type: "HALLWAY", capacity: 1, isActive: true, provisioningSource: "PRODUCT" as const },
+    { id: "space_2", facilityId, floorId: "fl_2f", name: "중앙복도", type: "HALLWAY", capacity: 1, isActive: true, provisioningSource: "PRODUCT" as const },
   ]);
 });
 
@@ -60,8 +60,8 @@ describe("AdminMonitorSettingsPage", () => {
     const activeFloorId = "fl_west_1";
     useMonitorSettingsStore.setState({ defaultFloorId: "fl_2f" });
     vi.mocked(listFloors).mockResolvedValue([
-      { id: activeFloorId, facilityId, name: "서관 1층", orderIndex: 1 },
-      { id: "fl_west_2", facilityId, name: "서관 2층", orderIndex: 2 },
+      { id: activeFloorId, facilityId, name: "서관 1층", orderIndex: 1, provisioningSource: "PRODUCT" as const },
+      { id: "fl_west_2", facilityId, name: "서관 2층", orderIndex: 2, provisioningSource: "PRODUCT" as const },
     ]);
 
     render(<AdminMonitorSettingsPage />);

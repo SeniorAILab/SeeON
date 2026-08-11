@@ -11,10 +11,10 @@ vi.mock("@/services/dashboardReceiptService", () => ({
   recordDashboardPresentation: recordDashboardPresentationMock,
 }));
 
-const floors: Floor[] = [{ id: "2", facilityId: "fac", name: "2F", orderIndex: 2 }];
+const floors: Floor[] = [{ id: "2", facilityId: "fac", name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" }];
 
 function space(id: string, name: string): Space {
-  return { id, facilityId: "fac", floorId: "2", name, type: "ROOM", capacity: 1, isActive: true };
+  return { id, facilityId: "fac", floorId: "2", name, type: "ROOM", capacity: 1, isActive: true, provisioningSource: "PRODUCT" };
 }
 
 function status(spaceId: string, level: SpaceStatus["status"], aiSummary: string): SpaceStatus {
@@ -465,9 +465,9 @@ describe("RoomStatusTreemap — 연결 끊김 표시(직교)", () => {
     it("빈 층은 그룹째 빠진다", () => {
       const room = { ...space("sp_205", "205호"), floorId: "fl_2f" };
       const emptyFloors = [
-        { id: "fl_1f", facilityId: "fac", name: "1층", orderIndex: 1, isActive: true },
-        { id: "fl_2f", facilityId: "fac", name: "2층", orderIndex: 2, isActive: true },
-        { id: "fl_5f", facilityId: "fac", name: "5층", orderIndex: 5, isActive: true },
+        { id: "fl_1f", facilityId: "fac", name: "1층", orderIndex: 1, isActive: true, provisioningSource: "PRODUCT" as const },
+        { id: "fl_2f", facilityId: "fac", name: "2층", orderIndex: 2, isActive: true, provisioningSource: "PRODUCT" as const },
+        { id: "fl_5f", facilityId: "fac", name: "5층", orderIndex: 5, isActive: true, provisioningSource: "PRODUCT" as const },
       ];
 
       render(

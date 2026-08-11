@@ -7,14 +7,14 @@ import { FloorMonitorPage } from "@/features/monitor/pages/FloorMonitorPage";
 import type { Floor, Space, SpaceStatus } from "@/types";
 
 const spaces: Space[] = [
-  { id: "b", facilityId: "fac", floorId: "2", name: "202호", type: "ROOM", capacity: 2, isActive: true },
-  { id: "a", facilityId: "fac", floorId: "2", name: "201호", type: "ROOM", capacity: 2, isActive: true },
-  { id: "c", facilityId: "fac", floorId: "3", name: "301호", type: "ROOM", capacity: 2, isActive: true },
+  { id: "b", facilityId: "fac", floorId: "2", name: "202호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+  { id: "a", facilityId: "fac", floorId: "2", name: "201호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+  { id: "c", facilityId: "fac", floorId: "3", name: "301호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
 ];
 
 const floors: Floor[] = [
-  { id: "2", facilityId: "fac", name: "2F", orderIndex: 2 },
-  { id: "3", facilityId: "fac", name: "3F", orderIndex: 3 },
+  { id: "2", facilityId: "fac", name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" },
+  { id: "3", facilityId: "fac", name: "3F", orderIndex: 3, provisioningSource: "PRODUCT" },
 ];
 
 function status(id: string, level: SpaceStatus["status"]): SpaceStatus {
@@ -37,8 +37,8 @@ describe("RoomStatusBoard floor grid helpers", () => {
   it("groups by floor order and sorts rooms by severity then numeric name", () => {
     const mixedSpaces: Space[] = [
       ...spaces,
-      { id: "d", facilityId: "fac", floorId: "2", name: "203호", type: "ROOM", capacity: 2, isActive: true },
-      { id: "e", facilityId: "fac", floorId: "2", name: "101호", type: "ROOM", capacity: 2, isActive: true },
+      { id: "d", facilityId: "fac", floorId: "2", name: "203호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+      { id: "e", facilityId: "fac", floorId: "2", name: "101호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
     ];
     const groups = groupRoomsByFloor(mixedSpaces, { a: status("a", "DANGER"), b: status("b", "STABLE"), c: status("c", "CAUTION"), d: status("d", "CHECK_NEEDED"), e: status("e", "DANGER") }, floors);
 
@@ -57,7 +57,7 @@ describe("RoomStatusBoard floor grid helpers", () => {
   });
 
   it("places spaces with missing floor metadata after known floors", () => {
-    const unknownFloorSpace = { id: "x", facilityId: "fac", floorId: "9", name: "901호", type: "ROOM" as const, capacity: 1, isActive: true };
+    const unknownFloorSpace = { id: "x", facilityId: "fac", floorId: "9", name: "901호", type: "ROOM" as const, capacity: 1, isActive: true, provisioningSource: "PRODUCT" as const };
     const groups = groupRoomsByFloor([...spaces, unknownFloorSpace], { x: status("x", "DANGER") }, floors);
 
     expect(groups.map((group) => [group.floorName, group.floor?.id ?? null])).toEqual([

@@ -6,8 +6,8 @@ import { MonitorHeader } from "./MonitorHeader";
 import type { DashboardSummary, Floor } from "@/types";
 
 const floors: Floor[] = [
-  { id: "fl_2f", facilityId: "fac_happy", name: "2F", orderIndex: 2 },
-  { id: "fl_1f", facilityId: "fac_happy", name: "1F", orderIndex: 1 },
+  { id: "fl_2f", facilityId: "fac_happy", name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" },
+  { id: "fl_1f", facilityId: "fac_happy", name: "1F", orderIndex: 1, provisioningSource: "PRODUCT" },
 ];
 
 const summary: DashboardSummary = {

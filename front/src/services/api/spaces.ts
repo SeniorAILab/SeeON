@@ -1,5 +1,5 @@
 import { requestJson } from "@/services/apiClient";
-import type { Space, SpaceType } from "@/types";
+import type { ProvisioningSource, Space, SpaceType } from "@/types";
 // 백엔드가 아직 type/capacity를 필수로 요구해 전이적으로 전송; UI 비노출;
 // 이슈: space create type/capacity 선택화·정원 폐기.
 
@@ -12,6 +12,7 @@ export interface BackendSpaceDto {
   capacity: number;
   isActive: boolean;
   assignedStaff?: string | null;
+  provisioningSource: ProvisioningSource;
 }
 
 export type CreateSpaceInput = {
@@ -42,6 +43,11 @@ function asNumber(value: unknown, field: string): number {
 
 function asBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") throw new Error(`Invalid space ${field}`);
+  return value;
+}
+
+function asProvisioningSource(value: unknown, field: string): ProvisioningSource {
+  if (value !== "PRODUCT" && value !== "EDGE") throw new Error(`Invalid space ${field}`);
   return value;
 }
 
@@ -76,6 +82,7 @@ export function mapSpaceDto(dto: BackendSpaceDto): Space {
     capacity: asNumber(dto.capacity, "capacity"),
     isActive: asBoolean(dto.isActive, "isActive"),
     assignedStaff: typeof dto.assignedStaff === "string" ? dto.assignedStaff : undefined,
+    provisioningSource: asProvisioningSource(dto.provisioningSource, "provisioningSource"),
   };
 }
 

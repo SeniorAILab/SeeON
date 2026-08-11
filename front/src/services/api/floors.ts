@@ -1,11 +1,12 @@
 import { requestJson, requestNoContent } from "@/services/apiClient";
-import type { Floor } from "@/types";
+import type { Floor, ProvisioningSource } from "@/types";
 
 export interface BackendFloorDto {
   id: string;
   facilityId: string;
   name: string;
   orderIndex: number;
+  provisioningSource: ProvisioningSource;
 }
 
 export type CreateFloorInput = {
@@ -26,12 +27,18 @@ function asNumber(value: unknown, field: string): number {
   return number;
 }
 
+function asProvisioningSource(value: unknown, field: string): ProvisioningSource {
+  if (value !== "PRODUCT" && value !== "EDGE") throw new Error(`Invalid floor ${field}`);
+  return value;
+}
+
 export function mapFloorDto(dto: BackendFloorDto): Floor {
   return {
     id: asString(dto.id, "id"),
     facilityId: asString(dto.facilityId, "facilityId"),
     name: asString(dto.name, "name"),
     orderIndex: asNumber(dto.orderIndex, "orderIndex"),
+    provisioningSource: asProvisioningSource(dto.provisioningSource, "provisioningSource"),
   };
 }
 

@@ -105,6 +105,13 @@ body {
   --pulse-spread: 14px;
   animation: status-pulse 3.2s ease-in-out infinite;
 }
+/* 알림 목록에 새로 들어온 고위험 카드 전용 — 위 두 톤과 달리 유한 반복(3회 × 1초 = 3초)으로
+   끝나야 한다. 계속 번쩍이면 화면에 위험이 여러 개 쌓였을 때 눈을 피로하게 만들 뿐 정보가
+   없다. 3초면 지나가다 봐도 "방금 온 것"이라는 신호는 충분히 전달된다. */
+.animate-pulse-alert-new {
+  --pulse-color: rgba(217, 45, 32, 0.22);
+  animation: status-pulse 1s ease-in-out 3;
+}
 
 /* 장갑 착용/큰 손가락 대응: 모든 버튼 최소 터치 영역 확보 */
 button {

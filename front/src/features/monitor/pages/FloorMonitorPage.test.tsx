@@ -62,7 +62,7 @@ describe("FloorMonitorPage", () => {
     });
     vi.mocked(dashboardService.getDashboard).mockResolvedValue({
       facility: { id: facilityId, name: "행복요양원", address: "의정부시", phone: "031" },
-      floors: [{ id: "fl_2f", facilityId, name: "2F", orderIndex: 2 }],
+      floors: [{ id: "fl_2f", facilityId, name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" }],
       spaces: [],
       statuses: {},
       summary: { totalSpaces: 0, stable: 0, caution: 0, danger: 0, checkNeeded: 0, unacknowledged: 0 },

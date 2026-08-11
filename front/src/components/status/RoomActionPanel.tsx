@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { alertService, type AlertNote } from "@/services/alertService";
-import { ApiError, apiErrorMessage } from "@/services/apiClient";
+import { apiErrorMessage } from "@/services/apiClient";
 import type { DetectionEvent, Space, SpaceStatus } from "@/types";
 import { eventTypeLabel } from "@/lib/labels";
 import { formatDateTime } from "@/lib/format";
@@ -50,7 +50,6 @@ export function RoomActionPanel({
   const hasCapturedTriggerRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [visibleAlertCounts, setVisibleAlertCounts] = useState<Record<string, number>>({});
   const groups = useMemo(() => eventGroupsFor(status, alerts), [status, alerts]);
@@ -58,14 +57,12 @@ export function RoomActionPanel({
   // 아직 아무도 확인하지 않은 알림이 있을 때만 "확인"이 의미가 있다.
   const canAcknowledge = alerts.some((alert) => alert.alertStatus !== "ACKNOWLEDGED");
   // B4 alert-notes attach to a real Alert id. SpaceStatus.id is a synthetic
-  // `status-<spaceId>` key (see alertMerge), never a valid alert id, so notes
-  // target the current event's real alert id from `alerts`.
+  // `status-<spaceId>` key (see alertMerge), never a valid alert id, so the
+  // read-only note history below targets the current event's real alert id.
   const targetAlertId = alerts[0]?.id;
-  const canWriteNote = Boolean(targetAlertId);
   const [notes, setNotes] = useState<AlertNote[]>([]);
   const [history, setHistory] = useState({ spaceId: space.id, alertId: targetAlertId ?? null });
   const [notesLoading, setNotesLoading] = useState(false);
-  const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const historyAlertId = history.spaceId === space.id ? history.alertId : null;
   const historyIsCurrent = history.spaceId === space.id;
@@ -189,7 +186,8 @@ export function RoomActionPanel({
     } catch (caught) {
       // catch가 없으면 서버가 거부해도 화면에서 아무 일도 일어나지 않는다.
       // 요양보호사는 처리했다고 믿고 자리를 뜬다 — 침묵으로 장애를 표현하는
-      // 것과 같다. 조치 기록 없이 해결을 막는 규칙(I4)이 생긴 뒤 실제로 발생한다.
+      // 것과 같다. 조치 기록 여부와 무관하게, 네트워크 오류 등 어떤 이유로든
+      // 해결 요청이 실패하면 반드시 화면에 사유를 보여준다.
       setResolveError(
         apiErrorMessage(
           caught,
@@ -198,28 +196,6 @@ export function RoomActionPanel({
       );
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function handleSaveNote() {
-    const trimmed = note.trim();
-    if (!targetAlertId || !canWriteNote || !trimmed || noteSaving) return;
-    setNoteSaving(true);
-    setNoteError(null);
-    try {
-      await alertService.createNote(targetAlertId, trimmed);
-      if (targetAlertId === historyAlertId) {
-        setNotes(await alertService.listNotes(targetAlertId));
-      }
-      setNote("");
-    } catch (error) {
-      setNoteError(
-        error instanceof ApiError && error.status === 403
-          ? "이 계정에는 메모 작성 권한이 없습니다. 관리자 또는 요양보호사 계정으로 로그인해주세요."
-          : "메모 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
-      );
-    } finally {
-      setNoteSaving(false);
     }
   }
 
@@ -311,24 +287,14 @@ export function RoomActionPanel({
         )}
       </div>
 
-      <label className="mt-4 block text-staff-body font-black text-ink" htmlFor={`note-${space.id}`}>메모</label>
-      <p className="mt-1 text-base font-bold text-ink-soft">
-        먼저 <b>확인</b>을 눌러 알림을 받았다고 알리세요. 조치를 마친 뒤
-        내용을 적고 <b>해결 완료</b>를 누르면 알람이 꺼집니다.
+      <p className="mt-4 text-staff-body font-bold text-ink-soft">
+        먼저 <b>확인</b>을 눌러 알림을 받았다고 알리세요. 현장을 확인한 뒤
+        <b>해결 완료</b>를 누르면 알람이 꺼집니다. 텍스트를 입력할 필요는 없습니다.
       </p>
-      {!canWriteNote && <div className="mt-2 rounded-2xl bg-surface2 px-4 py-3 text-staff-body font-bold text-ink-soft">현재 기록할 이벤트가 없습니다.</div>}
-      <textarea
-        id={`note-${space.id}`}
-        value={note}
-        disabled={!canWriteNote || noteSaving || notesLoading}
-        onChange={(event) => setNote(event.target.value)}
-        className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-bg p-3 text-staff-body text-ink outline-none focus:border-brand disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-soft"
-        placeholder={canWriteNote ? "조치 내용을 입력하세요" : "현재 기록할 이벤트가 없습니다"}
-      />
       <div className="mt-3 flex flex-wrap gap-2">
-        {/* 확인(ACK)은 메모를 요구하지 않는다. TV 앞에서 타이핑하기 전에
-            "내가 간다"를 먼저 알려야 다른 사람이 중복으로 달려가지 않는다.
-            해결 완료(RESOLVE)만 조치 기록을 요구한다(I4). */}
+        {/* 확인(ACK)과 해결 완료(RESOLVE)는 조치 기록을 요구하지 않는다 —
+            화면에는 텍스트 입력이 없다. TV 앞에서 타이핑하기 전에 "내가
+            간다"를 먼저 알려야 다른 사람이 중복으로 달려가지 않는다. */}
         <button
           type="button"
           disabled={!canAcknowledge || busy}
@@ -336,9 +302,6 @@ export function RoomActionPanel({
           className="h-14 rounded-2xl border border-brand px-5 text-staff-btn text-brand hover:bg-brand-soft disabled:cursor-not-allowed disabled:border-border disabled:text-ink-faint"
         >
           {busy ? "처리 중" : "확인"}
-        </button>
-        <button type="button" disabled={!canWriteNote || note.trim().length === 0 || noteSaving || notesLoading} onClick={() => void handleSaveNote()} className="h-14 rounded-2xl border border-border px-5 text-staff-btn text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:text-ink-faint">
-          {noteSaving ? "저장 중" : "메모 저장"}
         </button>
         <button type="button" disabled={!canResolve || busy} onClick={() => void handleResolve()} className="h-14 rounded-2xl bg-brand px-5 text-staff-btn text-white shadow-card disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-ink-faint">
           {busy ? "처리 중" : "해결 완료"}
