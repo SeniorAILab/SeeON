@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getFacility, listFacilities } from "./facilities";
+import { getFacility, getFacilityEdgeStatus, listFacilities } from "./facilities";
 import { requestJson } from "@/services/apiClient";
 import { getCurrentFacilityId } from "@/stores/facilityStore";
 
@@ -68,5 +68,52 @@ describe("facilities api", () => {
     ]);
 
     expect(requestJsonMock).toHaveBeenCalledWith("/facilities");
+  });
+
+  it("gets the facility edge status with an explicit facility scope header", async () => {
+    const edgeStatus = {
+      connectionState: "CONNECTED" as const,
+      lastHeartbeatAt: "2026-08-12T00:00:00.000Z",
+      lastSyncedAt: "2026-08-11T23:55:00.000Z",
+      healthyCameraCount: 3,
+      totalCameraCount: 4,
+    };
+    requestJsonMock.mockResolvedValue(edgeStatus);
+
+    await expect(getFacilityEdgeStatus("fac/1")).resolves.toEqual(edgeStatus);
+
+    expect(requestJsonMock).toHaveBeenCalledWith("/facilities/fac%2F1/edge-status", {
+      headers: { "X-Facility-Id": "fac/1" },
+    });
+  });
+
+  it("maps a not-enrolled edge status with null timestamps", async () => {
+    requestJsonMock.mockResolvedValue({
+      connectionState: "NOT_ENROLLED",
+      lastHeartbeatAt: null,
+      lastSyncedAt: null,
+      healthyCameraCount: 0,
+      totalCameraCount: 0,
+    });
+
+    await expect(getFacilityEdgeStatus("fac/1")).resolves.toEqual({
+      connectionState: "NOT_ENROLLED",
+      lastHeartbeatAt: null,
+      lastSyncedAt: null,
+      healthyCameraCount: 0,
+      totalCameraCount: 0,
+    });
+  });
+
+  it("rejects an invalid connectionState", async () => {
+    requestJsonMock.mockResolvedValue({
+      connectionState: "BOGUS",
+      lastHeartbeatAt: null,
+      lastSyncedAt: null,
+      healthyCameraCount: 0,
+      totalCameraCount: 0,
+    });
+
+    await expect(getFacilityEdgeStatus("fac/1")).rejects.toThrow();
   });
 });

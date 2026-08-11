@@ -50,13 +50,13 @@ const dashboard: DashboardResponse = {
     phone: "031-000-0000",
   },
   floors: [
-    { id: dangerFloorId, facilityId, name: "1층", orderIndex: 1 },
-    { id: stableFloorId, facilityId, name: "2층", orderIndex: 2 },
+    { id: dangerFloorId, facilityId, name: "1층", orderIndex: 1, provisioningSource: "PRODUCT" },
+    { id: stableFloorId, facilityId, name: "2층", orderIndex: 2, provisioningSource: "PRODUCT" },
   ],
   spaces: [
-    { id: "space_101", facilityId, floorId: dangerFloorId, name: "101호", type: "ROOM", capacity: 2, isActive: true },
-    { id: "space_102", facilityId, floorId: dangerFloorId, name: "102호", type: "ROOM", capacity: 2, isActive: true },
-    { id: "space_201", facilityId, floorId: stableFloorId, name: "201호", type: "ROOM", capacity: 2, isActive: true },
+    { id: "space_101", facilityId, floorId: dangerFloorId, name: "101호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+    { id: "space_102", facilityId, floorId: dangerFloorId, name: "102호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+    { id: "space_201", facilityId, floorId: stableFloorId, name: "201호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
   ],
   statuses: {
     space_101: status("space_101", "DANGER"),
@@ -129,7 +129,7 @@ describe("FloorSelectLandingPage", () => {
       ...dashboard,
       floors: [
         ...dashboard.floors,
-        { id: inactiveFloorId, facilityId, name: "숨김층", orderIndex: 3 },
+        { id: inactiveFloorId, facilityId, name: "숨김층", orderIndex: 3, provisioningSource: "PRODUCT" },
       ],
       spaces: [
         ...dashboard.spaces,
@@ -141,6 +141,7 @@ describe("FloorSelectLandingPage", () => {
           type: "ROOM",
           capacity: 2,
           isActive: false,
+          provisioningSource: "PRODUCT",
         },
       ],
     });

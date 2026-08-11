@@ -45,9 +45,9 @@ const FACILITY_NAME = "데모 요양원";
 // 실제 배치와 같은 분포를 쓴다. 방 이름은 데모 값이다 —
 // 이 저장소는 공개이고 실제 호실 번호는 입주자 위치 정보다.
 const floors: Floor[] = [
-  { id: "fl_2f", facilityId: FACILITY, name: "2층", orderIndex: 2 },
-  { id: "fl_3f", facilityId: FACILITY, name: "3층", orderIndex: 3 },
-  { id: "fl_4f", facilityId: FACILITY, name: "4층", orderIndex: 4 },
+  { id: "fl_2f", facilityId: FACILITY, name: "2층", orderIndex: 2, provisioningSource: "PRODUCT" },
+  { id: "fl_3f", facilityId: FACILITY, name: "3층", orderIndex: 3, provisioningSource: "PRODUCT" },
+  { id: "fl_4f", facilityId: FACILITY, name: "4층", orderIndex: 4, provisioningSource: "PRODUCT" },
 ];
 
 function space(id: string, name: string, floorId = "fl_2f"): Space {
@@ -59,6 +59,7 @@ function space(id: string, name: string, floorId = "fl_2f"): Space {
     type: "ROOM",
     capacity: 1,
     isActive: true,
+    provisioningSource: "PRODUCT",
   };
 }
 

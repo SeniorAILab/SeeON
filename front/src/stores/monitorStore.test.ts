@@ -10,6 +10,7 @@ const activeSpace: Space = {
   type: "ROOM",
   capacity: 1,
   isActive: true,
+  provisioningSource: "PRODUCT",
 };
 
 

@@ -183,51 +183,62 @@ export function AdminSpacesPage() {
           </p>
         )}
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          {floors.map((floor) => (
-            <div key={floor.id} className="flex min-h-12 items-center gap-2 rounded-xl border border-border p-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-ink-soft">
-                {floor.orderIndex}
-              </span>
-              {editingFloorId === floor.id ? (
-                <>
-                  <Input
-                    className="h-9 flex-1"
-                    aria-label={`${floor.name} 층 이름 편집`}
-                    value={editingFloorName}
-                    onChange={(e) => setEditingFloorName(e.target.value)}
-                    autoFocus
-                  />
-                  <Button size="sm" aria-label="층 이름 저장" onClick={() => saveFloor(floor.id)}>
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" aria-label="수정 취소" onClick={() => setEditingFloorId(null)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 font-medium text-ink">{floor.name}</span>
-                  <button
-                    className="rounded-md p-2 text-gray-400 hover:bg-gray-100"
-                    aria-label={`${floor.name} 이름 수정`}
-                    onClick={() => {
-                      setEditingFloorId(floor.id);
-                      setEditingFloorName(floor.name);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    className="rounded-md p-2 text-status-danger hover:bg-status-dangerBg"
-                    aria-label={`${floor.name} 삭제`}
-                    onClick={() => removeFloor(floor.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
+          {floors.map((floor) => {
+            const edgeOwned = floor.provisioningSource === "EDGE";
+            return (
+              <div key={floor.id} className="flex min-h-12 items-center gap-2 rounded-xl border border-border p-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-ink-soft">
+                  {floor.orderIndex}
+                </span>
+                {editingFloorId === floor.id ? (
+                  <>
+                    <Input
+                      className="h-9 flex-1"
+                      aria-label={`${floor.name} 층 이름 편집`}
+                      value={editingFloorName}
+                      onChange={(e) => setEditingFloorName(e.target.value)}
+                      autoFocus
+                    />
+                    <Button size="sm" aria-label="층 이름 저장" onClick={() => saveFloor(floor.id)}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" aria-label="수정 취소" onClick={() => setEditingFloorId(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 font-medium text-ink">{floor.name}</span>
+                    {edgeOwned ? (
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-ink-soft">
+                        현장 Edge에서 관리됨
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          className="rounded-md p-2 text-gray-400 hover:bg-gray-100"
+                          aria-label={`${floor.name} 이름 수정`}
+                          onClick={() => {
+                            setEditingFloorId(floor.id);
+                            setEditingFloorName(floor.name);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="rounded-md p-2 text-status-danger hover:bg-status-dangerBg"
+                          aria-label={`${floor.name} 삭제`}
+                          onClick={() => removeFloor(floor.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       </Card>
 
@@ -283,55 +294,66 @@ export function AdminSpacesPage() {
             </tr>
           </thead>
           <tbody>
-            {spaces.map((space) => (
-              <tr key={space.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-3 font-medium text-ink">{space.name}</td>
-                <td className="px-4 py-3 text-ink-soft">{floorName(space.floorId)}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={
-                      "rounded-md px-2 py-0.5 text-xs font-medium " +
-                      (space.isActive
-                        ? "bg-status-stableBg text-status-stable"
-                        : "bg-gray-100 text-gray-400")
-                    }
-                  >
-                    {space.isActive ? "표시" : "숨김"}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-1">
-                    <button
-                      className="rounded-md p-2 text-gray-400 hover:bg-gray-100"
-                      aria-label={`${space.name} 수정`}
-                      onClick={() =>
-                        setSpaceDraft({
-                          id: space.id,
-                          floorId: space.floorId,
-                          name: space.name,
-                          isActive: space.isActive,
-                        })
+            {spaces.map((space) => {
+              const edgeOwned = space.provisioningSource === "EDGE";
+              return (
+                <tr key={space.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3 font-medium text-ink">{space.name}</td>
+                  <td className="px-4 py-3 text-ink-soft">{floorName(space.floorId)}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={
+                        "rounded-md px-2 py-0.5 text-xs font-medium " +
+                        (space.isActive
+                          ? "bg-status-stableBg text-status-stable"
+                          : "bg-gray-100 text-gray-400")
                       }
                     >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    {space.isActive ? (
-                      <button
-                        className="rounded-md p-2 text-status-danger hover:bg-status-dangerBg"
-                        aria-label={`${space.name} 숨김`}
-                        onClick={() => removeSpace(space)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <Button size="sm" aria-label={`${space.name} 복원`} onClick={() => restoreSpace(space)}>
-                        복원
-                      </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {space.isActive ? "표시" : "숨김"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      {edgeOwned ? (
+                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-ink-soft">
+                          현장 Edge에서 관리됨
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            className="rounded-md p-2 text-gray-400 hover:bg-gray-100"
+                            aria-label={`${space.name} 수정`}
+                            onClick={() =>
+                              setSpaceDraft({
+                                id: space.id,
+                                floorId: space.floorId,
+                                name: space.name,
+                                isActive: space.isActive,
+                              })
+                            }
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          {space.isActive ? (
+                            <button
+                              className="rounded-md p-2 text-status-danger hover:bg-status-dangerBg"
+                              aria-label={`${space.name} 숨김`}
+                              onClick={() => removeSpace(space)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <Button size="sm" aria-label={`${space.name} 복원`} onClick={() => restoreSpace(space)}>
+                              복원
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>

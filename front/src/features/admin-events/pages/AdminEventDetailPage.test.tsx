@@ -56,7 +56,7 @@ const DASHBOARD: DashboardResponse = {
     address: "",
     phone: "",
   },
-  floors: [{ id: "floor-1", facilityId: "facility-1", name: "1층", orderIndex: 1 }],
+  floors: [{ id: "floor-1", facilityId: "facility-1", name: "1층", orderIndex: 1, provisioningSource: "PRODUCT" }],
   spaces: [{
     id: "space-1",
     facilityId: "facility-1",
@@ -65,6 +65,7 @@ const DASHBOARD: DashboardResponse = {
     type: "ROOM",
     capacity: 1,
     isActive: true,
+    provisioningSource: "PRODUCT",
   }],
   statuses: {},
   summary: {

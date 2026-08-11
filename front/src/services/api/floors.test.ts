@@ -16,6 +16,7 @@ const backendFloor = {
   name: "2F",
   orderIndex: 2,
   isActive: true,
+  provisioningSource: "PRODUCT" as const,
   createdAt: "2026-07-03T00:00:00.000Z",
 };
 
@@ -30,6 +31,7 @@ describe("floors api", () => {
       facilityId: "fac_1",
       name: "2F",
       orderIndex: 2,
+      provisioningSource: "PRODUCT",
     });
   });
 
@@ -37,7 +39,13 @@ describe("floors api", () => {
     requestJsonMock.mockResolvedValue([backendFloor]);
 
     await expect(listFloors()).resolves.toEqual([
-      { id: "fl_1", facilityId: "fac_1", name: "2F", orderIndex: 2 },
+      {
+        id: "fl_1",
+        facilityId: "fac_1",
+        name: "2F",
+        orderIndex: 2,
+        provisioningSource: "PRODUCT",
+      },
     ]);
     expect(requestJsonMock).toHaveBeenCalledWith("/floors");
   });
@@ -62,6 +70,15 @@ describe("floors api", () => {
       method: "PATCH",
       body: JSON.stringify({ name: "3F" }),
     });
+  });
+
+  it("maps an EDGE-owned floor and rejects an invalid provisioningSource", () => {
+    expect(mapFloorDto({ ...backendFloor, provisioningSource: "EDGE" })).toMatchObject({
+      provisioningSource: "EDGE",
+    });
+    expect(() =>
+      mapFloorDto({ ...backendFloor, provisioningSource: "BOGUS" as never }),
+    ).toThrow();
   });
 
   it("deletes floors with DELETE and no response body", async () => {

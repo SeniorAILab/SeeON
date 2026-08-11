@@ -32,7 +32,7 @@ describe("AdminSpacesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listFloorsMock.mockResolvedValue([
-      { id: "fl_2", facilityId: "fac_1", name: "2F", orderIndex: 2 },
+      { id: "fl_2", facilityId: "fac_1", name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" },
     ]);
     listSpacesMock.mockResolvedValue([
       {
@@ -43,6 +43,7 @@ describe("AdminSpacesPage", () => {
         type: "ROOM",
         capacity: 4,
         isActive: true,
+        provisioningSource: "PRODUCT",
       },
     ]);
   });
@@ -172,6 +173,59 @@ describe("AdminSpacesPage", () => {
     await waitFor(() =>
       expect(screen.getByText("참조 이력이 있는 공간이 포함된 층은 삭제할 수 없습니다")).toBeTruthy()
     );
+  });
+
+  it("locks EDGE-owned floor rows: badge instead of edit/delete controls", async () => {
+    listFloorsMock.mockResolvedValue([
+      { id: "fl_2", facilityId: "fac_1", name: "2F", orderIndex: 2, provisioningSource: "PRODUCT" },
+      { id: "fl_3", facilityId: "fac_1", name: "3F", orderIndex: 3, provisioningSource: "EDGE" },
+    ]);
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByText("3F")).toBeTruthy());
+
+    expect(screen.getByText("현장 Edge에서 관리됨")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "3F 이름 수정" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "3F 삭제" })).toBeNull();
+    // PRODUCT row is unaffected.
+    expect(screen.getByRole("button", { name: "2F 이름 수정" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "2F 삭제" })).toBeTruthy();
+  });
+
+  it("locks EDGE-owned space rows: badge instead of edit/hide/restore controls", async () => {
+    listSpacesMock.mockResolvedValue([
+      {
+        id: "sp_201",
+        facilityId: "fac_1",
+        floorId: "fl_2",
+        name: "201호",
+        type: "ROOM",
+        capacity: 4,
+        isActive: true,
+        provisioningSource: "PRODUCT",
+      },
+      {
+        id: "sp_202",
+        facilityId: "fac_1",
+        floorId: "fl_2",
+        name: "202호",
+        type: "ROOM",
+        capacity: 4,
+        isActive: true,
+        provisioningSource: "EDGE",
+      },
+    ]);
+    render(<AdminSpacesPage />);
+
+    await waitFor(() => expect(screen.getByText("202호")).toBeTruthy());
+
+    expect(screen.getByText("현장 Edge에서 관리됨")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "202호 수정" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "202호 숨김" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "202호 복원" })).toBeNull();
+    // PRODUCT row is unaffected.
+    expect(screen.getByRole("button", { name: "201호 수정" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "201호 숨김" })).toBeTruthy();
   });
 
   it("gives the floor edit controls accessible names", async () => {

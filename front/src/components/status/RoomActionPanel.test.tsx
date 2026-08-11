@@ -10,22 +10,14 @@ vi.mock("@/services/alertService", () => ({
   alertService: {
     resolve: vi.fn(async () => ({})),
     acknowledge: vi.fn(async () => ({})),
-    createNote: vi.fn(async () => ({
-      id: "note-new",
-      type: "MEMO",
-      note: "저장한 메모",
-      createdBy: "staff-1",
-      authorRole: "STAFF",
-      createdAt: "2026-07-03T00:01:00.000Z",
-    })),
     listNotes: vi.fn(async () => []),
   },
 }));
 
 const spaces: Space[] = [
-  { id: "b", facilityId: "fac", floorId: "2", name: "202호", type: "ROOM", capacity: 2, isActive: true },
-  { id: "a", facilityId: "fac", floorId: "2", name: "201호", type: "ROOM", capacity: 2, isActive: true },
-  { id: "c", facilityId: "fac", floorId: "3", name: "301호", type: "ROOM", capacity: 2, isActive: true },
+  { id: "b", facilityId: "fac", floorId: "2", name: "202호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+  { id: "a", facilityId: "fac", floorId: "2", name: "201호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
+  { id: "c", facilityId: "fac", floorId: "3", name: "301호", type: "ROOM", capacity: 2, isActive: true, provisioningSource: "PRODUCT" },
 ];
 
 function status(id: string, level: SpaceStatus["status"]): SpaceStatus {
@@ -63,7 +55,6 @@ function alert(overrides: Partial<DetectionEvent> = {}): DetectionEvent {
 beforeEach(async () => {
   const { alertService } = await import("@/services/alertService");
   vi.mocked(alertService.acknowledge).mockClear();
-  vi.mocked(alertService.createNote).mockClear();
   vi.mocked(alertService.listNotes).mockReset();
   vi.mocked(alertService.listNotes).mockResolvedValue([]);
 });
@@ -181,10 +172,12 @@ describe("RoomActionPanel", () => {
     expect(eventGroupsFor(alertStatus)).toEqual([]);
   });
 
-  it("explains that saving a memo does not clear the alarm", () => {
+  it("explains the 확인 → 해결 완료 flow without any text input", () => {
     render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert()]} onClose={vi.fn()} />);
 
     expect(screen.getByText(/알림을 받았다고 알리세요/)).toBeTruthy();
+    // 메모 히스토리(읽기 전용)는 남지만, 메모를 작성하는 입력창은 없다.
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("renders as a modal dialog and closes from Escape, backdrop, and close button", () => {
@@ -264,22 +257,15 @@ describe("RoomActionPanel", () => {
     expect(classNames.some((className) => /gray-300/.test(className))).toBe(false);
   });
 
-  it("targets the real alert id (not the synthetic status id) and reloads note history", async () => {
+  it("targets the real alert id (not the synthetic status id) for read-only note history", async () => {
     const { alertService } = await import("@/services/alertService");
-    vi.mocked(alertService.listNotes)
-      .mockResolvedValueOnce([note({ note: "기존 메모" })])
-      .mockResolvedValueOnce([note({ note: "기존 메모" }), note({ id: "note-2", note: "저장한 메모", authorRole: "ADMIN", createdAt: "2026-07-03T00:02:00.000Z" })]);
+    vi.mocked(alertService.listNotes).mockResolvedValueOnce([note({ note: "기존 메모" })]);
 
     render(<RoomActionPanel space={spaces[1]} status={status("a", "DANGER")} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />);
 
     expect(await screen.findByText("기존 메모")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("메모"), { target: { value: "저장한 메모" } });
-    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
-
-    await waitFor(() => expect(alertService.createNote).toHaveBeenCalledWith("event-1", "저장한 메모"));
-    await waitFor(() => expect(alertService.listNotes).toHaveBeenLastCalledWith("event-1"));
-    expect(await screen.findByText("저장한 메모")).toBeTruthy();
-    expect(screen.getByText(/ADMIN/)).toBeTruthy();
+    expect(alertService.listNotes).toHaveBeenCalledWith("event-1");
+    expect(alertService.listNotes).not.toHaveBeenCalledWith("alert-a");
   });
 
   it("uses the first alert id for notes when status id is absent", async () => {
@@ -287,22 +273,8 @@ describe("RoomActionPanel", () => {
     render(<RoomActionPanel space={spaces[1]} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />);
 
     await waitFor(() => expect(alertService.listNotes).toHaveBeenCalledWith("event-1"));
-    fireEvent.change(screen.getByLabelText("메모"), { target: { value: "알림 메모" } });
-    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
-
-    await waitFor(() => expect(alertService.createNote).toHaveBeenCalledWith("event-1", "알림 메모"));
   });
 
-  it("disables note writing when the room has no current alert event", async () => {
-    const { alertService } = await import("@/services/alertService");
-    render(<RoomActionPanel space={spaces[1]} alerts={[]} onClose={vi.fn()} />);
-
-    expect(screen.getByText("현재 기록할 이벤트가 없습니다.")).toBeTruthy();
-    expect((screen.getByLabelText("메모") as HTMLTextAreaElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "메모 저장" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(alertService.createNote).not.toHaveBeenCalled();
-    expect(alertService.listNotes).not.toHaveBeenCalled();
-  });
   it("does not resolve a synthetic status id when no real alert exists", async () => {
     const { alertService } = await import("@/services/alertService");
     render(<RoomActionPanel space={spaces[1]} status={{ ...status("a", "DANGER"), id: "status-a" }} alerts={[]} onClose={vi.fn()} />);
@@ -324,7 +296,6 @@ describe("RoomActionPanel", () => {
 
     expect(screen.getByText("해결 전 메모")).toBeTruthy();
     expect(screen.queryByText("저장된 메모가 없습니다.")).toBeNull();
-    expect((screen.getByLabelText("메모") as HTMLTextAreaElement).disabled).toBe(true);
     expect(alertService.listNotes).toHaveBeenCalledTimes(1);
   });
   it("keeps the viewed alert memo history when a sibling alert remains active", async () => {
@@ -361,28 +332,6 @@ describe("RoomActionPanel", () => {
     expect(screen.queryByText("201호 메모")).toBeNull();
     expect(screen.getByText("저장된 메모가 없습니다.")).toBeTruthy();
   });
-
-  it("surfaces a visible error when note saving fails instead of swallowing it", async () => {
-    const { alertService } = await import("@/services/alertService");
-    const { ApiError } = await import("@/services/apiClient");
-    vi.mocked(alertService.createNote).mockRejectedValueOnce(new ApiError(403, "Forbidden"));
-
-    render(<RoomActionPanel space={spaces[1]} alerts={[alert({ id: "event-1" })]} onClose={vi.fn()} />);
-
-    // 노트 로딩이 끝나 저장 버튼이 활성화될 때까지 대기
-    expect(await screen.findByText("저장된 메모가 없습니다.")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("메모"), { target: { value: "권한 없는 메모" } });
-    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
-
-    const alertBox = await screen.findByRole("alert");
-    expect(alertBox.textContent).toContain("메모 작성 권한이 없습니다");
-    // 입력값은 보존되어 재시도할 수 있어야 한다
-    expect((screen.getByLabelText("메모") as HTMLTextAreaElement).value).toBe("권한 없는 메모");
-
-    vi.mocked(alertService.createNote).mockRejectedValueOnce(new Error("network down"));
-    fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("메모 저장에 실패했습니다"));
-  });
 });
 
 describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
@@ -404,9 +353,10 @@ describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
     return onResolved;
   }
 
-  it("서버가 조치 기록 없이 거부하면 사유를 화면에 띄운다", async () => {
-    // I4로 백엔드가 메모 없는 해결을 거부한다. catch가 없으면 요양보호사는
-    // 눌렀는데 아무 일도 안 일어나는 것을 보고 처리됐다고 믿는다.
+  it("서버가 400으로 거부하면 사유를 화면에 띄운다", async () => {
+    // catch가 없으면 요양보호사는 눌렀는데 아무 일도 안 일어나는 것을 보고
+    // 처리됐다고 믿는다 — 이유가 무엇이든(조치 기록 요구는 더 이상 없지만,
+    // 다른 서버 거부는 여전히 있을 수 있다) 반드시 화면에 사유를 보여준다.
     const alertService = await svc();
     const { ApiError } = await import("@/services/apiClient");
     vi.mocked(alertService.resolve).mockRejectedValueOnce(
@@ -415,7 +365,7 @@ describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
         400,
         JSON.stringify({
           statusCode: 400,
-          message: "조치 결과를 먼저 기록해야 해결 완료로 바꿀 수 있습니다.",
+          message: "요청을 처리할 수 없습니다.",
         }),
       ),
     );
@@ -425,7 +375,7 @@ describe("해결 완료 실패를 침묵으로 넘기지 않는다", () => {
 
     const nodes = await screen.findAllByRole("alert");
     expect(
-      nodes.some((n) => (n.textContent ?? "").includes("조치 결과를 먼저 기록")),
+      nodes.some((n) => (n.textContent ?? "").includes("요청을 처리할 수 없습니다")),
     ).toBe(true);
   });
 
@@ -509,9 +459,9 @@ describe("확인(ACK)과 해결 완료(RESOLVE)는 다른 동작이다 (I4)", ()
     ).toBe(true);
   });
 
-  it("확인 후에도 패널이 열려 있어 메모를 이어서 쓸 수 있다", async () => {
-    // 확인 → 방문 → 기록 → 해결 완료가 한 흐름이다. 확인에서 패널이 닫히면
-    // 요양보호사가 다시 찾아 들어와야 하고, 그 사이 기록이 누락된다.
+  it("확인 후에도 패널이 열려 있어 해결 완료로 이어갈 수 있다", async () => {
+    // 확인 → 방문 → 해결 완료가 한 흐름이다. 확인에서 패널이 닫히면
+    // 요양보호사가 다시 찾아 들어와야 한다.
     const alertService = await svc();
     vi.mocked(alertService.acknowledge).mockClear();
     renderPanel();
@@ -519,15 +469,13 @@ describe("확인(ACK)과 해결 완료(RESOLVE)는 다른 동작이다 (I4)", ()
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
     await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalled());
 
-    // 메모 입력과 해결 완료가 그대로 남아 있다.
-    expect(screen.getByPlaceholderText("조치 내용을 입력하세요")).toBeTruthy();
+    // 패널이 닫히지 않고, 해결 완료로 바로 이어갈 수 있다.
+    expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByRole("button", { name: "해결 완료" })).toBeTruthy();
   });
 });
 
-describe("ack-outcome-resolve-sequence — 확인→기록→해결 순서가 강제된다", () => {
-  // 계획의 I4 수용 기준이 이 이름으로 실행된다
-  // (`vitest run src/components/status/RoomActionPanel.test.tsx -t ack-outcome-resolve-sequence`).
+describe("ack-then-resolve-sequence — 확인 후 메모 없이도 해결할 수 있다", () => {
   async function svc() {
     const { alertService } = await import("@/services/alertService");
     return alertService;
@@ -557,29 +505,29 @@ describe("ack-outcome-resolve-sequence — 확인→기록→해결 순서가 �
     expect(alertService.resolve).not.toHaveBeenCalled();
   });
 
-  it("조치 기록 없이 해결하면 서버 거부 사유가 화면에 뜬다", async () => {
+  it("메모를 하나도 남기지 않고도 해결 완료를 누르면 곧바로 성공한다", async () => {
+    // 화면에는 텍스트 입력이 없다 — 메모 없이 해결을 누르면 서버 거부 없이 끝난다.
     const alertService = await svc();
-    const { ApiError } = await import("@/services/apiClient");
-    vi.mocked(alertService.resolve).mockRejectedValueOnce(
-      new ApiError(
-        400,
-        JSON.stringify({
-          statusCode: 400,
-          message: "조치 결과를 먼저 기록해야 해결 완료로 바꿀 수 있습니다.",
-        }),
-      ),
+    const onResolved = vi.fn();
+    vi.mocked(alertService.resolve).mockResolvedValueOnce({} as never);
+    render(
+      <RoomActionPanel
+        space={spaces[1]}
+        status={status("a", "DANGER")}
+        alerts={[alert({ id: "event-1" })]}
+        onClose={vi.fn()}
+        onResolved={onResolved}
+      />,
     );
-    renderPanel();
 
     fireEvent.click(screen.getByRole("button", { name: "해결 완료" }));
 
-    const nodes = await screen.findAllByRole("alert");
-    expect(
-      nodes.some((n) => (n.textContent ?? "").includes("조치 결과를 먼저 기록")),
-    ).toBe(true);
+    await waitFor(() => expect(alertService.resolve).toHaveBeenCalledWith("event-1"));
+    await waitFor(() => expect(onResolved).toHaveBeenCalled());
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("확인 후에도 메모와 해결 완료가 남아 순서를 이어갈 수 있다", async () => {
+  it("확인 후에도 해결 완료 버튼이 남아 순서를 이어갈 수 있다", async () => {
     const alertService = await svc();
     vi.mocked(alertService.acknowledge).mockClear();
     renderPanel();
@@ -587,7 +535,6 @@ describe("ack-outcome-resolve-sequence — 확인→기록→해결 순서가 �
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
     await waitFor(() => expect(alertService.acknowledge).toHaveBeenCalled());
 
-    expect(screen.getByPlaceholderText("조치 내용을 입력하세요")).toBeTruthy();
     expect(screen.getByRole("button", { name: "해결 완료" })).toBeTruthy();
   });
 });

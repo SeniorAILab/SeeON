@@ -16,6 +16,13 @@ export type SpaceType =
   | "STAFF_LOUNGE" // 직원휴게공간
   | "ETC";
 
+/**
+ * 층/공간/카메라 소유 주체.
+ * `EDGE`는 현장 Edge가 토폴로지를 소유·관리하는 행이며, Hub 관리자 화면에서
+ * 생성/수정/삭제/이동이 금지된다(백엔드 `assertProductOwned` 가드).
+ */
+export type ProvisioningSource = "PRODUCT" | "EDGE";
+
 /** 공간의 종합 상태 */
 export type SpaceStatusLevel = "STABLE" | "CAUTION" | "DANGER" | "CHECK_NEEDED";
 
@@ -77,11 +84,24 @@ export interface Facility {
   phone: string;
 }
 
+/** 시설 Edge 연결 상태. `NOT_ENROLLED`는 등록된 Edge가 없음, `STALE`은 등록됐지만 heartbeat가 오래됨. */
+export type EdgeConnectionState = "NOT_ENROLLED" | "CONNECTED" | "STALE";
+
+/** 시설 관리자 화면에 노출하는 Edge 상태 요약. */
+export interface FacilityEdgeStatus {
+  connectionState: EdgeConnectionState;
+  lastHeartbeatAt: string | null;
+  lastSyncedAt: string | null;
+  healthyCameraCount: number;
+  totalCameraCount: number;
+}
+
 export interface Floor {
   id: string;
   facilityId: string;
   name: string; // 예: 2F
   orderIndex: number;
+  provisioningSource: ProvisioningSource;
 }
 
 export interface Space {
@@ -93,6 +113,7 @@ export interface Space {
   capacity: number;
   isActive: boolean;
   assignedStaff?: string; // 담당 직원
+  provisioningSource: ProvisioningSource;
 }
 
 /** 공간의 현재 상태(가장 최신 1건) */

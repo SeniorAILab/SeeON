@@ -2,14 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { CheckCheck } from "lucide-react";
 import { StaffStatusBadge } from "@/components/staff/StaffStatusBadge";
 import { formatDateTime } from "@/lib/format";
+import { eventPresentationFor } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 import { alertService, type AlertNote } from "@/services/alertService";
 import type { AlertStatus, AlertView, SpaceStatusLevel } from "@/types";
-
-const typeLabels: Record<string, string> = {
-  fall: "낙상 감지",
-  "bed-exit": "침대 이탈",
-  "detection-lost": "감지 끊김",
-};
 
 const statusBadge: Record<AlertStatus, SpaceStatusLevel> = {
   NEW: "CHECK_NEEDED",
@@ -29,11 +25,35 @@ export function AlertsPage() {
   const notesRequestId = useRef(0);
   const notesDialogRef = useRef<HTMLDivElement>(null);
   const notesTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // 방금 도착한 고위험 알림에만 pulse를 준다. 첫 로드는 화면을 처음 여는
+  // 순간이라 "새로 도착"이 아니므로 조용히 seed만 하고 pulse를 걸지 않는다.
+  const seenIdsRef = useRef<Set<string> | null>(null);
+  const [pulsingIds, setPulsingIds] = useState<Set<string>>(new Set());
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setAlerts(await alertService.listRecent(200));
+      const nextAlerts = await alertService.listRecent(200);
+      const previouslySeen = seenIdsRef.current;
+      if (previouslySeen) {
+        const newlyArrived = new Set<string>();
+        for (const alert of nextAlerts) {
+          if (
+            alert.status === "NEW" &&
+            eventPresentationFor(alert.type).severity === "high" &&
+            !previouslySeen.has(alert.id)
+          ) {
+            newlyArrived.add(alert.id);
+          }
+        }
+        if (newlyArrived.size > 0) {
+          setPulsingIds((prev) => new Set([...prev, ...newlyArrived]));
+        }
+      }
+      seenIdsRef.current = new Set(nextAlerts.map((alert) => alert.id));
+      setAlerts(nextAlerts);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -59,7 +79,7 @@ export function AlertsPage() {
     await runAction(alert.id, () => alertService.acknowledge(alert.id));
   }
 
-  /** ACKED → RESOLVED. 백엔드가 조치 기록이 없으면 거부한다. */
+  /** ACKED → RESOLVED. 조치 기록 유무와 무관하게 처리된다 — 텍스트 입력 없이 버튼 하나로 끝난다. */
   async function resolve(alert: AlertView) {
     await runAction(alert.id, () => alertService.resolve(alert.id));
   }
@@ -153,14 +173,15 @@ export function AlertsPage() {
             title="확인 필요"
             empty="확인할 새 알림이 없습니다."
             alerts={grouped.NEW}
-            renderMeta={(alert) => `${typeLabel(alert.type)} · ${formatDateTime(alert.detectedAt)}`}
+            renderMeta={(alert) => `${formatDateTime(alert.detectedAt)} · ${alert.room}`}
+            pulseClassFor={(alert) => (pulsingIds.has(alert.id) ? "animate-pulse-alert-new motion-reduce:animate-none" : "")}
             renderAction={(alert) => (
               <button
                 disabled={busyId !== null}
                 onClick={() => acknowledge(alert)}
                 className="min-h-[56px] rounded-xl bg-brand px-6 text-staff-btn text-white disabled:opacity-60"
               >
-                확인
+                확인하러 갑니다
               </button>
             )}
           />
@@ -168,10 +189,9 @@ export function AlertsPage() {
           <AlertSection
             title="확인됨"
             empty="확인된 알림이 없습니다."
-            note="해결 완료는 조치 기록이 있어야 처리됩니다. 기록은 현황판에서 방을 눌러 남길 수 있습니다."
             alerts={grouped.ACKED}
             renderMeta={(alert) =>
-              `${alert.ackedByName ?? "직원"} 확인 · ${formatDateTime(alert.ackedAt ?? alert.detectedAt)}`
+              `${alert.ackedByName ?? "직원"} 확인 · ${formatDateTime(alert.ackedAt ?? alert.detectedAt)} · ${alert.room}`
             }
             renderAction={(alert) => (
               <button
@@ -179,7 +199,7 @@ export function AlertsPage() {
                 onClick={() => resolve(alert)}
                 className="min-h-[56px] rounded-xl bg-status-stable px-6 text-staff-btn text-white disabled:opacity-60"
               >
-                해결 완료
+                현장 확인 완료
               </button>
             )}
           />
@@ -191,7 +211,7 @@ export function AlertsPage() {
             renderMeta={(alert) =>
               `${alert.resolvedByName ?? "직원"} 해결 · ${formatDateTime(
                 alert.resolvedAt ?? alert.detectedAt
-              )}`
+              )} · ${alert.room}`
             }
             renderAction={(alert) => (
               <button
@@ -260,27 +280,25 @@ export function AlertsPage() {
 function AlertSection({
   title,
   empty,
-  note,
   alerts,
   renderMeta,
   renderAction,
+  pulseClassFor,
 }: {
   title: string;
   empty: string;
-  /** 이 목록에서 할 수 없는 일이 있을 때, 어디서 해야 하는지 알려준다. */
-  note?: string;
   alerts: AlertView[];
   renderMeta: (alert: AlertView) => string;
+  /** 카드마다 정확히 하나만 보이는 주요 동작. */
   renderAction?: (alert: AlertView) => ReactNode;
+  /** 방금 도착한 고위험 카드에만 적용할 유한 pulse 클래스. */
+  pulseClassFor?: (alert: AlertView) => string;
 }) {
   return (
     <section className="space-y-3" aria-labelledby={`${title}-heading`}>
       <h2 id={`${title}-heading`} className="text-staff-status text-ink">
         {title}
       </h2>
-      {note && alerts.length > 0 && (
-        <p className="text-staff-body text-ink-soft">{note}</p>
-      )}
       {alerts.length === 0 ? (
         <div className="rounded-2xl border-2 border-border bg-surface px-6 py-10 text-center">
           <CheckCheck className="mx-auto mb-3 h-12 w-12 text-ink-faint" />
@@ -288,28 +306,43 @@ function AlertSection({
         </div>
       ) : (
         <div className="space-y-3">
-          {alerts.map((alert) => (
-            <div key={alert.id} className="rounded-2xl border-2 border-border bg-surface p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
+          {alerts.map((alert) => {
+            const presentation = eventPresentationFor(alert.type);
+            const Icon = presentation.icon;
+            return (
+              <div
+                key={alert.id}
+                className={cn(
+                  "flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-surface p-5 shadow-card",
+                  pulseClassFor?.(alert)
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-14 w-14 shrink-0 items-center justify-center rounded-full",
+                    presentation.severity === "high"
+                      ? "bg-status-dangerBg text-status-danger"
+                      : "bg-surface2 text-ink-soft"
+                  )}
+                  aria-hidden="true"
+                >
+                  <Icon className="h-8 w-8" />
+                </div>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-staff-status text-ink">{alert.room}</span>
+                    <span className="text-staff-status text-ink">{presentation.title}</span>
                     <StaffStatusBadge status={statusBadge[alert.status]} />
                   </div>
-                  <p className="mt-2 text-staff-body text-ink-soft">{renderMeta(alert)}</p>
+                  <p className="mt-1 text-staff-body text-ink-soft">{renderMeta(alert)}</p>
                 </div>
                 {renderAction?.(alert)}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
   );
-}
-
-function typeLabel(type: string): string {
-  return typeLabels[type] ?? type;
 }
 
 function errorMessage(err: unknown): string {
