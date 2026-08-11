@@ -42,4 +42,6 @@ RUN if [ "${#DEPLOY_SHA}" -ne 40 ] || case "$DEPLOY_SHA" in *[!0123456789abcdef]
       exit 1; \
     fi; \
     printf '%s\n' "$DEPLOY_SHA" > /usr/share/nginx/html/version.txt
+LABEL org.opencontainers.image.revision="${DEPLOY_SHA}" \
+      org.opencontainers.image.source="SeniorAILab/eldercare-fall-ai"
 EXPOSE 3000

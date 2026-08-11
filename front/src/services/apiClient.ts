@@ -14,7 +14,10 @@ const SSE_PATH = "/dashboard/stream";
 const FACILITY_SCOPE_HEADER = "X-Facility-Id";
 const FACILITY_SCOPE_QUERY = "facilityId";
 
-const GLOBAL_ENDPOINT_PATTERNS = [/^\/auth\/me(?:\?|$)/, /^\/facilities(?:\?|$)/];
+const GLOBAL_ENDPOINT_PATTERNS = [
+  /^\/auth\/me(?:\?|$)/,
+  /^\/facilities(?:\?|$)/,
+];
 const FACILITY_SCOPED_PATTERNS = [
   /^\/dashboard(?:\/|\?|$)/,
   /^\/dashboards(?:\/|\?|$)/,
@@ -48,14 +51,19 @@ export function isAbsoluteApiUrl(url: string): boolean {
 
 export async function requestJson(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<unknown> {
   const credentials: RequestCredentials | undefined =
     options.credentials ?? "include";
   const res = await fetch(buildApiUrl(path), {
     ...options,
     ...(credentials ? { credentials } : {}),
-    headers: requestHeaders(path, { "Content-Type": "application/json" }, options.headers, credentials),
+    headers: requestHeaders(
+      path,
+      { "Content-Type": "application/json" },
+      options.headers,
+      credentials,
+    ),
   });
   handleUnauthorized(res.status);
   if (!res.ok) {
@@ -67,7 +75,7 @@ export async function requestJson(
 
 export async function requestNoContent(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<void> {
   const credentials: RequestCredentials | undefined =
     options.credentials ?? "include";
@@ -83,6 +91,22 @@ export async function requestNoContent(
   }
 }
 
+export async function requestResponse(
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const credentials: RequestCredentials | undefined =
+    options.credentials ?? "include";
+  const res = await fetch(buildApiUrl(path), {
+    ...options,
+    ...(credentials ? { credentials } : {}),
+    headers: requestHeaders(path, {}, options.headers, credentials),
+  });
+  handleUnauthorized(res.status);
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res;
+}
+
 function requestHeaders(
   path: string,
   defaults: Record<string, string>,
@@ -92,7 +116,11 @@ function requestHeaders(
   const merged = new Headers(defaults);
   new Headers(headers).forEach((value, key) => merged.set(key, value));
 
-  if (credentials !== "omit" && shouldAttachFacilityScope(path) && !merged.has(FACILITY_SCOPE_HEADER)) {
+  if (
+    credentials !== "omit" &&
+    shouldAttachFacilityScope(path) &&
+    !merged.has(FACILITY_SCOPE_HEADER)
+  ) {
     const facilityId = getCurrentFacilityId();
     if (facilityId) merged.set(FACILITY_SCOPE_HEADER, facilityId);
   }
@@ -101,7 +129,8 @@ function requestHeaders(
 }
 
 function shouldAttachFacilityScope(path: string): boolean {
-  if (GLOBAL_ENDPOINT_PATTERNS.some((pattern) => pattern.test(path))) return false;
+  if (GLOBAL_ENDPOINT_PATTERNS.some((pattern) => pattern.test(path)))
+    return false;
   return FACILITY_SCOPED_PATTERNS.some((pattern) => pattern.test(path));
 }
 
@@ -110,7 +139,10 @@ function handleUnauthorized(status: number): void {
   unauthorizedHandler?.();
 }
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -125,16 +157,21 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
 
   try {
     const payload: unknown = JSON.parse(err.message);
-    if (!payload || typeof payload !== "object" || !("message" in payload)) return fallback;
+    if (!payload || typeof payload !== "object" || !("message" in payload))
+      return fallback;
 
     const message = payload.message;
     const backendMessage = Array.isArray(message)
-      ? message.filter((item): item is string => typeof item === "string").join(", ")
+      ? message
+          .filter((item): item is string => typeof item === "string")
+          .join(", ")
       : typeof message === "string"
         ? message
         : "";
 
-    return BACKEND_ERROR_MESSAGES[backendMessage] ?? (backendMessage || fallback);
+    return (
+      BACKEND_ERROR_MESSAGES[backendMessage] ?? (backendMessage || fallback)
+    );
   } catch {
     return fallback;
   }

@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   MonitorPlay,
   Mail,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
@@ -108,6 +109,7 @@ export function AppLayout() {
     { to: routeFacilityId ? adminPath(routeFacilityId, "facility") : FACILITIES_PICKER_PATH, label: "시설 설정", Icon: Building2, show: canAdmin(user) },
     { to: routeFacilityId ? adminPath(routeFacilityId, "spaces") : FACILITIES_PICKER_PATH, label: "공간 관리", Icon: DoorOpen, show: canAdmin(user) },
     { to: routeFacilityId ? adminPath(routeFacilityId, "users") : FACILITIES_PICKER_PATH, label: "사용자", Icon: UsersIcon, show: canAdmin(user) },
+    { to: routeFacilityId ? adminPath(routeFacilityId, "edge-enrollment") : FACILITIES_PICKER_PATH, label: "엣지 등록", Icon: KeyRound, show: userRole === "SUPER_ADMIN" },
     // Re-enable after backend controllers exist: 관심 어르신, 구역/침대 배정, 알림 규칙.
   ].filter((n) => n.show);
 

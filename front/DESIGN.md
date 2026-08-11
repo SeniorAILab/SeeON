@@ -131,6 +131,24 @@ All spacing derives from 4px.
 - **Accessibility**: native keyboard/touch controls, visible 16:9 dimensions, Korean `break-keep` copy, labelled media, and status/alert live semantics.
 - **Motion**: only the loading icon spins; playback controls remain browser-native and `prefers-reduced-motion` compatible.
 
+### Edge Credential Inventory
+
+- **Structure**: responsive redacted credential cards with lifecycle chip, issued timestamp, generation, and scoped actions.
+- **Variants**: active, grace, expired, revoked; status color tokens communicate state without exposing the credential value.
+- **Spacing**: intrinsic one-column to two-column grid with `space-3`; card content uses `space-5` padding.
+- **States**: loading, empty, nonsecret error, mutation success, selected installation.
+- **Accessibility**: lifecycle is always written as Korean text; destructive rotation, revoke, replacement, and transfer require a labelled confirmation dialog.
+- **Motion**: color feedback only.
+
+### One-Time Credential Handoff
+
+- **Structure**: modal warning, optional nonsecret facility code, and one copy action; the raw token is never rendered.
+- **Variants**: ready-to-copy, copied-and-closed, disposed, copy-failed.
+- **Spacing**: `space-6` panel padding with compact action cluster.
+- **States**: copy consumes the in-memory holder once; close, Escape, unmount, or navigation disposes it.
+- **Accessibility**: labelled modal, initial focus on copy, Escape closes, copy failure uses an alert.
+- **Motion**: none.
+
 ## 6. Motion & Interaction
 
 | Type | Duration | Easing | Usage |

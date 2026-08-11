@@ -27,6 +27,7 @@ import { AdminSpacesPage } from "@/pages/admin/AdminSpacesPage";
 import { UsersPage } from "@/pages/admin/UsersPage";
 import { AdminMonitorSettingsPage } from "@/pages/admin/AdminMonitorSettingsPage";
 import { AdminAlertSettingsPage } from "@/pages/admin/AdminAlertSettingsPage";
+import { AdminEdgeEnrollmentPage } from "@/pages/admin/AdminEdgeEnrollmentPage";
 import { FloorMonitorPage, FloorSelectLandingPage } from "@/features/monitor";
 
 const auth = (children: ReactNode, minRole?: "STAFF" | "ADMIN" | "SUPER_ADMIN") => (
@@ -123,6 +124,14 @@ export const router = createBrowserRouter([
       { path: "monitor-settings", element: <AdminMonitorSettingsPage /> },
       { path: "alert-settings", element: <AdminAlertSettingsPage /> },
       { path: "users", element: <UsersPage /> },
+      {
+        path: "edge-enrollment",
+        element: (
+          <RequireAuth minRole="SUPER_ADMIN">
+            <AdminEdgeEnrollmentPage />
+          </RequireAuth>
+        ),
+      },
     ],
   },
   { path: "/dashboard", element: auth(<LegacyDashboardRedirect />) },

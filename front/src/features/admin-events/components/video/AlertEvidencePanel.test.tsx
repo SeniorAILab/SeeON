@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { alertService } from "@/services/alertService";
 import type { AlertMediaMetadata } from "@/services/api/alertMedia";
+import { useAuthStore } from "@/stores/authStore";
 import { AlertEvidencePanel } from "./AlertEvidencePanel";
 
 vi.mock("@/services/alertService", () => ({
@@ -73,9 +74,31 @@ afterEach(() => {
     configurable: true,
     value: null,
   });
+  useAuthStore.setState({ user: null, initialized: false });
 });
 
 describe("AlertEvidencePanel media behavior", () => {
+  it("keeps native playback intact and adds download only for a facility admin", async () => {
+    useAuthStore.setState({
+      user: {
+        id: "admin-1",
+        name: "원장님",
+        email: "admin@example.test",
+        role: "ADMIN",
+        facilityId: IDENTITY.facilityId,
+      },
+      initialized: true,
+    });
+    getMediaMock.mockResolvedValue(READY_MEDIA);
+
+    render(<AlertEvidencePanel identity={IDENTITY} />);
+
+    const video = await findEvidenceVideo();
+    expect(video.controls).toBe(true);
+    expect(video.getAttribute("src")).toContain("/alerts/alert%2Fa%20b/media/content");
+    expect(screen.getByRole("button", { name: "사건 영상 다운로드" })).toBeTruthy();
+  });
+
   it("records only confirmed native play and fullscreen media events", async () => {
     getMediaMock.mockResolvedValue(READY_MEDIA);
     render(<AlertEvidencePanel identity={IDENTITY} />);
