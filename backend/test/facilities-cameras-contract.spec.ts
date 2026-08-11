@@ -28,6 +28,11 @@ describe('Facilities and cameras response contracts (e2e)', () => {
     process.env.SESSION_JWT_SECRET = TEST_SECRET;
     process.env.FRONT_ORIGIN = 'http://localhost:3000';
     process.env.EDGE_FACILITY_TOKEN = EDGE_TOKEN;
+    // The heartbeat route below authenticates with the deprecated shared
+    // edge token, which now requires an explicit opt-in (fail-closed by
+    // default). EdgeIngestTokenGuard never trusted a client-supplied
+    // x-facility-id, so no EDGE_LEGACY_FACILITY_ID pin is needed here.
+    process.env.EDGE_LEGACY_COMPAT_ENABLED = 'true';
 
     direct = new PrismaClient({
       datasources: { db: { url: process.env.DIRECT_URL } },
