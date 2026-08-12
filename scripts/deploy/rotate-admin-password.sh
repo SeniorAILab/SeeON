@@ -66,9 +66,7 @@ app_dir=$app_root/repo
 release_env=$env_dir/release-images.env
 feature_env=$env_dir/event-clips-runtime.env
 lock_held=0
-secret=""
-secret_input_file=""
-secret_with_marker=""
+secret_base64=""
 feature_present=0
 trusted_uid=""
 
@@ -123,22 +121,22 @@ validate_inputs() {
 cleanup() {
   status=$?
   cleanup_status=0
-  unset secret secret_with_marker command_output
-  if [ -n "$secret_input_file" ]; then rm -f "$secret_input_file"; fi
+  unset secret_base64 command_output
   if [ "$lock_held" -eq 1 ] && ! rmdir "$lock_dir"; then cleanup_status=1; fi
   trap - 0 HUP INT TERM
   [ "$status" -ne 0 ] && exit "$status"
   exit "$cleanup_status"
 }
 
+need base64
 need dirname
 need docker
 need head
 need id
 need mkdir
-need mktemp
 need rmdir
 need stat
+need tr
 need wc
 trusted_uid=$(id -u)
 trap "exit 129" HUP
@@ -146,25 +144,15 @@ trap "exit 130" INT
 trap "exit 143" TERM
 validate_inputs
 
-marker=__ROTATE_ADMIN_PASSWORD_EOF__
-secret_input_file=$(mktemp "${TMPDIR:-/tmp}/rotate-admin-password.XXXXXX")
-chmod 600 "$secret_input_file"
-head -c 513 > "$secret_input_file"
-nul_bytes=$(LC_ALL=C od -An -t x1 "$secret_input_file")
-case "$nul_bytes" in
-  *00*) fail "ADMIN password must not contain NUL" ;;
-esac
-unset nul_bytes
-secret_with_marker=$(cat "$secret_input_file"; printf "%s" "$marker")
-secret=${secret_with_marker%"$marker"}
-unset secret_with_marker
-secret_bytes=$(wc -c < "$secret_input_file")
+secret_base64=$(head -c 513 | base64)
+secret_bytes=$(printf "%s" "$secret_base64" | base64 -d | wc -c | tr -d " ")
 [ "$secret_bytes" -le 512 ] || fail "ADMIN password input is too large"
-[ -n "$secret" ] || fail "ADMIN password descriptor is empty"
-newline="
-"
-case "$secret" in *"$newline"*) fail "ADMIN password must not contain a newline" ;; esac
-unset newline marker secret_bytes
+[ "$secret_bytes" -gt 0 ] || fail "ADMIN password descriptor is empty"
+non_nul_bytes=$(printf "%s" "$secret_base64" | base64 -d | LC_ALL=C tr -d "\000" | wc -c | tr -d " ")
+[ "$non_nul_bytes" -eq "$secret_bytes" ] || fail "ADMIN password must not contain NUL"
+non_newline_bytes=$(printf "%s" "$secret_base64" | base64 -d | LC_ALL=C tr -d "\n" | wc -c | tr -d " ")
+[ "$non_newline_bytes" -eq "$secret_bytes" ] || fail "ADMIN password must not contain a newline"
+unset non_newline_bytes non_nul_bytes secret_bytes
 
 mkdir "$lock_dir" 2>/dev/null || fail "another deployment or ADMIN password rotation is running"
 lock_held=1
@@ -176,12 +164,12 @@ if [ "$feature_present" -eq 1 ]; then set -- "$@" --env-file "$feature_env"; fi
 set -- "$@" -f compose.yaml -f compose.prod.yaml run --rm --no-deps -T backend \
   node dist-tools/prisma/reset-admin-password.js --email "$email"
 validate_inputs
-if command_output=$(printf "%s" "$secret" | ADMIN_ROTATION_REMOTE_PID=$$ "$@" 2>/dev/null); then
+if command_output=$(printf "%s" "$secret_base64" | base64 -d | ADMIN_ROTATION_REMOTE_PID=$$ "$@" 2>/dev/null); then
   command_status=0
 else
   command_status=$?
 fi
-unset secret
+unset secret_base64
 if [ "$command_status" -eq 2 ] && [ "$command_output" = "ADMIN_PASSWORD_RESET_POST_COMMIT_DISCONNECT" ]; then
   printf "%s\n" "ADMIN_PASSWORD_ROTATION_POST_COMMIT_DISCONNECT"
   exit 2
