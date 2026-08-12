@@ -8,8 +8,13 @@ umask 077
 TARGET=''
 ENV_FILE=''
 EMAIL=''
+PREFLIGHT=0
 PASSWORD_FD=${ADMIN_PASSWORD_FD:-0}
 unset ADMIN_PASSWORD_FD
+
+# The iwinv Jenkins/Compose service account owns every trusted deployment path.
+# It is intentionally fixed here rather than accepted as an operator argument.
+TRUSTED_OPERATOR=seniorsailab
 
 fail() {
   printf '%s\n' "$1" >&2
@@ -17,7 +22,7 @@ fail() {
 }
 
 usage() {
-  printf '%s\n' 'Usage: rotate-admin-password.sh --target <ssh-target> --env-file <absolute-remote-env> --email <admin-email>' >&2
+  printf '%s\n' 'Usage: rotate-admin-password.sh --target <ssh-target> --env-file <absolute-remote-env> --email <admin-email> | --preflight --target <ssh-target> --env-file <absolute-remote-env>' >&2
   exit 2
 }
 
@@ -30,6 +35,7 @@ while [ "$#" -gt 0 ]; do
     --target) [ "$#" -ge 2 ] && [ -z "$TARGET" ] || usage; TARGET=$2; shift 2 ;;
     --env-file) [ "$#" -ge 2 ] && [ -z "$ENV_FILE" ] || usage; ENV_FILE=$2; shift 2 ;;
     --email) [ "$#" -ge 2 ] && [ -z "$EMAIL" ] || usage; EMAIL=$2; shift 2 ;;
+    --preflight) [ "$PREFLIGHT" -eq 0 ] || usage; PREFLIGHT=1; shift ;;
     *) usage ;;
   esac
 done
@@ -40,10 +46,16 @@ case "$ENV_FILE" in
   *) fail 'remote production environment path must be absolute' ;;
 esac
 case "$ENV_FILE" in *[!A-Za-z0-9._/-]*|*/../*|*/..|*/) fail 'remote production environment path is invalid' ;; esac
-case "$EMAIL" in *@*.*) ;; *) fail 'ADMIN email is invalid' ;; esac
-case "$EMAIL" in *[!A-Za-z0-9._@+-]*|*@*@*|@*|*@) fail 'ADMIN email is invalid' ;; esac
-case "$PASSWORD_FD" in ''|*[!0-9]*) fail 'ADMIN_PASSWORD_FD must be a descriptor number' ;; esac
-[ -r "/dev/fd/$PASSWORD_FD" ] || fail 'ADMIN password descriptor is not readable'
+if [ "$PREFLIGHT" -eq 0 ]; then
+  case "$EMAIL" in *@*.*) ;; *) fail 'ADMIN email is invalid' ;; esac
+  case "$EMAIL" in *[!A-Za-z0-9._@+-]*|*@*@*|@*|*@) fail 'ADMIN email is invalid' ;; esac
+else
+  [ -z "$EMAIL" ] || usage
+fi
+if [ "$PREFLIGHT" -eq 0 ]; then
+  case "$PASSWORD_FD" in ''|*[!0-9]*) fail 'ADMIN_PASSWORD_FD must be a descriptor number' ;; esac
+  [ -r "/dev/fd/$PASSWORD_FD" ] || fail 'ADMIN password descriptor is not readable'
+fi
 need ssh
 
 # The remote script is single-quote-free so it can be one protected sh -c
@@ -59,6 +71,7 @@ umask 077
 
 env_file=$1
 email=$2
+preflight=$3
 env_dir=$(dirname "$env_file")
 lock_dir=$env_dir/deploy.lock
 app_root=$(dirname "$env_dir")
@@ -128,22 +141,27 @@ cleanup() {
   exit "$cleanup_status"
 }
 
-need base64
 need dirname
-need docker
-need head
 need id
-need mkdir
-need rmdir
 need stat
-need tr
-need wc
+case "$preflight" in 0|1) ;; *) fail "invalid preflight mode" ;; esac
 trusted_uid=$(id -u)
 trap "exit 129" HUP
 trap "exit 130" INT
 trap "exit 143" TERM
 validate_inputs
+if [ "$preflight" -eq 1 ]; then
+  printf "%s\n" "ADMIN_PASSWORD_ROTATION_PREFLIGHT_OK"
+  exit 0
+fi
 
+need base64
+need docker
+need head
+need mkdir
+need rmdir
+need tr
+need wc
 secret_base64=$(head -c 513 | base64)
 secret_bytes=$(printf "%s" "$secret_base64" | base64 -d | wc -c | tr -d " ")
 [ "$secret_bytes" -le 512 ] || fail "ADMIN password input is too large"
@@ -184,7 +202,20 @@ unset command_output
 printf "%s\n" "ADMIN_PASSWORD_ROTATION_RESULT action=$action"
 '
 
-REMOTE_COMMAND="sudo -n sh -c '$REMOTE_SCRIPT' admin-password-remote '$ENV_FILE' '$EMAIL'"
+REMOTE_COMMAND="sudo -n -u $TRUSTED_OPERATOR sh -c '$REMOTE_SCRIPT' admin-password-remote '$ENV_FILE' '$EMAIL' '$PREFLIGHT'"
+# shellcheck disable=SC2029 # The validated remote command is intentionally expanded on the client.
+if [ "$PREFLIGHT" -eq 1 ]; then
+  remote_output=$(ssh "$TARGET" "$REMOTE_COMMAND" 2>/dev/null) || {
+    printf '%s\n' 'ADMIN_PASSWORD_ROTATION_PREFLIGHT_FAILED action=redacted' >&2
+    exit 1
+  }
+  [ "$remote_output" = 'ADMIN_PASSWORD_ROTATION_PREFLIGHT_OK' ] || {
+    printf '%s\n' 'ADMIN_PASSWORD_ROTATION_PREFLIGHT_FAILED action=redacted' >&2
+    exit 1
+  }
+  printf '%s\n' 'ADMIN_PASSWORD_ROTATION_PREFLIGHT_OK'
+  exit 0
+fi
 # shellcheck disable=SC2029 # The validated remote command is intentionally expanded on the client.
 if remote_output=$(ssh "$TARGET" "$REMOTE_COMMAND" < "/dev/fd/$PASSWORD_FD" 2>/dev/null); then
   case "$remote_output" in

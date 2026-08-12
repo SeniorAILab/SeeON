@@ -41,7 +41,22 @@ cat > "$TMP/bin/sudo" <<'EOF'
 set -eu
 [ "${1:-}" = -n ] || exit 92
 shift
+[ "${1:-}" = -u ] || exit 94
+[ "${2:-}" = seniorsailab ] || exit 95
+printf '%s\n' "$*" >> "$MOCK_SUDO_LOG"
+export MOCK_EFFECTIVE_UID=1001
+shift 2
 exec "$@"
+EOF
+
+cat > "$TMP/bin/id" <<'EOF'
+#!/usr/bin/env sh
+set -eu
+if [ "${1:-}" = -u ]; then
+  printf '%s\n' "${MOCK_EFFECTIVE_UID:-0}"
+  exit 0
+fi
+exec /usr/bin/id "$@"
 EOF
 
 cat > "$TMP/bin/docker" <<'EOF'
@@ -77,11 +92,18 @@ cat > "$TMP/bin/stat" <<'EOF'
 set -eu
 last=''
 for argument do last=$argument; done
-if [ -n "${MOCK_UNTRUSTED_OWNER_PATH:-}" ] && [ "$last" = "$MOCK_UNTRUSTED_OWNER_PATH" ]; then
-  case " $* " in
-    *' %u '*) printf '%s\n' 999999; exit 0 ;;
-  esac
-fi
+case " $* " in
+  *' %u '*)
+    if [ -n "${MOCK_UNTRUSTED_OWNER_PATH:-}" ] && [ "$last" = "$MOCK_UNTRUSTED_OWNER_PATH" ]; then
+      printf '%s\n' 999999
+    elif [ -n "${MOCK_TRUSTED_OWNER_UID:-}" ]; then
+      printf '%s\n' "$MOCK_TRUSTED_OWNER_UID"
+    else
+      exec "$REAL_STAT" "$@"
+    fi
+    exit 0
+    ;;
+esac
 exec "$REAL_STAT" "$@"
 EOF
 
@@ -108,7 +130,7 @@ case "${1:-}" in
 esac
 exit "$status"
 EOF
-chmod +x "$TMP/bin/ssh" "$TMP/bin/sudo" "$TMP/bin/docker" "$TMP/bin/stat" "$TMP/bin/mkdir"
+chmod +x "$TMP/bin/ssh" "$TMP/bin/sudo" "$TMP/bin/id" "$TMP/bin/docker" "$TMP/bin/stat" "$TMP/bin/mkdir"
 REAL_STAT=$(command -v stat)
 
 assert_contains() {
@@ -132,6 +154,7 @@ reset_logs() {
   : > "$TMP/docker-env.log"
   : > "$TMP/stdin.cksum"
   : > "$TMP/mkdir.log"
+  : > "$TMP/sudo.log"
 }
 run_with_fd() {
   PATH="$TMP/bin:$PATH" \
@@ -141,8 +164,10 @@ run_with_fd() {
   MOCK_DOCKER_ENV_LOG="$TMP/docker-env.log" \
   MOCK_STDIN_CKSUM_LOG="$TMP/stdin.cksum" \
   MOCK_MKDIR_LOG="$TMP/mkdir.log" \
+  MOCK_SUDO_LOG="$TMP/sudo.log" \
   MOCK_MKDIR_MODE="${MOCK_MKDIR_MODE:-}" \
   MOCK_UNTRUSTED_OWNER_PATH="${MOCK_UNTRUSTED_OWNER_PATH:-}" \
+  MOCK_TRUSTED_OWNER_UID=1001 \
   REAL_STAT="$REAL_STAT" \
   ADMIN_PASSWORD_FD=9 \
     sh "$SCRIPT" --target fixture-host --env-file "${REMOTE_ENV_FILE:-$TMP/remote/shared/.env}" \
@@ -156,11 +181,27 @@ run_with_stdin() {
   MOCK_DOCKER_ENV_LOG="$TMP/docker-env.log" \
   MOCK_STDIN_CKSUM_LOG="$TMP/stdin.cksum" \
   MOCK_MKDIR_LOG="$TMP/mkdir.log" \
+  MOCK_SUDO_LOG="$TMP/sudo.log" \
   MOCK_MKDIR_MODE="${MOCK_MKDIR_MODE:-}" \
   MOCK_UNTRUSTED_OWNER_PATH="${MOCK_UNTRUSTED_OWNER_PATH:-}" \
+  MOCK_TRUSTED_OWNER_UID=1001 \
   REAL_STAT="$REAL_STAT" \
     sh "$SCRIPT" --target fixture-host --env-file "${REMOTE_ENV_FILE:-$TMP/remote/shared/.env}" \
       --email operator@example.test < "$1"
+}
+run_preflight() {
+  PATH="$TMP/bin:$PATH" \
+  MOCK_SSH_LOG="$TMP/ssh.log" \
+  MOCK_SSH_REMOTE_STATUS_LOG="$TMP/ssh-remote-status.log" \
+  MOCK_DOCKER_LOG="$TMP/docker.log" \
+  MOCK_DOCKER_ENV_LOG="$TMP/docker-env.log" \
+  MOCK_STDIN_CKSUM_LOG="$TMP/stdin.cksum" \
+  MOCK_MKDIR_LOG="$TMP/mkdir.log" \
+  MOCK_SUDO_LOG="$TMP/sudo.log" \
+  MOCK_UNTRUSTED_OWNER_PATH="${MOCK_UNTRUSTED_OWNER_PATH:-}" \
+  MOCK_TRUSTED_OWNER_UID=1001 \
+  REAL_STAT="$REAL_STAT" \
+    sh "$SCRIPT" --preflight --target fixture-host --env-file "${REMOTE_ENV_FILE:-$TMP/remote/shared/.env}"
 }
 
 # Build the fixture at runtime so no complete password is stored in source.
@@ -172,6 +213,24 @@ ENV_BEFORE=$(cksum "$TMP/remote/shared/.env")
 RELEASE_BEFORE=$(cksum "$TMP/remote/shared/release-images.env")
 FEATURE_BEFORE=$(cksum "$TMP/remote/shared/event-clips-runtime.env")
 COMPOSE_BEFORE=$(cksum "$TMP/remote/repo/compose.yaml" "$TMP/remote/repo/compose.prod.yaml")
+
+# Regression: iwinv SSH starts as root (uid 0), while the trusted deploy tree
+# belongs to seniorsailab (uid 1001). The released wrapper must explicitly
+# cross that fixed operator boundary; ambient-root ownership would fail closed.
+root_ssh_uid=0
+trusted_owner_uid=1001
+[ "$root_ssh_uid" -ne "$trusted_owner_uid" ] || { printf '%s\n' 'root/owner regression fixture is invalid' >&2; exit 1; }
+reset_logs
+output=$(run_preflight 2>&1)
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_PREFLIGHT_OK' ] || {
+  printf 'unexpected root-owner preflight output: %s\n' "$output" >&2; exit 1
+}
+case "$(cat "$TMP/sudo.log")" in '-u seniorsailab sh -c '*) ;; *)
+  printf '%s\n' 'root-origin preflight did not select the fixed operator' >&2; exit 1 ;;
+esac
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'preflight read input or reached Docker' >&2; exit 1; }
+[ ! -s "$TMP/mkdir.log" ] || { printf '%s\n' 'preflight acquired deployment lock' >&2; exit 1; }
+assert_no_runtime_residue
 
 # Happy path: one released backend Compose run receives the password on stdin.
 reset_logs
@@ -369,6 +428,20 @@ status=$?
 set -e
 assert_failure "$status" 'untrusted environment owner'
 [ ! -s "$TMP/docker.log" ]
+assert_no_runtime_residue
+
+# The no-secret preflight retains the same owner gate for attacker-owned paths.
+reset_logs
+set +e
+output=$(MOCK_UNTRUSTED_OWNER_PATH="$TMP/remote/shared/.env" run_preflight 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'attacker-owned preflight input'
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_PREFLIGHT_FAILED action=redacted' ] || {
+  printf 'untrusted preflight was not redacted: %s\n' "$output" >&2; exit 1
+}
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'attacker-owned preflight reached Docker' >&2; exit 1; }
+[ ! -s "$TMP/mkdir.log" ] || { printf '%s\n' 'attacker-owned preflight acquired lock' >&2; exit 1; }
 assert_no_runtime_residue
 
 chmod 660 "$TMP/remote/shared/.env"

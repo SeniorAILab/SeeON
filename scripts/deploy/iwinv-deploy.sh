@@ -79,11 +79,26 @@ if [ "$PREFLIGHT_ONLY" -eq 1 ]; then
   exit 0
 fi
 need docker; need curl; need grep; need sed; need cmp; need sha256sum
-need cp; need mv; need rm; need mkdir; need rmdir; need date; need sort; need head; need mktemp; need stat
+need cp; need mv; need rm; need mkdir; need rmdir; need date; need sort; need head; need mktemp; need stat; need chmod; need id
 [ -d "$APP_DIR" ] || fail "Missing deployment directory: $APP_DIR"
 [ -f "$APP_DIR/compose.yaml" ] || fail "Missing compose.yaml in $APP_DIR"
 [ -f "$APP_DIR/compose.prod.yaml" ] || fail "Missing compose.prod.yaml in $APP_DIR"
 [ -f "$ENV_FILE" ] || fail "Missing production environment file: $ENV_FILE"
+secure_operator_directory() {
+  secured_path=$1
+  [ -d "$secured_path" ] && [ ! -L "$secured_path" ] || fail "Invalid operator deployment directory: $secured_path"
+  secured_owner=$(stat -c '%u' "$secured_path" 2>/dev/null || stat -f '%u' "$secured_path") || fail "Unable to inspect operator deployment directory owner: $secured_path"
+  [ "$secured_owner" = "$(id -u)" ] || fail "Operator deployment directory is not owned by the deployment user: $secured_path"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "would harden operator deployment directory $secured_path to 750"
+  else
+    chmod 750 "$secured_path" || fail "Unable to harden operator deployment directory: $secured_path"
+  fi
+}
+# Jenkins and Compose run as the deployment user. Keep trusted wrapper parents
+# non-group-writable rather than relaxing the rotation wrapper's mode gate.
+secure_operator_directory "$APP_ROOT/shared"
+secure_operator_directory "$APP_DIR"
 if [ -e "$FEATURE_ENV" ] || [ -L "$FEATURE_ENV" ]; then
   [ ! -L "$FEATURE_ENV" ] && [ -f "$FEATURE_ENV" ] || fail "Invalid event clip feature override: $FEATURE_ENV"
   printf '%s\n' 'EVENT_CLIPS_ENABLED=false' | cmp -s - "$FEATURE_ENV" || fail "Invalid event clip feature override: $FEATURE_ENV"

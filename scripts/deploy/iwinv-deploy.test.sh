@@ -7,7 +7,12 @@ SCRIPT=$REPO_ROOT/scripts/deploy/iwinv-deploy.sh
 JENKINSFILE=$REPO_ROOT/Jenkinsfile
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
-mkdir -p "$TMP/bin" "$TMP/root/shared" "$TMP/root/backups/db" "$TMP/root/releases"
+mkdir -p "$TMP/bin" "$TMP/root/shared" "$TMP/root/repo" "$TMP/root/backups/db" "$TMP/root/releases"
+printf '%s\n' 'services: {}' > "$TMP/root/repo/compose.yaml"
+printf '%s\n' 'services: {}' > "$TMP/root/repo/compose.prod.yaml"
+mkdir -p "$TMP/root/repo/backend/prisma/init"
+cp "$REPO_ROOT/backend/prisma/init/02-sync-app-role.sh" "$TMP/root/repo/backend/prisma/init/"
+chmod 2770 "$TMP/root/shared" "$TMP/root/repo"
 
 cat > "$TMP/bin/docker" <<'EOF'
 #!/usr/bin/env sh
@@ -113,7 +118,7 @@ pointer_with_dump() {
   : > "$TMP/root/backups/db/$3"
 }
 run_deploy() {
-  PATH="$TMP/bin:$PATH" APP_ROOT="$TMP/root" APP_DIR="$REPO_ROOT" ENV_FILE="$TMP/host.env" \
+  PATH="$TMP/bin:$PATH" APP_ROOT="$TMP/root" APP_DIR="$TMP/root/repo" ENV_FILE="$TMP/host.env" \
   MEMORY_MIN_MB="${TEST_MEMORY_MIN_MB:-1}" DISK_MIN_MB=1 MOCK_SHA="${MOCK_SHA:-$SHA}" MOCK_LOG="$TMP/mock.log" \
   sh "$SCRIPT" "$@" 2>&1
 }
@@ -471,6 +476,12 @@ log=$(sed -n '1,320p' "$TMP/mock.log")
 assert_order "$log" 'stop front backend' 'pg_dump'
 assert_order "$log" 'pg_dump' 'pull db'
 assert_order "$log" 'pg_restore --list' 'pull db'
+[ "$(stat -c '%a' "$TMP/root/shared" 2>/dev/null || stat -f '%Lp' "$TMP/root/shared")" = 750 ] || {
+  printf '%s\n' 'deployment did not harden shared directory mode' >&2; exit 1
+}
+[ "$(stat -c '%a' "$TMP/root/repo" 2>/dev/null || stat -f '%Lp' "$TMP/root/repo")" = 750 ] || {
+  printf '%s\n' 'deployment did not harden repository directory mode' >&2; exit 1
+}
 
 # Candidate image IDs are not inherited from the current release.
 NEXT_SHA=1111111111111111111111111111111111111111
