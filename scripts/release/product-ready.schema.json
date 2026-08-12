@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SeniorAILab/SeeON/blob/main/scripts/release/product-ready.schema.json",
+  "title": "SeeON PRODUCT_READY evidence artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "gate",
+    "artifactKind",
+    "frontOrigin",
+    "apiOrigin",
+    "origins",
+    "deploymentSha",
+    "deployment",
+    "rows",
+    "allPass",
+    "rollbacks",
+    "safety"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "gate": { "const": "PRODUCT_READY" },
+    "artifactKind": { "enum": ["production", "synthetic"] },
+    "frontOrigin": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "apiOrigin": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "origins": { "$ref": "#/$defs/observation" },
+    "deploymentSha": { "type": "string", "pattern": "^(?!0{40}$)[0-9a-f]{40}$" },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "target", "observedAt", "evidence"],
+      "properties": {
+        "state": { "const": "READY" },
+        "target": { "const": "production" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "evidence": { "$ref": "#/$defs/evidenceReference" }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": { "$ref": "#/$defs/row" }
+    },
+    "allPass": { "type": "boolean" },
+    "rollbacks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frontend", "host"],
+      "properties": {
+        "frontend": { "$ref": "#/$defs/rollbackReceipt" },
+        "host": { "$ref": "#/$defs/rollbackReceipt" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productionEventsCreated",
+        "secretCookieTokenCaptured",
+        "destructiveRestorePerformed",
+        "preEmbargoMutationPerformed"
+      ],
+      "properties": {
+        "productionEventsCreated": { "const": false },
+        "secretCookieTokenCaptured": { "const": false },
+        "destructiveRestorePerformed": { "const": false },
+        "preEmbargoMutationPerformed": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "evidenceReference": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+"
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observedAt", "evidence"],
+      "properties": {
+        "observedAt": { "type": "string", "format": "date-time" },
+        "evidence": { "$ref": "#/$defs/evidenceReference" }
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "result", "at", "evidence"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1, "maximum": 24 },
+        "name": { "type": "string", "minLength": 1 },
+        "result": { "enum": ["PASS", "FAIL"] },
+        "at": { "type": "string", "format": "date-time" },
+        "evidence": { "$ref": "#/$defs/evidenceReference" }
+      }
+    },
+    "rollbackReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "at", "evidence"],
+      "properties": {
+        "result": { "enum": ["PASS", "FAIL"] },
+        "at": { "type": "string", "format": "date-time" },
+        "evidence": { "$ref": "#/$defs/evidenceReference" }
+      }
+    }
+  }
+}
