@@ -68,73 +68,138 @@ feature_env=$env_dir/event-clips-runtime.env
 lock_held=0
 secret=""
 secret_with_marker=""
+feature_present=0
+trusted_uid=""
 
 fail() { printf "%s\n" "$1" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "missing required remote command: $1"; }
-owner_only_file() {
-  file=$1
-  label=$2
-  [ ! -L "$file" ] || fail "$label must not be a symbolic link"
-  [ -f "$file" ] || fail "$label must be a regular file"
-  mode=$(stat -c "%a" "$file" 2>/dev/null || stat -f "%Lp" "$file") || fail "unable to inspect $label permissions"
-  case "$mode" in 400|600) ;; *) fail "$label permissions must be 400 or 600" ;; esac
+mode_is_not_shared_writable() {
+  inspected_mode=$1
+  inspected_label=$2
+  case "$inspected_mode" in
+    *[2367][0-7]|*[0-7][2367]) fail "$inspected_label must not be group/world-writable" ;;
+  esac
+}
+trusted_directory() {
+  inspected_path=$1
+  inspected_label=$2
+  [ -d "$inspected_path" ] && [ ! -L "$inspected_path" ] || fail "$inspected_label must be a regular directory"
+  canonical_path=$(CDPATH="" cd -- "$inspected_path" 2>/dev/null && pwd -P) || fail "unable to canonicalize $inspected_label"
+  [ "$canonical_path" = "$inspected_path" ] || fail "$inspected_label path must be canonical"
+  inspected_owner=$(stat -c "%u" "$inspected_path" 2>/dev/null || stat -f "%u" "$inspected_path") || fail "unable to inspect $inspected_label owner"
+  [ "$inspected_owner" = "$trusted_uid" ] || fail "$inspected_label must be owned by the privileged operator"
+  inspected_mode=$(stat -c "%a" "$inspected_path" 2>/dev/null || stat -f "%Lp" "$inspected_path") || fail "unable to inspect $inspected_label permissions"
+  mode_is_not_shared_writable "$inspected_mode" "$inspected_label"
+}
+trusted_file() {
+  inspected_path=$1
+  inspected_label=$2
+  owner_only=$3
+  [ ! -L "$inspected_path" ] || fail "$inspected_label must not be a symbolic link"
+  [ -f "$inspected_path" ] || fail "$inspected_label must be a regular file"
+  inspected_owner=$(stat -c "%u" "$inspected_path" 2>/dev/null || stat -f "%u" "$inspected_path") || fail "unable to inspect $inspected_label owner"
+  [ "$inspected_owner" = "$trusted_uid" ] || fail "$inspected_label must be owned by the privileged operator"
+  inspected_mode=$(stat -c "%a" "$inspected_path" 2>/dev/null || stat -f "%Lp" "$inspected_path") || fail "unable to inspect $inspected_label permissions"
+  mode_is_not_shared_writable "$inspected_mode" "$inspected_label"
+  if [ "$owner_only" -eq 1 ]; then
+    case "$inspected_mode" in 400|600) ;; *) fail "$inspected_label permissions must be 400 or 600" ;; esac
+  fi
+}
+validate_inputs() {
+  trusted_directory "$app_root" "application root directory"
+  trusted_directory "$env_dir" "production environment directory"
+  trusted_directory "$app_dir" "application directory"
+  trusted_file "$env_file" "production environment file" 1
+  trusted_file "$release_env" "release image environment" 1
+  trusted_file "$app_dir/compose.yaml" "compose.yaml" 0
+  trusted_file "$app_dir/compose.prod.yaml" "compose.prod.yaml" 0
+  feature_present=0
+  if [ -e "$feature_env" ] || [ -L "$feature_env" ]; then
+    trusted_file "$feature_env" "event clip feature environment" 1
+    feature_present=1
+  fi
 }
 cleanup() {
   status=$?
   cleanup_status=0
-  unset secret secret_with_marker
+  unset secret secret_with_marker command_output
   if [ "$lock_held" -eq 1 ] && ! rmdir "$lock_dir"; then cleanup_status=1; fi
   trap - 0 HUP INT TERM
   [ "$status" -ne 0 ] && exit "$status"
   exit "$cleanup_status"
 }
 
-need cat
 need dirname
 need docker
+need head
+need id
 need mkdir
 need rmdir
 need stat
-owner_only_file "$env_file" "production environment file"
-owner_only_file "$release_env" "release image environment"
-[ -d "$app_dir" ] && [ ! -L "$app_dir" ] || fail "application directory must be a regular directory"
-[ -f "$app_dir/compose.yaml" ] && [ ! -L "$app_dir/compose.yaml" ] || fail "compose.yaml must be a regular non-symbolic file"
-[ -f "$app_dir/compose.prod.yaml" ] && [ ! -L "$app_dir/compose.prod.yaml" ] || fail "compose.prod.yaml must be a regular non-symbolic file"
-if [ -e "$feature_env" ] || [ -L "$feature_env" ]; then owner_only_file "$feature_env" "event clip feature environment"; fi
-
-mkdir "$lock_dir" 2>/dev/null || fail "another deployment or ADMIN password rotation is running"
-lock_held=1
-trap cleanup 0 HUP INT TERM
+need wc
+trusted_uid=$(id -u)
+trap "exit 129" HUP
+trap "exit 130" INT
+trap "exit 143" TERM
+validate_inputs
 
 marker=__ROTATE_ADMIN_PASSWORD_EOF__
-secret_with_marker=$(cat; printf "%s" "$marker")
+secret_with_marker=$(head -c 513; printf "%s" "$marker")
 secret=${secret_with_marker%"$marker"}
 unset secret_with_marker
+secret_bytes=$(printf "%s" "$secret" | wc -c)
+[ "$secret_bytes" -le 512 ] || fail "ADMIN password input is too large"
 [ -n "$secret" ] || fail "ADMIN password descriptor is empty"
 newline="
 "
 case "$secret" in *"$newline"*) fail "ADMIN password must not contain a newline" ;; esac
-unset newline marker
+unset newline marker secret_bytes
+
+mkdir "$lock_dir" 2>/dev/null || fail "another deployment or ADMIN password rotation is running"
+lock_held=1
+trap cleanup 0
 
 cd "$app_dir"
 set -- docker compose --env-file "$env_file" --env-file "$release_env"
-if [ -f "$feature_env" ]; then set -- "$@" --env-file "$feature_env"; fi
+if [ "$feature_present" -eq 1 ]; then set -- "$@" --env-file "$feature_env"; fi
 set -- "$@" -f compose.yaml -f compose.prod.yaml run --rm --no-deps -T backend \
   node dist-tools/prisma/reset-admin-password.js --email "$email"
-if printf "%s" "$secret" | "$@" >/dev/null 2>&1; then
+validate_inputs
+if command_output=$(printf "%s" "$secret" | ADMIN_ROTATION_REMOTE_PID=$$ "$@" 2>/dev/null); then
   command_status=0
 else
   command_status=$?
 fi
 unset secret
+if [ "$command_status" -eq 2 ] && [ "$command_output" = "ADMIN_PASSWORD_RESET_POST_COMMIT_DISCONNECT" ]; then
+  printf "%s\n" "ADMIN_PASSWORD_ROTATION_POST_COMMIT_DISCONNECT"
+  exit 2
+fi
 [ "$command_status" -eq 0 ] || fail "ADMIN password rotation command failed"
+case "$command_output" in
+  "ADMIN_PASSWORD_RESET_RESULT action=update") action=update ;;
+  "ADMIN_PASSWORD_RESET_RESULT action=noop") action=noop ;;
+  *) fail "ADMIN password rotation command returned an invalid result" ;;
+esac
+unset command_output
+printf "%s\n" "ADMIN_PASSWORD_ROTATION_RESULT action=$action"
 '
 
 REMOTE_COMMAND="sudo -n sh -c '$REMOTE_SCRIPT' admin-password-remote '$ENV_FILE' '$EMAIL'"
 # shellcheck disable=SC2029 # The validated remote command is intentionally expanded on the client.
-if ssh "$TARGET" "$REMOTE_COMMAND" < "/dev/fd/$PASSWORD_FD" >/dev/null 2>&1; then
-  printf '%s\n' 'ADMIN_PASSWORD_ROTATION_OK action=redacted'
+if remote_output=$(ssh "$TARGET" "$REMOTE_COMMAND" < "/dev/fd/$PASSWORD_FD" 2>/dev/null); then
+  case "$remote_output" in
+    'ADMIN_PASSWORD_ROTATION_RESULT action=update') action=update ;;
+    'ADMIN_PASSWORD_ROTATION_RESULT action=noop') action=noop ;;
+    *) printf '%s\n' 'ADMIN_PASSWORD_ROTATION_FAILED action=redacted' >&2; exit 1 ;;
+  esac
+  printf '%s\n' "ADMIN_PASSWORD_ROTATION_OK action=$action"
 else
+  status=$?
+  if [ "$status" -eq 2 ] && [ "$remote_output" = 'ADMIN_PASSWORD_ROTATION_POST_COMMIT_DISCONNECT' ]; then
+    printf '%s\n' 'ADMIN_PASSWORD_ROTATION_FAILED state=post-commit-disconnect' >&2
+    exit 2
+  fi
   printf '%s\n' 'ADMIN_PASSWORD_ROTATION_FAILED action=redacted' >&2
   exit 1
 fi

@@ -28,7 +28,12 @@ set -eu
 [ "$#" -eq 2 ] || { printf 'unexpected ssh argument count: %s\n' "$#" >&2; exit 91; }
 printf 'target=[%s]\ncommand=[%s]\n' "$1" "$2" >> "$MOCK_SSH_LOG"
 [ "${MOCK_SSH_STATUS:-0}" -eq 0 ] || exit "$MOCK_SSH_STATUS"
-exec /bin/sh -c "$2"
+set +e
+/bin/sh -c "$2"
+status=$?
+set -e
+printf '%s\n' "$status" > "$MOCK_SSH_REMOTE_STATUS_LOG"
+exit "$status"
 EOF
 
 cat > "$TMP/bin/sudo" <<'EOF'
@@ -56,14 +61,55 @@ unset secret_with_marker
 printf '%s' "$secret" | cksum > "$MOCK_STDIN_CKSUM_LOG"
 unset secret
 case "${MOCK_DOCKER_MODE:-ok}" in
-  ok) exit 0 ;;
+  ok) printf '%s\n' 'ADMIN_PASSWORD_RESET_RESULT action=update'; exit 0 ;;
+  noop) printf '%s\n' 'ADMIN_PASSWORD_RESET_RESULT action=noop'; exit 0 ;;
+  disconnect) printf '%s\n' 'ADMIN_PASSWORD_RESET_POST_COMMIT_DISCONNECT'; exit 2 ;;
+  plain-two) printf '%s\n' 'unrelated exit two'; exit 2 ;;
   fail) printf '%s\n' 'container reset failed without secret' >&2; exit 47 ;;
-  misleading) printf '%s\n' 'ADMIN_PASSWORD_ROTATION_OK action=redacted'; exit 48 ;;
-  signal) kill -TERM "$PPID"; exit 143 ;;
+  misleading) printf '%s\n' 'ADMIN_PASSWORD_ROTATION_OK action=update'; exit 48 ;;
+  signal) kill -TERM "$ADMIN_ROTATION_REMOTE_PID"; exit 0 ;;
   *) exit 93 ;;
 esac
 EOF
-chmod +x "$TMP/bin/ssh" "$TMP/bin/sudo" "$TMP/bin/docker"
+
+cat > "$TMP/bin/stat" <<'EOF'
+#!/usr/bin/env sh
+set -eu
+last=''
+for argument do last=$argument; done
+if [ -n "${MOCK_UNTRUSTED_OWNER_PATH:-}" ] && [ "$last" = "$MOCK_UNTRUSTED_OWNER_PATH" ]; then
+  case " $* " in
+    *' %u '*) printf '%s\n' 999999; exit 0 ;;
+  esac
+fi
+exec "$REAL_STAT" "$@"
+EOF
+
+cat > "$TMP/bin/mkdir" <<'EOF'
+#!/usr/bin/env sh
+set -eu
+set +e
+/bin/mkdir "$@"
+status=$?
+set -e
+case "${1:-}" in
+  */deploy.lock)
+    printf '%s\n' "$1" >> "$MOCK_MKDIR_LOG"
+    if [ "$status" -eq 0 ]; then
+      case "${MOCK_MKDIR_MODE:-}" in
+        permission-race) chmod 666 "${1%/*}/release-images.env" ;;
+        pathname-race)
+          mv "${1%/*}/.env" "${1%/*}/.env.race-target"
+          ln -s "${1%/*}/.env.race-target" "${1%/*}/.env"
+          ;;
+      esac
+    fi
+    ;;
+esac
+exit "$status"
+EOF
+chmod +x "$TMP/bin/ssh" "$TMP/bin/sudo" "$TMP/bin/docker" "$TMP/bin/stat" "$TMP/bin/mkdir"
+REAL_STAT=$(command -v stat)
 
 assert_contains() {
   case "$1" in *"$2"*) ;; *) printf 'missing expected text: %s\n' "$2" >&2; exit 1;; esac
@@ -81,27 +127,39 @@ assert_no_runtime_residue() {
 }
 reset_logs() {
   : > "$TMP/ssh.log"
+  : > "$TMP/ssh-remote-status.log"
   : > "$TMP/docker.log"
   : > "$TMP/docker-env.log"
   : > "$TMP/stdin.cksum"
+  : > "$TMP/mkdir.log"
 }
 run_with_fd() {
   PATH="$TMP/bin:$PATH" \
   MOCK_SSH_LOG="$TMP/ssh.log" \
+  MOCK_SSH_REMOTE_STATUS_LOG="$TMP/ssh-remote-status.log" \
   MOCK_DOCKER_LOG="$TMP/docker.log" \
   MOCK_DOCKER_ENV_LOG="$TMP/docker-env.log" \
   MOCK_STDIN_CKSUM_LOG="$TMP/stdin.cksum" \
+  MOCK_MKDIR_LOG="$TMP/mkdir.log" \
+  MOCK_MKDIR_MODE="${MOCK_MKDIR_MODE:-}" \
+  MOCK_UNTRUSTED_OWNER_PATH="${MOCK_UNTRUSTED_OWNER_PATH:-}" \
+  REAL_STAT="$REAL_STAT" \
   ADMIN_PASSWORD_FD=9 \
-    sh "$SCRIPT" --target fixture-host --env-file "$TMP/remote/shared/.env" \
+    sh "$SCRIPT" --target fixture-host --env-file "${REMOTE_ENV_FILE:-$TMP/remote/shared/.env}" \
       --email operator@example.test 9< "$1"
 }
 run_with_stdin() {
   PATH="$TMP/bin:$PATH" \
   MOCK_SSH_LOG="$TMP/ssh.log" \
+  MOCK_SSH_REMOTE_STATUS_LOG="$TMP/ssh-remote-status.log" \
   MOCK_DOCKER_LOG="$TMP/docker.log" \
   MOCK_DOCKER_ENV_LOG="$TMP/docker-env.log" \
   MOCK_STDIN_CKSUM_LOG="$TMP/stdin.cksum" \
-    sh "$SCRIPT" --target fixture-host --env-file "$TMP/remote/shared/.env" \
+  MOCK_MKDIR_LOG="$TMP/mkdir.log" \
+  MOCK_MKDIR_MODE="${MOCK_MKDIR_MODE:-}" \
+  MOCK_UNTRUSTED_OWNER_PATH="${MOCK_UNTRUSTED_OWNER_PATH:-}" \
+  REAL_STAT="$REAL_STAT" \
+    sh "$SCRIPT" --target fixture-host --env-file "${REMOTE_ENV_FILE:-$TMP/remote/shared/.env}" \
       --email operator@example.test < "$1"
 }
 
@@ -118,7 +176,7 @@ COMPOSE_BEFORE=$(cksum "$TMP/remote/repo/compose.yaml" "$TMP/remote/repo/compose
 # Happy path: one released backend Compose run receives the password on stdin.
 reset_logs
 output=$(run_with_fd "$TMP/password.source" 2>&1)
-[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=redacted' ] || {
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=update' ] || {
   printf 'unexpected success output: %s\n' "$output" >&2; exit 1
 }
 [ "$(cat "$TMP/stdin.cksum")" = "$EXPECTED_CKSUM" ] || { printf '%s\n' 'password FD was not forwarded exactly' >&2; exit 1; }
@@ -157,11 +215,19 @@ assert_not_contains "$docker_env" 'ADMIN_PASSWORD_FD='
 [ "$COMPOSE_BEFORE" = "$(cksum "$TMP/remote/repo/compose.yaml" "$TMP/remote/repo/compose.prod.yaml")" ]
 assert_no_runtime_residue
 
+# A same-password result remains a successful noop but cannot masquerade as a reset.
+reset_logs
+output=$(MOCK_DOCKER_MODE=noop run_with_fd "$TMP/password.source" 2>&1)
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=noop' ] || {
+  printf 'unexpected noop output: %s\n' "$output" >&2; exit 1
+}
+assert_no_runtime_residue
+
 # ADMIN_PASSWORD_FD defaults to stdin and the optional feature env is omitted only when absent.
 mv "$TMP/remote/shared/event-clips-runtime.env" "$TMP/feature.saved"
 reset_logs
 output=$(run_with_stdin "$TMP/password.source" 2>&1)
-[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=redacted' ]
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=update' ]
 [ "$(cat "$TMP/stdin.cksum")" = "$EXPECTED_CKSUM" ]
 assert_not_contains "$(cat "$TMP/docker.log")" 'event-clips-runtime.env'
 mv "$TMP/feature.saved" "$TMP/remote/shared/event-clips-runtime.env"
@@ -194,6 +260,29 @@ for invalid in "$TMP/empty.source" "$TMP/newline.source"; do
   [ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'malformed password reached Docker' >&2; exit 1; }
   assert_no_runtime_residue
 done
+
+# Oversized input is rejected before the deploy lock, and a non-terminating
+# producer is cut off as soon as the byte bound is exceeded rather than awaited.
+dd if=/dev/zero of="$TMP/oversized.source" bs=513 count=1 2>/dev/null
+reset_logs
+set +e
+output=$(run_with_fd "$TMP/oversized.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'oversized password input'
+[ ! -s "$TMP/mkdir.log" ] || { printf '%s\n' 'oversized input acquired the deploy lock' >&2; exit 1; }
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'oversized input reached Docker' >&2; exit 1; }
+assert_no_runtime_residue
+
+reset_logs
+set +e
+output=$(yes x | run_with_stdin 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'non-terminating oversized password stream'
+[ ! -s "$TMP/mkdir.log" ] || { printf '%s\n' 'large stream acquired the deploy lock' >&2; exit 1; }
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'large stream reached Docker' >&2; exit 1; }
+assert_no_runtime_residue
 
 # Malformed or duplicate inputs fail before SSH.
 for arguments in \
@@ -246,8 +335,75 @@ rm "$TMP/remote/shared/.env"
 mv "$TMP/remote/shared/env.real" "$TMP/remote/shared/.env"
 assert_no_runtime_residue
 
+# Non-canonical parents, untrusted owners, and shared-writable inputs fail closed.
+ln -s "$TMP/remote/shared" "$TMP/remote/shared-alias"
+reset_logs
+set +e
+output=$(REMOTE_ENV_FILE="$TMP/remote/shared-alias/.env" run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'non-canonical environment parent'
+[ ! -s "$TMP/docker.log" ]
+rm "$TMP/remote/shared-alias"
+assert_no_runtime_residue
+
+reset_logs
+set +e
+output=$(MOCK_UNTRUSTED_OWNER_PATH="$TMP/remote/shared/.env" run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'untrusted environment owner'
+[ ! -s "$TMP/docker.log" ]
+assert_no_runtime_residue
+
+chmod 660 "$TMP/remote/shared/.env"
+reset_logs
+set +e
+output=$(run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'group-writable environment file'
+[ ! -s "$TMP/docker.log" ]
+chmod 600 "$TMP/remote/shared/.env"
+assert_no_runtime_residue
+
+shared_mode=$(stat -f '%Lp' "$TMP/remote/shared" 2>/dev/null || stat -c '%a' "$TMP/remote/shared")
+chmod 777 "$TMP/remote/shared"
+reset_logs
+set +e
+output=$(run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'world-writable environment parent'
+[ ! -s "$TMP/docker.log" ]
+chmod "$shared_mode" "$TMP/remote/shared"
+assert_no_runtime_residue
+
+# A post-lock pathname/permission race is caught by immediate revalidation.
+reset_logs
+set +e
+output=$(MOCK_MKDIR_MODE=permission-race run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'post-lock permission race'
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'raced input reached Docker' >&2; exit 1; }
+chmod 600 "$TMP/remote/shared/release-images.env"
+assert_no_runtime_residue
+
+# A post-lock pathname replacement is likewise rejected immediately before Docker.
+reset_logs
+set +e
+output=$(MOCK_MKDIR_MODE=pathname-race run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'post-lock pathname replacement race'
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'replaced pathname reached Docker' >&2; exit 1; }
+rm "$TMP/remote/shared/.env"
+mv "$TMP/remote/shared/.env.race-target" "$TMP/remote/shared/.env"
+assert_no_runtime_residue
+
 # Container/SSH failures cannot be turned into a misleading success and always clean up.
-for mode in fail misleading; do
+for mode in fail misleading plain-two; do
   reset_logs
   set +e
   output=$(MOCK_DOCKER_MODE=$mode run_with_fd "$TMP/password.source" 2>&1)
@@ -260,6 +416,18 @@ for mode in fail misleading; do
   assert_not_contains "$output" "$FIXTURE_PASSWORD"
   assert_no_runtime_residue
 done
+
+# Exit 2 uniquely reports a committed transaction whose disconnect failed.
+reset_logs
+set +e
+output=$(MOCK_DOCKER_MODE=disconnect run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+[ "$status" -eq 2 ] || { printf 'unexpected disconnect status: %s\n' "$status" >&2; exit 1; }
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_FAILED state=post-commit-disconnect' ] || {
+  printf 'unexpected disconnect output: %s\n' "$output" >&2; exit 1
+}
+assert_no_runtime_residue
 
 reset_logs
 set +e
@@ -277,25 +445,26 @@ printf '%s\n' dirty-fixture > "$TMP/remote/repo/.dirty-probe"
 dirty_before=$(cksum "$TMP/remote/repo/.dirty-probe")
 reset_logs
 output=$(run_with_fd "$TMP/password.source" 2>&1)
-[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=redacted' ]
+[ "$output" = 'ADMIN_PASSWORD_ROTATION_OK action=update' ]
 [ "$dirty_before" = "$(cksum "$TMP/remote/repo/.dirty-probe")" ]
 assert_contains "$(cat "$TMP/docker.log")" "arg=[${TMP}/remote/shared/release-images.env]"
 rm "$TMP/remote/repo/.dirty-probe"
 assert_no_runtime_residue
 
-# Repeated signal-like remote termination never leaves this wrapper lock or secret artifacts.
-for attempt in 1 2 3; do
-  reset_logs
-  set +e
-  output=$(MOCK_DOCKER_MODE=signal run_with_fd "$TMP/password.source" 2>&1)
-  status=$?
-  set -e
-  assert_failure "$status" "interruption $attempt"
-  assert_not_contains "$output" "$FIXTURE_PASSWORD"
-  assert_no_runtime_residue
-done
+# A direct TERM to the remote rotation shell maps deterministically to 143 and cleans up.
+reset_logs
+set +e
+output=$(MOCK_DOCKER_MODE=signal run_with_fd "$TMP/password.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'direct TERM interruption'
+[ "$(cat "$TMP/ssh-remote-status.log")" = 143 ] || {
+  printf 'remote TERM status was not 143: %s\n' "$(cat "$TMP/ssh-remote-status.log")" >&2; exit 1
+}
+assert_not_contains "$output" "$FIXTURE_PASSWORD"
+assert_no_runtime_residue
 
 # No fixture password survives the test once the assertions no longer need it.
 unset FIXTURE_PASSWORD
-rm -f "$TMP/password.source" "$TMP/empty.source" "$TMP/newline.source"
+rm -f "$TMP/password.source" "$TMP/empty.source" "$TMP/newline.source" "$TMP/oversized.source"
 printf '%s\n' 'ROTATE_ADMIN_PASSWORD_FIXTURE_OK'

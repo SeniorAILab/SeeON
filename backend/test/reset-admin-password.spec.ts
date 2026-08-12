@@ -1,9 +1,21 @@
+import { spawn } from 'node:child_process';
+import {
+  closeSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { once } from 'node:events';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service';
 import { hashPassword, verifyPassword } from '../src/auth/password';
 import {
+  readPasswordFromFileDescriptor,
   resetAdminPassword,
   runResetAdminPasswordCli,
 } from '../prisma/reset-admin-password';
@@ -269,7 +281,8 @@ describe('guarded ADMIN password reset', () => {
 
   it.each([
     ['8 code points', '가'.repeat(8)],
-    ['128 code points', '나'.repeat(128)],
+    ['128 three-byte code points', '나'.repeat(128)],
+    ['128 four-byte code points', '😀'.repeat(128)],
   ])('accepts %s', async (_case, password) => {
     const { prisma } = await fixture();
 
@@ -305,13 +318,78 @@ describe('guarded ADMIN password reset', () => {
     ).resolves.toBe(0);
 
     expect(disconnected).toBe(true);
-    expect(stdout).toEqual([
-      `ADMIN password reset action=update userId=admin-reset email=${ADMIN_EMAIL}`,
-    ]);
+    expect(stdout).toEqual(['ADMIN_PASSWORD_RESET_RESULT action=update']);
     expect(stderr).toEqual([]);
     expect(`${stdout.join('\n')}\n${stderr.join('\n')}`).not.toContain(
       NEW_PASSWORD,
     );
+  });
+
+  it('surfaces a same-password noop as a distinct machine-readable CLI action', async () => {
+    const { prisma } = await fixture();
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+
+    await expect(
+      runResetAdminPasswordCli(['--email', ADMIN_EMAIL], {
+        env: { DIRECT_URL: 'postgresql://isolated.test/reset' },
+        readPassword: () => OLD_PASSWORD,
+        createPrismaClient: () =>
+          ({
+            $transaction: prisma.$transaction.bind(prisma),
+            $disconnect: () => Promise.resolve(),
+          }) as never,
+        stdout: (line) => stdout.push(line),
+        stderr: (line) => stderr.push(line),
+      }),
+    ).resolves.toBe(0);
+
+    expect(stdout).toEqual(['ADMIN_PASSWORD_RESET_RESULT action=noop']);
+    expect(stderr).toEqual([]);
+    expect(prisma.updates).toHaveLength(0);
+  });
+
+  it('reads the canonical 128 four-byte code-point maximum from an FD', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'admin-reset-fd-'));
+    const source = join(directory, 'password.source');
+    const password = '😀'.repeat(128);
+    writeFileSync(source, password);
+    const fd = openSync(source, 'r');
+
+    try {
+      expect(readPasswordFromFileDescriptor(fd)).toBe(password);
+    } finally {
+      closeSync(fd);
+      rmSync(directory, { recursive: true });
+    }
+  });
+
+  it('stops reading an oversized FD stream without waiting for EOF', async () => {
+    const child = spawn(
+      process.execPath,
+      [
+        '-r',
+        'ts-node/register',
+        '-e',
+        [
+          "const reset = require('./prisma/reset-admin-password');",
+          'try {',
+          '  reset.readPasswordFromFileDescriptor(0);',
+          '  process.exitCode = 0;',
+          '} catch (error) {',
+          '  process.exitCode = error instanceof reset.AdminPasswordResetCliError && /too large/i.test(error.message) ? 23 : 24;',
+          '}',
+        ].join('\n'),
+      ],
+      { cwd: process.cwd(), stdio: ['pipe', 'ignore', 'pipe'] },
+    );
+    child.stdin.on('error', () => undefined);
+    const exit = once(child, 'exit', { signal: AbortSignal.timeout(10_000) });
+
+    child.stdin.write(Buffer.alloc(513, 0x61));
+
+    await expect(exit).resolves.toEqual([23, null]);
+    child.stdin.destroy();
   });
 
   it('redacts unexpected failures', async () => {
@@ -333,7 +411,7 @@ describe('guarded ADMIN password reset', () => {
     expect(output.join('\n')).not.toContain(NEW_PASSWORD);
   });
 
-  it('does not print misleading success when cleanup fails', async () => {
+  it('distinguishes disconnect failure after the reset transaction committed', async () => {
     const { prisma } = await fixture();
     const stdout: string[] = [];
     const stderr: string[] = [];
@@ -350,9 +428,11 @@ describe('guarded ADMIN password reset', () => {
         stdout: (line) => stdout.push(line),
         stderr: (line) => stderr.push(line),
       }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(2);
 
-    expect(stdout).toEqual([]);
-    expect(stderr).toEqual(['ADMIN password reset failed.']);
+    expect(stdout).toEqual(['ADMIN_PASSWORD_RESET_POST_COMMIT_DISCONNECT']);
+    expect(stderr).toEqual([
+      'ADMIN password reset transaction committed, but database disconnect failed.',
+    ]);
   });
 });

@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { readSync } from 'node:fs';
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { hashPassword, verifyPassword } from '../src/auth/password';
 import {
   assertValidPassword,
+  PASSWORD_MAX_CODE_POINTS,
   requiredPassword,
 } from '../src/auth/password-policy';
 
@@ -130,19 +131,14 @@ export async function runResetAdminPasswordCli(
   }
 
   let client: AdminResetCliClient | undefined;
+  let result: AdminPasswordResetResult;
   try {
     const email = parseEmailArgument(argv);
     const password = dependencies.readPassword(
       passwordFileDescriptor(dependencies.env),
     );
     client = dependencies.createPrismaClient(dependencies.env);
-    const result = await resetAdminPassword(client, { email, password });
-    await client.$disconnect();
-    client = undefined;
-    dependencies.stdout(
-      `ADMIN password reset action=${result.action} userId=${result.userId} email=${result.email}`,
-    );
-    return 0;
+    result = await resetAdminPassword(client, { email, password });
   } catch (error: unknown) {
     if (client) {
       try {
@@ -154,6 +150,18 @@ export async function runResetAdminPasswordCli(
     dependencies.stderr(redactedErrorMessage(error));
     return 1;
   }
+
+  try {
+    await client.$disconnect();
+  } catch {
+    dependencies.stdout('ADMIN_PASSWORD_RESET_POST_COMMIT_DISCONNECT');
+    dependencies.stderr(
+      'ADMIN password reset transaction committed, but database disconnect failed.',
+    );
+    return 2;
+  }
+  dependencies.stdout(`ADMIN_PASSWORD_RESET_RESULT action=${result.action}`);
+  return 0;
 }
 
 function normalizeEmail(value: unknown): string {
@@ -190,6 +198,36 @@ function passwordFileDescriptor(env: NodeJS.ProcessEnv): number {
   return fd;
 }
 
+const MAX_PASSWORD_UTF8_BYTES = PASSWORD_MAX_CODE_POINTS * 4;
+
+export function readPasswordFromFileDescriptor(fd: number): string {
+  const input = Buffer.allocUnsafe(MAX_PASSWORD_UTF8_BYTES + 1);
+  let bytesRead = 0;
+  while (bytesRead < input.length) {
+    const count = readSync(
+      fd,
+      input,
+      bytesRead,
+      input.length - bytesRead,
+      null,
+    );
+    if (count === 0) break;
+    bytesRead += count;
+  }
+  if (bytesRead > MAX_PASSWORD_UTF8_BYTES) {
+    throw new AdminPasswordResetCliError('ADMIN password input is too large.');
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(
+      input.subarray(0, bytesRead),
+    );
+  } catch {
+    throw new AdminPasswordResetCliError(
+      'ADMIN password input must be valid UTF-8.',
+    );
+  }
+}
+
 function createAdminResetPrismaClient(
   env: NodeJS.ProcessEnv,
 ): AdminResetCliClient {
@@ -206,7 +244,7 @@ function createAdminResetPrismaClient(
 function defaultCliDependencies(): AdminResetCliDependencies {
   return {
     env: process.env,
-    readPassword: (fd) => readFileSync(fd, 'utf8'),
+    readPassword: readPasswordFromFileDescriptor,
     createPrismaClient: createAdminResetPrismaClient,
     stdout: (line) => console.log(line),
     stderr: (line) => console.error(line),

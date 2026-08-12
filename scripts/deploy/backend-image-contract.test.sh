@@ -1,21 +1,43 @@
-#!/bin/sh
+#!/usr/bin/env sh
 set -eu
 
-REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-DOCKERFILE="$REPO_ROOT/backend/Dockerfile"
+REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
+IMAGE="eldercare-backend-contract:$$"
+DEPLOY_SHA=0000000000000000000000000000000000000000
 
-assert_contains() {
-  grep -F "$2" "$1" >/dev/null || { echo "missing: $2" >&2; exit 1; }
+cleanup() {
+  trap - 0 HUP INT TERM
+  docker image rm -f "$IMAGE" >/dev/null 2>&1 || true
 }
-assert_not_contains() {
-  if grep -F "$2" "$1" >/dev/null; then echo "unexpected: $2" >&2; exit 1; fi
+trap cleanup 0
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+docker build \
+  --file "$REPO_ROOT/backend/Dockerfile" \
+  --build-arg "DEPLOY_SHA=$DEPLOY_SHA" \
+  --tag "$IMAGE" \
+  "$REPO_ROOT"
+
+command_config=$(docker image inspect --format '{{json .Config.Cmd}}' "$IMAGE")
+[ "$command_config" = '["node","dist/main"]' ] || {
+  printf 'unexpected production command: %s\n' "$command_config" >&2
+  exit 1
 }
 
-assert_contains "$DOCKERFILE" 'prisma/reset-admin-password.ts'
-assert_contains "$DOCKERFILE" 'src/auth/password.ts'
-assert_contains "$DOCKERFILE" 'src/auth/password-policy.ts'
-assert_contains "$DOCKERFILE" 'COPY --from=build /app/backend/dist-tools ./dist-tools'
-assert_contains "$DOCKERFILE" 'CMD ["node", "dist/main"]'
-assert_not_contains "$DOCKERFILE" 'CMD ["node", "dist-tools/prisma/reset-admin-password.js"]'
+docker run --rm --entrypoint sh "$IMAGE" -eu -c '
+  artifact=/app/backend/dist-tools/prisma/reset-admin-password.js
+  [ -f "$artifact" ]
+  [ ! -L "$artifact" ]
+  [ -s "$artifact" ]
+'
 
-echo 'backend Docker maintenance-command contract: PASS'
+help_output=$(docker run --rm --entrypoint node "$IMAGE" \
+  /app/backend/dist-tools/prisma/reset-admin-password.js --help)
+[ "$help_output" = 'Usage: reset-admin-password --email <ADMIN email> (password is read from ADMIN_PASSWORD_FD, default stdin)' ] || {
+  printf 'unexpected maintenance command help: %s\n' "$help_output" >&2
+  exit 1
+}
+
+printf '%s\n' 'backend Docker maintenance-command contract: PASS'
