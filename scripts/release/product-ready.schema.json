@@ -15,7 +15,6 @@
     "deployment",
     "rows",
     "allPass",
-    "rollbacks",
     "safety"
   ],
   "properties": {
@@ -47,7 +46,6 @@
     "rollbacks": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["frontend", "host"],
       "properties": {
         "frontend": { "$ref": "#/$defs/rollbackReceipt" },
         "host": { "$ref": "#/$defs/rollbackReceipt" }

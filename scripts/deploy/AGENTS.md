@@ -8,7 +8,7 @@ explicit rollback or database restore.
 ## Where to look
 - `Jenkinsfile` — resolves a published production release, requires its GitHub
   `CI gate=success`, builds exact-SHA backend/API-ingress/transitional-front
-  images, takes safety receipts, then invokes deploy.
+  images, validates live media/Edge safety, then invokes deploy.
 - `iwinv-deploy.sh` — deploys exact local SHA-tagged images, backs up PostgreSQL,
   migrates, starts Compose, and verifies health/version.
 - `iwinv-deploy.test.sh` — mocked dry-run and production-path contracts for
@@ -57,11 +57,17 @@ explicit rollback or database restore.
   `/opt/eldercare-fall-ai/releases/`. Frontend and API ingress bind only host
   loopback (`127.0.0.1:3000` and `127.0.0.1:3001`); backend and database remain
   internal. Caddy owns public exposure.
-- Before migration, require a fresh content-addressed off-host media backup
-  receipt, capture an Edge heartbeat seed, create a `pg_dump -Fc` backup, and
-  validate it with `pg_restore --list`. Audit Prisma history before `migrate
-  deploy`; migrations run once from deploy tooling, never on app start.
-- Fail on the first resolution, checkout, build, preflight, backup, migration,
+- Before migration, require the fixed `repo_clips` volume to exist, be mounted
+  by exactly one running backend at `/app/backend/clips`, and be readable through
+  a read-only mount. Capture an Edge heartbeat seed, create a `pg_dump -Fc`
+  backup, and validate it with `pg_restore --list`. Audit Prisma history and
+  reject destructive candidate migrations before `migrate deploy`; migrations
+  run once from deploy tooling, never on app start.
+- `event-media-backup.sh` is an optional standalone manual recovery utility. It
+  may create a validated bundle and manual audit receipt when an operator has a
+  genuine destination, but Jenkins, readiness, deploy, and PRODUCT_READY never
+  invoke it or consume that receipt.
+- Fail on the first resolution, checkout, build, preflight, DB backup, migration,
   Compose, or health error. No hidden retry, automatic rollback, alternate path,
   or secret output.
 - The prod backend image compiles the full seed to `dist-tools/prisma/seed.js`

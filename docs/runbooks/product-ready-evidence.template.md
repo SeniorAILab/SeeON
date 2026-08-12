@@ -214,24 +214,6 @@ evidence text.
 - Credential material retained: `false`
 - Private media retained: `false`
 
-<a id="frontend-rollback"></a>
-## Frontend rollback plane
-
-- Result: `<PASS-or-FAIL>`
-- UTC: `<UTC>`
-- Previous deployment exact READY signal: `<redacted-summary>`
-- Intended deployment restored and smoke-green: `<true-or-false>`
-- Database/API rollback performed: `false`
-
-<a id="host-rollback"></a>
-## Host rollback plane
-
-- Result: `<PASS-or-FAIL>`
-- UTC: `<UTC>`
-- Dry-run immutable pointer/schema/image resolution: `<redacted-summary>`
-- Compose/pointer/migration/database/service mutation performed: `false`
-- Destructive database operation performed: `false`
-
 <a id="safety"></a>
 ## Safety attestation
 

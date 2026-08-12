@@ -508,41 +508,44 @@ export function validateProductReadyArtifact(
   }
 
   const rollbackPlanesPass = [];
-  if (!rejectUnknownKeys(artifact.rollbacks, new Set(["frontend", "host"]), "rollbacks", errors)) {
-    // The object error is enough.
-  } else {
-    for (const plane of ["frontend", "host"]) {
-      const receipt = artifact.rollbacks[plane];
-      if (!isObject(receipt)) {
-        errors.push(`${plane} rollback plane is required`);
-        continue;
-      }
-      rejectUnknownKeys(receipt, ROLLBACK_KEYS, `${plane} rollback plane`, errors);
-      if (receipt.result !== "PASS") {
-        errors.push(
-          `${plane} rollback plane must be PASS, got ${formatValue(receipt.result)}`,
+  if (artifact.rollbacks !== undefined) {
+    if (!rejectUnknownKeys(artifact.rollbacks, new Set(["frontend", "host"]), "rollbacks", errors)) {
+      // The object error is enough.
+    } else {
+      for (const plane of ["frontend", "host"]) {
+        const receipt = artifact.rollbacks[plane];
+        if (receipt === undefined) continue;
+        if (!isObject(receipt)) {
+          errors.push(`${plane} rollback plane must be an object`);
+          continue;
+        }
+        rejectUnknownKeys(receipt, ROLLBACK_KEYS, `${plane} rollback plane`, errors);
+        if (!RESULT_VALUES.has(receipt.result)) {
+          errors.push(
+            `${plane} rollback plane result must be PASS or FAIL, got ${formatValue(receipt.result)}`,
+          );
+        } else if (receipt.result === "PASS") {
+          rollbackPlanesPass.push(plane);
+        }
+        const rollbackAt = parseTimestamp(
+          receipt.at,
+          `${plane} rollback plane at`,
+          errors,
         );
-      } else {
-        rollbackPlanesPass.push(plane);
-      }
-      const rollbackAt = parseTimestamp(
-        receipt.at,
-        `${plane} rollback plane at`,
-        errors,
-      );
-      if (artifact.artifactKind === "production") {
-        validateProductionTimestamp(
-          rollbackAt,
-          `${plane} rollback observation`,
+        if (artifact.artifactKind === "production") {
+          validateProductionTimestamp(
+            rollbackAt,
+            `${plane} rollback observation`,
+            errors,
+          );
+        }
+        validateEvidenceReference(
+          receipt.evidence,
+          `${plane} rollback evidence`,
+          artifactDirectory,
           errors,
         );
       }
-      validateEvidenceReference(
-        receipt.evidence,
-        `${plane} rollback evidence`,
-        artifactDirectory,
-        errors,
-      );
     }
   }
 

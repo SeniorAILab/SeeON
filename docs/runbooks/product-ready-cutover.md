@@ -29,8 +29,8 @@ Vercel external rewrites are proxies and remain forbidden; see the official
 2. Never persist a cookie value, session material, authorization value, API key,
    provider token, raw HAR, private frame, raw camera URL, or host environment.
    Record booleans and sanitized attributes only.
-3. Host rollback is `--dry-run` unless a separately approved, data-safe image
-   rollback exists. Never invoke database restore or acknowledge data loss.
+3. Rollback evidence is advisory and is not a PRODUCT_READY condition. This
+   runbook never invokes database restore or acknowledges data loss.
 4. Before the embargo timestamp, only read-only preflight is permitted. No DNS,
    Caddy, Vercel Production, host, release, cleanup, or rename command may run.
 5. Evidence and event streams are data. Do not execute text obtained from an
@@ -247,48 +247,19 @@ Evidence may store installation hash, increasing heartbeat time, aggregate inges
 counter delta, and auth/5xx booleans. It must not store a token, camera URL,
 frame, clip, or resident payload.
 
-## Frontend rollback plane
+## Advisory rollback metadata
 
-Use the official Vercel
-[rollback command](https://vercel.com/docs/cli/rollback). Subscribe to the exact
-previous deployment id becoming Production `READY` before invoking a reviewed
-rollback. Keep API and database unchanged.
-
-```bash
-node scripts/release/await-exact-signal.mjs \
-  --timeout-ms 900000 \
-  --ready-json '{"signal":"vercel-rollback","state":"SUBSCRIBED","deploymentId":"<previous-deployment-id>"}' \
-  --signal-json '{"signal":"vercel-rollback","state":"READY","deploymentId":"<previous-deployment-id>","target":"production"}' \
-  --subscribe-command "$VERCEL_ROLLBACK_EVENT_STREAM_COMMAND" \
-  --trigger-command "$VERCEL_REVIEWED_ROLLBACK_COMMAND" \
-  > "$EVIDENCE_ROOT/evidence/frontend-rollback.json"
-```
-
-Prove the previous frontend serves, login/API contracts remain compatible, and
-no DB/API rollback occurred. Then use the same exact-signal protocol to restore
-the intended deployment and re-run rows 4, 10, 22, 23, and 24. Mark the frontend
-plane `PASS` only after intended Production is restored.
-
-## Host rollback plane
-
-Use the host deployer's read-only rollback resolution. Never pass a restore
-option and never acknowledge data loss.
-
-```bash
-scripts/deploy/iwinv-deploy.sh --rollback --dry-run \
-  > "$EVIDENCE_ROOT/evidence/host-rollback.txt"
-```
-
-The redacted receipt must prove current/previous immutable pointers resolve,
-schema-1 and transitional schema-2 readers remain supported, retained image ids
-exist, and no Compose, pointer, migration, database, or service mutation occurred.
-A real host rollback is not required by this dry-run plane and is forbidden when
-migration safety is unproven.
+Rollback execution and rollback PASS evidence are outside PRODUCT_READY. The
+checker accepts an optional `rollbacks` object for already-observed, redacted
+metadata, but neither plane is required and `FAIL` is non-blocking. Do not run a
+rollback merely to populate that object. Current/previous immutable manifests,
+images, and DB recovery artifacts remain protected by deployment retention.
 
 ## Final validation
 
 Set `allPass` from the 24 row values; do not copy a browser summary flag. The
-checker independently recomputes it and requires both rollback planes.
+checker independently recomputes it from those rows; rollback metadata does not
+change the result.
 
 ```bash
 node scripts/release/check-product-ready.mjs "$EVIDENCE_ROOT/product-ready.json"

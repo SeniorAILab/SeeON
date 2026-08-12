@@ -15,8 +15,8 @@ node scripts/release/check-product-ready.mjs \
   .omo/evidence/seeon-backend-cutover-migration/task-13/product-ready/product-ready.json
 ```
 
-Stop unless exit is zero, `artifactKind` is `production`, all 24 rows are PASS,
-and both `frontend` and `host` rollback planes are PASS. Never use
+Stop unless exit is zero, `artifactKind` is `production`, and all 24 rows are
+PASS. Rollback metadata is advisory and does not gate cleanup. Never use
 `--allow-synthetic` here.
 
 ## Remove embedded frontend ownership
@@ -76,12 +76,10 @@ node scripts/release/await-exact-signal.mjs \
   > "$EVIDENCE_ROOT/evidence/backend-only-burnin.json"
 ```
 
-Run the host rollback resolver with `--rollback --dry-run`; prove the previous
-transitional release and images remain reconstructable. Do not restore a
-database or acknowledge data loss. Restore/pin the latest release through the
-normal exact-SHA path if a separately approved safe image rollback was executed.
-Only after legacy retirement and smoke-green may `AUTH_COOKIE_SECURE=true` be
-pinned.
+Do not execute or wait on a rollback rehearsal. Preserve the previous
+transitional manifest, retained images, and database recovery artifacts for
+fix-forward operations. Only after legacy retirement and smoke-green may
+`AUTH_COOKIE_SECURE=true` be pinned.
 
 ## Rename inventory
 
@@ -96,7 +94,7 @@ Before mutation, record these non-sensitive identities:
   release tooling references.
 
 Never create a copied or filtered repository. Rename the existing public
-repository only after the backend-only burn-in and rollback proof pass.
+repository only after the backend-only burn-in passes.
 
 ## Rename and repoint
 

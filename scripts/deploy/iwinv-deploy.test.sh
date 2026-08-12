@@ -7,7 +7,7 @@ SCRIPT=$REPO_ROOT/scripts/deploy/iwinv-deploy.sh
 JENKINSFILE=$REPO_ROOT/Jenkinsfile
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
-mkdir -p "$TMP/bin" "$TMP/root/shared/release-receipts" "$TMP/root/backups/db" "$TMP/root/releases" "$TMP/media/event-media-fixture"
+mkdir -p "$TMP/bin" "$TMP/root/shared/release-receipts" "$TMP/root/backups/db" "$TMP/root/releases"
 
 cat > "$TMP/bin/docker" <<'EOF'
 #!/usr/bin/env sh
@@ -16,6 +16,22 @@ log=${MOCK_LOG:-}
 if [ "${1:-}" = images ]; then
   [ "${MOCK_IMAGES_FAIL:-0}" != 1 ] || exit 1
   printf '%s\n' "eldercare-backend:${MOCK_SHA}" "eldercare-api-ingress:${MOCK_SHA}" "eldercare-front:${MOCK_SHA}" "eldercare-backend:cccccccccccccccccccccccccccccccccccccccc" "eldercare-api-ingress:cccccccccccccccccccccccccccccccccccccccc"
+  exit 0
+fi
+if [ "${1:-}" = volume ] && [ "${2:-}" = inspect ]; then
+  [ "${MOCK_MISSING_VOLUME:-0}" != 1 ] || exit 1
+  exit 0
+fi
+if [ "${1:-}" = ps ]; then
+  printf '%s\n' backend-one
+  exit 0
+fi
+if [ "${1:-}" = inspect ] && [ "${2:-}" = --format ]; then
+  printf '%s\n' repo_clips
+  exit 0
+fi
+if [ "${1:-}" = run ]; then
+  [ "${MOCK_UNREADABLE_VOLUME:-0}" != 1 ] || exit 1
   exit 0
 fi
 if [ "${1:-}" = image ] && [ "${2:-}" = inspect ]; then
@@ -89,7 +105,20 @@ cat > "$TMP/bin/rmdir" <<'EOF'
 [ "${FAIL_RMDIR:-0}" != 1 ] || exit 1
 exec /bin/rmdir "$@"
 EOF
-chmod +x "$TMP/bin/docker" "$TMP/bin/free" "$TMP/bin/sha256sum" "$TMP/bin/rmdir"
+cat > "$TMP/bin/git" <<'EOF'
+#!/usr/bin/env sh
+case " $* " in
+  *' rev-parse --git-dir '*|*' cat-file -e '*|*' merge-base --is-ancestor '*) exit 0 ;;
+  *' diff --diff-filter=A --name-only '*)
+    [ "${MOCK_DESTRUCTIVE_MIGRATION:-0}" != 1 ] || printf '%s\n' 'backend/prisma/migrations/20260812000000_destructive/migration.sql'
+    ;;
+  *' show '*)
+    [ "${MOCK_DESTRUCTIVE_MIGRATION:-0}" != 1 ] || printf '%s\n' 'DROP TABLE resident_media;'
+    ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$TMP/bin/docker" "$TMP/bin/free" "$TMP/bin/sha256sum" "$TMP/bin/rmdir" "$TMP/bin/git"
 
 NO_NODE_BIN=$TMP/no-node-bin
 mkdir -p "$NO_NODE_BIN"
@@ -101,6 +130,7 @@ ln -s "$TMP/bin/docker" "$NO_NODE_BIN/docker"
 ln -s "$TMP/bin/free" "$NO_NODE_BIN/free"
 ln -s "$TMP/bin/sha256sum" "$NO_NODE_BIN/sha256sum"
 ln -s "$TMP/bin/rmdir" "$NO_NODE_BIN/rmdir"
+ln -s "$TMP/bin/git" "$NO_NODE_BIN/git"
 
 cat > "$TMP/host.env" <<'EOF'
 POSTGRES_USER=fall
@@ -158,10 +188,7 @@ pointer_with_dump() {
 }
 prepare_overlap_receipts() {
   receipt_sha=$1
-  printf '%s\n' fixture-manifest > "$TMP/media/event-media-fixture/MANIFEST"
   now=$(date -u +%s)
-  printf 'FORMAT=seeon-event-media-backup-receipt-v1\nBUNDLE=%s\nMANIFEST_SHA256=%s\nCOMPLETED_EPOCH=%s\n' \
-    "$TMP/media/event-media-fixture" "$FIXTURE_COMPOSE_HASH" "$now" > "$TMP/root/shared/release-receipts/media-backup.receipt"
   printf 'FORMAT=seeon-edge-continuity-seed-v1\nRELEASE_SHA=%s\nLAST_HEARTBEAT_EPOCH=100\nCAPTURED_EPOCH=%s\n' \
     "$receipt_sha" "$now" > "$TMP/root/shared/release-receipts/edge-continuity.receipt"
   chmod 600 "$TMP/root/shared/release-receipts"/*.receipt
@@ -175,8 +202,10 @@ run_deploy() {
   done
   if [ -n "$candidate" ] && [ "${SKIP_RECEIPT_SETUP:-0}" != 1 ]; then prepare_overlap_receipts "$candidate"; fi
   PATH="$TMP/bin:$PATH" APP_ROOT="$TMP/root" APP_DIR="$REPO_ROOT" ENV_FILE="$TMP/host.env" \
-  MEMORY_MIN_MB="${TEST_MEMORY_MIN_MB:-1}" DISK_MIN_MB=1 MOCK_SHA="${MOCK_SHA:-$SHA}" MOCK_LOG="$TMP/mock.log" \
-  MOCK_MISSING_IMAGE="${MOCK_MISSING_IMAGE:-}" MOCK_EDGE_AFTER_EPOCH="${MOCK_EDGE_AFTER_EPOCH:-101}" \
+  MEMORY_MIN_MB="${TEST_MEMORY_MIN_MB:-1}" DISK_MIN_MB="${TEST_DISK_MIN_MB:-1}" MOCK_SHA="${MOCK_SHA:-$SHA}" MOCK_LOG="$TMP/mock.log" \
+  MOCK_MISSING_IMAGE="${MOCK_MISSING_IMAGE:-}" MOCK_MISSING_VOLUME="${MOCK_MISSING_VOLUME:-0}" \
+  MOCK_UNREADABLE_VOLUME="${MOCK_UNREADABLE_VOLUME:-0}" MOCK_DESTRUCTIVE_MIGRATION="${MOCK_DESTRUCTIVE_MIGRATION:-0}" \
+  MOCK_EDGE_AFTER_EPOCH="${MOCK_EDGE_AFTER_EPOCH:-101}" \
   sh "$SCRIPT" "$@" 2>&1
 }
 run_deploy_without_node() {
@@ -287,19 +316,36 @@ set -e
 assert_failure "$status"; assert_contains "$output" 'Refusing deploy of already-current SHA'
 log=$(sed -n '1,200p' "$TMP/mock.log")
 assert_not_contains "$log" 'docker '
-rm -f "$TMP/root/releases/current.json" "$TMP/root/releases/$SHA.json"
-
-# Required safety receipts and all three image IDs fail before Compose, DB,
-# release-env, manifest, or pointer activation.
-rm -f "$TMP/root/shared/release-receipts/media-backup.receipt"
+DESTRUCTIVE_SHA=dddddddddddddddddddddddddddddddddddddddd
 : > "$TMP/mock.log"
 set +e
-output=$(SKIP_RECEIPT_SETUP=1 run_deploy --sha "$SHA"); status=$?
+output=$(MOCK_DESTRUCTIVE_MIGRATION=1 run_deploy --sha "$DESTRUCTIVE_SHA"); status=$?
 set -e
-assert_failure "$status"; assert_contains "$output" 'Media backup receipt is required'
-[ ! -s "$TMP/mock.log" ]
+assert_failure "$status"; assert_contains "$output" 'candidate migration contains a destructive statement'
+[ ! -s "$TMP/mock.log" ] || { printf '%s\n' 'destructive migration reached Docker or DB' >&2; exit 1; }
+[ ! -e "$TMP/root/releases/$DESTRUCTIVE_SHA.json" ]
+rm -f "$TMP/root/releases/current.json" "$TMP/root/releases/$SHA.json"
+
+# The fixed live clips volume, Edge receipt, and all three image IDs fail before
+# Compose, DB, release-env, manifest, or pointer activation. No media bundle
+# destination or receipt exists in this deployment fixture.
+[ ! -e "$TMP/root/shared/release-receipts/media-backup.receipt" ]
+: > "$TMP/mock.log"
+set +e
+output=$(MOCK_MISSING_VOLUME=1 run_deploy --sha "$SHA"); status=$?
+set -e
+assert_failure "$status"; assert_contains "$output" 'required live event media volume is unavailable: repo_clips'
+log=$(cat "$TMP/mock.log")
+assert_contains "$log" 'docker volume inspect repo_clips'
+assert_not_contains "$log" 'docker compose'
 [ ! -e "$TMP/root/shared/release-images.env" ]
 [ ! -e "$TMP/root/releases/current.json" ]
+: > "$TMP/mock.log"
+set +e
+output=$(MOCK_UNREADABLE_VOLUME=1 run_deploy --sha "$SHA"); status=$?
+set -e
+assert_failure "$status"; assert_contains "$output" 'live event media volume is not readable'
+assert_not_contains "$(cat "$TMP/mock.log")" 'docker compose'
 : > "$TMP/mock.log"
 set +e
 output=$(MOCK_MISSING_IMAGE="eldercare-api-ingress:$SHA" run_deploy --sha "$SHA"); status=$?
@@ -315,6 +361,12 @@ output=$(TEST_MEMORY_MIN_MB=999999 run_deploy --sha "$SHA" --dry-run); status=$?
 set -e
 assert_failure "$status"
 assert_contains "$output" 'Insufficient available memory plus swap'
+assert_not_contains "$output" 'compose pull db'
+set +e
+output=$(TEST_DISK_MIN_MB=999999999 run_deploy --sha "$SHA" --dry-run); status=$?
+set -e
+assert_failure "$status"
+assert_contains "$output" 'Insufficient available disk'
 assert_not_contains "$output" 'compose pull db'
 
 for index in 01 02 03 04 05 06 07; do
@@ -994,7 +1046,12 @@ assert_order "$jenkins" "stage('Resolve release')" "stage('Build backend')"
 assert_contains "$jenkins" '--build-arg DEPLOY_SHA="$RELEASE_SHA"'
 assert_contains "$jenkins" '--tag "eldercare-backend:$RELEASE_SHA"'
 assert_contains "$jenkins" '--tag "eldercare-front:$RELEASE_SHA"'
-assert_contains "$jenkins" 'sh scripts/deploy/event-media-backup.sh'
+assert_not_contains "$jenkins" 'EVENT_MEDIA_BACKUP_DESTINATION'
+assert_not_contains "$jenkins" 'EVENT_MEDIA_CLIP_VOLUME'
+assert_not_contains "$jenkins" 'event-media-backup.sh'
+assert_not_contains "$(cat "$SCRIPT")" 'docker volume rm'
+assert_not_contains "$(cat "$SCRIPT")" 'docker volume prune'
+assert_not_contains "$(cat "$SCRIPT")" 'docker system prune'
 assert_contains "$jenkins" 'docker buildx rm "$BUILDX_BUILDER"'
 assert_contains "$jenkins" 'docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --buildkitd-config "$config" --use'
 assert_buildkit_parallelism() {

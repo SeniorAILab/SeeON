@@ -57,8 +57,6 @@ test("all local runbook links and artifact evidence anchors resolve", () => {
     template.origins.evidence,
     template.deployment.evidence,
     ...template.rows.map((row) => row.evidence),
-    template.rollbacks.frontend.evidence,
-    template.rollbacks.host.evidence,
   ];
   for (const reference of references) {
     const [pathPart, fragment] = reference.split("#", 2);
@@ -85,8 +83,7 @@ test("cutover runbook covers every Issue #4 row and all operational planes", () 
     "Vercel Production identity",
     "Caddy certificate and ingress",
     "Edge continuity observation",
-    "Frontend rollback plane",
-    "Host rollback plane",
+    "Advisory rollback metadata",
     "cleanup and rename",
   ]) {
     assert.match(content, new RegExp(required, "i"), required);

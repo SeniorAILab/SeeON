@@ -5,7 +5,7 @@ REPO_ROOT=$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)
 SCRIPT=$REPO_ROOT/scripts/deploy/iwinv-overlap-readiness.sh
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
-mkdir -p "$TMP/bin" "$TMP/root/shared/release-receipts" "$TMP/root/releases" "$TMP/media/event-media-fixture"
+mkdir -p "$TMP/bin" "$TMP/root/shared/release-receipts" "$TMP/root/releases"
 
 SHA=0123456789abcdef0123456789abcdef01234567
 cat > "$TMP/host.env" <<'EOF'
@@ -32,11 +32,7 @@ EVENT_CLIPS_ENABLED=false
 VITE_EVENT_CLIPS_ENABLED=false
 EOF
 chmod 600 "$TMP/host.env"
-printf '%s\n' fixture-manifest > "$TMP/media/event-media-fixture/MANIFEST"
-manifest_sha=$(shasum -a 256 "$TMP/media/event-media-fixture/MANIFEST" | awk '{print $1}')
 now=$(date -u +%s)
-printf 'FORMAT=seeon-event-media-backup-receipt-v1\nBUNDLE=%s\nMANIFEST_SHA256=%s\nCOMPLETED_EPOCH=%s\n' \
-  "$TMP/media/event-media-fixture" "$manifest_sha" "$now" > "$TMP/root/shared/release-receipts/media-backup.receipt"
 printf 'FORMAT=seeon-edge-continuity-seed-v1\nRELEASE_SHA=%s\nLAST_HEARTBEAT_EPOCH=100\nCAPTURED_EPOCH=%s\n' \
   "$SHA" "$now" > "$TMP/root/shared/release-receipts/edge-continuity.receipt"
 chmod 600 "$TMP/root/shared/release-receipts"/*.receipt
@@ -45,6 +41,22 @@ printf '%s\n' sentinel > "$TMP/root/releases/current.json"
 cat > "$TMP/bin/docker" <<'EOF'
 #!/usr/bin/env sh
 printf 'docker %s\n' "$*" >> "${DOCKER_LOG:?}"
+if [ "${1:-}" = volume ] && [ "${2:-}" = inspect ]; then
+  [ "${MISSING_VOLUME:-0}" != 1 ] || exit 1
+  exit
+fi
+if [ "${1:-}" = ps ]; then
+  printf '%s\n' backend-one
+  exit
+fi
+if [ "${1:-}" = inspect ] && [ "${2:-}" = --format ]; then
+  printf '%s\n' repo_clips
+  exit
+fi
+if [ "${1:-}" = run ]; then
+  [ "${UNREADABLE_VOLUME:-0}" != 1 ] || exit 1
+  exit
+fi
 if [ "${1:-}" = image ] && [ "${2:-}" = inspect ]; then
   image=${5:-}
   [ "${MISSING_IMAGE:-}" != "$image" ] || exit 1
@@ -69,7 +81,8 @@ chmod +x "$TMP/bin/docker"
 run_readiness() {
   PATH="$TMP/bin:$PATH" APP_ROOT="$TMP/root" APP_DIR="$REPO_ROOT" ENV_FILE="${TEST_ENV_FILE:-$TMP/host.env}" \
     RECEIPT_DIR="$TMP/root/shared/release-receipts" DOCKER_LOG="$TMP/docker.log" \
-    MISSING_IMAGE="${TEST_MISSING_IMAGE:-}" INGRESS_CONFIG="${TEST_INGRESS_CONFIG:-$REPO_ROOT/infra/api-ingress/nginx.conf}" \
+    MISSING_IMAGE="${TEST_MISSING_IMAGE:-}" MISSING_VOLUME="${TEST_MISSING_VOLUME:-0}" \
+    UNREADABLE_VOLUME="${TEST_UNREADABLE_VOLUME:-0}" INGRESS_CONFIG="${TEST_INGRESS_CONFIG:-$REPO_ROOT/infra/api-ingress/nginx.conf}" \
     sh "$SCRIPT" "$@" 2>&1
 }
 assert_failure() { [ "$1" -ne 0 ] || { printf '%s\n' 'readiness gate unexpectedly passed' >&2; exit 1; }; }
@@ -91,7 +104,7 @@ output=$(run_readiness --pre-deploy "$SHA")
 assert_contains "$output" 'overlap pre-deploy readiness verified'
 assert_pointer_unchanged
 
-# Missing env, ingress, media receipt, Edge receipt, or exact image fails closed
+# Missing env, ingress, live clips volume, Edge receipt, or exact image fails closed
 # without activating or rewriting any release pointer.
 set +e
 output=$(TEST_ENV_FILE="$TMP/missing.env" run_readiness --pre-build "$SHA"); status=$?
@@ -102,12 +115,14 @@ output=$(TEST_INGRESS_CONFIG="$TMP/missing-nginx.conf" run_readiness --pre-build
 set -e
 assert_failure "$status"; assert_contains "$output" 'standalone API ingress config is required'; assert_pointer_unchanged
 
-mv "$TMP/root/shared/release-receipts/media-backup.receipt" "$TMP/media.receipt"
 set +e
-output=$(run_readiness --pre-deploy "$SHA"); status=$?
+output=$(TEST_MISSING_VOLUME=1 run_readiness --pre-deploy "$SHA"); status=$?
 set -e
-assert_failure "$status"; assert_contains "$output" 'media backup receipt is required'; assert_pointer_unchanged
-mv "$TMP/media.receipt" "$TMP/root/shared/release-receipts/media-backup.receipt"
+assert_failure "$status"; assert_contains "$output" 'required live event media volume is unavailable: repo_clips'; assert_pointer_unchanged
+set +e
+output=$(TEST_UNREADABLE_VOLUME=1 run_readiness --pre-deploy "$SHA"); status=$?
+set -e
+assert_failure "$status"; assert_contains "$output" 'live event media volume is not readable'; assert_pointer_unchanged
 
 mv "$TMP/root/shared/release-receipts/edge-continuity.receipt" "$TMP/edge.receipt"
 set +e

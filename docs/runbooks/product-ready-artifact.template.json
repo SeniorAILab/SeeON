@@ -42,18 +42,6 @@
     { "id": 24, "name": "Production deployment READY", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-24" }
   ],
   "allPass": false,
-  "rollbacks": {
-    "frontend": {
-      "result": "FAIL",
-      "at": "<UTC>",
-      "evidence": "product-ready-evidence.template.md#frontend-rollback"
-    },
-    "host": {
-      "result": "FAIL",
-      "at": "<UTC>",
-      "evidence": "product-ready-evidence.template.md#host-rollback"
-    }
-  },
   "safety": {
     "productionEventsCreated": false,
     "secretCookieTokenCaptured": false,

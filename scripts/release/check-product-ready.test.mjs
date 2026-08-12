@@ -61,15 +61,6 @@ function createFixture() {
     join(evidenceDir, "deployment.txt"),
     "Synthetic deployment state READY at a 40-hex revision.\n",
   );
-  writeFileSync(
-    join(evidenceDir, "frontend-rollback.txt"),
-    "Synthetic frontend rollback plane PASS; no credential material recorded.\n",
-  );
-  writeFileSync(
-    join(evidenceDir, "host-rollback.txt"),
-    "Synthetic host rollback dry-run PASS; no restore performed.\n",
-  );
-
   const artifact = {
     schemaVersion: 1,
     gate: "PRODUCT_READY",
@@ -95,18 +86,6 @@ function createFixture() {
       evidence: `evidence/row-${String(index + 1).padStart(2, "0")}.txt`,
     })),
     allPass: true,
-    rollbacks: {
-      frontend: {
-        result: "PASS",
-        at,
-        evidence: "evidence/frontend-rollback.txt",
-      },
-      host: {
-        result: "PASS",
-        at,
-        evidence: "evidence/host-rollback.txt",
-      },
-    },
     safety: {
       productionEventsCreated: false,
       secretCookieTokenCaptured: false,
@@ -147,7 +126,7 @@ function withFixture(assertion) {
   }
 }
 
-test("accepts a fully synthetic, redacted 24-PASS artifact with both rollback planes", () => {
+test("accepts a fully synthetic, redacted 24-PASS artifact without rollback evidence", () => {
   withFixture((fixture) => {
     const result = runFixture(fixture);
 
@@ -168,7 +147,7 @@ test("accepts a fully synthetic, redacted 24-PASS artifact with both rollback pl
         artifactKind: "synthetic",
         rowCount: 24,
         recomputedAllPass: true,
-        rollbackPlanesPass: ["frontend", "host"],
+        rollbackPlanesPass: [],
       },
     );
   });
@@ -268,20 +247,6 @@ const malformedCases = [
     },
     error: /sensitive credential pattern found in row 1 evidence: cookie value/,
   },
-  {
-    name: "failed frontend rollback plane",
-    mutate(artifact) {
-      artifact.rollbacks.frontend.result = "FAIL";
-    },
-    error: /frontend rollback plane must be PASS, got "FAIL"/,
-  },
-  {
-    name: "missing host rollback plane",
-    mutate(artifact) {
-      delete artifact.rollbacks.host;
-    },
-    error: /host rollback plane is required/,
-  },
 ];
 
 for (const malformedCase of malformedCases) {
@@ -356,12 +321,41 @@ test("rejects evidence that proves production event creation", () => {
   });
 });
 
-test("rejects evidence that proves a destructive restore", () => {
+test("allows advisory rollback evidence to report FAIL without blocking PRODUCT_READY", () => {
   withFixture((fixture) => {
+    const at = isoNow();
+    writeFileSync(
+      join(fixture.root, "evidence", "host-rollback.txt"),
+      "Synthetic host rollback was not executed; no restore performed.\n",
+    );
+    fixture.artifact.rollbacks = {
+      host: {
+        result: "FAIL",
+        at,
+        evidence: "evidence/host-rollback.txt",
+      },
+    };
+    const result = runFixture(fixture);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout).rollbackPlanesPass, []);
+  });
+});
+
+test("rejects advisory evidence that proves a destructive restore", () => {
+  withFixture((fixture) => {
+    const at = isoNow();
     writeFileSync(
       join(fixture.root, "evidence", "host-rollback.txt"),
       "Database restore completed against the production data plane.\n",
     );
+    fixture.artifact.rollbacks = {
+      host: {
+        result: "FAIL",
+        at,
+        evidence: "evidence/host-rollback.txt",
+      },
+    };
     const result = runFixture(fixture);
 
     assert.notEqual(result.status, 0);

@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
+# Standalone manual recovery utility. The iwinv release pipeline never invokes
+# this script and never consumes its receipt.
 # shellcheck disable=SC2016 # Quoted commands expand environment inside containers.
 set -eu
 
@@ -224,8 +226,8 @@ mv "$STAGE" "$FINAL"
 STAGE=''
 sync -f "$BACKUP_DESTINATION"
 
-# Publish a fresh, content-addressed safety receipt only after the complete
-# database+media bundle has validated and reached its final off-host path.
+# Publish a content-addressed manual audit receipt only after the complete
+# database+media bundle has validated and reached its final destination.
 [ ! -L "$RECEIPT_DIR" ] || fail 'backup receipt directory must not be a symbolic link'
 mkdir -p "$RECEIPT_DIR"
 chmod 700 "$RECEIPT_DIR"

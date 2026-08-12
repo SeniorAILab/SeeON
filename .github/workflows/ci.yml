@@ -189,7 +189,7 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Verify overlap release and rollback contracts
+      - name: Verify overlap release and deployment contracts
         run: pnpm deploy:verify
 
   repo-residue:
