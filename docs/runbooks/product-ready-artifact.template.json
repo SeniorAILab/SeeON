@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "gate": "PRODUCT_READY",
+  "artifactKind": "production",
+  "frontOrigin": "https://seeon.seniorsailab.com",
+  "apiOrigin": "https://api.seeon.seniorsailab.com",
+  "origins": {
+    "observedAt": "<UTC>",
+    "evidence": "product-ready-evidence.template.md#origins"
+  },
+  "deploymentSha": "0000000000000000000000000000000000000000",
+  "deployment": {
+    "state": "READY",
+    "target": "production",
+    "observedAt": "<UTC>",
+    "evidence": "product-ready-evidence.template.md#deployment"
+  },
+  "rows": [
+    { "id": 1, "name": "Login response Set-Cookie", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-01" },
+    { "id": 2, "name": "Secure=true", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-02" },
+    { "id": 3, "name": "Expected SameSite value", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-03" },
+    { "id": 4, "name": "auth/me session restore", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-04" },
+    { "id": 5, "name": "Refresh keeps session", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-05" },
+    { "id": 6, "name": "Logout clears cookie", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-06" },
+    { "id": 7, "name": "Facility switch", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-07" },
+    { "id": 8, "name": "X-Facility-Id preflight", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-08" },
+    { "id": 9, "name": "Dashboard initial REST snapshot", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-09" },
+    { "id": 10, "name": "SSE open", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-10" },
+    { "id": 11, "name": "alert event", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-11" },
+    { "id": 12, "name": "alert-updated event", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-12" },
+    { "id": 13, "name": "session-invalid event", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-13" },
+    { "id": 14, "name": "SSE reconnect then REST reconcile", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-14" },
+    { "id": 15, "name": "Event snapshot", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-15" },
+    { "id": 16, "name": "Event clip upload", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-16" },
+    { "id": 17, "name": "Media Range playback", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-17" },
+    { "id": 18, "name": "Admin vs staff RBAC separation", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-18" },
+    { "id": 19, "name": "All facility-scoped deep routes direct access", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-19" },
+    { "id": 20, "name": "Mobile viewport smoke", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-20" },
+    { "id": 21, "name": "Large monitor viewport smoke", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-21" },
+    { "id": 22, "name": "No mixed content", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-22" },
+    { "id": 23, "name": "No Vercel /api proxy", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-23" },
+    { "id": 24, "name": "Production deployment READY", "result": "FAIL", "at": "<UTC>", "evidence": "product-ready-evidence.template.md#row-24" }
+  ],
+  "allPass": false,
+  "rollbacks": {
+    "frontend": {
+      "result": "FAIL",
+      "at": "<UTC>",
+      "evidence": "product-ready-evidence.template.md#frontend-rollback"
+    },
+    "host": {
+      "result": "FAIL",
+      "at": "<UTC>",
+      "evidence": "product-ready-evidence.template.md#host-rollback"
+    }
+  },
+  "safety": {
+    "productionEventsCreated": false,
+    "secretCookieTokenCaptured": false,
+    "destructiveRestorePerformed": false,
+    "preEmbargoMutationPerformed": false
+  }
+}
