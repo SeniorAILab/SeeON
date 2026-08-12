@@ -261,6 +261,21 @@ for invalid in "$TMP/empty.source" "$TMP/newline.source"; do
   assert_no_runtime_residue
 done
 
+# An actual NUL byte is rejected without shell-variable conversion, before the
+# deploy lock or Docker, and is not echoed in diagnostics.
+printf 'nul-fixture-prefix\000nul-fixture-suffix' > "$TMP/nul.source"
+reset_logs
+set +e
+output=$(run_with_fd "$TMP/nul.source" 2>&1)
+status=$?
+set -e
+assert_failure "$status" 'NUL-bearing password input'
+assert_not_contains "$output" 'nul-fixture-prefix'
+assert_not_contains "$output" 'nul-fixture-suffix'
+[ ! -s "$TMP/mkdir.log" ] || { printf '%s\n' 'NUL-bearing input acquired the deploy lock' >&2; exit 1; }
+[ ! -s "$TMP/docker.log" ] || { printf '%s\n' 'NUL-bearing input reached Docker' >&2; exit 1; }
+assert_no_runtime_residue
+
 # Oversized input is rejected before the deploy lock, and a non-terminating
 # producer is cut off as soon as the byte bound is exceeded rather than awaited.
 dd if=/dev/zero of="$TMP/oversized.source" bs=513 count=1 2>/dev/null
@@ -466,5 +481,5 @@ assert_no_runtime_residue
 
 # No fixture password survives the test once the assertions no longer need it.
 unset FIXTURE_PASSWORD
-rm -f "$TMP/password.source" "$TMP/empty.source" "$TMP/newline.source" "$TMP/oversized.source"
+rm -f "$TMP/password.source" "$TMP/empty.source" "$TMP/newline.source" "$TMP/nul.source" "$TMP/oversized.source"
 printf '%s\n' 'ROTATE_ADMIN_PASSWORD_FIXTURE_OK'

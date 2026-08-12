@@ -67,6 +67,7 @@ release_env=$env_dir/release-images.env
 feature_env=$env_dir/event-clips-runtime.env
 lock_held=0
 secret=""
+secret_input_file=""
 secret_with_marker=""
 feature_present=0
 trusted_uid=""
@@ -123,6 +124,7 @@ cleanup() {
   status=$?
   cleanup_status=0
   unset secret secret_with_marker command_output
+  if [ -n "$secret_input_file" ]; then rm -f "$secret_input_file"; fi
   if [ "$lock_held" -eq 1 ] && ! rmdir "$lock_dir"; then cleanup_status=1; fi
   trap - 0 HUP INT TERM
   [ "$status" -ne 0 ] && exit "$status"
@@ -134,6 +136,7 @@ need docker
 need head
 need id
 need mkdir
+need mktemp
 need rmdir
 need stat
 need wc
@@ -144,10 +147,18 @@ trap "exit 143" TERM
 validate_inputs
 
 marker=__ROTATE_ADMIN_PASSWORD_EOF__
-secret_with_marker=$(head -c 513; printf "%s" "$marker")
+secret_input_file=$(mktemp "${TMPDIR:-/tmp}/rotate-admin-password.XXXXXX")
+chmod 600 "$secret_input_file"
+head -c 513 > "$secret_input_file"
+nul_bytes=$(LC_ALL=C od -An -t x1 "$secret_input_file")
+case "$nul_bytes" in
+  *00*) fail "ADMIN password must not contain NUL" ;;
+esac
+unset nul_bytes
+secret_with_marker=$(cat "$secret_input_file"; printf "%s" "$marker")
 secret=${secret_with_marker%"$marker"}
 unset secret_with_marker
-secret_bytes=$(printf "%s" "$secret" | wc -c)
+secret_bytes=$(wc -c < "$secret_input_file")
 [ "$secret_bytes" -le 512 ] || fail "ADMIN password input is too large"
 [ -n "$secret" ] || fail "ADMIN password descriptor is empty"
 newline="
