@@ -382,7 +382,7 @@ assert_failure "$status" 'group-writable environment file'
 chmod 600 "$TMP/remote/shared/.env"
 assert_no_runtime_residue
 
-shared_mode=$(stat -f '%Lp' "$TMP/remote/shared" 2>/dev/null || stat -c '%a' "$TMP/remote/shared")
+shared_mode=$(stat -c '%a' "$TMP/remote/shared" 2>/dev/null || stat -f '%Lp' "$TMP/remote/shared")
 chmod 777 "$TMP/remote/shared"
 reset_logs
 set +e
