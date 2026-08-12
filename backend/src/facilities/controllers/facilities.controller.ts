@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBody, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   RequireFacilityGuard,
   JwtAuthGuard,
@@ -19,6 +19,7 @@ import { RequireCapability, RolesGuard } from '../../auth/roles.guard.js';
 import { UpdateFacilityRequestDto } from '../dto/facility.dto.js';
 import { FacilitiesService } from '../services/facilities.service.js';
 
+@ApiTags('Browser-session')
 @Controller({ path: 'facilities', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard)

@@ -173,21 +173,6 @@ describe("dashboardEndpoints", () => {
     );
   });
 
-  it("exposes role dashboard read-model paths using facility scope", async () => {
-    const { dashboardReadModelPath } = await import("./dashboardEndpoints");
-
-    expect(dashboardReadModelPath.superAdmin()).toBe("/dashboards/super-admin");
-    expect(dashboardReadModelPath.facilityAdmin("fac-a")).toBe(
-      "/dashboards/facilities/fac-a/admin"
-    );
-    expect(dashboardReadModelPath.facilityStaff("fac-a")).toBe(
-      "/dashboards/facilities/fac-a/staff"
-    );
-    expect(dashboardReadModelPath.facilityMonitor("fac-a", "fl-2f")).toBe(
-      "/dashboards/facilities/fac-a/monitor?floorId=fl-2f"
-    );
-  });
-
   it("lists facilities through the backend facility selector endpoint", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);

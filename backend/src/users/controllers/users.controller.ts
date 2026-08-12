@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBody, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   JwtAuthGuard,
   RequireFacilityGuard,
@@ -22,6 +22,7 @@ import {
 } from '../dto/user.dto.js';
 import { UsersService } from '../services/users.service.js';
 
+@ApiTags('Admin')
 @Controller({ path: 'users', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RequireFacilityGuard, RolesGuard)

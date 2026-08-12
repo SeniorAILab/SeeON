@@ -12,7 +12,7 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
 import { JwtAuthGuard, type RequestWithAuth } from '../auth/jwt-auth.guard.js';
@@ -28,6 +28,7 @@ import {
 
 const CACHE_CONTROL = 'private, no-store, no-transform';
 
+@ApiTags('Admin')
 @Controller({ path: 'alerts', version: '1' })
 @ApiCookieAuth()
 @UseFilters(AlertMediaExceptionFilter)
@@ -36,12 +37,22 @@ const CACHE_CONTROL = 'private, no-store, no-transform';
 export class AlertMediaController {
   constructor(private readonly service: AlertMediaService) {}
 
+  @ApiOperation({
+    summary: 'Get alert media metadata',
+    description:
+      'Returns READY clip metadata for an alert when event media is available (facility admin).',
+  })
   @Get(':alertId/media')
   @Header('Cache-Control', CACHE_CONTROL)
   metadata(@Req() request: RequestWithAuth, @Param('alertId') alertId: string) {
     return this.service.metadata(requireFacilityId(request), alertId);
   }
 
+  @ApiOperation({
+    summary: 'Record alert media access audit',
+    description:
+      'Appends an access-audit row when an admin opens or interacts with alert evidence playback.',
+  })
   @Post(':alertId/media/access')
   @Header('Cache-Control', CACHE_CONTROL)
   recordAccess(
@@ -60,6 +71,11 @@ export class AlertMediaController {
     });
   }
 
+  @ApiOperation({
+    summary: 'HEAD alert media content',
+    description:
+      'Returns Range/ETag headers for alert clip bytes without a body. No dashboard client yet (admin/API gap).',
+  })
   @Head(':alertId/media/content')
   async headContent(
     @Req() request: RequestWithAuth,
@@ -69,6 +85,11 @@ export class AlertMediaController {
     await this.respondContent(request, response, alertId, true);
   }
 
+  @ApiOperation({
+    summary: 'Stream alert media content',
+    description:
+      'Streams immutable READY clip bytes with Range and ETag support for admin evidence playback.',
+  })
   @Get(':alertId/media/content')
   async getContent(
     @Req() request: RequestWithAuth,

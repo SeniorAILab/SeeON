@@ -32,7 +32,7 @@ Untracked scratch: `assets/`, `output/`, `secondbrain/`, `.omc`, `.omo`, `.omx`,
 | System topology | `docs/architecture.md`, `docs/design.md` | Host backend/frontend flow. |
 | CD decisions | `docs/decisions/ADR-001-iwinv-jenkins-cd.md`, `ADR-002-release-based-cd.md` | Only committed ADRs; new ones are explicit-request only. |
 | Standing rules | `docs/rules/` | Edge dashboard access (→ ML repo); 단일 요양원 파일럿 런칭 런북. |
-| Backend API / DB | `backend/AGENTS.md`, `backend/src/AGENTS.md`, `backend/prisma/AGENTS.md` | Modules, Prisma schema, migrations. |
+| Backend API / DB | `backend/AGENTS.md`, `backend/src/AGENTS.md`, `backend/prisma/AGENTS.md` | Modules, Prisma schema, migrations. Interactive docs: `/api/docs`; front callers: `front/src/services/api/*`. |
 | Alert domain | `backend/src/alerts/AGENTS.md` | Policy, write path, outbox, email channel port. |
 | Media clips | `backend/src/media/AGENTS.md` | Largest backend module (42 files); clip lifecycle + access audit. |
 | Backend tests | `backend/test/AGENTS.md` | Integration/e2e placement, real-Postgres harnesses. |

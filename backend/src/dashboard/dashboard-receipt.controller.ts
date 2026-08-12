@@ -8,7 +8,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
 import { JwtAuthGuard, RequireFacilityGuard } from '../auth/jwt-auth.guard.js';
 import type { RequestWithAuth } from '../auth/jwt-auth.guard.js';
@@ -18,6 +18,7 @@ import {
   DashboardPresentationReceiptRequestDto,
 } from './dto/dashboard-receipt.dto.js';
 
+@ApiTags('Browser-session')
 @Controller({ path: 'dashboard/receipts', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RequireFacilityGuard)

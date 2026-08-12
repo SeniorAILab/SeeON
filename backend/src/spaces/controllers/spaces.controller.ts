@@ -12,7 +12,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiCookieAuth } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FacilityContextInterceptor } from '../../auth/facility-context.interceptor.js';
 import {
   RequireFacilityGuard,
@@ -27,13 +27,21 @@ import {
 } from '../dto/space.dto.js';
 import { SpacesService } from '../services/spaces.service.js';
 
+@ApiTags('Browser-session')
 @Controller({ path: 'spaces', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class SpacesController {
   constructor(private readonly service: SpacesService) {}
-  @Get() list(
+
+  @ApiOperation({
+    summary: 'List spaces',
+    description:
+      'Returns rooms/spaces for the authenticated facility with optional floor, type, and active filters.',
+  })
+  @Get()
+  list(
     @Req() req: RequestWithAuth,
     @Query('floorId') floorId?: string,
     @Query('type') type?: SpaceTypeValue,
@@ -45,18 +53,35 @@ export class SpacesController {
       isActive: parseOptionalBoolean(isActive),
     });
   }
-  @Get(':spaceId') getOne(
-    @Req() req: RequestWithAuth,
-    @Param('spaceId') spaceId: string,
-  ) {
+
+  @ApiTags('Admin')
+  @ApiOperation({
+    summary: 'Get one space',
+    description:
+      'Returns one room/space by id in the authenticated facility. No dashboard client yet (admin/API gap).',
+  })
+  @Get(':spaceId')
+  getOne(@Req() req: RequestWithAuth, @Param('spaceId') spaceId: string) {
     return this.service.getOne(requireFacilityId(req), spaceId);
   }
+
+  @ApiOperation({
+    summary: 'Create a space',
+    description:
+      'Creates a room/space in the authenticated facility (facility admin).',
+  })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
   @Post()
   create(@Req() req: RequestWithAuth, @Body() body: CreateSpaceRequestDto) {
     return this.service.create(requireFacilityId(req), body);
   }
+
+  @ApiOperation({
+    summary: 'Update a space',
+    description:
+      'Updates room/space metadata in the authenticated facility (facility admin).',
+  })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
   @Patch(':spaceId')
@@ -67,6 +92,12 @@ export class SpacesController {
   ) {
     return this.service.update(requireFacilityId(req), spaceId, body);
   }
+
+  @ApiOperation({
+    summary: 'Delete a space',
+    description:
+      'Removes a room/space from the authenticated facility (facility admin).',
+  })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
   @Delete(':spaceId')

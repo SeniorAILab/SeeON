@@ -29,7 +29,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { RequireFacilityGuard, JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import type { RequestWithAuth } from '../auth/jwt-auth.guard.js';
@@ -46,6 +46,7 @@ export const SSE_REAUTH_INTERVAL_MS = 'SSE_REAUTH_INTERVAL_MS';
 
 const HEARTBEAT_MS = 20_000;
 
+@ApiTags('Browser-session')
 @Controller({ path: 'dashboard', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RequireFacilityGuard)

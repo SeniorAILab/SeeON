@@ -15,7 +15,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -34,6 +34,7 @@ import {
   snapshotRoot,
 } from '../common/snapshot-storage.js';
 
+@ApiTags('Browser-session')
 @Controller({ path: 'alerts', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RequireFacilityGuard)
@@ -120,10 +121,11 @@ export class AlertsController {
    * PUT /api/alerts/:alertId/snapshot — authenticated snapshot upload.
    * Stores bytes locally under a server-derived key; payload URLs are never fetched.
    */
+  @ApiTags('Admin')
   @ApiOperation({
     summary: 'Upload an alert snapshot',
     description:
-      'Stores a bounded authenticated snapshot upload under a server-owned key without fetching remote URLs.',
+      'Stores a bounded authenticated snapshot upload under a server-owned key without fetching remote URLs. No dashboard client yet (admin/API gap).',
   })
   @Put(':alertId/snapshot')
   @HttpCode(201)
@@ -160,10 +162,11 @@ export class AlertsController {
    * Verifies alert.facilityId == req.user.facilityId, then streams file from local disk.
    * Backend never dereferences edge URLs (SSRF-safe).
    */
+  @ApiTags('Admin')
   @ApiOperation({
     summary: 'Download an alert snapshot',
     description:
-      'Streams a stored facility-scoped alert snapshot from local storage after validating alert ownership.',
+      'Streams a stored facility-scoped alert snapshot from local storage after validating alert ownership. No dashboard client yet (admin/API gap).',
   })
   @Get(':alertId/snapshot')
   async snapshot(

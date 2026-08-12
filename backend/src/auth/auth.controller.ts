@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBody, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { clearSessionCookie, setSessionCookie } from './cookie.util';
@@ -27,6 +27,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RequireCapability, RolesGuard } from './roles.guard';
 import type { AuthenticatedUser } from './auth.types';
 
+@ApiTags('Browser-session')
 @Controller()
 export class AuthController {
   constructor(private readonly auth: AuthService) {}

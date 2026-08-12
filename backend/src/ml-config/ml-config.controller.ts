@@ -10,7 +10,12 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
 import { JwtAuthGuard, RequireFacilityGuard } from '../auth/jwt-auth.guard.js';
 import { RequireCapability, RolesGuard } from '../auth/roles.guard.js';
@@ -26,11 +31,12 @@ import { MlConfigService } from './ml-config.service.js';
 export class MlConfigController {
   constructor(private readonly service: MlConfigService) {}
 
+  @ApiTags('Edge-ingest')
+  @ApiBearerAuth('edge-bearer')
   @ApiOperation({
     summary:
       'Read ML runtime config for an edge worker (shared edge bearer token; RTSP-bearing payload)',
   })
-  @ApiBearerAuth()
   @UseGuards(EdgeIngestTokenGuard)
   @Get(':facilityId')
   getConfig(
@@ -39,10 +45,15 @@ export class MlConfigController {
     return this.service.getConfig(facilityId);
   }
 
-  @ApiOperation({ summary: 'Update facility ML night-window policy' })
+  @ApiTags('Admin')
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Update facility ML night-window policy',
+    description:
+      'Updates night-window ML policy for the authenticated facility (facility admin). No dashboard client yet (admin/API gap).',
+  })
   @Put(':facilityId/night-window')
   @HttpCode(200)
-  @ApiCookieAuth()
   // 야간정책은 낙상 감지 민감도를 바꾼다. 교대 근무자(STAFF)가 임의로
   // 건드릴 수 있으면 안 되므로 시설 관리자 이상으로 제한한다.
   // 위의 GET은 엣지 워커가 공유 토큰으로 pull하는 경로이므로 건드리지 않는다.

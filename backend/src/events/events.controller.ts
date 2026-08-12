@@ -16,7 +16,12 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import * as path from 'path';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
@@ -56,6 +61,8 @@ export class EventsController {
     private readonly cameras: CamerasService,
   ) {}
 
+  @ApiTags('Edge-ingest')
+  @ApiBearerAuth('edge-bearer')
   @ApiOperation({
     summary: 'Record an ML event',
     description:
@@ -98,6 +105,8 @@ export class EventsController {
     };
   }
 
+  @ApiTags('Edge-ingest')
+  @ApiBearerAuth('edge-bearer')
   @ApiOperation({
     summary: 'Record camera heartbeat',
     description:
@@ -115,6 +124,8 @@ export class EventsController {
     return { ok: true };
   }
 
+  @ApiTags('Edge-ingest')
+  @ApiBearerAuth('edge-bearer')
   @ApiOperation({
     summary: 'Upload an event snapshot',
     description:
@@ -169,12 +180,14 @@ export class EventsController {
     return { snapshotKey };
   }
 
+  @ApiTags('Admin')
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'List recorded events',
-    description: `Returns the authenticated facility's recorded ML event history for operational review.`,
+    description:
+      "Returns the authenticated facility's recorded ML event history for operational review. No dashboard client yet (admin/API gap).",
   })
   @Get()
-  @ApiCookieAuth()
   @UseGuards(JwtAuthGuard, RequireFacilityGuard)
   @UseInterceptors(FacilityContextInterceptor)
   async list(

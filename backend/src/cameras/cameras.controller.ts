@@ -13,7 +13,12 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { RequireFacilityGuard, JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { RequireCapability, RolesGuard } from '../auth/roles.guard.js';
 import { FacilityContextInterceptor } from '../auth/facility-context.interceptor.js';
@@ -36,6 +41,7 @@ import {
 export class CamerasController {
   constructor(private readonly service: CamerasService) {}
 
+  @ApiTags('Browser-session')
   @ApiOperation({
     summary: 'List cameras',
     description: 'Returns cameras configured for the authenticated facility.',
@@ -45,19 +51,22 @@ export class CamerasController {
     return this.service.list(requireFacilityId(req));
   }
 
+  @ApiTags('Admin')
   @ApiOperation({
     summary: 'Get one camera',
-    description: 'Returns one camera in the authenticated facility by id.',
+    description:
+      'Returns one camera in the authenticated facility by id. No dashboard client yet (admin/API gap).',
   })
   @Get(':id')
   getOne(@Req() req: RequestWithAuth, @Param('id') id: string) {
     return this.service.getOne(requireFacilityId(req), id);
   }
 
+  @ApiTags('Admin')
   @ApiOperation({
     summary: 'Create a camera',
     description:
-      'Registers a camera label and room binding for the authenticated facility.',
+      'Registers a camera label and room binding for the authenticated facility. No dashboard client yet (admin/API gap).',
   })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
@@ -70,10 +79,11 @@ export class CamerasController {
     });
   }
 
+  @ApiTags('Admin')
   @ApiOperation({
     summary: 'Update a camera',
     description:
-      'Updates mutable camera metadata and room assignment inside the authenticated facility.',
+      'Updates mutable camera metadata and room assignment inside the authenticated facility. No dashboard client yet (admin/API gap).',
   })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
@@ -86,9 +96,11 @@ export class CamerasController {
     return this.service.update(requireFacilityId(req), id, body);
   }
 
+  @ApiTags('Admin')
   @ApiOperation({
     summary: 'Delete a camera',
-    description: 'Removes a camera from the authenticated facility.',
+    description:
+      'Removes a camera from the authenticated facility. No dashboard client yet (admin/API gap).',
   })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
@@ -98,6 +110,8 @@ export class CamerasController {
   }
 }
 
+@ApiTags('Edge-ingest')
+@ApiBearerAuth('edge-bearer')
 @Controller({ path: 'edge/cameras', version: '1' })
 @UseGuards(EdgeFacilityTokenGuard)
 export class EdgeCamerasController {

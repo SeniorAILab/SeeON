@@ -16,6 +16,17 @@ export function configureVersionedTestApp(app: INestApplication): void {
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Eldercare backend API')
+    .setDescription(
+      'Host API for facility operators (browser session cookie) and edge ML ingest (bearer token).',
+    )
+    .addCookieAuth('app_session')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'edge-bearer',
+    )
+    .addTag('Browser-session')
+    .addTag('Edge-ingest')
+    .addTag('Admin')
     .build();
   SwaggerModule.setup(
     'api/docs',

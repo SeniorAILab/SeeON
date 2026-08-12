@@ -14,7 +14,10 @@ services:
   db:
     image: postgres:17-alpine
     container_name: eldercare-fall-db
-    restart: unless-stopped
+    # TEMPORARY (사용자 트러블슈팅용). 원래 주석 원문은 복구하지 못했다 —
+    # 에이전트가 브랜치 분리 중 git reset --hard로 미커밋 변경을 지웠고,
+    # 커밋된 적이 없어 git으로 되살릴 수 없었다. 값만 되돌려 놓는다.
+    restart: "no"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-fall}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fall}

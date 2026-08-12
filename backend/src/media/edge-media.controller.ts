@@ -11,6 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestWithAuth } from '../auth/jwt-auth.guard.js';
 import { EdgeIngestTokenGuard } from '../events/edge-ingest-token.guard.js';
 import {
@@ -32,16 +33,28 @@ import {
   EventMediaError,
 } from './event-media.types.js';
 
+@ApiTags('Edge-ingest')
+@ApiBearerAuth('edge-bearer')
 @Controller({ path: 'events', version: '1' })
 @UseGuards(EdgeIngestTokenGuard)
 export class EdgeMediaController {
   constructor(private readonly media: EventMediaService) {}
 
+  @ApiOperation({
+    summary: 'Read event-media capability',
+    description:
+      'Returns whether clip upload is enabled for the given camera under the edge bearer token.',
+  })
   @Get('capabilities')
   capability(@Query() query: EdgeMediaCapabilityQueryDto) {
     return this.media.capability(query.camera_id);
   }
 
+  @ApiOperation({
+    summary: 'Upload a READY event clip',
+    description:
+      'Accepts immutable READY clip bytes and metadata from the edge worker for later admin playback.',
+  })
   @Put('clips/:clipId')
   @HttpCode(200)
   async uploadReady(
@@ -57,6 +70,11 @@ export class EdgeMediaController {
     }
   }
 
+  @ApiOperation({
+    summary: 'Report clip unavailable',
+    description:
+      'Records that an edge clip cannot be produced (state transition) without uploading bytes.',
+  })
   @Put('clips/:clipId/state')
   @HttpCode(200)
   async reportUnavailable(

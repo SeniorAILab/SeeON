@@ -12,7 +12,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiCookieAuth } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FacilityContextInterceptor } from '../../auth/facility-context.interceptor.js';
 import {
   RequireFacilityGuard,
@@ -26,21 +26,40 @@ import {
 } from '../dto/floor.dto.js';
 import { FloorsService } from '../services/floors.service.js';
 
+@ApiTags('Browser-session')
 @Controller({ path: 'floors', version: '1' })
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RequireFacilityGuard)
 @UseInterceptors(FacilityContextInterceptor)
 export class FloorsController {
   constructor(private readonly service: FloorsService) {}
-  @Get() list(@Req() req: RequestWithAuth) {
+
+  @ApiOperation({
+    summary: 'List floors',
+    description: 'Returns floors for the authenticated facility.',
+  })
+  @Get()
+  list(@Req() req: RequestWithAuth) {
     return this.service.list(requireFacilityId(req));
   }
+
+  @ApiOperation({
+    summary: 'Create a floor',
+    description:
+      'Creates a floor in the authenticated facility (facility admin).',
+  })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
   @Post()
   create(@Req() req: RequestWithAuth, @Body() body: CreateFloorRequestDto) {
     return this.service.create(requireFacilityId(req), body);
   }
+
+  @ApiOperation({
+    summary: 'Update a floor',
+    description:
+      'Updates floor metadata in the authenticated facility (facility admin).',
+  })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
   @Patch(':floorId')
@@ -51,6 +70,12 @@ export class FloorsController {
   ) {
     return this.service.update(requireFacilityId(req), floorId, body);
   }
+
+  @ApiOperation({
+    summary: 'Delete a floor',
+    description:
+      'Removes a floor from the authenticated facility (facility admin).',
+  })
   @UseGuards(RolesGuard)
   @RequireCapability('facilityAdmin')
   @Delete(':floorId')

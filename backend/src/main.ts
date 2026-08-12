@@ -25,7 +25,17 @@ async function bootstrap() {
   // Add @ApiProperty on a DTO only when its request/response shape needs to show in the schema.
   const config = new DocumentBuilder()
     .setTitle('Eldercare backend API')
+    .setDescription(
+      'Host API for facility operators (browser session cookie) and edge ML ingest (bearer token).',
+    )
     .addCookieAuth('app_session')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'edge-bearer',
+    )
+    .addTag('Browser-session')
+    .addTag('Edge-ingest')
+    .addTag('Admin')
     .build();
   SwaggerModule.setup(
     'api/docs',

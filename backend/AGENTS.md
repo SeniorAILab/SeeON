@@ -42,6 +42,9 @@ for the alert write/read split, `src/media/AGENTS.md` for clips, and
   - **Identity / auth** — `users`; app-layer gated, NOT RLS tenant models (see `TENANT_MODELS` in `src/prisma/prisma.service.ts`).
 - Re-adding resident/guardian in v2 is a schema+API addition, not a revival of the removed columns on `alerts`.
 
+## API docs (onboarding)
+- Interactive OpenAPI/Swagger UI: `/api/docs` (not under `/api/v1`). Controllers + DTOs are the contract SSOT; the dashboard consumes only `front/src/services/api/*` (and related `front/src/services/*Service.ts`). Do not invent a separate `docs/api-surface.md` inventory.
+
 ## Run
 - pnpm only; test: `pnpm --filter backend test` (jest).
 - lint: `pnpm --filter backend lint` (blocking check) / `pnpm --filter backend lint:fix` (autofix).
