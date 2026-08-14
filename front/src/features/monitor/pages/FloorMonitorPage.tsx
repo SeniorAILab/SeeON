@@ -23,7 +23,6 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
   const facilityId = user?.role === "SUPER_ADMIN" ? currentFacilityId : user?.facilityId;
 
-  const nightMode = useMonitorSettingsStore((s) => s.nightMode);
   const visibleSpaceIds = useMonitorSettingsStore((s) => s.visibleSpaceIds);
   const alertSound = useMonitorSettingsStore((s) => s.alertSound);
   const cardSize = useMonitorSettingsStore((s) => s.cardSize);
@@ -164,7 +163,7 @@ export function FloorMonitorPage({ allView = false }: { allView?: boolean }) {
   }
 
   return (
-    <div ref={rootRef} className={nightMode ? "dark" : ""}>
+    <div ref={rootRef}>
       <div
         style={{ height: isFullscreen ? "100dvh" : "calc(100dvh - 11rem)" }}
         className="relative left-1/2 flex w-screen -translate-x-1/2 flex-col overflow-hidden bg-bg p-5 2xl:p-8"

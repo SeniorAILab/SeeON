@@ -1,14 +1,14 @@
 import { create } from "zustand";
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
 
 /**
- * 테마 전용 스토어.
+ * Appearance SSOT (화면 모드). Light / Dark, with System only as the
+ * unsaved default via prefers-color-scheme — not a 19:00–07:00 clock.
  *
- * 소리 상태는 여기 두지 않는다. 예전에는 `uiStore.soundEnabled`(기본 켜짐)와
- * `monitorSettingsStore.alertSound`(기본 꺼짐)가 따로 존재해서, 헤더는
- * "소리 알림 켜짐"이라고 표시하는데 실제 TTS는 울리지 않았다. 소리의 SSOT는
- * `monitorSettingsStore.alertSound` 하나다.
+ * Sound does not live here. It used to: `uiStore.soundEnabled` (default on)
+ * and `monitorSettingsStore.alertSound` (default off) drifted, so the header
+ * said "on" while TTS stayed silent. Sound SSOT is `alertSound`.
  */
 interface UiState {
   theme: Theme;
@@ -18,23 +18,41 @@ interface UiState {
 
 const THEME_KEY = "senai.theme";
 
-function initialTheme(): Theme {
-  const saved = localStorage.getItem(THEME_KEY);
+export function resolveAppearanceTheme(saved: string | null, prefersDark: boolean): Theme {
   if (saved === "light" || saved === "dark") return saved;
-  // 야간(19시~7시)에는 자동 다크 — 야간 근무자 배려
-  const hour = new Date().getHours();
-  return hour >= 19 || hour < 7 ? "dark" : "light";
+  return prefersDark ? "dark" : "light";
 }
 
+export function applyHtmlAppearance(theme: Theme): void {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+}
+
+function prefersColorSchemeDark(): boolean {
+  if (typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function initialTheme(): Theme {
+  return resolveAppearanceTheme(localStorage.getItem(THEME_KEY), prefersColorSchemeDark());
+}
+
+function persistTheme(theme: Theme): void {
+  localStorage.setItem(THEME_KEY, theme);
+  applyHtmlAppearance(theme);
+}
+
+const theme = initialTheme();
+applyHtmlAppearance(theme);
+
 export const useUiStore = create<UiState>((set, get) => ({
-  theme: initialTheme(),
+  theme,
   toggleTheme: () => {
     const next: Theme = get().theme === "dark" ? "light" : "dark";
-    localStorage.setItem(THEME_KEY, next);
+    persistTheme(next);
     set({ theme: next });
   },
   setTheme: (t) => {
-    localStorage.setItem(THEME_KEY, t);
+    persistTheme(t);
     set({ theme: t });
   },
 }));

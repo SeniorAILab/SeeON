@@ -86,9 +86,11 @@ export function AdminAlertSettingsPage() {
             />
           </div>
 
-          <Button type="submit" disabled={saving}>
-            저장
-          </Button>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={saving}>
+              저장
+            </Button>
+          </div>
         </form>
       </Card>
     </div>

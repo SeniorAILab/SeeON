@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useUiStore } from "./uiStore";
+import { resolveAppearanceTheme, useUiStore } from "./uiStore";
 import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
 
 /**
@@ -46,5 +46,40 @@ describe("소리 알림 SSOT", () => {
     useMonitorSettingsStore.getState().update({ alertSound: false });
     useUiStore.getState().toggleTheme();
     expect(useMonitorSettingsStore.getState().alertSound).toBe(false);
+  });
+});
+
+describe("Appearance SSOT", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useUiStore.getState().setTheme("light");
+  });
+
+  it("resolves saved light/dark before OS prefers-color-scheme, never clock hours", () => {
+    expect(resolveAppearanceTheme("dark", false)).toBe("dark");
+    expect(resolveAppearanceTheme("light", true)).toBe("light");
+    expect(resolveAppearanceTheme(null, true)).toBe("dark");
+    expect(resolveAppearanceTheme("auto", true)).toBe("dark");
+    expect(resolveAppearanceTheme("system", false)).toBe("light");
+  });
+
+  it("applies html .dark from uiStore", () => {
+    useUiStore.getState().setTheme("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(localStorage.getItem("senai.theme")).toBe("dark");
+
+    useUiStore.getState().setTheme("light");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(localStorage.getItem("senai.theme")).toBe("light");
+  });
+
+  it("does not persist leftover monitor nightMode as a second theme", () => {
+    useMonitorSettingsStore.getState().update({ alertSound: true });
+    const persisted = JSON.parse(localStorage.getItem("senai.monitor.settings") ?? "{}") as Record<
+      string,
+      unknown
+    >;
+    expect(persisted.nightMode).toBeUndefined();
+    expect("nightMode" in useMonitorSettingsStore.getState()).toBe(false);
   });
 });

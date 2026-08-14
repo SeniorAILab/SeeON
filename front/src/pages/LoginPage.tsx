@@ -6,7 +6,6 @@ import { PrivacyNotice } from "@/components/PrivacyNotice";
 import { Button, Card, Field, Input } from "@/components/ui/primitives";
 import { defaultPathForUser } from "@/lib/routeAccess";
 import { useFacilityStore } from "@/stores/facilityStore";
-import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { apiErrorMessage } from "@/services/apiClient";
 
@@ -18,7 +17,6 @@ export function LoginPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const loading = useAuthStore((s) => s.loading);
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
-  const setTheme = useUiStore((s) => s.setTheme);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   // authStore가 401에서 붙이는 파라미터는 `reason`이다(`?reason=session-invalid`).
@@ -30,9 +28,7 @@ export function LoginPage() {
 
   useEffect(() => {
     useAuthStore.setState({ error: null });
-    document.documentElement.classList.remove("dark");
-    setTheme(new Date().getHours() >= 19 || new Date().getHours() < 7 ? "dark" : "light");
-  }, [setTheme]);
+  }, []);
 
   async function handleEmailLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

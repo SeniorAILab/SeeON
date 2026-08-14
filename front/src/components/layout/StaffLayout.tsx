@@ -63,10 +63,6 @@ export function StaffLayout() {
     { to: routeFacilityId ? alertsPath(routeFacilityId) : FACILITIES_PICKER_PATH, label: "확인한 알림", Icon: CheckCheck },
   ];
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
   async function handleLogout() {
     switchFacility(null);
     await logout();
@@ -74,7 +70,7 @@ export function StaffLayout() {
   }
 
   return (
-    <div className={cn("min-h-screen bg-bg", theme === "dark" && "dark")}>
+    <div className="min-h-screen bg-bg">
       <header className="sticky top-0 z-20 border-b border-border bg-surface/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-3 sm:gap-3">
           <LogoMark size={36} />
@@ -90,7 +86,7 @@ export function StaffLayout() {
             <IconBtn onClick={toggleSound} label={soundEnabled ? "소리 알림 켜짐" : "소리 알림 꺼짐"}>
               {soundEnabled ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
             </IconBtn>
-            <IconBtn onClick={toggleTheme} label={theme === "dark" ? "밝게" : "어둡게"}>
+            <IconBtn onClick={toggleTheme} label={theme === "dark" ? "화면 모드: 밝게" : "화면 모드: 어둡게"}>
               {theme === "dark" ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
             </IconBtn>
             {canAdmin(user) && (
