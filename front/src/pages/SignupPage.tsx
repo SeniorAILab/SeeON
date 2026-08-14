@@ -13,7 +13,6 @@ import {
   SIGNUP_PASSWORD_MIN_LENGTH,
 } from "@/lib/signupPassword";
 import { useFacilityStore } from "@/stores/facilityStore";
-import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { apiErrorMessage } from "@/services/apiClient";
 
@@ -23,7 +22,6 @@ export function SignupPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const loading = useAuthStore((s) => s.loading);
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
-  const setTheme = useUiStore((s) => s.setTheme);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [facilityName, setFacilityName] = useState("");
@@ -39,9 +37,7 @@ export function SignupPage() {
 
   useEffect(() => {
     useAuthStore.setState({ error: null });
-    document.documentElement.classList.remove("dark");
-    setTheme(new Date().getHours() >= 19 || new Date().getHours() < 7 ? "dark" : "light");
-  }, [setTheme]);
+  }, []);
 
   async function handleSignup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -4,6 +4,7 @@ import { FloorMonitorPage } from "./FloorMonitorPage";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
 import { useMonitorSettingsStore } from "@/features/monitor/stores/monitorSettingsStore";
+import { useUiStore } from "@/stores/uiStore";
 import { dashboardService } from "@/services/dashboardService";
 
 const useTTSAlertsMock = vi.fn();
@@ -55,7 +56,6 @@ describe("FloorMonitorPage", () => {
       defaultFloorId: "fl_2f",
       refreshMs: 6000,
       alertSound: false,
-      nightMode: false,
       cardSize: "xl",
       visibleSpaceIds: null,
       allowAllView: true,
@@ -90,6 +90,15 @@ describe("FloorMonitorPage", () => {
     expect(redirect.getAttribute("data-to")).toContain("/fl_2f");
     expect(redirect.getAttribute("data-to")).not.toContain("/all");
   });
+  it("inherits html appearance instead of a board-local dark class", async () => {
+    useUiStore.getState().setTheme("dark");
+
+    const { container } = render(<FloorMonitorPage />);
+
+    await waitFor(() => expect(monitorHeaderMock).toHaveBeenCalled());
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(container.firstElementChild?.classList.contains("dark")).toBe(false);
+  });
   it("keeps individual floor navigation when all-floor viewing is disabled", async () => {
     useMonitorSettingsStore.setState({ allowAllView: false });
 
@@ -117,7 +126,6 @@ describe("FloorMonitorPage — initial-load-error", () => {
       defaultFloorId: "fl_2f",
       refreshMs: 6000,
       alertSound: false,
-      nightMode: false,
       cardSize: "xl",
       allowAllView: true,
       visibleSpaceIds: null,

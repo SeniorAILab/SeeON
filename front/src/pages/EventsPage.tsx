@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, Button } from "@/components/ui/primitives";
@@ -11,14 +11,27 @@ import { canAcknowledge } from "@/lib/roles";
 import { useActiveFacilityId } from "@/hooks/useActiveFacilityId";
 import { formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/labels";
+import { pageFromSearchParams, paginate, pageWindow } from "@/lib/paginate";
 import { adminPath } from "@/lib/routeAccess";
 import type { DetectionEvent } from "@/types";
+
+const PAGE_SIZE = 20;
+const PAGE_WINDOW_SIBLINGS = 1;
 
 const FILTERS = [
   { key: "ALL", label: "전체" },
   { key: "OPEN", label: "미확인" },
   { key: "ACK", label: "확인 완료" },
 ] as const;
+
+function pillClass(active: boolean): string {
+  return (
+    "h-8 rounded-lg px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 " +
+    (active
+      ? "bg-ink text-white"
+      : "border border-border bg-white text-ink-soft hover:bg-gray-50")
+  );
+}
 
 type EventFilter = (typeof FILTERS)[number]["key"];
 
@@ -36,6 +49,8 @@ export function EventsPage() {
   const [spaceNames, setSpaceNames] = useState<Record<string, string>>({});
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = eventFilterFromSearchParams(searchParams);
+  const requestedPage = pageFromSearchParams(searchParams);
+  const listRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -66,6 +81,16 @@ export function EventsPage() {
     if (filter === "ACK") return e.alertStatus === "ACKNOWLEDGED";
     return true;
   });
+  const paged = paginate(filtered, requestedPage, PAGE_SIZE);
+
+  function goToPage(nextPage: number) {
+    setSearchParams((params) => {
+      if (nextPage <= 1) params.delete("page");
+      else params.set("page", String(nextPage));
+      return params;
+    });
+    listRef.current?.scrollIntoView({ block: "start" });
+  }
 
   return (
     <div className="space-y-5">
@@ -82,15 +107,11 @@ export function EventsPage() {
               setSearchParams((params) => {
                 if (f.key === "ALL") params.delete("filter");
                 else params.set("filter", f.key);
+                params.delete("page");
                 return params;
               })
             }
-            className={
-              "h-8 rounded-lg px-3 text-sm font-medium transition-colors " +
-              (filter === f.key
-                ? "bg-ink text-white"
-                : "border border-border bg-white text-ink-soft hover:bg-gray-50")
-            }
+            className={pillClass(filter === f.key)}
           >
             {f.label}
           </button>
@@ -104,8 +125,8 @@ export function EventsPage() {
           이벤트가 없습니다.
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {filtered.map((ev) => {
+        <div ref={listRef} className="space-y-2.5">
+          {paged.items.map((ev) => {
             const acked = ev.alertStatus === "ACKNOWLEDGED";
             return (
               <Card
@@ -149,6 +170,43 @@ export function EventsPage() {
             );
           })}
         </div>
+      )}
+      {!loading && paged.totalPages > 1 && (
+        <nav aria-label="페이지 탐색" className="flex flex-wrap items-center justify-center gap-1.5">
+          <button
+            type="button"
+            disabled={paged.page <= 1}
+            onClick={() => goToPage(paged.page - 1)}
+            className={pillClass(false)}
+          >
+            이전
+          </button>
+          {pageWindow(paged.page, paged.totalPages, PAGE_WINDOW_SIBLINGS).map((item, index) =>
+            item === "ellipsis" ? (
+              <span key={`ellipsis-${index}`} className="px-1 text-sm text-gray-400">
+                …
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                aria-current={item === paged.page ? "page" : undefined}
+                onClick={() => goToPage(item)}
+                className={pillClass(item === paged.page)}
+              >
+                {item}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            disabled={paged.page >= paged.totalPages}
+            onClick={() => goToPage(paged.page + 1)}
+            className={pillClass(false)}
+          >
+            다음
+          </button>
+        </nav>
       )}
     </div>
   );

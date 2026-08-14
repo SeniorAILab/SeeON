@@ -89,7 +89,9 @@ export function AdminFacilityPage() {
           <Field label="대표 연락처">
             <Input value={form.phone} onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))} required />
           </Field>
-          <Button type="submit" disabled={saving}>저장</Button>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={saving}>저장</Button>
+          </div>
         </form>
       </Card>
 

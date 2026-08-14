@@ -233,7 +233,6 @@ export interface MonitorSettings {
   defaultFloorId: string; // floorId 또는 "all"
   refreshMs: number; // 자동 갱신 간격
   alertSound: boolean; // 위험 알림음 사용
-  nightMode: boolean; // 야간(다크) 모드
   cardSize: MonitorCardSize; // 카드 표시 크기
   visibleSpaceIds: string[] | null; // null = 전체 표시
   allowAllView: boolean; // 전체 보기 허용

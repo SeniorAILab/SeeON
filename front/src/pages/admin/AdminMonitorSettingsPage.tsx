@@ -120,14 +120,9 @@ export function AdminMonitorSettingsPage() {
         <div className="space-y-2.5 border-t border-border pt-4">
           <Toggle
             label="위험 알림음 사용"
-            hint="기본값 꺼짐 · 야간에는 소리 대신 화면 강조가 우선됩니다."
+            hint="꺼두면 화면 강조만으로 알립니다."
             checked={settings.alertSound}
             onChange={(v) => settings.update({ alertSound: v })}
-          />
-          <Toggle
-            label="야간 모드 (어두운 화면)"
-            checked={settings.nightMode}
-            onChange={(v) => settings.update({ nightMode: v })}
           />
           <Toggle
             label="전체 층 화면 표시"

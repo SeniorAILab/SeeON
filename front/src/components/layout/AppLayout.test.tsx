@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
 import type { Facility } from "@/types";
 const SCOPED_FACILITY_ID = "fac_happy_nokyang";
 const DUPLICATE_FACILITY_NAME = "행복한요양원 녹양역점";
@@ -39,6 +40,8 @@ const orphanDuplicateFacility = {
 describe("AppLayout facility selector", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    useUiStore.getState().setTheme("light");
+    document.documentElement.classList.remove("dark");
     useAuthStore.setState({
       user: {
         id: "super-admin",
@@ -149,5 +152,50 @@ describe("AppLayout facility selector", () => {
     const accountActions = dashboardButton.parentElement;
 
     expect(accountActions?.classList.contains("justify-end")).toBe(true);
+  });
+
+  it("toggles appearance from the header onto the document", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(okJsonResponse([nokyangFacility])),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route path="/admin" element={<AppLayout />}>
+            <Route index element={<div>Admin child</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const appearance = await screen.findByRole("button", { name: "화면 모드: 밝게" });
+    fireEvent.click(appearance);
+
+    expect(useUiStore.getState().theme).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(screen.getByRole("button", { name: "화면 모드: 어둡게" })).toBeTruthy();
+  });
+
+  it("applies a persisted dark appearance instead of forcing the admin chrome to light", async () => {
+    useUiStore.getState().setTheme("dark");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(okJsonResponse([nokyangFacility])),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route path="/admin" element={<AppLayout />}>
+            <Route index element={<div>Admin child</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("button", { name: "화면 모드: 어둡게" });
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 });

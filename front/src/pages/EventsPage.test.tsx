@@ -49,7 +49,19 @@ function LocationProbe() {
   return <output data-testid="location">{location.pathname}{location.search}</output>;
 }
 
+function eventPage(index: number): DetectionEvent {
+  return {
+    ...openEvent,
+    id: `event-${index}`,
+    aiSummary: `이벤트 요약 ${index}`,
+    detectedAt: `2026-07-14T${String(index).padStart(2, "0")}:00:00.000Z`,
+  };
+}
+
+const twentyOneEvents = Array.from({ length: 21 }, (_, index) => eventPage(index + 1));
+
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
   vi.mocked(eventService.listByFacility).mockResolvedValue([openEvent, acknowledgedEvent]);
   vi.mocked(dashboardService.getDashboard).mockResolvedValue({
     spaces: [
@@ -114,5 +126,61 @@ describe("EventsPage", () => {
     expect(await screen.findByText("미확인 이벤트 요약")).toBeTruthy();
     expect(screen.getByText("확인 완료 이벤트 요약")).toBeTruthy();
     expect(screen.getByRole("button", { name: "전체" }).className).toContain("bg-ink");
+  });
+
+  it("shows only the first 20 events on page 1", async () => {
+    vi.mocked(eventService.listByFacility).mockResolvedValue(twentyOneEvents);
+
+    render(
+      <MemoryRouter initialEntries={["/admin/events"]}>
+        <EventsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("이벤트 요약 1")).toBeTruthy();
+    expect(screen.getByText("이벤트 요약 20")).toBeTruthy();
+    expect(screen.queryByText("이벤트 요약 21")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(await screen.findByText("이벤트 요약 21")).toBeTruthy();
+    expect(screen.queryByText("이벤트 요약 1")).toBeNull();
+  });
+
+  it("opens page 2 from the query parameter and updates the URL when a page is selected", async () => {
+    vi.mocked(eventService.listByFacility).mockResolvedValue(twentyOneEvents);
+
+    render(
+      <MemoryRouter initialEntries={["/admin/events?page=2"]}>
+        <EventsPage />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("이벤트 요약 21")).toBeTruthy();
+    expect(screen.queryByText("이벤트 요약 1")).toBeNull();
+    expect(screen.getByTestId("location").textContent).toBe("/admin/events?page=2");
+
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    expect(screen.getByTestId("location").textContent).toBe("/admin/events");
+    expect(await screen.findByText("이벤트 요약 1")).toBeTruthy();
+    expect(screen.queryByText("이벤트 요약 21")).toBeNull();
+  });
+
+  it("clears the page query parameter when a filter is selected", async () => {
+    vi.mocked(eventService.listByFacility).mockResolvedValue(twentyOneEvents);
+
+    render(
+      <MemoryRouter initialEntries={["/admin/events?page=2"]}>
+        <EventsPage />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("이벤트 요약 21");
+    fireEvent.click(screen.getByRole("button", { name: "미확인" }));
+
+    expect(screen.getByTestId("location").textContent).toBe("/admin/events?filter=OPEN");
+    expect(await screen.findByText("이벤트 요약 1")).toBeTruthy();
+    expect(screen.queryByText("이벤트 요약 21")).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Building2, ShieldCheck } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
@@ -7,7 +7,6 @@ import { Button, Card, Field, Input } from "@/components/ui/primitives";
 import { defaultPathForUser } from "@/lib/routeAccess";
 import { useAuthStore } from "@/stores/authStore";
 import { useFacilityStore } from "@/stores/facilityStore";
-import { useUiStore } from "@/stores/uiStore";
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -17,14 +16,7 @@ export function OnboardingPage() {
   const error = useAuthStore((s) => s.error);
   const createFacility = useAuthStore((s) => s.createFacility);
   const resolveForUser = useFacilityStore((s) => s.resolveForUser);
-  const setTheme = useUiStore((s) => s.setTheme);
   const [facilityName, setFacilityName] = useState("");
-
-  useEffect(() => {
-    document.documentElement.classList.remove("dark");
-    setTheme("light");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   if (!initialized) return null;
   if (!user) return <Navigate to="/login" replace />;

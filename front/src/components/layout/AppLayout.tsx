@@ -12,12 +12,15 @@ import {
   MonitorPlay,
   Mail,
   KeyRound,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
 import { useAuthStore } from "@/stores/authStore";
 import { canAdmin, roleLabel } from "@/lib/roles";
 import { useFacilityStore, facilitiesForUser } from "@/stores/facilityStore";
+import { useUiStore } from "@/stores/uiStore";
 import { listFacilities } from "@/services/api/dashboardEndpoints";
 import { FACILITIES_PICKER_PATH, adminPath, dashboardPath } from "@/lib/routeAccess";
 
@@ -44,13 +47,11 @@ export function AppLayout() {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const theme = useUiStore((s) => s.theme);
+  const toggleTheme = useUiStore((s) => s.toggleTheme);
   const userFacilityId = user?.facilityId ?? null;
   const userId = user?.id;
   const userRole = user?.role;
-
-  useEffect(() => {
-    document.documentElement.classList.remove("dark");
-  }, []);
 
   const currentFacilityId = useFacilityStore((s) => s.currentFacilityId);
   const facilities = useFacilityStore((s) => s.facilities);
@@ -208,6 +209,17 @@ export function AppLayout() {
             <div className="hidden text-sm font-semibold text-ink-soft md:block">
               {user ? roleLabel(user.role) : ""}
             </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "화면 모드: 어둡게" : "화면 모드: 밝게"}
+              aria-pressed={theme === "dark"}
+              title="화면 모드"
+              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface2"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {theme === "dark" ? "어둡게" : "밝게"}
+            </button>
             <button
               onClick={() => navigate(routeFacilityId ? dashboardPath(routeFacilityId) : FACILITIES_PICKER_PATH)}
               className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-gray-50"

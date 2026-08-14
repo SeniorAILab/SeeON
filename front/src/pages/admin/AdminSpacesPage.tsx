@@ -274,11 +274,11 @@ export function AdminSpacesPage() {
             />
             대시보드 표시
           </label>
-          <div className="flex gap-2">
-            <Button onClick={saveSpace}>저장</Button>
+          <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setSpaceDraft(null)}>
               취소
             </Button>
+            <Button onClick={saveSpace}>저장</Button>
           </div>
         </Card>
       )}

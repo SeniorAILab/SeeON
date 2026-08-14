@@ -28,7 +28,6 @@ beforeEach(() => {
     defaultFloorId: "fl_2f",
     refreshMs: 6000,
     alertSound: false,
-    nightMode: false,
     cardSize: "lg",
     visibleSpaceIds: null,
     allowAllView: true,
@@ -71,5 +70,13 @@ describe("AdminMonitorSettingsPage", () => {
 
     expect(mockNavigate).toHaveBeenCalledWith(floorPath(facilityId, activeFloorId));
     expect(useMonitorSettingsStore.getState().defaultFloorId).toBe(activeFloorId);
+  });
+
+  it("does not offer a monitor-only dark appearance", () => {
+    render(<AdminMonitorSettingsPage />);
+
+    expect(screen.queryByRole("checkbox", { name: /모니터 어두운 화면/ })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /야간 모드/ })).toBeNull();
+    expect(screen.queryByText("모니터 어두운 화면")).toBeNull();
   });
 });
